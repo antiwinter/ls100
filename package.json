@@ -8,7 +8,7 @@
     "server"
   ],
   "scripts": {
-    "dev": "concurrently \"yarn workspace server dev\" \"yarn workspace client dev\"",
+    "dev": "concurrently \"yarn workspace server dev\" \"yarn workspace client dev --host\"",
     "start": "yarn workspace client build && NODE_ENV=production yarn workspace server start"
   },
   "devDependencies": {
