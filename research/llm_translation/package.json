@@ -1,0 +1,16 @@
+{
+  "name": "llm-translation-research",
+  "version": "1.0.0",
+  "description": "LLM translation research for ls100",
+  "type": "module",
+  "scripts": {
+    "test": "node test-llm-translation.js",
+    "test-tts": "node test-tts.js",
+    "test-tts-working": "node test-tts-working.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "dotenv": "^16.0.0",
+    "node-fetch": "^3.3.2"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "ls100",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently \"yarn workspace server dev\" \"yarn workspace client dev\"",
+    "start": "yarn workspace client build && NODE_ENV=production yarn workspace server start"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+} 

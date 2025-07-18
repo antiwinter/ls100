@@ -1,0 +1,22 @@
+{
+  "name": "subtitle-service-research",
+  "version": "1.0.0",
+  "description": "Research and testing of subtitle search APIs and services",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test-all-services.js",
+    "test-opensubtitles": "node services/opensubtitles.js",
+    "test-subdb": "node services/subdb.js",
+    "test-thesubdb": "node services/thesubdb.js",
+    "test-yify": "node services/yify.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "form-data": "^4.0.0"
+  },
+  "devDependencies": {
+    "dotenv": "^16.3.1"
+  },
+  "author": "Research Team",
+  "license": "MIT"
+} 

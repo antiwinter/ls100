@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ResponsiveVoice TTS Test</title>
+    <script src="https://code.responsivevoice.org/responsivevoice.js?key=free"></script>
+</head>
+<body>
+    <h1>ResponsiveVoice TTS Test</h1>
+    
+    <div id="tests">
+        <button onclick="testTTS('hello', 'UK English Female')">Test: Hello</button><br><br>
+        <button onclick="testTTS('serendipity', 'US English Female')">Test: Serendipity</button><br><br>
+        <button onclick="testTTS('The path is made by walking', 'UK English Male')">Test: Long sentence</button><br><br>
+    </div>
+    
+    <div id="status"></div>
+    
+    <script>
+        function testTTS(text, voice) {
+            const status = document.getElementById('status');
+            status.innerHTML = 'Speaking: "' + text + '" with voice: ' + voice;
+            
+            responsiveVoice.speak(text, voice, {
+                onstart: function() {
+                    status.innerHTML += '<br>✅ Started speaking...';
+                },
+                onend: function() {
+                    status.innerHTML += '<br>✅ Finished speaking.';
+                }
+            });
+        }
+        
+        // Test when page loads
+        window.onload = function() {
+            document.getElementById('status').innerHTML = '✅ ResponsiveVoice loaded successfully!';
+        };
+    </script>
+</body>
+</html>

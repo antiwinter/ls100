@@ -1,0 +1,21 @@
+{
+  "name": "dictionary-api-research",
+  "version": "1.0.0",
+  "description": "Simple research for dictionary API integration in ls100",
+  "type": "module",
+  "scripts": {
+    "test-free": "node test-free-dictionary.js",
+    "test-ninjas": "node test-api-ninjas.js"
+  },
+  "keywords": [
+    "dictionary",
+    "api",
+    "research",
+    "ls100"
+  ],
+  "author": "ls100 research team",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.0"
+  }
+} 
