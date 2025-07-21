@@ -1,14 +1,14 @@
-# Pack-Based Architecture - Implementation Guide
+# Shard-Based Architecture - Implementation Guide
 
 ## Overview
-LS100 uses a **Pack-Based Architecture** where learning content is organized into modular containers called **Packs**, with reusable **Modules** providing functionality across different pack types.
+LS100 uses a **Shard-Based Architecture** where learning content is organized into modular containers called **Shards**, with reusable **Modules** providing functionality across different shard types.
 
 ## Data Model Design
 
-### Pack Structure
+### Shard Structure
 ```javascript
 {
-  id: "pack_123",
+  id: "shard_123",
   type: "subtitle", // "deck", "book"
   name: "The Matrix",
   metadata: {
@@ -17,12 +17,12 @@ LS100 uses a **Pack-Based Architecture** where learning content is organized int
     difficulty: "intermediate"
   },
   modules: ["reader", "marker", "dictionary", "cards"],
-  content: { /* pack-specific content */ },
+  content: { /* shard-specific content */ },
   progress: { /* user progress data */ }
 }
 ```
 
-### Module Data (Shared Across Packs)
+### Module Data (Shared Across Shards)
 ```javascript
 {
   userId: "user_123",
@@ -38,27 +38,27 @@ LS100 uses a **Pack-Based Architecture** where learning content is organized int
 ## Navigation Strategy
 
 ### Updated Bottom Navigation
-- **Home**: Pack library (browse all your packs)
-- **Study**: Active learning session (current pack + modules)
-- **Review**: Card review system (crosses all packs)
+- **Home**: Shard library (browse all your shards)
+- **Study**: Active learning session (current shard + modules)
+- **Review**: Card review system (crosses all shards)
 - **Profile**: Settings and progress
 
-### Pack Navigation Flow
+### Shard Navigation Flow
 ```
-Home (Pack Library) → Pack Detail → Module Selection → Learning Session
+Home (Shard Library) → Shard Detail → Module Selection → Learning Session
 ```
 
 ## API Endpoint Strategy
 
-### Pack Management
+### Shard Management
 ```javascript
-GET  /api/packs              // List user's packs
-POST /api/packs              // Create new pack
-GET  /api/packs/:id          // Get pack details
-PUT  /api/packs/:id          // Update pack
+GET  /api/shards             // List user's shards
+POST /api/shards             // Create new shard
+GET  /api/shards/:id         // Get shard details
+PUT  /api/shards/:id         // Update shard
 ```
 
-### Module APIs (Pack-Agnostic)
+### Module APIs (Shard-Agnostic)
 ```javascript
 GET  /api/modules/dictionary/lookup/:word
 POST /api/modules/cards/review
@@ -67,14 +67,14 @@ GET  /api/modules/words/selected
 
 ## Implementation Approach
 
-### Phase 1 Adjustment: Start with Subtitle Pack
+### Phase 1 Adjustment: Start with Subtitle Shard
 ```javascript
-// Build subtitle upload as the first pack type
-client/src/packs/subtitle/
-├── SubtitleUpload.jsx     // Pack creation
+// Build subtitle upload as the first shard type
+client/src/shards/subtitle/
+├── SubtitleUpload.jsx     // Shard creation
 ├── SubtitleReader.jsx     // Reader module integration
 ├── SubtitleMarker.jsx     // Word selection
-└── SubtitlePack.jsx       // Main container
+└── SubtitleShard.jsx      // Main container
 ```
 
 ### Module Development Order
@@ -87,56 +87,56 @@ client/src/packs/subtitle/
 
 ### Context Architecture
 ```javascript
-// Pack Context (current active pack)
-const PackContext = createContext()
+// Shard Context (current active shard)
+const ShardContext = createContext()
 
 // Module Contexts (shared state)
 const DictionaryContext = createContext()
 const CardsContext = createContext()
 
 // Usage: Modules subscribe to their contexts
-// Packs provide pack-specific data to modules
+// Shards provide shard-specific data to modules
 ```
 
 ## Development Benefits
 
 ### Architectural Advantages
-- **Incremental**: Start with subtitle pack, add deck/book later
-- **Reusable**: Dictionary module works for all pack types
+- **Incremental**: Start with subtitle shard, add deck/book later
+- **Reusable**: Dictionary module works for all shard types
 - **Testable**: Each module can be tested independently  
-- **Scalable**: Easy to add new pack types (PDF, video, etc.)
+- **Scalable**: Easy to add new shard types (PDF, video, etc.)
 
 ## Code Organization for Phase 1
 
 ### Directory Structure Setup
 ```bash
 # Create the structure now
-mkdir -p client/src/packs/subtitle
+mkdir -p client/src/shards/subtitle
 mkdir -p client/src/modules/{reader,marker,dictionary,cards}
-mkdir -p server/packs server/modules
+mkdir -p server/shards server/modules
 ```
 
 ### Implementation Strategy
 
-#### Option A: Full Pack Implementation (Phase 1)
-- Refactor current Home.jsx to implement Pack Library concept
-- Build subtitle functionality as first pack type
+#### Option A: Full Shard Implementation (Phase 1)
+- Refactor current Home.jsx to implement Shard Library concept
+- Build subtitle functionality as first shard type
 - Establish full modular architecture from start
 
 #### Option B: Gradual Introduction (Recommended)
 - Keep current Home.jsx for Phase 1
-- Build subtitle upload as `client/src/packs/subtitle/SubtitlePack.jsx`
-- Establish pack pattern without breaking existing functionality
-- Gradually migrate to full pack system in later phases
+- Build subtitle upload as `client/src/shards/subtitle/SubtitleShard.jsx`
+- Establish shard pattern without breaking existing functionality
+- Gradually migrate to full shard system in later phases
 
-## Future Pack Types
+## Future Shard Types
 
-### Deck Pack
+### Deck Shard
 - Import/export Anki decks
 - Card creation and editing
 - Uses: Dictionary + Cards modules
 
-### Book Pack  
+### Book Shard  
 - Text/PDF reading interface
 - Chapter navigation and bookmarks
 - Uses: Reader + Marker + Dictionary + Cards modules
@@ -145,39 +145,39 @@ mkdir -p server/packs server/modules
 
 ### Reader Module
 **Purpose**: Text display and navigation
-**Used by**: Subtitle Pack, Book Pack
+**Used by**: Subtitle Shard, Book Shard
 **Features**: Pagination, text formatting, navigation controls
 
 ### Marker Module
 **Purpose**: Text selection and highlighting
-**Used by**: Subtitle Pack, Book Pack  
+**Used by**: Subtitle Shard, Book Shard  
 **Features**: Word selection, highlighting, selection persistence
 
 ### Dictionary Module
 **Purpose**: Word lookup and definitions
-**Used by**: All pack types
+**Used by**: All shard types
 **Features**: Definition lookup, translation, pronunciation
 
 ### Cards Module
 **Purpose**: Spaced repetition review system
-**Used by**: All pack types
+**Used by**: All shard types
 **Features**: Card creation, review scheduling, progress tracking
 
 ## Implementation Notes
 
 ### Phase 1 Focus
-- Establish pack structure with Subtitle Pack
+- Establish shard structure with Subtitle Shard
 - Implement Reader and Marker modules
 - Maintain current Home UI for now
 
 ### Future Phases
 - Add Dictionary module (Phase 2)
 - Add Cards module (Phase 3)
-- Implement full Pack Library UI
-- Add additional pack types (Deck, Book)
+- Implement full Shard Library UI
+- Add additional shard types (Deck, Book)
 
 ### Technical Considerations
 - Module isolation for independent testing
 - Shared state management across modules
-- Pack-agnostic module APIs
-- Consistent data models across pack types 
+- Shard-agnostic module APIs
+- Consistent data models across shard types 

@@ -87,22 +87,22 @@ const data = await apiCall('/api/resource', {
 - **Bottom Nav**: Native app-like navigation experience
 
 ## Future Phases Ready
-- **Phase 1**: Subtitle upload system (backend multer + frontend drag-drop)
+- **Phase 1**: Subtitle shard system (backend multer + frontend drag-drop)
 - **Phase 2**: Dictionary integration (Free Dictionary API + MyMemory)
 - **Phase 3**: LLM context analysis (OpenRouter integration)
 
-## Pack-Based Architecture (Core Concept)
+## Shard-Based Architecture (Core Concept)
 
-### Pack System
-**Pack** = Learning content container (bigger than Anki deck concept)
+### Shard System
+**Shard** = Learning content container (bigger than Anki deck concept)
 
-**Pack Types**:
-- **Subtitle Pack**: Movie/TV subtitle learning content
-- **Deck Pack**: Anki-style flashcard collections  
-- **Book Pack**: Reading material with vocabulary extraction
+**Shard Types**:
+- **Subtitle Shard**: Movie/TV subtitle learning content
+- **Deck Shard**: Anki-style flashcard collections  
+- **Book Shard**: Reading material with vocabulary extraction
 
 ### Module System
-**Modules** = Reusable functionality across pack types
+**Modules** = Reusable functionality across shard types
 
 **Core Modules**:
 - **Reader**: Text display and navigation
@@ -113,15 +113,15 @@ const data = await apiCall('/api/resource', {
 **Module Usage Matrix**:
 ```
                 Reader  Marker  Dict  Cards
-Subtitle Pack     ✓       ✓      ✓     ✓
-Deck Pack         -       -      ✓     ✓  
-Book Pack         ✓       ✓      ✓     ✓
+Subtitle Shard    ✓       ✓      ✓     ✓
+Deck Shard        -       -      ✓     ✓  
+Book Shard        ✓       ✓      ✓     ✓
 ```
 
 ### Code Organization Strategy
 ```
 client/src/
-├── packs/
+├── shards/
 │   ├── subtitle/     # Subtitle-specific UI
 │   ├── deck/         # Deck-specific UI  
 │   └── book/         # Book-specific UI
@@ -133,16 +133,16 @@ client/src/
 └── shared/          # Common components
 
 server/
-├── packs/
-│   ├── subtitle.js   # Subtitle pack API
-│   ├── deck.js       # Deck pack API
-│   └── book.js       # Book pack API  
+├── shards/
+│   ├── subtitle.js   # Subtitle shard API
+│   ├── deck.js       # Deck shard API
+│   └── book.js       # Book shard API  
 ├── modules/
 │   ├── dictionary.js # Dictionary API
 │   ├── cards.js      # Card review API
 │   └── words.js      # Word management
 └── data/
-    ├── packs/        # Pack storage
+    ├── shards/       # Shard storage
     └── modules/      # Module data
 ```
 
@@ -152,4 +152,4 @@ server/
 3. **Centralized API config** - Single source for environment handling
 4. **Mobile-first** - Bottom navigation primary interface
 5. **Monorepo** - Client/server in same repo for easy development
-6. **Modular architecture** - Reusable modules across different pack types
+6. **Modular architecture** - Reusable modules across different shard types
