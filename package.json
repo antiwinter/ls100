@@ -1,19 +1,23 @@
 {
-  "name": "ls100",
+  "name": "cursor-conversation-manager",
   "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "workspaces": [
-    "client",
-    "server"
-  ],
+  "description": "CLI tool to manage user cursor conversations",
+  "main": "prompt/manage.js",
+  "bin": {
+    "manage": "./prompt/manage.js"
+  },
   "scripts": {
-    "dev": "concurrently \"yarn workspace server dev\" \"yarn workspace client dev --host 0.0.0.0\"",
-    "start": "yarn workspace client build && NODE_ENV=production yarn workspace server start",
-    "lint": "yarn workspace client lint && yarn workspace server lint",
-    "lint:fix": "yarn workspace client lint:fix && yarn workspace server lint:fix"
+    "start": "node prompt/manage.js"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
-  }
+    "commander": "^11.1.0"
+  },
+  "keywords": [
+    "cli",
+    "cursor",
+    "conversation",
+    "management"
+  ],
+  "author": "",
+  "license": "MIT"
 } 
