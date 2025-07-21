@@ -1,374 +1,302 @@
-# Development Plan for ls100
+# LS100 Development Plan - Build from Scratch
 
-## Current Architecture Analysis
+## Project Overview
 
-**Frontend**: Nuxt.js 2.0 (Vue.js) with Bulma CSS framework
-**Backend**: Express.js with API endpoints
-**Database**: File-based storage (CSV, JSON config files)
-**Dictionary**: Collins Dictionary via js-mdict (.mdx files)
-**Current Features**: 
-- Subtitle file processing (SRT)
-- Word selection and dictionary lookup
-- Export functionality (selected words)
-- Translation subtitle support
-- Data analysis tools for semiconductor data
+**Goal**: Build a modern subtitle-based language learning app from scratch
+**Approach**: Interleaved backend/frontend development for incremental testing
+**Foundation**: React + Express.js (already setup) + Research findings
+
+## Research Foundation ✅
+
+Based on completed research, we have validated free APIs for:
+- **Dictionary**: Free Dictionary API + MyMemory Translation (no auth needed)
+- **LLM Context**: OpenRouter free models for cultural analysis  
+- **TTS**: ResponsiveVoice + Web Speech API fallback
+- **Subtitles**: OpenSubtitles API + YIFY fallback
 
 ## Development Phases
 
-### Phase 1: Foundation & Infrastructure (Weeks 1-3)
+### Phase 0: Authentication & Layout (Week 1)
 
-#### 1.1 Framework Migration (Priority: High)
-**Current**: Nuxt.js 2.0 (slow)
-**Target**: React with Next.js or Vite + React
+#### 0.1 Backend: Simple Authentication System
+**Goal**: User registration and login with JSON file storage
 
-**Implementation Steps**:
-1. **Setup New React Project**
-   - Choose between Next.js (SSR) or Vite (SPA) based on performance needs
-   - Configure TypeScript for better maintainability
-   - Setup Tailwind CSS (modern alternative to Bulma)
+**Backend Tasks**:
+- Create `/api/auth/register` endpoint
+- Create `/api/auth/login` endpoint  
+- Create `/api/auth/me` endpoint (get current user)
+- Simple JSON file storage: `data/users.json`
+- JWT token generation and validation
+- Password hashing with bcryptjs
 
-2. **Backend Migration Planning**
-   - Keep Express.js backend but modernize API structure
-   - Add proper error handling and validation
-   - Implement API versioning
+**Frontend Tasks**:
+- Create Login.jsx component with form validation
+- Create Register.jsx component 
+- Create AuthContext for session management
+- Store JWT token in localStorage
+- Handle login/logout state
 
-3. **Component Migration Strategy**
-   - Convert Vue components to React components:
-     - `components/upload.vue` → `components/Upload.tsx`
-     - `components/choose.vue` → `components/Choose.tsx`
-     - `pages/index.vue` → `pages/index.tsx`
-   - Maintain same functionality during migration
+**Test**: Register → Login → See user info → Logout → Redirected to login
 
-4. **State Management**
-   - Implement Zustand or Redux Toolkit for state management
-   - Replace Nuxt store with React state solution
+#### 0.2 Frontend: Main App Layout
+**Goal**: Create the main application structure
 
-#### 1.2 User Authentication System (Priority: High)
-**Current**: No authentication
-**Target**: Simple CSV-based user system
+**Frontend Tasks**:
+- Create MainLayout.jsx with header, sidebar, and content areas
+- Create Header.jsx with user info and logout button
+- Create Sidebar.jsx for navigation (placeholder for now)
+- Add React Router for page navigation
+- Create ProtectedRoute wrapper component
+- Setup basic Tailwind styling
 
-**Implementation Steps**:
-1. **Backend User Management**
-   - Create `server/auth.js` with user registration/login endpoints
-   - Implement JWT token authentication
-   - Create user data structure in CSV format:
-     ```csv
-     id,username,email,password_hash,created_at,last_login
-     ```
+**Test**: Login → See main layout with header/sidebar → Navigation works
 
-2. **Frontend Auth Components**
-   - Create `components/Auth/Login.tsx`
-   - Create `components/Auth/Register.tsx`
-   - Create `components/Auth/Profile.tsx`
-   - Add authentication context/hook
+### Phase 1: Core Subtitle System (Week 2-3)
 
-3. **Session Management**
-   - Implement JWT token storage (localStorage/httpOnly cookies)
-   - Add authentication middleware for protected routes
-   - Create user session persistence
+#### 1.1 Backend: Subtitle File Handling
+**Goal**: Upload and parse SRT files
 
-#### 1.3 Database Structure Setup (Priority: Medium)
-**Current**: File-based storage
-**Target**: Improved file-based storage with better organization
+**Backend Tasks**:
+- Add `multer` for file uploads
+- Create `/api/subtitle/upload` endpoint
+- Parse SRT format using `subtitle` library
+- Return structured subtitle data (time, text, index)
 
-**Implementation Steps**:
-1. **User Data Storage**
-   - Create `data/users/` directory structure
-   - Each user gets their own JSON file: `data/users/{user_id}.json`
-   - Store user profile, sessions, and preferences in individual JSON files
-   - Implement user data backup and recovery
+**Frontend Tasks**:
+- Create upload component with drag-and-drop
+- Display uploaded subtitle lines with timestamps
+- Add pagination for long subtitles
 
-2. **Subtitle Storage System**
-   - Create `data/subtitles/` directory
-   - Implement subtitle metadata storage in JSON format
-   - Add subtitle search indexing
-   - Store subtitle files with associated metadata JSON files
+**Test**: Upload SRT → See subtitles displayed
 
-### Phase 2: Core Features Enhancement (Weeks 4-6)
+#### 1.2 Backend: Word Selection Storage  
+**Goal**: Track user's selected words
 
-#### 2.1 Subtitle Management System (Priority: High)
-**Current**: Upload and process SRT subtitles
-**Target**: Save, search, and manage subtitles with multiple format support
+**Backend Tasks**:
+- Create `/api/words/select` POST endpoint
+- Simple JSON file storage: `data/selected-words.json`
+- Return current selection count
 
-**Implementation Steps**:
-1. **Enhanced Subtitle Upload Support**
-   - Maintain current subtitle upload functionality
-   - Add support for additional subtitle formats:
-     - SRT (current)
-     - VTT (WebVTT)
-     - ASS/SSA (Advanced SubStation Alpha)
-     - SUB (MicroDVD)
-     - SBV (YouTube subtitle format)
-   - Implement format auto-detection and conversion
-   - Add subtitle validation and error handling
+**Frontend Tasks**:
+- Make subtitle words clickable
+- Highlight selected words visually
+- Show selection count in header
 
-2. **Backend Subtitle Storage**
-   - Create `server/subtitles.js` API endpoints
-   - Implement subtitle file storage with metadata
-   - Add subtitle search functionality using fuzzy search
-   - Store both original and normalized formats
-   - Add subtitle format conversion utilities
+**Test**: Click words → Words stay selected after refresh
 
-3. **Frontend Subtitle Management**
-   - Create `components/Subtitles/Manager.tsx`
-   - Implement subtitle search interface
-   - Add subtitle selection and loading
-   - Support drag-and-drop for multiple subtitle files
-   - Add subtitle format indicator in UI
+### Phase 2: Dictionary Integration (Week 4)
 
-4. **Subtitle Search API Integration**
-   - Research and integrate subtitle APIs (OpenSubtitles, YIFY, etc.)
-   - Create `server/subtitle-search.js`
-   - Implement automatic subtitle download
-   - Add subtitle quality/language filtering
+#### 2.1 Backend: Dictionary API Integration
+**Goal**: Look up word definitions
 
-#### 2.2 Reading Session Progress Tracking (Priority: Medium)
-**Current**: No session state persistence
-**Target**: Remember user's reading position and selected words per subtitle
+**Backend Tasks**:
+- Implement Free Dictionary API client
+- Add MyMemory Translation API client  
+- Create `/api/dictionary/lookup/:word` endpoint
+- Combine English definition + Chinese translation
 
-**Implementation Steps**:
-1. **Reading Session Data Structure**
-   - Create user session state JSON format (one file per user):
-     ```json
-     {
-       "user_id": "user123",
-       "last_accessed": "2024-01-15T10:30:00Z",
-       "current_subtitle": "movie_name.srt",
-       "subtitles": {
-         "movie_name.srt": {
-           "subtitle_id": "sub123",
-           "subtitle_name": "Movie Name",
-           "current_position": {
-             "line_number": 45,
-             "time_position": "00:02:30"
-           },
-           "selected_words": ["word1", "word2", "word3"],
-           "bookmarks": [
-             {
-               "line_number": 12,
-               "time_position": "00:01:05",
-               "note": "interesting scene"
-             }
-           ],
-           "last_accessed": "2024-01-15T10:30:00Z"
-         }
-       }
-     }
-     ```
-   - Track reading position (line number, time position)
-   - Store selected word list per subtitle
-   - Remember last accessed subtitle
+**Frontend Tasks**:
+- Create dictionary panel component
+- Show definition when word is clicked
+- Display both English definition and Chinese translation
 
-2. **Backend Session API**
-   - Create `server/reading-session.js` endpoints
-   - Implement session state save/load functionality
-   - Add automatic session backup on user actions
-   - Store reading bookmarks and positions
+**Test**: Click word → See definition + translation
 
-3. **Frontend Session Management**
-   - Create `components/Session/StateManager.tsx`
-   - Auto-save reading position periodically
-   - Restore last reading position on subtitle load
-   - Show reading progress indicator
-   - Allow manual bookmark creation
+#### 2.2 Backend: Word Variations Support
+**Goal**: Handle plurals, past tense, etc.
 
-#### 2.3 UI/UX Improvements (Priority: Medium)
-**Current**: Basic layout with Bulma
-**Target**: Modern, responsive, mobile-friendly interface
+**Backend Tasks**:
+- Add word stemming logic (from makewords research)
+- Try multiple word forms for dictionary lookup
+- Cache successful lookups
 
-**Implementation Steps**:
-1. **Responsive Layout**
-   - Implement CSS Grid/Flexbox layout
-   - Add mobile-first responsive design
-   - Create breakpoint system for different screen sizes
+**Frontend Tasks**:
+- Show which word variation was found
+- Display "word not found" gracefully
 
-2. **Centered UI with Max-Width**
-   - Create main container with max-width (1200px)
-   - Center content horizontally
-   - Add proper padding and margins
+**Test**: Click "running" → Find definition for "run"
 
-3. **Mobile Optimization**
-   - Create mobile-specific components
-   - Implement touch-friendly interactions
-   - Add responsive navigation
+### Phase 3: Enhanced Features (Week 5)
 
-### Phase 3: Advanced Features (Weeks 7-9)
+#### 3.1 Backend: LLM Context Analysis
+**Goal**: Add cultural context for movie words
 
-#### 3.1 Enhanced Dictionary System (Priority: High)
-**Current**: Collins dictionary only
-**Target**: Multiple dictionaries with fallback
+**Backend Tasks**:
+- Integrate OpenRouter free models
+- Create `/api/llm/analyze` endpoint
+- Pass word + subtitle context for analysis
+- Cache LLM responses (they're expensive in tokens)
 
-**Implementation Steps**:
-1. **Dictionary API Integration**
-   - Research free dictionary APIs (Free Dictionary API, Merriam-Webster, etc.)
-   - Create `server/dictionary.js` with multiple providers
-   - Implement fallback system: Collins → Online APIs
+**Frontend Tasks**:
+- Add "Context Analysis" section to dictionary panel
+- Show cultural insights and movie context
+- Make it collapsible/optional
 
-2. **Dictionary Response Enhancement**
-   - Standardize dictionary response format
-   - Add pronunciation, etymology, examples
-   - Implement caching for API responses
+**Test**: Click movie idiom → See cultural explanation
 
-3. **Frontend Dictionary Display**
-   - Enhance dictionary display component
-   - Add audio pronunciation support
-   - Create word bookmark system
+#### 3.2 Frontend: Text-to-Speech
+**Goal**: Pronounce words and sentences
 
-#### 3.2 Export System Redesign (Priority: Medium)
-**Current**: Basic export functionality
-**Target**: Multiple export formats in header navigation
+**Frontend Tasks**:
+- Add ResponsiveVoice script
+- Create TTS utility class with Web Speech fallback
+- Add pronunciation buttons to dictionary panel
+- Add "read line" button to subtitle lines
 
-**Implementation Steps**:
-1. **Remove Current Export Section**
-   - Remove export UI from sidebar
-   - Clean up related code and styles
+**Test**: Click pronunciation → Hear word spoken
 
-2. **Header Navigation Export**
-   - Create `components/Header/ExportButtons.tsx`
-   - Implement export dropdown with multiple formats
-   - Add export format handlers:
-     - Eudic format (.csv with specific columns)
-     - Anki format (.csv with front/back cards)
+### Phase 4: Export System (Week 6)
 
-3. **Export Enhancement**
-   - Add batch export functionality
-   - Implement export history
-   - Add export customization options
+#### 4.1 Backend: Export API
+**Goal**: Export selected words in different formats
 
-#### 3.3 LLM Translation Integration (Priority: Medium)
-**Current**: No AI translation
-**Target**: Context-aware translation with LLM
+**Backend Tasks**:
+- Create `/api/export/eudic` endpoint (XML format)
+- Create `/api/export/anki` endpoint (CSV format)
+- Include word, definition, and translation
 
-**Implementation Steps**:
-1. **LLM API Integration**
-   - Choose LLM provider (OpenAI, Anthropic, or local models)
-   - Create `server/llm.js` with translation endpoints
-   - Implement prompt templates for different scenarios
+**Frontend Tasks**:
+- Add export buttons to header
+- Download files directly from API
+- Show export progress/success
 
-2. **Translation Features**
-   - Word-in-context translation
-   - Sentence/line translation
-   - Cultural context explanation
-   - Alternative meanings and examples
+**Test**: Select words → Export → Import to Eudic/Anki
 
-3. **Frontend Translation UI**
-   - Add translation buttons to word lookup
-   - Create translation history
-   - Implement translation caching
+### Phase 5: Subtitle Search (Week 7)
 
-### Phase 4: Learning System (Weeks 10-12)
+#### 5.1 Backend: Subtitle Search API
+**Goal**: Find subtitles for movies
 
-#### 4.1 Ebbinghaus Memory System (Priority: High)
-**Current**: No spaced repetition
-**Target**: Complete spaced repetition learning system
+**Backend Tasks**:
+- Integrate OpenSubtitles API client
+- Add YIFY fallback scraper
+- Create `/api/subtitles/search/:query` endpoint
+- Handle API keys and rate limiting
 
-**Implementation Steps**:
-1. **Spaced Repetition Algorithm**
-   - Implement Ebbinghaus forgetting curve algorithm
-   - Create review scheduling system
-   - Add difficulty adjustment based on user performance
+**Frontend Tasks**:
+- Create subtitle search component
+- Display search results with download buttons
+- Show language options (EN, CN)
 
-2. **Card System Backend**
-   - Create `server/cards.js` API endpoints
-   - Implement card creation from selected words
-   - Add review session management
+**Test**: Search "Matrix" → Download subtitle → Parse and display
 
-3. **Frontend Card System**
-   - Create `components/Cards/CardSystem.tsx`
-   - Implement card review interface
-   - Add study statistics and progress tracking
+### Phase 6: User Sessions (Week 8)
 
-#### 4.2 AI Reading Assistant (Priority: Medium)
-**Current**: No AI assistance
-**Target**: AI-powered reading help
+#### 6.1 Backend: Simple Session Storage
+**Goal**: Remember user's progress
 
-**Implementation Steps**:
-1. **Reading Assistant Features**
-   - Implement text difficulty analysis
-   - Add reading comprehension questions
-   - Create vocabulary suggestions
+**Backend Tasks**:
+- Create session ID system (no login required)
+- Store progress in `data/sessions/{session-id}.json`
+- Track current subtitle, position, selected words
 
-2. **AI Integration**
-   - Connect to LLM for reading assistance
-   - Implement context-aware help
-   - Add reading progress tracking
+**Frontend Tasks**:
+- Generate/store session ID in localStorage
+- Auto-save reading position
+- Restore last session on page load
 
-3. **Frontend Reading Interface**
-   - Create `components/Reading/Assistant.tsx`
-   - Add reading mode toggle
-   - Implement reading progress visualization
+**Test**: Select words → Close browser → Reopen → Words still selected
 
-### Phase 5: Performance & Polish (Weeks 13-14)
+### Phase 7: Mobile Responsive (Week 9)
 
-#### 5.1 Performance Optimization
-**Target**: Fast, responsive application
+#### 7.1 Frontend: Mobile Layout
+**Goal**: Work well on phones
 
-**Implementation Steps**:
-1. **Frontend Optimization**
-   - Implement code splitting and lazy loading
-   - Add caching strategies
-   - Optimize bundle size
+**Frontend Tasks**:
+- Responsive grid for subtitle viewer
+- Collapsible dictionary panel
+- Touch-friendly word selection
+- Optimized text sizes
 
-2. **Backend Optimization**
-   - Implement response caching
-   - Add database query optimization
-   - Implement rate limiting
+**Test**: Use on phone → All features work
 
-3. **Mobile Performance**
-   - Optimize mobile loading times
-   - Implement progressive loading
-   - Add offline support
-
-#### 5.2 Final Testing & Deployment
-**Target**: Production-ready application
-
-**Implementation Steps**:
-1. **Testing Implementation**
-   - Add unit tests for critical components
-   - Implement integration tests
-   - Add end-to-end testing
-
-2. **Deployment Setup**
-   - Configure production environment
-   - Set up CI/CD pipeline
-   - Add monitoring and error tracking
-
-## Technology Stack Recommendations
-
-### Frontend
-- **Framework**: Next.js 14 (React 18) or Vite + React 18
-- **Styling**: Tailwind CSS
-- **State Management**: Zustand or Redux Toolkit
-- **UI Components**: Radix UI or Headless UI
-- **Charts**: Chart.js or D3.js
-- **Testing**: Jest + React Testing Library
+## Technology Stack
 
 ### Backend
-- **Framework**: Express.js (keep current)
-- **Authentication**: JWT
-- **File Processing**: Keep current subtitle libraries
-- **API Documentation**: OpenAPI/Swagger
-- **Testing**: Jest + Supertest
+- **Framework**: Express.js (current)
+- **Authentication**: JWT tokens + bcryptjs password hashing
+- **File Storage**: JSON files in `data/` folder
+- **APIs**: Free Dictionary, MyMemory, OpenRouter, OpenSubtitles
+- **File Processing**: `subtitle` library for SRT parsing
 
-### DevOps
-- **Build Tool**: Vite or Next.js built-in
-- **Deployment**: Vercel, Netlify, or self-hosted
-- **CI/CD**: GitHub Actions
-- **Monitoring**: Sentry or LogRocket
+### Frontend  
+- **Framework**: React 18 + Vite (current)
+- **Routing**: React Router for navigation
+- **Styling**: Tailwind CSS
+- **State**: React useState/useContext + AuthContext
+- **TTS**: ResponsiveVoice + Web Speech API
 
-## Migration Strategy
+## File Structure
 
-1. **Gradual Migration**: Start with new React components alongside existing Nuxt
-2. **Feature Parity**: Ensure all current features work before removing old code
-3. **Data Migration**: Preserve all user data and configurations
-4. **Testing**: Comprehensive testing at each phase
-5. **Documentation**: Update documentation throughout the process
+```
+ls100/
+├── client/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── auth/
+│   │   │   │   ├── Login.jsx
+│   │   │   │   └── Register.jsx
+│   │   │   ├── layout/
+│   │   │   │   ├── MainLayout.jsx
+│   │   │   │   ├── Header.jsx
+│   │   │   │   └── Sidebar.jsx
+│   │   │   ├── SubtitleUpload.jsx
+│   │   │   ├── SubtitleViewer.jsx
+│   │   │   ├── DictionaryPanel.jsx
+│   │   │   └── ExportButtons.jsx
+│   │   ├── context/
+│   │   │   └── AuthContext.jsx
+│   │   ├── utils/
+│   │   │   └── tts.js
+│   │   └── App.jsx
+├── server/
+│   ├── api/
+│   │   ├── auth.js
+│   │   ├── subtitles.js
+│   │   ├── dictionary.js
+│   │   ├── words.js
+│   │   └── export.js
+│   ├── utils/
+│   │   ├── subtitle-parser.js
+│   │   └── word-variations.js
+│   └── server.js
+└── data/
+    ├── users.json
+    ├── selected-words.json
+    └── sessions/
+```
 
-## Risk Mitigation
+## Testing Strategy
 
-- **Backup Strategy**: Regular backups of all data during migration
-- **Rollback Plan**: Keep old system available during transition
-- **Performance Monitoring**: Track performance improvements
-- **User Feedback**: Gather feedback during beta testing
+Each phase builds on the previous one:
+0. **Auth & Layout** → Login system + main app structure
+1. **Upload** → Display subtitles
+2. **Click words** → Store selections  
+3. **Dictionary** → Show definitions
+4. **LLM** → Add context
+5. **TTS** → Hear pronunciation
+6. **Export** → Download word lists
+7. **Search** → Find more subtitles
+8. **Sessions** → Remember progress
+9. **Mobile** → Work everywhere
 
-This plan provides a structured approach to modernizing the ls100 application while maintaining its core functionality and improving user experience significantly. 
+## Key Success Metrics
+
+- ✅ Can register and login securely
+- ✅ Can upload and view subtitles
+- ✅ Can select and look up words
+- ✅ Can hear pronunciations
+- ✅ Can export word lists
+- ✅ Can find new subtitles
+- ✅ Works on mobile devices
+
+## Next Steps
+
+1. **Start Phase 0.1**: Set up authentication system
+2. **Then Phase 0.2**: Create main app layout  
+3. **Then Phase 1.1**: Set up subtitle upload API
+4. **Test incrementally**: Each feature works before moving on
+5. **Keep it simple**: Simple JSON file storage, no complex databases
+6. **Leverage research**: Use the APIs you've already validated
+
+This approach builds a working language learning app step-by-step, where each phase adds one clear feature that can be tested immediately. 

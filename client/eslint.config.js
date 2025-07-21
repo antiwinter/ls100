@@ -24,6 +24,8 @@ export default defineConfig([
     },
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'semi': ['error', 'never'],
+      'quotes': ['error', 'single'],
     },
   },
 ])
