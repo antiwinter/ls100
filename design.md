@@ -91,9 +91,65 @@ const data = await apiCall('/api/resource', {
 - **Phase 2**: Dictionary integration (Free Dictionary API + MyMemory)
 - **Phase 3**: LLM context analysis (OpenRouter integration)
 
+## Pack-Based Architecture (Core Concept)
+
+### Pack System
+**Pack** = Learning content container (bigger than Anki deck concept)
+
+**Pack Types**:
+- **Subtitle Pack**: Movie/TV subtitle learning content
+- **Deck Pack**: Anki-style flashcard collections  
+- **Book Pack**: Reading material with vocabulary extraction
+
+### Module System
+**Modules** = Reusable functionality across pack types
+
+**Core Modules**:
+- **Reader**: Text display and navigation
+- **Marker**: Text selection and highlighting  
+- **Dictionary**: Word lookup and definitions
+- **Cards**: Spaced repetition review system
+
+**Module Usage Matrix**:
+```
+                Reader  Marker  Dict  Cards
+Subtitle Pack     ✓       ✓      ✓     ✓
+Deck Pack         -       -      ✓     ✓  
+Book Pack         ✓       ✓      ✓     ✓
+```
+
+### Code Organization Strategy
+```
+client/src/
+├── packs/
+│   ├── subtitle/     # Subtitle-specific UI
+│   ├── deck/         # Deck-specific UI  
+│   └── book/         # Book-specific UI
+├── modules/
+│   ├── reader/       # Text reading components
+│   ├── marker/       # Selection/highlighting
+│   ├── dictionary/   # Word lookup UI
+│   └── cards/        # Review system UI
+└── shared/          # Common components
+
+server/
+├── packs/
+│   ├── subtitle.js   # Subtitle pack API
+│   ├── deck.js       # Deck pack API
+│   └── book.js       # Book pack API  
+├── modules/
+│   ├── dictionary.js # Dictionary API
+│   ├── cards.js      # Card review API
+│   └── words.js      # Word management
+└── data/
+    ├── packs/        # Pack storage
+    └── modules/      # Module data
+```
+
 ## Key Decisions
 1. **No complex state management** - React Context sufficient
 2. **File-based storage** - Simple JSON files, no database complexity  
 3. **Centralized API config** - Single source for environment handling
 4. **Mobile-first** - Bottom navigation primary interface
 5. **Monorepo** - Client/server in same repo for easy development
+6. **Modular architecture** - Reusable modules across different pack types
