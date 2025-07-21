@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
+import { apiCall } from '../config/api'
 
 const AuthContext = createContext()
 
@@ -14,8 +15,6 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  const API_BASE = import.meta.env.DEV ? 'http://localhost:3001' : ''
-
   // Check for existing token on mount
   useEffect(() => {
     const token = localStorage.getItem('token')
@@ -28,16 +27,8 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuth = async (token) => {
     try {
-      const res = await fetch(`${API_BASE}/api/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      
-      if (res.ok) {
-        const data = await res.json()
-        setUser(data.user)
-      } else {
-        localStorage.removeItem('token')
-      }
+      const data = await apiCall('/api/auth/me')
+      setUser(data.user)
     } catch (error) {
       console.error('Auth check failed:', error)
       localStorage.removeItem('token')
@@ -47,17 +38,10 @@ export const AuthProvider = ({ children }) => {
   }
 
   const login = async (email, password) => {
-    const res = await fetch(`${API_BASE}/api/auth/login`, {
+    const data = await apiCall('/api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
     })
-
-    const data = await res.json()
-    
-    if (!res.ok) {
-      throw new Error(data.error || 'Login failed')
-    }
 
     localStorage.setItem('token', data.token)
     setUser(data.user)
@@ -65,19 +49,10 @@ export const AuthProvider = ({ children }) => {
   }
 
   const register = async (name, email, password) => {
-    const res = await fetch(`${API_BASE}/api/auth/register`, {
+    return await apiCall('/api/auth/register', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, email, password })
     })
-
-    const data = await res.json()
-    
-    if (!res.ok) {
-      throw new Error(data.error || 'Registration failed')
-    }
-
-    return data
   }
 
   const logout = () => {

@@ -4,6 +4,7 @@ import theme from './theme'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Login from './components/auth/Login'
 import Register from './components/auth/Register'
+import Home from './pages/Home'
 
 const AuthFlow = () => {
   const [isLogin, setIsLogin] = useState(true)
@@ -32,36 +33,8 @@ const AuthFlow = () => {
     )
   }
 
-  // Temporary main app placeholder
-  return (
-    <Box sx={{ minHeight: '100vh', p: 3 }}>
-      <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-          <Typography level="h1">
-            Welcome to LS100, {user.name}!
-          </Typography>
-          <Button onClick={logout} color="danger">
-            Logout
-          </Button>
-        </Box>
-        
-        <Card sx={{ p: 3 }}>
-          <Typography level="h2" mb={2}>
-            Authentication Complete ✅
-          </Typography>
-          <Typography mb={2}>
-            Phase 0.1 is working! Ready to implement Phase 0.2 (Main Layout).
-          </Typography>
-          <Box sx={{ bgcolor: 'background.level1', p: 2, borderRadius: 'sm' }}>
-            <Typography level="body-sm" fontWeight="bold">User Info:</Typography>
-            <Box component="pre" sx={{ mt: 1, fontSize: 'xs', overflow: 'auto' }}>
-              {JSON.stringify(user, null, 2)}
-            </Box>
-          </Box>
-        </Card>
-      </Box>
-    </Box>
-  )
+  // Main app - redirect to Home component
+  return <Home />
 }
 
 function App() {
