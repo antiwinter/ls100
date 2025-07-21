@@ -219,7 +219,7 @@ Based on completed research, we have validated free APIs for:
 - **APIs**: Free Dictionary, MyMemory, OpenRouter, OpenSubtitles
 - **File Processing**: `subtitle` library for SRT parsing
 
-### Frontend  
+### Frontend
 - **Framework**: React 18 + Vite (current)
 - **Routing**: React Router for navigation
 - **Styling**: Tailwind CSS
