@@ -1,183 +1,134 @@
-# Shard-Based Architecture - Implementation Guide
+# Shard Module
 
-## Overview
-LS100 uses a **Shard-Based Architecture** where learning content is organized into modular containers called **Shards**, with reusable **Modules** providing functionality across different shard types.
+## Database Schema
 
-## Data Model Design
+```sql
+-- Shards table
+CREATE TABLE shards (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL DEFAULT 'subtitle',
+  name TEXT NOT NULL,
+  owner_id TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  cover TEXT DEFAULT '',
+  metadata TEXT DEFAULT '{}',  -- JSON
+  public BOOLEAN DEFAULT FALSE,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (owner_id) REFERENCES users(id)
+);
 
-### Shard Structure
-```javascript
+-- Shard-Subtitle links (many-to-many)
+CREATE TABLE shard_subtitles (
+  shard_id TEXT NOT NULL,
+  subtitle_id TEXT NOT NULL,
+  PRIMARY KEY (shard_id, subtitle_id),
+  FOREIGN KEY (shard_id) REFERENCES shards(id) ON DELETE CASCADE,
+  FOREIGN KEY (subtitle_id) REFERENCES subtitles(subtitle_id)
+);
+
+-- Progress tracking
+CREATE TABLE progress (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT NOT NULL,
+  shard_id TEXT NOT NULL,
+  timestamp TEXT NOT NULL,
+  words TEXT DEFAULT '[]',      -- JSON array
+  bookmarks TEXT DEFAULT '[]', -- JSON array
+  study_time INTEGER DEFAULT 0,
+  completion_rate REAL DEFAULT 0.0,
+  updated_at TEXT NOT NULL,
+  UNIQUE(user_id, shard_id),
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (shard_id) REFERENCES shards(id) ON DELETE CASCADE
+);
+
+-- Indexes
+CREATE INDEX idx_shards_owner ON shards(owner_id);
+CREATE INDEX idx_shards_public ON shards(public);
+CREATE INDEX idx_progress_user ON progress(user_id);
+```
+
+## API Endpoints
+
+### GET /api/shards
+Get user's shards or public shards.
+
+**Query params:**
+- `type=user` (default) - user's own shards
+- `type=public` - public shards
+
+**Response:**
+```js
+{ shards: [{ id, name, owner_id, public, created_at, ... }] }
+```
+
+### GET /api/shards/:id  
+Get specific shard (if owner or public).
+
+### POST /api/shards
+Create new shard.
+
+**Body:**
+```js
 {
-  id: "shard_123",
-  type: "subtitle", // "deck", "book"
-  name: "The Matrix",
-  metadata: {
-    duration: "02:16:00",
-    language: "en", 
-    difficulty: "intermediate"
-  },
-  modules: ["reader", "marker", "dictionary", "cards"],
-  content: { /* shard-specific content */ },
-  progress: { /* user progress data */ }
+  name: "My Matrix Study",
+  description: "Learning with The Matrix",
+  subtitles: ["abc123..."],
+  public: false
 }
 ```
 
-### Module Data (Shared Across Shards)
-```javascript
-{
-  userId: "user_123",
-  module: "dictionary",
-  data: {
-    selectedWords: ["word1", "word2"],
-    lookupHistory: [...],
-    favorites: [...]
+### PUT /api/shards/:id
+Update shard (owner only).
+
+### DELETE /api/shards/:id  
+Delete shard (owner only).
+
+## Model Operations
+
+```js
+// db/models/shard.js
+export const create = (data) => {
+  const shard = {
+    id: generateId(),
+    type: data.type || 'subtitle',
+    name: data.name,
+    owner_id: data.owner_id,
+    description: data.description || '',
+    metadata: JSON.stringify(data.metadata || {}),
+    public: data.public || false,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
   }
+  
+  return db.prepare('INSERT INTO shards VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
+    shard.id, shard.type, shard.name, shard.owner_id, 
+    shard.description, shard.cover, shard.metadata, 
+    shard.public, shard.created_at, shard.updated_at
+  )
+}
+
+export const findByOwner = (userId) => {
+  return db.prepare('SELECT * FROM shards WHERE owner_id = ?').all(userId)
+}
+
+export const findPublic = () => {
+  return db.prepare('SELECT * FROM shards WHERE public = TRUE').all()
 }
 ```
 
-## Navigation Strategy
+## Shard Types
 
-### Updated Bottom Navigation
-- **Home**: Shard library (browse all your shards)
-- **Study**: Active learning session (current shard + modules)
-- **Review**: Card review system (crosses all shards)
-- **Profile**: Settings and progress
+### Subtitle Shard
+- Links to subtitle files via `shard_subtitles` table
+- Contains movie metadata in JSON
+- Supports multiple subtitle files per shard
 
-### Shard Navigation Flow
-```
-Home (Shard Library) → Shard Detail → Module Selection → Learning Session
-```
+### Future: Deck Shard
+- Flashcard collections
+- Custom card data
 
-## API Endpoint Strategy
-
-### Shard Management
-```javascript
-GET  /api/shards             // List user's shards
-POST /api/shards             // Create new shard
-GET  /api/shards/:id         // Get shard details
-PUT  /api/shards/:id         // Update shard
-```
-
-### Module APIs (Shard-Agnostic)
-```javascript
-GET  /api/modules/dictionary/lookup/:word
-POST /api/modules/cards/review
-GET  /api/modules/words/selected
-```
-
-## Implementation Approach
-
-### Phase 1 Adjustment: Start with Subtitle Shard
-```javascript
-// Build subtitle upload as the first shard type
-client/src/shards/subtitle/
-├── SubtitleUpload.jsx     // Shard creation
-├── SubtitleReader.jsx     // Reader module integration
-├── SubtitleMarker.jsx     // Word selection
-└── SubtitleShard.jsx      // Main container
-```
-
-### Module Development Order
-1. **Reader Module** (Phase 1) - Display subtitle content
-2. **Marker Module** (Phase 1) - Word selection  
-3. **Dictionary Module** (Phase 2) - Word lookup
-4. **Cards Module** (Phase 3) - Review system
-
-## State Management Strategy
-
-### Context Architecture
-```javascript
-// Shard Context (current active shard)
-const ShardContext = createContext()
-
-// Module Contexts (shared state)
-const DictionaryContext = createContext()
-const CardsContext = createContext()
-
-// Usage: Modules subscribe to their contexts
-// Shards provide shard-specific data to modules
-```
-
-## Development Benefits
-
-### Architectural Advantages
-- **Incremental**: Start with subtitle shard, add deck/book later
-- **Reusable**: Dictionary module works for all shard types
-- **Testable**: Each module can be tested independently  
-- **Scalable**: Easy to add new shard types (PDF, video, etc.)
-
-## Code Organization for Phase 1
-
-### Directory Structure Setup
-```bash
-# Create the structure now
-mkdir -p client/src/shards/subtitle
-mkdir -p client/src/modules/{reader,marker,dictionary,cards}
-mkdir -p server/shards server/modules
-```
-
-### Implementation Strategy
-
-#### Option A: Full Shard Implementation (Phase 1)
-- Refactor current Home.jsx to implement Shard Library concept
-- Build subtitle functionality as first shard type
-- Establish full modular architecture from start
-
-#### Option B: Gradual Introduction (Recommended)
-- Keep current Home.jsx for Phase 1
-- Build subtitle upload as `client/src/shards/subtitle/SubtitleShard.jsx`
-- Establish shard pattern without breaking existing functionality
-- Gradually migrate to full shard system in later phases
-
-## Future Shard Types
-
-### Deck Shard
-- Import/export Anki decks
-- Card creation and editing
-- Uses: Dictionary + Cards modules
-
-### Book Shard  
-- Text/PDF reading interface
-- Chapter navigation and bookmarks
-- Uses: Reader + Marker + Dictionary + Cards modules
-
-## Module Specifications
-
-### Reader Module
-**Purpose**: Text display and navigation
-**Used by**: Subtitle Shard, Book Shard
-**Features**: Pagination, text formatting, navigation controls
-
-### Marker Module
-**Purpose**: Text selection and highlighting
-**Used by**: Subtitle Shard, Book Shard  
-**Features**: Word selection, highlighting, selection persistence
-
-### Dictionary Module
-**Purpose**: Word lookup and definitions
-**Used by**: All shard types
-**Features**: Definition lookup, translation, pronunciation
-
-### Cards Module
-**Purpose**: Spaced repetition review system
-**Used by**: All shard types
-**Features**: Card creation, review scheduling, progress tracking
-
-## Implementation Notes
-
-### Phase 1 Focus
-- Establish shard structure with Subtitle Shard
-- Implement Reader and Marker modules
-- Maintain current Home UI for now
-
-### Future Phases
-- Add Dictionary module (Phase 2)
-- Add Cards module (Phase 3)
-- Implement full Shard Library UI
-- Add additional shard types (Deck, Book)
-
-### Technical Considerations
-- Module isolation for independent testing
-- Shared state management across modules
-- Shard-agnostic module APIs
-- Consistent data models across shard types 
+### Future: Book Shard  
+- Text/PDF reading
+- Chapter structure 
