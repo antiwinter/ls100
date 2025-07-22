@@ -55,58 +55,128 @@ Based on completed research, we have validated free APIs for:
 
 ### Phase 1: Subtitle Shard Foundation (Week 2-3)
 
-#### 1.1 Backend: Shard Management System
-**Goal**: Create the foundational shard architecture
+#### 1.1 Backend: Optimized Shard & Subtitle Storage System
+**Goal**: Create efficient, deduplicated storage with sharing capabilities
 
 **Backend Tasks**:
-- Create shard data structure and storage
-- Implement `/api/shards` endpoints (GET, POST, PUT)
-- Add `multer` for file uploads
-- Create `/api/shards/subtitle/upload` endpoint
+- Create centralized subtitle storage system in `data/subtitles/`
+- Implement hash-based deduplication (SHA256 filenames)
+- Create subtitle index system: `data/subtitles/index.json`
+- Implement `/api/shards` endpoints (GET, POST, PUT, DELETE)
+- Create `/api/shards/subtitle/upload` endpoint with required hash parameter
 - Parse SRT format using `subtitle` library
-- Store shard data in `data/shards/{user-id}/` structure
+- Store shard data in `data/shards/` (all users, with public/private flag)
+- Store progress data in `data/{user-id}/progress/`
+- Research lite OSS implementation (consider SQLite for index management)
 
-**File Structure**:
+**Technical Considerations**:
+- **Index Storage**: Consider SQLite for `data/subtitles/index.json` if JSON becomes too large
+- **Hash Algorithm**: SHA256 provides good collision resistance for file deduplication
+- **Concurrent Access**: Implement file locking for subtitle index updates
+- **OSS Integration**: Research lightweight OSS libraries (MinIO, LocalStack) for future scaling
+- **Simplified APIs**: Hash serves as subtitle_id, eliminating need for separate check-hash endpoint
+- **User Data Organization**: All user data (progress, modules) grouped under `data/{user-id}/`
+
+**Subtitle Storage Structure**:
 ```javascript
-// Shard data structure
+// data/subtitles/index.json
+{
+  "subtitle_entries": {
+    "abc123def456...": {
+      subtitle_id: "abc123def456...", // Same as hash - guaranteed unique
+      filename: "abc123def456.srt",
+      movie_name: "The Matrix",
+      language: "en", 
+      duration: "02:16:00",
+      reference_count: 3,
+      first_uploaded: "2024-01-01T12:00:00Z"
+    }
+  }
+}
+
+// Physical file: data/subtitles/abc123def456.srt
+```
+
+**Shard Data Structure**:
+```javascript
+// data/shards/{shard-id}.json
 {
   id: "shard_123",
-  type: "subtitle", 
-  name: "The Matrix",
+  type: "subtitle",
+  name: "My Matrix Study Session", // User-defined shard name
+  owner: "user_456",
+  description: "Learning English through The Matrix",
+  cover: "https://example.com/matrix-poster.jpg",
   metadata: {
-    duration: "02:16:00",
-    language: "en",
-    difficulty: "intermediate"
+    movie_name: "The Matrix",        // From subtitle metadata
+    duration: "02:16:00"
   },
-  modules: ["reader", "marker"],
-  content: { subtitleLines: [...] },
-  progress: { currentLine: 0, selectedWords: [] }
+  subtitles: ["abc123def456..."],    // References to subtitle hash IDs
+  public: true,                      // Shareable with community
+  created_at: "2024-01-01T12:00:00Z",
+  updated_at: "2024-01-01T12:00:00Z"
 }
 ```
 
-**Test**: API endpoints respond correctly, can store shard data
+**Progress Data Structure**:
+```javascript
+// data/{user-id}/progress/{shard-id}.json
+{
+  shard_id: "shard_123",
+  timestamp: "2024-01-01T12:30:00Z", // use ts to lookup position
+  words: ["matrix", "boofoo"],
+  bookmarks: [
+    {
+      timestamp: "2024-01-01T12:30:00Z",
+      note: "Important scene"
+    }
+  ],
+  study_time: 1800, // seconds
+  completion_rate: 0.35
+}
+```
+
+**Lightning Upload Flow**:
+1. Frontend computes SHA256 hash of uploaded file
+2. Call `/api/shards/subtitle/upload` with hash parameter and file
+3. If hash exists in index: Return subtitle_id instantly (lightning upload)
+4. If new: Upload file, process, add to index, return subtitle_id
+
+**Test**: 
+- Upload same subtitle twice → Second upload is instant (hash-based detection)
+- Create public shard → Other users can discover it
+- Progress tracking works independently of shard data
+- User data properly organized under individual directories
 
 #### 1.2 Frontend: Navigation Update & Shard Library
-**Goal**: Update navigation to shard-based system
+**Goal**: Update navigation to support public/private shard system
 
 **Frontend Tasks**:
 - Keep existing Home.jsx bottom navigation: **Home** / **Explore** / **Friends** / **Me**
-- Update HomeTab to show Shard Library (user's shards with preview cards)
-- Update ExploreTab for content discovery (subtitle search, popular content)
-- Update FriendsTab for social features (share shards, community)
-- Update MeTab for profile (progress, export, settings)
-- Create ShardUpload.jsx with drag-and-drop subtitle upload
+- Update HomeTab to show personal Shard Library (user's own shards with preview cards)
+- Update ExploreTab for public shard discovery (popular shards, subtitle search, trending content)
+- Update FriendsTab for social features (shared shards from friends, community shards)
+- Update MeTab for profile (progress, export, settings, public shard management)
+- Create ShardUpload.jsx with hash-based lightning upload
+- Add public/private toggle when creating shards
 - Add study session navigation from any tab
+- Create PublicShardBrowser.jsx for discovering community content
 
 **Navigation Strategy**:
 ```
-Home → Shard Library → Select/Create Shard → Study Session
-Explore → Search/Download Content → Auto-create Shard → Study
-Friends → Shared Content → Study Session  
-Me → Personal Progress & Settings
+Home → Personal Shard Library → Select/Create Shard → Study Session
+Explore → Public Shard Discovery → Use Existing/Create Copy → Study
+Friends → Friend's Shared Shards → Study Session  
+Me → Personal Progress & Manage Public Shards
 ```
 
-**Test**: New navigation works, can see shard library
+**Enhanced Features**:
+- **Lightning Upload**: Hash check before upload for instant shard creation
+- **Public Discovery**: Browse popular public shards by other users
+- **Social Learning**: Friends can share their shards and see progress
+- **Community Content**: Discover trending learning content
+
+**Test**: Navigation works, can browse public shards, lightning upload functions correctly
 
 #### 1.3 Frontend: First Subtitle Shard Implementation
 **Goal**: Create the subtitle shard with Reader and Marker modules
@@ -435,33 +505,60 @@ ls100/
 │   │   ├── llm.js               # LLM context analysis
 │   │   └── analytics.js         # Progress tracking
 │   └── data/
-│       ├── users.json           # Existing
-│       ├── shards/              # Shard storage by user
-│       │   └── {user-id}/
-│       │       └── {shard-id}.json
-│       └── modules/             # Module data by user
-│           └── {user-id}/
-│               ├── dictionary.json
-│               ├── cards.json
-│               └── words.json
+│       ├── users.json           # User authentication data
+│       ├── subtitles/           # Centralized subtitle storage (OSS-like)
+│       │   ├── index.json       # Subtitle metadata index
+│       │   ├── abc123def456.srt # Deduplicated subtitle files (SHA256 names)
+│       │   └── 789ghi012jkl.srt # Additional subtitle files
+│       ├── shards/              # Public/private shards (all users)
+│       │   ├── shard_001.json   # Individual shard files
+│       │   ├── shard_002.json   # User-owned or public shards
+│       │   └── shard_003.json   # Discoverable community content
+│       ├── user_123/            # Individual user data directory
+│       │   ├── progress/        # User progress tracking
+│       │   │   ├── shard_001.json # Progress for specific shard
+│       │   │   └── shard_002.json # Independent of shard ownership
+│       │   └── modules/         # Module data by user
+│       │       ├── dictionary.json
+│       │       ├── cards.json
+│       │       └── words.json
+│       └── user_456/            # Another user's data directory
+│           ├── progress/
+│           └── modules/
 ```
+
+## Storage Architecture Benefits
+
+### 🚀 **Efficiency Gains**
+- **Deduplication**: Same subtitle shared across multiple users/shards
+- **Lightning Upload**: Hash check prevents re-upload of existing content
+- **Scalable Storage**: OSS-like structure supports growth
+- **Community Content**: Public shards enable content sharing
+
+### 📊 **Data Organization**
+- **Centralized Subtitles**: Single source of truth for subtitle files  
+- **Flexible Shards**: Users create personalized learning experiences
+- **Separated Progress**: User data independent of shared content
+- **Index Management**: Fast metadata queries and content discovery
 
 ## Testing Strategy
 
 Each phase builds on modular architecture:
 0. **Auth & Layout** ✅ → Login system + navigation
-1. **Subtitle Shard** → Upload + Reader + Marker modules  
-2. **Dictionary Module** → Word lookup integration
+1. **Subtitle Shard** → Upload + Reader + Marker modules + Lightning upload
+2. **Dictionary Module** → Word lookup integration  
 3. **Enhanced Learning** → LLM context + TTS + Study sessions
 4. **Cards Module** → Review system + Export
-5. **Discovery** → Search and download new content
+5. **Discovery** → Search and download new content + Public shard browsing
 6. **Analytics** → Progress tracking and insights
 7. **Mobile/PWA** → Perfect mobile experience
 
 ## Key Success Metrics
 
 - ✅ Secure user authentication and session management
+- ✅ Efficient deduplicated storage with lightning uploads
 - ✅ Modular shard architecture for scalable content types
+- ✅ Public/private shard system with community sharing
 - ✅ Upload and study subtitle content with word selection
 - ✅ Dictionary lookup with definitions and translations
 - ✅ Spaced repetition review system with progress tracking
@@ -469,20 +566,22 @@ Each phase builds on modular architecture:
 - ✅ Mobile-optimized with offline capabilities
 - ✅ Export functionality for external tools (Anki, Eudic)
 
-## Benefits of Shard Architecture
+## Benefits of Optimized Shard Architecture
 
-1. **Scalability**: Easy to add new content types (PDF, video, articles)
-2. **Modularity**: Reusable components across different shard types
-3. **User Experience**: Consistent interface regardless of content type
-4. **Development**: Clear separation of concerns, easier testing
-5. **Future-Proof**: Architecture supports unlimited learning content types
+1. **Storage Efficiency**: Deduplication saves space and enables lightning uploads
+2. **Community Learning**: Public shards create shared learning experiences
+3. **Scalability**: Easy to add new content types (PDF, video, articles)
+4. **Modularity**: Reusable components across different shard types
+5. **User Experience**: Consistent interface regardless of content type
+6. **Development**: Clear separation of concerns, easier testing
+7. **Future-Proof**: Architecture supports unlimited learning content types
 
 ## Next Steps
 
-1. **Begin Phase 1.1**: Set up shard management backend APIs
-2. **Then Phase 1.2**: Update navigation to shard-based system
-3. **Then Phase 1.3**: Implement first Subtitle Shard with Reader/Marker modules
-4. **Test incrementally**: Each module works independently and together
+1. **Begin Phase 1.1**: Set up optimized shard & subtitle storage system
+2. **Then Phase 1.2**: Update navigation with public/private shard support
+3. **Then Phase 1.3**: Implement Subtitle Shard with Reader/Marker modules
+4. **Test incrementally**: Lightning upload, public sharing, progress tracking
 5. **Maintain modularity**: Keep shards and modules loosely coupled
 
-This shard-based approach creates a foundation for unlimited learning content types while maintaining consistent user experience and reusable development patterns. 
+This optimized shard-based approach creates a foundation for unlimited learning content types while enabling efficient storage, community sharing, and lightning-fast uploads.
