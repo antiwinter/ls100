@@ -1,24 +1,5 @@
--- Users table (auth module)
-CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY,
-  email TEXT UNIQUE NOT NULL,
-  name TEXT NOT NULL,
-  password_hash TEXT NOT NULL,
-  created_at TEXT NOT NULL
-);
-
--- Subtitles table (subtitle module)
-CREATE TABLE IF NOT EXISTS subtitles (
-  subtitle_id TEXT PRIMARY KEY,
-  filename TEXT NOT NULL,
-  movie_name TEXT NOT NULL,
-  language TEXT NOT NULL,
-  duration TEXT NOT NULL,
-  ref_count INTEGER DEFAULT 1,
-  first_uploaded TEXT NOT NULL
-);
-
--- Shards table (shard module)
+-- Shard module migration
+-- Shards table
 CREATE TABLE IF NOT EXISTS shards (
   id TEXT PRIMARY KEY,
   type TEXT NOT NULL DEFAULT 'subtitle',
@@ -42,7 +23,7 @@ CREATE TABLE IF NOT EXISTS shard_subtitles (
   FOREIGN KEY (subtitle_id) REFERENCES subtitles(subtitle_id)
 );
 
--- Progress tracking (shard module)
+-- Progress tracking
 CREATE TABLE IF NOT EXISTS progress (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id TEXT NOT NULL,
@@ -56,4 +37,9 @@ CREATE TABLE IF NOT EXISTS progress (
   UNIQUE(user_id, shard_id),
   FOREIGN KEY (user_id) REFERENCES users(id),
   FOREIGN KEY (shard_id) REFERENCES shards(id) ON DELETE CASCADE
-); 
+);
+
+-- Shard indexes
+CREATE INDEX IF NOT EXISTS idx_shards_owner ON shards(owner_id);
+CREATE INDEX IF NOT EXISTS idx_shards_public ON shards(public);
+CREATE INDEX IF NOT EXISTS idx_progress_user ON progress(user_id); 

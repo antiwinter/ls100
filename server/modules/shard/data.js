@@ -1,4 +1,4 @@
-import { db } from '../../utils/db/connection.js'
+import { db } from '../../utils/dbc.js'
 
 const generateId = () => {
   return `shard_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -91,4 +91,15 @@ export const getSubtitles = (shardId) => {
     JOIN shard_subtitles ss ON s.subtitle_id = ss.subtitle_id
     WHERE ss.shard_id = ?
   `).all(shardId)
+}
+
+export const getStats = () => {
+  const result = db.prepare(`
+    SELECT 
+      COUNT(*) as total_shards,
+      SUM(CASE WHEN public = TRUE THEN 1 ELSE 0 END) as public_shards,
+      SUM(CASE WHEN public = FALSE THEN 1 ELSE 0 END) as private_shards
+    FROM shards
+  `).get()
+  return result
 } 

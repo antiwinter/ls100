@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs'
-import { db } from '../../utils/db/connection.js'
+import { db } from '../../utils/dbc.js'
 
 export const create = async (userData) => {
   const hash = await bcrypt.hash(userData.password, 10)
@@ -29,4 +29,8 @@ export const findById = (id) => {
 
 export const verifyPassword = async (user, password) => {
   return await bcrypt.compare(password, user.password_hash)
+}
+
+export const findAll = () => {
+  return db.prepare('SELECT * FROM users ORDER BY created_at DESC').all()
 } 

@@ -6,7 +6,7 @@ import dotenv from 'dotenv'
 import authRoutes from './modules/auth/api.js'
 import shardsRoutes from './modules/shard/api.js'
 import subtitleRoutes from './modules/subtitle/api.js'
-import { runMigrations } from './utils/db/connection.js'
+import { runMigrations } from './utils/dbc.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)

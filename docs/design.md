@@ -136,19 +136,22 @@ client/src/
 server/
 ├── modules/          # Self-contained feature modules
 │   ├── auth/         # Authentication module
-│   │   ├── auth.js   # Auth API routes
-│   │   └── user.js   # User model & operations
+│   │   ├── api.js    # Auth API routes
+│   │   ├── data.js   # User model & operations
+│   │   └── migration.sql # Users table & indexes
 │   ├── shard/        # Shard management module
-│   │   ├── shards.js # Shard API routes
-│   │   └── shard.js  # Shard model & operations
+│   │   ├── api.js    # Shard API routes
+│   │   ├── data.js   # Shard model & operations
+│   │   └── migration.sql # Shards, shard_subtitles, progress tables & indexes
 │   └── subtitle/     # Subtitle handling module
 │       ├── api.js    # Subtitle API routes
-│       ├── subtitle.js           # Subtitle model
-│       └── subtitle-storage.js   # Subtitle file storage
+│       ├── data.js   # Subtitle model
+│       ├── storage.js # Subtitle file storage
+│       ├── detect.js # Language detection
+│       └── migration.sql # Subtitles table & indexes
 ├── utils/            # Shared utilities
 │   ├── db/           # Database utilities
-│   │   ├── connection.js # SQLite setup & migrations
-│   │   └── migrations/   # Schema change files
+│   │   └── connection.js # SQLite setup & module migration runner
 │   └── storage.js    # General file storage utilities
 └── data/
     ├── database.sqlite # SQLite database

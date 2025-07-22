@@ -17,21 +17,19 @@ db.pragma('foreign_keys = ON')
 // WAL mode for better performance
 db.pragma('journal_mode = WAL')
 
-// Initialize database with migrations
+// Initialize database with module-based migrations
 export const runMigrations = () => {
-  const migrations = [
-    '001_initial.sql',
-    '002_indexes.sql'
-  ]
+  // Module migration order (auth first due to foreign key dependencies)
+  const modules = ['auth', 'subtitle', 'shard']
   
-  migrations.forEach(migration => {
+  modules.forEach(module => {
     try {
-      const migrationPath = path.join(__dirname, 'migrations', migration)
+      const migrationPath = path.join(__dirname, '../../modules', module, 'migration.sql')
       const sql = fs.readFileSync(migrationPath, 'utf8')
       db.exec(sql)
-      console.log(`✅ Migration ${migration} completed`)
+      console.log(`✅ ${module} module migration completed`)
     } catch (error) {
-      console.log(`⚠️ Migration ${migration} already applied or error:`, error.message)
+      console.log(`⚠️ ${module} module migration error:`, error.message)
     }
   })
 }
