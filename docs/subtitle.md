@@ -83,8 +83,8 @@ export class Storage {
 ### Layer 2: Subtitle Storage Logic
 
 ```js
-// subtitle-storage.js - Business logic layer
-import { Storage } from './storage.js'
+// modules/subtitle/storage.js - Business logic layer  
+import { Storage } from '../../utils/storage.js'
 
 const storage = new Storage({
   type: 'local',
@@ -161,7 +161,7 @@ Upload subtitle with lightning deduplication.
 ## Model Operations
 
 ```js
-// db/models/subtitle.js
+// modules/subtitle/data.js
 export const create = (data) => {
   return db.prepare(`
     INSERT INTO subtitles VALUES (?, ?, ?, ?, ?, ?, ?)

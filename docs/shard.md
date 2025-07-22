@@ -88,7 +88,7 @@ Delete shard (owner only).
 ## Model Operations
 
 ```js
-// db/models/shard.js
+// modules/shard/data.js
 export const create = (data) => {
   const shard = {
     id: generateId(),

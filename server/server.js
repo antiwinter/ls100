@@ -3,9 +3,10 @@ import cors from 'cors'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import dotenv from 'dotenv'
-import authRoutes from './api/auth.js'
-import shardsRoutes from './api/shards.js'
-import { runMigrations } from './db/connection.js'
+import authRoutes from './modules/auth/api.js'
+import shardsRoutes from './modules/shard/api.js'
+import subtitleRoutes from './modules/subtitle/api.js'
+import { runMigrations } from './utils/db/connection.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -36,6 +37,7 @@ app.use(express.json())
 // API routes
 app.use('/api/auth', authRoutes)
 app.use('/api/shards', shardsRoutes)
+app.use('/api/subtitles', subtitleRoutes)
 app.get('/api/hello', (req, res) => {
   res.json({
     message: 'Hello from backend!',

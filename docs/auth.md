@@ -69,7 +69,7 @@ Authorization: Bearer {token}
 ## Model Operations
 
 ```js
-// db/models/user.js
+// modules/auth/data.js
 export const create = async (userData) => {
   const hash = await bcrypt.hash(userData.password, 10)
   
@@ -101,45 +101,35 @@ export const verifyPassword = async (user, password) => {
 }
 ```
 
-## JWT Utilities
+## JWT Utilities & Middleware
 
 ```js
-// utils/jwt.js
+// utils/auth-middleware.js
 import jwt from 'jsonwebtoken'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key'
 
-export const generateToken = (user) => {
-  return jwt.sign(
-    { userId: user.id, email: user.email },
-    JWT_SECRET,
-    { expiresIn: '7d' }
-  )
-}
-
-export const verifyToken = (token) => {
-  return jwt.verify(token, JWT_SECRET)
-}
-```
-
-## Middleware
-
-```js
-// middleware/auth.js
+// Middleware to verify JWT token and add user info to request
 export const requireAuth = (req, res, next) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '')
+    const token = req.header('Authorization')?.replace('Bearer ', '') || 
+                  req.headers.authorization?.replace('Bearer ', '')
+    
     if (!token) {
-      return res.status(401).json({ error: 'No token provided' })
+      return res.status(401).json({ message: 'No token provided' })
     }
     
-    const decoded = verifyToken(token)
-    req.userId = decoded.userId
+    const decoded = jwt.verify(token, JWT_SECRET)
+    req.user = decoded
+    req.userId = decoded.userId  // For backward compatibility
     next()
   } catch (error) {
-    res.status(401).json({ error: 'Invalid token' })
+    res.status(401).json({ message: 'Invalid token' })
   }
 }
+
+// Export JWT_SECRET for modules that need to create tokens
+export { JWT_SECRET }
 ```
 
 ## Security Features

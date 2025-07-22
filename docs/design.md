@@ -21,7 +21,7 @@ ls100/
 ## Key Systems
 
 ### 1. Authentication System
-**Location**: `server/api/auth.js` + `client/src/context/AuthContext.jsx`
+**Location**: `server/modules/auth/` + `client/src/context/AuthContext.jsx`
 
 - **Backend**: JWT tokens + bcrypt password hashing
 - **Storage**: SQLite database with users table
@@ -134,21 +134,22 @@ client/src/
 └── shared/          # Common components
 
 server/
-├── api/
-│   ├── auth.js       # Auth endpoints
-│   └── shards.js     # Shard management
-├── db/
-│   ├── connection.js # SQLite setup
-│   ├── migrations/   # Schema changes
-│   └── models/       # CRUD operations
-├── shards/
-│   ├── subtitle.js   # Subtitle shard logic
-│   ├── deck.js       # Deck shard logic
-│   └── book.js       # Book shard logic
-├── modules/
-│   ├── dictionary.js # Dictionary API
-│   ├── cards.js      # Card review API
-│   └── words.js      # Word management
+├── modules/          # Self-contained feature modules
+│   ├── auth/         # Authentication module
+│   │   ├── auth.js   # Auth API routes
+│   │   └── user.js   # User model & operations
+│   ├── shard/        # Shard management module
+│   │   ├── shards.js # Shard API routes
+│   │   └── shard.js  # Shard model & operations
+│   └── subtitle/     # Subtitle handling module
+│       ├── api.js    # Subtitle API routes
+│       ├── subtitle.js           # Subtitle model
+│       └── subtitle-storage.js   # Subtitle file storage
+├── utils/            # Shared utilities
+│   ├── db/           # Database utilities
+│   │   ├── connection.js # SQLite setup & migrations
+│   │   └── migrations/   # Schema change files
+│   └── storage.js    # General file storage utilities
 └── data/
     ├── database.sqlite # SQLite database
     └── subtitles/      # Subtitle files
@@ -160,4 +161,5 @@ server/
 3. **Centralized API config** - Single source for environment handling
 4. **Mobile-first** - Bottom navigation primary interface
 5. **Monorepo** - Client/server in same repo for easy development
-6. **Modular architecture** - Reusable modules across different shard types
+6. **Module-based organization** - Each feature module contains both API routes and models
+7. **Self-contained modules** - Reusable functionality across different shard types

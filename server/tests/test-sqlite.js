@@ -1,8 +1,8 @@
-import { runMigrations, db } from './db/connection.js'
-import * as userModel from './db/models/user.js'
-import * as shardModel from './db/models/shard.js'
-import * as subtitleModel from './db/models/subtitle.js'
-import { uploadSubtitle, computeHash } from './utils/subtitle-storage.js'
+import { runMigrations, db } from './utils/db/connection.js'
+import * as userModel from './modules/auth/user.js'
+import * as shardModel from './modules/shard/shard.js'
+import * as subtitleModel from './modules/subtitle/subtitle.js'
+import { uploadSubtitle, computeHash } from './modules/subtitle/subtitle-storage.js'
 
 console.log('🧪 Testing SQLite Implementation...\n')
 

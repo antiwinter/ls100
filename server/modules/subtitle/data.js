@@ -1,4 +1,4 @@
-import { db } from '../connection.js'
+import { db } from '../../utils/db/connection.js'
 
 export const create = (data) => {
   return db.prepare(`

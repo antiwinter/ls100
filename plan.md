@@ -40,9 +40,10 @@ Based on completed research, we have validated free APIs for:
 
 **Completed**:
 - `/api/auth/register`, `/api/auth/login`, `/api/auth/me` endpoints
-- JWT token generation with bcryptjs password hashing
-- JSON file storage: `server/data/users.json`
+- JWT token generation with bcryptjs password hashing  
+- SQLite database with module-based organization
 - AuthContext with localStorage token persistence
+- Centralized auth middleware in utils
 
 #### 0.2 Frontend: Main App Layout ✅
 **Status**: Complete - Mobile-first bottom navigation
@@ -55,15 +56,15 @@ Based on completed research, we have validated free APIs for:
 
 ### Phase 1: SQLite Foundation & Subtitle Shards (Week 2-3)
 
-#### 1.1 Backend: SQLite Database Setup
+#### 1.1 Backend: SQLite Database Setup ✅
 **Goal**: Replace JSON storage with SQLite database
 
-**Tasks**:
-- Install `better-sqlite3` dependency
-- Create database schema and migrations → [Auth](docs/auth.md), [Shard](docs/shard.md), [Subtitle](docs/subtitle.md)
-- Implement database models and CRUD operations
-- Setup two-layer storage system → [Subtitle Storage](docs/subtitle.md)
-- Create shard management APIs → [Shard API](docs/shard.md)
+**Completed**:
+- ✅ SQLite database with module-based organization
+- ✅ Database schema and migrations in utils/db/
+- ✅ Module-based CRUD operations (auth, shard, subtitle modules)
+- ✅ Two-layer storage system implemented
+- ✅ Shard management APIs with centralized auth middleware
 
 **Key Features**:
 - Hash-based subtitle deduplication
@@ -186,8 +187,8 @@ Based on completed research, we have validated free APIs for:
 ## Current Status
 
 - **Phase 0**: ✅ Complete (Auth + Navigation)
-- **Phase 1.1**: 🔄 In Progress (SQLite setup)
-- **Next**: Database implementation with hash-based deduplication
+- **Phase 1.1**: ✅ Complete (SQLite setup with module organization)
+- **Next**: Frontend shard library and subtitle upload component
 
 ## Success Metrics
 

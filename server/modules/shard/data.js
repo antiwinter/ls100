@@ -1,4 +1,4 @@
-import { db } from '../connection.js'
+import { db } from '../../utils/db/connection.js'
 
 const generateId = () => {
   return `shard_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`

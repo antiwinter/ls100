@@ -1,9 +1,9 @@
 import express from 'express'
 import jwt from 'jsonwebtoken'
-import * as userModel from '../db/models/user.js'
+import * as userModel from './data.js'
+import { requireAuth, JWT_SECRET } from '../../utils/auth-middleware.js'
 
 const router = express.Router()
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key'
 
 // Register
 router.post('/register', async (req, res) => {
@@ -69,16 +69,9 @@ router.post('/login', async (req, res) => {
 })
 
 // Get current user (protected route)
-router.get('/me', async (req, res) => {
+router.get('/me', requireAuth, async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '')
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' })
-    }
-
-    const decoded = jwt.verify(token, JWT_SECRET)
-    const user = userModel.findById(decoded.userId)
+    const user = userModel.findById(req.userId)
 
     if (!user) {
       return res.status(401).json({ error: 'User not found' })
@@ -89,7 +82,7 @@ router.get('/me', async (req, res) => {
     res.json({ user: userInfo })
   } catch (error) {
     console.error('Auth error:', error)
-    res.status(401).json({ error: 'Invalid token' })
+    res.status(500).json({ error: 'Server error' })
   }
 })
 

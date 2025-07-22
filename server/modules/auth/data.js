@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs'
-import { db } from '../connection.js'
+import { db } from '../../utils/db/connection.js'
 
 export const create = async (userData) => {
   const hash = await bcrypt.hash(userData.password, 10)

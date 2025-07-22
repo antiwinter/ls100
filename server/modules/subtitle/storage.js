@@ -2,8 +2,8 @@ import crypto from 'crypto'
 import path from 'path'
 import subtitle from 'subtitle'
 import { fileURLToPath } from 'url'
-import { Storage } from './storage.js'
-import * as subtitleModel from '../db/models/subtitle.js'
+import { Storage } from '../../utils/storage.js'
+import * as subtitleModel from './data.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
