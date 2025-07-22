@@ -4,6 +4,8 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import dotenv from 'dotenv'
 import authRoutes from './api/auth.js'
+import shardsRoutes from './api/shards.js'
+import { runMigrations } from './db/connection.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -15,6 +17,15 @@ const app = express()
 const port = process.env.PORT || 3001
 const isDev = process.env.NODE_ENV !== 'production'
 
+// Initialize database
+try {
+  runMigrations()
+  console.log('✅ Database initialized')
+} catch (error) {
+  console.error('❌ Database initialization failed:', error)
+  process.exit(1)
+}
+
 // CORS only needed in development
 if (isDev) {
   app.use(cors())
@@ -24,6 +35,7 @@ app.use(express.json())
 
 // API routes
 app.use('/api/auth', authRoutes)
+app.use('/api/shards', shardsRoutes)
 app.get('/api/hello', (req, res) => {
   res.json({
     message: 'Hello from backend!',

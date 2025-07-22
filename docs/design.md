@@ -5,9 +5,9 @@ English learning app using movie subtitles with mobile-first design.
 
 ## Tech Stack
 - **Frontend**: React 18 + Vite + MUI Joy UI
-- **Backend**: Express.js + Node.js
+- **Backend**: Express.js + Node.js + SQLite
 - **Package Manager**: Yarn workspaces
-- **Database**: JSON file storage (simple, no external deps)
+- **Database**: SQLite with migration to PostgreSQL/MySQL path
 
 ## Project Structure
 ```
@@ -24,7 +24,7 @@ ls100/
 **Location**: `server/api/auth.js` + `client/src/context/AuthContext.jsx`
 
 - **Backend**: JWT tokens + bcrypt password hashing
-- **Storage**: `server/data/users.json` (simple JSON file)
+- **Storage**: SQLite database with users table
 - **Frontend**: React Context with localStorage token persistence
 - **Endpoints**: `/api/auth/register`, `/api/auth/login`, `/api/auth/me`
 
@@ -64,9 +64,10 @@ yarn lint    # ESLint for both workspaces
 **Code Style**: No semicolons, single quotes, ESM modules
 
 ## Data Storage Strategy
-- **Users**: `server/data/users.json`
-- **Future**: Each feature uses separate JSON files in `server/data/`
-- **Session**: JWT tokens (7-day expiry)
+- **Database**: SQLite with normalized tables (users, shards, subtitles, progress)
+- **Files**: Subtitle files stored with hash-based deduplication
+- **Sessions**: JWT tokens (7-day expiry)
+- **Migration**: Easy path to PostgreSQL/MySQL for production
 
 ## API Patterns
 ```javascript
@@ -133,22 +134,29 @@ client/src/
 └── shared/          # Common components
 
 server/
+├── api/
+│   ├── auth.js       # Auth endpoints
+│   └── shards.js     # Shard management
+├── db/
+│   ├── connection.js # SQLite setup
+│   ├── migrations/   # Schema changes
+│   └── models/       # CRUD operations
 ├── shards/
-│   ├── subtitle.js   # Subtitle shard API
-│   ├── deck.js       # Deck shard API
-│   └── book.js       # Book shard API  
+│   ├── subtitle.js   # Subtitle shard logic
+│   ├── deck.js       # Deck shard logic
+│   └── book.js       # Book shard logic
 ├── modules/
 │   ├── dictionary.js # Dictionary API
 │   ├── cards.js      # Card review API
 │   └── words.js      # Word management
 └── data/
-    ├── shards/       # Shard storage
-    └── modules/      # Module data
+    ├── database.sqlite # SQLite database
+    └── subtitles/      # Subtitle files
 ```
 
 ## Key Decisions
 1. **No complex state management** - React Context sufficient
-2. **File-based storage** - Simple JSON files, no database complexity  
+2. **SQLite database** - ACID transactions, easy PostgreSQL migration
 3. **Centralized API config** - Single source for environment handling
 4. **Mobile-first** - Bottom navigation primary interface
 5. **Monorepo** - Client/server in same repo for easy development
