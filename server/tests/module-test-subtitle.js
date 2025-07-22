@@ -1,4 +1,4 @@
-import { runMigrations, db } from '../utils/db/connection.js'
+import { runMigrations, db } from '../utils/dbc.js'
 import * as subtitleModel from '../modules/subtitle/data.js'
 import { computeHash, parseSrt, uploadSubtitle, getSubtitle } from '../modules/subtitle/storage.js'
 import { parseMovieInfo, detectLang } from '../modules/subtitle/detect.js'
@@ -50,15 +50,27 @@ try {
 
   // Test 3: SRT parsing
   console.log('\n3. Testing SRT parsing...')
-  const parsed = parseSrt(sampleSrtContent)
-  
-  if (parsed && parsed.lines === 3 && parsed.duration) {
-    console.log('✅ SRT parsing successful')
-    console.log(`   Lines: ${parsed.lines}`)
-    console.log(`   Duration: ${parsed.duration}`)
-    console.log(`   Parsed entries: ${parsed.parsed.length}`)
-  } else {
-    throw new Error('SRT parsing failed')
+  try {
+    const parsed = parseSrt(sampleSrtContent)
+    console.log('   Parsed result:', parsed)
+    
+    if (parsed && parsed.lines === 3 && parsed.duration) {
+      console.log('✅ SRT parsing successful')
+      console.log(`   Lines: ${parsed.lines}`)
+      console.log(`   Duration: ${parsed.duration}`)
+      console.log(`   Parsed entries: ${parsed.parsed.length}`)
+    } else {
+      console.log('❌ SRT parsing result structure:', {
+        hasResult: !!parsed,
+        lines: parsed?.lines,
+        duration: parsed?.duration,
+        hasParseArray: !!parsed?.parsed
+      })
+      throw new Error('SRT parsing failed')
+    }
+  } catch (error) {
+    console.error('❌ SRT parsing error:', error.message)
+    throw error
   }
 
   // Test 4: Subtitle upload (new file)

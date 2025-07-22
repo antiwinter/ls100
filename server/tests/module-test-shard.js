@@ -1,4 +1,4 @@
-import { runMigrations, db } from '../utils/db/connection.js'
+import { runMigrations, db } from '../utils/dbc.js'
 import * as userModel from '../modules/auth/data.js'
 import * as shardModel from '../modules/shard/data.js'
 
@@ -37,21 +37,16 @@ try {
 
   const createdShard = shardModel.create(shardData)
   console.log('✅ Shard created')
-  console.log(`   ID: ${createdShard.lastInsertRowid}`)
-  
-  // Get the created shard for verification
-  const shardId = `shard_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-  const fullShardData = { ...shardData, id: shardId }
-  shardModel.create(fullShardData)
-  console.log(`   Name: ${shardData.name}`)
-  console.log(`   Owner: ${shardData.owner_id}`)
-  console.log(`   Type: ${shardData.type}`)
-  console.log(`   Public: ${shardData.public}\n`)
+  console.log(`   ID: ${createdShard.id}`)
+  console.log(`   Name: ${createdShard.name}`)
+  console.log(`   Owner: ${createdShard.owner_id}`)
+  console.log(`   Type: ${createdShard.type}`)
+  console.log(`   Public: ${createdShard.public}\n`)
 
   // Test 4: Find shard by ID
   console.log('4. Testing findById...')
-  const foundShard = shardModel.findById(shardId)
-  if (foundShard && foundShard.name === shardData.name) {
+  const foundShard = shardModel.findById(createdShard.id)
+  if (foundShard && foundShard.name === createdShard.name) {
     console.log('✅ Shard found by ID')
     console.log(`   Found: ${foundShard.name}`)
     console.log(`   Description: ${foundShard.description}`)
@@ -100,12 +95,12 @@ try {
     public: true
   }
   
-  const updateResult = shardModel.update(shardId, updateData)
+  const updateResult = shardModel.update(createdShard.id, updateData)
   if (updateResult.changes > 0) {
     console.log('✅ Shard updated successfully')
     
     // Verify update
-    const updatedShard = shardModel.findById(shardId)
+    const updatedShard = shardModel.findById(createdShard.id)
     console.log(`   New name: ${updatedShard.name}`)
     console.log(`   New description: ${updatedShard.description}`)
     console.log(`   Now public: ${updatedShard.public}`)
@@ -123,12 +118,12 @@ try {
 
   // Test 10: Delete shard
   console.log('\n10. Testing shard deletion...')
-  const deleteResult = shardModel.remove(shardId)
+  const deleteResult = shardModel.remove(createdShard.id)
   if (deleteResult.changes > 0) {
     console.log('✅ Shard deleted successfully')
     
     // Verify deletion
-    const deletedShard = shardModel.findById(shardId)
+    const deletedShard = shardModel.findById(createdShard.id)
     if (!deletedShard) {
       console.log('✅ Shard confirmed deleted from database')
     } else {

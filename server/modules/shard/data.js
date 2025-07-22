@@ -13,7 +13,7 @@ export const create = (data) => {
     description: data.description || '',
     cover: data.cover || '',
     metadata: JSON.stringify(data.metadata || {}),
-    public: data.public || false,
+    public: data.public ? 1 : 0,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   }
@@ -63,7 +63,7 @@ export const update = (id, updates) => {
   }
   if (updates.public !== undefined) {
     updateFields.push('public = ?')
-    values.push(updates.public)
+    values.push(updates.public ? 1 : 0)
   }
   
   updateFields.push('updated_at = ?')

@@ -1,4 +1,4 @@
-import { runMigrations, db } from '../utils/db/connection.js'
+import { runMigrations, db } from '../utils/dbc.js'
 import * as userModel from '../modules/auth/data.js'
 import { requireAuth, JWT_SECRET } from '../utils/auth-middleware.js'
 import jwt from 'jsonwebtoken'

@@ -24,7 +24,7 @@ export const runMigrations = () => {
   
   modules.forEach(module => {
     try {
-      const migrationPath = path.join(__dirname, '../../modules', module, 'migration.sql')
+      const migrationPath = path.join(__dirname, '../modules', module, 'migration.sql')
       const sql = fs.readFileSync(migrationPath, 'utf8')
       db.exec(sql)
       console.log(`✅ ${module} module migration completed`)

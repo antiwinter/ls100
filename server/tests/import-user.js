@@ -1,4 +1,4 @@
-import { runMigrations, db } from '../utils/db/connection.js'
+import { runMigrations, db } from '../utils/dbc.js'
 import * as userModel from '../modules/auth/data.js'
 import fs from 'fs/promises'
 import path from 'path'

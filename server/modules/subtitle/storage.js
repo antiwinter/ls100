@@ -1,6 +1,6 @@
 import crypto from 'crypto'
 import path from 'path'
-import subtitle from 'subtitle'
+import { parseSync as parseSubtitle } from 'subtitle'
 import { fileURLToPath } from 'url'
 import { Storage } from '../../utils/storage.js'
 import * as subtitleModel from './data.js'
@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename)
 
 const storage = new Storage({
   type: 'local',
-  basePath: path.join(__dirname, '../data/subtitles')
+  basePath: path.join(__dirname, '../../data/subtitles')
 })
 
 export const computeHash = (buffer) => {
@@ -19,7 +19,7 @@ export const computeHash = (buffer) => {
 
 export const parseSrt = (content) => {
   try {
-    const parsed = subtitle.parse(content)
+    const parsed = parseSubtitle(content)
     
     const lines = parsed.length
     const firstTime = parsed[0]?.start || 0
@@ -33,7 +33,8 @@ export const parseSrt = (content) => {
     
     return { lines, duration: durationStr, parsed }
   } catch (error) {
-    throw new Error('Failed to parse SRT content')
+    console.error('SRT Parse Error:', error)
+    throw new Error(`Failed to parse SRT content: ${error.message}`)
   }
 }
 

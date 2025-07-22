@@ -1693,7 +1693,7 @@ strip-json-comments@~2.0.1:
 
 subtitle@^4.2.2-alpha.0:
   version "4.2.2-alpha.0"
-  resolved "https://registry.yarnpkg.com/subtitle/-/subtitle-4.2.2-alpha.0.tgz#aae853445959bee4e28fae6b6f14469b9e17e309"
+  resolved "https://registry.npmmirror.com/subtitle/-/subtitle-4.2.2-alpha.0.tgz#aae853445959bee4e28fae6b6f14469b9e17e309"
   integrity sha512-IMS+L8lXjOLveg5BC/bVZy+36/x2NqMIQmVDhbquDpxLnXugzmz7/yHHFZ7b9YLfqNaBdXwh1lsnAds3g1FnCQ==
   dependencies:
     "@types/multipipe" "^3.0.0"
