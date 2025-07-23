@@ -9,7 +9,7 @@ const router = express.Router()
 // Configure multer for memory storage
 const upload = multer({ 
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+  limits: { fileSize: 500 * 1024 } // 500KB limit
 })
 
 // GET /api/shards - Get user's shards or public shards
@@ -47,6 +47,11 @@ router.get('/:id', requireAuth, async (req, res) => {
     
     // Get linked subtitles
     const subtitles = shardModel.getSubtitles(shard.id)
+    
+    console.log(`📖 Loading shard ${req.params.id}:`, {
+      name: shard.name,
+      subtitles: subtitles.length
+    })
     
     res.json({ 
       shard: {

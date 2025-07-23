@@ -32,8 +32,8 @@ export const SubtitleReader = ({ shardId, onBack }) => {
       setShard(shardData.shard)
       
       // Load subtitle content (first subtitle for now)
-      if (shardData.subtitles?.length > 0) {
-        await loadSubtitle(shardData.subtitles[0].subtitle_id)
+      if (shardData.shard.subtitles?.length > 0) {
+        await loadSubtitle(shardData.shard.subtitles[0].subtitle_id)
       }
     } catch (error) {
       console.error('Failed to load shard:', error)
@@ -101,9 +101,9 @@ export const SubtitleReader = ({ shardId, onBack }) => {
       {/* Content */}
       <Box sx={{ flex: 1, p: 3, overflow: 'auto' }}>
         <Card sx={{ p: 4, textAlign: 'center', minHeight: 200 }}>
-          {line?.start && (
+          {line?.data?.start && (
             <Typography level="body-sm" color="neutral" sx={{ mb: 2 }}>
-              {formatTime(line.start)} → {formatTime(line.end)}
+              {formatTime(line.data.start)} → {formatTime(line.data.end)}
             </Typography>
           )}
           
@@ -112,6 +112,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
             sx={{ 
               lineHeight: 1.6,
               cursor: 'pointer',
+
               '& span': {
                 padding: '2px 4px',
                 borderRadius: '4px',
@@ -123,7 +124,11 @@ export const SubtitleReader = ({ shardId, onBack }) => {
             }}
             onClick={handleWordClick}
           >
-            {renderText(line?.text || '')}
+            {line?.data?.text ? renderText(line.data.text) : (
+              <Typography color="danger">
+                No text in line: {JSON.stringify(line)}
+              </Typography>
+            )}
           </Typography>
         </Card>
       </Box>

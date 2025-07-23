@@ -1,14 +1,18 @@
--- Subtitle module migration  
--- Subtitles table
+-- Subtitle module migration (updated architecture)
+-- Subtitles table - each record represents a unique subtitle with metadata
 CREATE TABLE IF NOT EXISTS subtitles (
-  subtitle_id TEXT PRIMARY KEY,
-  filename TEXT NOT NULL,
-  movie_name TEXT NOT NULL,
-  language TEXT NOT NULL,
-  duration TEXT NOT NULL,
-  ref_count INTEGER DEFAULT 1,
-  first_uploaded TEXT NOT NULL
+  subtitle_id TEXT PRIMARY KEY,      -- Unique ID (not hash)
+  filename TEXT NOT NULL,            -- Original filename
+  movie_name TEXT NOT NULL,          -- Extracted or provided movie name
+  language TEXT NOT NULL,            -- Language code (en, zh, etc.)
+  duration TEXT NOT NULL,            -- Parsed duration (HH:MM:SS)
+  oss_id TEXT NOT NULL,              -- References oss_files.oss_id for actual content
+  created_at TEXT NOT NULL,          -- ISO timestamp when created
+  updated_at TEXT NOT NULL           -- ISO timestamp when last updated
 );
 
--- Subtitle indexes
-CREATE INDEX IF NOT EXISTS idx_subtitles_movie ON subtitles(movie_name); 
+-- Indexes for better query performance
+CREATE INDEX IF NOT EXISTS idx_subtitles_movie ON subtitles(movie_name);
+CREATE INDEX IF NOT EXISTS idx_subtitles_language ON subtitles(language);
+CREATE INDEX IF NOT EXISTS idx_subtitles_oss_id ON subtitles(oss_id);
+CREATE INDEX IF NOT EXISTS idx_subtitles_created ON subtitles(created_at); 

@@ -4,6 +4,7 @@ import { parseSync as parseSubtitle } from 'subtitle'
 import { fileURLToPath } from 'url'
 import { Storage } from '../../utils/storage.js'
 import * as subtitleModel from './data.js'
+import * as ossModel from '../../utils/oss-files.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -40,35 +41,57 @@ export const parseSrt = (content) => {
 
 
 
-export const uploadSubtitle = async (hash, buffer, metadata) => {
-  // Check if exists
-  const existing = subtitleModel.findByHash(hash)
-  if (existing) {
-    subtitleModel.incrementRef(hash)
-    return { subtitle_id: hash, lightning: true, metadata: existing }
+export const uploadSubtitle = async (oss_id, buffer, metadata) => {
+  // Check for exact duplicate (same content + same metadata)
+  const duplicate = subtitleModel.findDuplicate(
+    metadata.filename,
+    metadata.movie_name,
+    metadata.language,
+    oss_id
+  )
+  
+  if (duplicate) {
+    // Exact same subtitle already exists - lightning upload
+    return { subtitle_id: duplicate.subtitle_id, lightning: true, metadata: duplicate }
   }
 
-  // Store file via abstract storage
-  const filename = `${hash}.srt`
-  await storage.put(filename, buffer)
+  // Check if OSS file already exists
+  let ossFile = ossModel.findById(oss_id)
+  if (!ossFile) {
+    // New file content - store it
+    const filename = `${oss_id}.srt`
+    await storage.put(filename, buffer)
+    
+    // Create OSS file record
+    ossFile = ossModel.create(oss_id, buffer.length)
+  } else {
+    // File content exists, increment reference
+    ossFile = ossModel.incrementRef(oss_id)
+  }
 
-  // Parse subtitle content
+  // Parse subtitle content for duration
   const content = buffer.toString('utf8')
   const parsed = parseSrt(content)
 
-  // Store metadata in database
+  // Create new subtitle record with unique metadata
   const subtitleData = {
-    subtitle_id: hash,
-    filename,
+    filename: metadata.filename,
     movie_name: metadata.movie_name || 'Unknown Movie',
     language: metadata.language || 'en',
     duration: parsed.duration,
-    ref_count: 1,
-    first_uploaded: new Date().toISOString()
+    oss_id: oss_id
   }
 
-  subtitleModel.create(subtitleData)
-  return { subtitle_id: hash, lightning: false, metadata: subtitleData }
+  const subtitle = subtitleModel.create(subtitleData)
+  
+  // Lightning if file content existed (but different metadata)
+  const isLightning = ossFile.ref_count > 1
+  
+  return { 
+    subtitle_id: subtitle.subtitle_id, 
+    lightning: isLightning, 
+    metadata: subtitle 
+  }
 }
 
 export const getSubtitle = async (hash) => {

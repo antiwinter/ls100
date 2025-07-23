@@ -28,12 +28,18 @@ export const apiCall = async (endpoint, options = {}) => {
   const url = buildApiUrl(endpoint)
   const token = localStorage.getItem('token')
   
+  const headers = {
+    ...(token && { Authorization: `Bearer ${token}` }),
+    ...options.headers
+  }
+  
+  // Don't set Content-Type for FormData (browser sets multipart automatically)
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json'
+  }
+  
   const config = {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
-      ...options.headers
-    },
+    headers,
     ...options
   }
   

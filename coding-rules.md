@@ -7,3 +7,4 @@
 * use js (esm style) instead of ts if possible
 * prefer short var/func names to long. e.g. db better then dbModule
 * take advantage of object member names to eliminate intermediate variables. e.g. instead of `fooBar = 5; a = {foo: fooBar}` use `foo = 5; a = {foo}`
+* use console.debug for verbose or debugging logs

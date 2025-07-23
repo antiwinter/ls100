@@ -32,7 +32,12 @@ if (isDev) {
   app.use(cors())
 }
 
-app.use(express.json())
+// Only parse JSON for requests with application/json content type
+app.use(express.json({ 
+  limit: '500KB',
+  type: 'application/json'
+}))
+app.use(express.urlencoded({ extended: true, limit: '500KB' }))
 
 // API routes
 app.use('/api/auth', authRoutes)

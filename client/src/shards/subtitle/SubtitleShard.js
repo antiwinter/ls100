@@ -61,6 +61,12 @@ const parseMovieInfo = (filename) => {
     .replace(/\b(720p|1080p|4K|BluRay|WEBRip|HDRip|CAMRip|DVDRip|BRRip)\b/gi, '')
     // Remove codec info
     .replace(/\b(x264|x265|H\.264|H\.265|HEVC|AVC)\b/gi, '')
+    // Remove audio codec info
+    .replace(/\b(AC3|DTS|AAC|MP3|FLAC)\b/gi, '')
+    // Remove group/release tags (common patterns)
+    .replace(/\b(CHD|YIFY|RARBG|PSA|FGT|SPARKS|AMIABLE|NTb|CMRG|CRiSC|FLEET|ION10)\b/gi, '')
+    // Remove misc markers
+    .replace(/\b(Cht|Chs|PROPER|REPACK|EXTENDED|UNRATED|DIRECTORS?\s*CUT)\b/gi, '')
     // Remove group tags in brackets/parentheses
     .replace(/[\[\(][^\]\)]*[\]\)]/g, '')
     // Replace dots and underscores with spaces
@@ -94,9 +100,13 @@ export const generateCover = (title) => ({
 
 // Create shard with full flow
 export const createShard = async (file, user) => {
+  // Parse movie info from filename
+  const movieInfo = parseMovieInfo(file.name)
+  
   // 1. Upload subtitle file
   const formData = new FormData()
   formData.append('subtitle', file)
+  formData.append('movie_name', movieInfo.movieName)
   
   const uploadResult = await apiCall('/api/subtitles/upload', {
     method: 'POST',
@@ -107,7 +117,7 @@ export const createShard = async (file, user) => {
   const { metadata } = uploadResult
   const cover = generateCover(metadata.movie_name)
   
-  const shard = await apiCall('/api/shards', {
+    const response = await apiCall('/api/shards', {
     method: 'POST',
     body: JSON.stringify({
       name: metadata.movie_name,
@@ -117,6 +127,16 @@ export const createShard = async (file, user) => {
       public: false
     })
   })
-  
+
+  const shard = response.shard
+
+  console.log('🎬 Shard created:', {
+    name: shard.name,
+    id: shard.id,
+    created_at: shard.created_at,
+    metadata: metadata,
+    cover: cover
+  })
+
   return shard
 } 
