@@ -47,7 +47,13 @@ export const BrowserEditBar = ({ selectedCount, totalCount, onSelectAll, onCance
               fontSize: 'sm',
               fontWeight: 'normal',
               minHeight: 'auto',
-              p: 0.5
+              p: 0.5,
+              '&:hover': {
+                bgcolor: 'transparent'
+              },
+              '&:active': {
+                bgcolor: 'transparent'
+              }
             }}
           >
           </Button>
@@ -84,34 +90,36 @@ export const BrowserEditBar = ({ selectedCount, totalCount, onSelectAll, onCance
         bgcolor: 'background.body',
         borderTop: 1,
         borderColor: 'divider',
-        p: 2,
+        p: 1.5,
         zIndex: 1000
       }}>
-        <Stack direction="column" spacing={2} alignItems="center">
+        <Stack direction="column" spacing={1} alignItems="stretch">
           <Typography 
-            level="body-md" 
+            level="body-sm" 
             sx={{ 
               fontWeight: 'bold',
-              color: 'text.primary'
+              color: 'primary.500',
+              textAlign: 'center',
+              mb: 0.5
             }}
           >
             {selectedCount} selected
           </Typography>
           
-          <Stack direction="row" spacing={4} justifyContent="center">
+          <Stack direction="row" spacing={3} justifyContent="center">
             <Button
             ref={deleteRef}
             onClick={() => handleButtonPress(deleteRef, '#FEE2E2', onDelete)}
             disabled={disabled}
             color={disabled ? 'neutral' : undefined}
             variant="plain"
-            size="lg"
+            size="md"
             sx={{
               flexDirection: 'column',
               minWidth: 'auto',
               fontWeight: 'normal',
               fontSize: 'xs',
-              py: 1,
+              py: 0.75,
               height: 'auto',
               ...(!disabled && {
                 color: '#FD7A7A'
@@ -120,8 +128,8 @@ export const BrowserEditBar = ({ selectedCount, totalCount, onSelectAll, onCance
             }}
           >
             <Delete sx={{ 
-              fontSize: 24, 
-              mb: 0.5,
+              fontSize: 20, 
+              mb: 0.25,
               color: disabled ? 'inherit' : '#FD7A7A'
             }} />
             Delete
@@ -133,18 +141,18 @@ export const BrowserEditBar = ({ selectedCount, totalCount, onSelectAll, onCance
             disabled={disabled}
             color={disabled ? 'neutral' : 'primary'}
             variant="plain"
-            size="lg"
+            size="md"
             sx={{
               flexDirection: 'column',
               minWidth: 'auto',
               fontWeight: 'normal',
               fontSize: 'xs',
-              py: 1,
+              py: 0.75,
               height: 'auto',
               transition: 'background-color 0.2s ease-out'
             }}
           >
-            <Public sx={{ fontSize: 24, mb: 0.5 }} />
+            <Public sx={{ fontSize: 20, mb: 0.25 }} />
             Public
           </Button>
           
@@ -154,18 +162,18 @@ export const BrowserEditBar = ({ selectedCount, totalCount, onSelectAll, onCance
             disabled={disabled}
             color={disabled ? 'neutral' : 'primary'}
             variant="plain"
-            size="lg"
+            size="md"
             sx={{
               flexDirection: 'column',
               minWidth: 'auto',
               fontWeight: 'normal',
               fontSize: 'xs',
-              py: 1,
+              py: 0.75,
               height: 'auto',
               transition: 'background-color 0.2s ease-out'
             }}
           >
-            <Lock sx={{ fontSize: 24, mb: 0.5 }} />
+            <Lock sx={{ fontSize: 20, mb: 0.25 }} />
             Private
           </Button>
           </Stack>

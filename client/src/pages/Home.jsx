@@ -1,81 +1,18 @@
 import { useState, useEffect } from 'react'
 import { 
   Box, 
-  Tabs, 
-  TabPanel,
-  Typography,
-  Card,
   Stack,
   Modal,
   ModalDialog
 } from '@mui/joy'
-import { useAuth } from '../context/AuthContext'
 import { GlobalImport } from '../components/GlobalImport'
 import { BrowserToolbar } from '../components/BrowserToolbar'
 import { BrowserEditBar } from '../components/BrowserEditBar'
-import { BottomNav } from '../components/BottomNav'
 import { ShardBrowser } from '../components/ShardBrowser'
 import { SubtitleReader } from '../shards/subtitle'
-import { Explore } from './Explore'
-import { Friends } from './Friends'
-import { Me } from './Me'
 import { apiCall } from '../config/api'
 
-// Home tab component (inline since it needs shards props)
-const HomeTab = ({ 
-  shards, 
-  onOpenReader, 
-  onImport, 
-  sortBy, 
-  onSortChange,
-  editing,
-  selected,
-  onStartEdit,
-  onCancelEdit,
-  onToggleSelect,
-  onSelectAll,
-  onDelete,
-  onMakePublic,
-  onMakePrivate
-}) => {
-  return (
-    <Stack spacing={0}>
-      {editing ? (
-        <BrowserEditBar 
-          selectedCount={selected.length}
-          totalCount={shards.length}
-          onSelectAll={onSelectAll}
-          onCancel={onCancelEdit}
-          onDelete={onDelete}
-          onMakePublic={onMakePublic}
-          onMakePrivate={onMakePrivate}
-        />
-      ) : (
-        <BrowserToolbar 
-          title="Home"
-          onImport={onImport}
-          sortBy={sortBy}
-          onSortChange={onSortChange}
-          onSelect={onStartEdit}
-          hasShards={shards.length > 0}
-        />
-      )}
-      <Box sx={{ p: 2 }}>
-        <ShardBrowser 
-          shards={shards} 
-          onOpenShard={onOpenReader}
-          editing={editing}
-          selected={selected}
-          onToggleSelect={onToggleSelect}
-          onImport={onImport}
-        />
-      </Box>
-    </Stack>
-  )
-}
-
-const Home = () => {
-  const [activeTab, setActiveTab] = useState(0)
+export const Home = ({ onEditModeChange }) => {
   const [shards, setShards] = useState([])
   const [showImport, setShowImport] = useState(false)
   const [readerShardId, setReaderShardId] = useState(null)
@@ -89,6 +26,11 @@ const Home = () => {
   useEffect(() => {
     loadShards()
   }, [sortBy])
+
+  // Notify parent of edit mode changes
+  useEffect(() => {
+    onEditModeChange?.(editing)
+  }, [editing, onEditModeChange])
 
   const loadShards = async () => {
     try {
@@ -208,12 +150,7 @@ const Home = () => {
 
 
   return (
-    <Box sx={{ 
-      minHeight: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-      bgcolor: 'background.body'
-    }}>
+    <>
       {/* Import Modal */}
       <Modal open={showImport} onClose={() => setShowImport(false)}>
         <ModalDialog sx={{ width: '90vw', maxWidth: 600 }}>
@@ -224,57 +161,41 @@ const Home = () => {
         </ModalDialog>
       </Modal>
 
-      {/* Main content area */}
-      <Box sx={{ 
-        flex: 1, 
-        overflow: 'auto',
-        pb: 10 // Space for bottom navigation
-      }}>
-        <Tabs 
-          value={activeTab} 
-          onChange={(event, newValue) => setActiveTab(newValue)}
-          sx={{ height: '100%' }}
-        >
-          {/* Content panels */}
-          <TabPanel value={0} sx={{ p: 0 }}>
-            <HomeTab 
-              shards={shards}
-              onOpenReader={handleOpenReader}
-              onImport={() => setShowImport(true)}
-              sortBy={sortBy}
-              onSortChange={handleSortChange}
-              editing={editing}
-              selected={selected}
-              onStartEdit={handleStartEdit}
-              onCancelEdit={handleCancelEdit}
-              onToggleSelect={handleToggleSelect}
-              onSelectAll={handleSelectAll}
-              onDelete={handleDelete}
-              onMakePublic={handleMakePublic}
-              onMakePrivate={handleMakePrivate}
-            />
-          </TabPanel>
-          <TabPanel value={1} sx={{ p: 2 }}>
-            <Explore />
-          </TabPanel>
-          <TabPanel value={2} sx={{ p: 2 }}>
-            <Friends />
-          </TabPanel>
-          <TabPanel value={3} sx={{ p: 2 }}>
-            <Me />
-          </TabPanel>
-        </Tabs>
-      </Box>
-
-      {/* Bottom Navigation */}
-      {!editing && (
-        <BottomNav 
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-        />
-      )}
-    </Box>
+      {/* Home Tab Content */}
+      <Stack spacing={0}>
+        {editing ? (
+          <BrowserEditBar 
+            selectedCount={selected.length}
+            totalCount={shards.length}
+            onSelectAll={handleSelectAll}
+            onCancel={handleCancelEdit}
+            onDelete={handleDelete}
+            onMakePublic={handleMakePublic}
+            onMakePrivate={handleMakePrivate}
+          />
+        ) : (
+          <BrowserToolbar 
+            title="Home"
+            onImport={() => setShowImport(true)}
+            sortBy={sortBy}
+            onSortChange={handleSortChange}
+            onSelect={handleStartEdit}
+            hasShards={shards.length > 0}
+          />
+        )}
+        <Box sx={{ p: 2 }}>
+          <ShardBrowser 
+            shards={shards} 
+            onOpenShard={handleOpenReader}
+            editing={editing}
+            selected={selected}
+            onToggleSelect={handleToggleSelect}
+            onImport={() => setShowImport(true)}
+          />
+        </Box>
+      </Stack>
+    </>
   )
 }
 
-export default Home 
+ 
