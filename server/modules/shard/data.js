@@ -37,6 +37,39 @@ export const findByOwner = (userId) => {
   return db.prepare('SELECT * FROM shards WHERE owner_id = ?').all(userId)
 }
 
+export const findByOwnerWithProgress = (userId, sortBy = 'last_used') => {
+  let orderClause = 'ORDER BY COALESCE(p.updated_at, s.created_at) DESC'
+  
+  if (sortBy === 'name') {
+    orderClause = 'ORDER BY s.name ASC'
+  } else if (sortBy === 'progress') {
+    orderClause = 'ORDER BY COALESCE(p.completion_rate, 0) DESC, COALESCE(p.updated_at, s.created_at) DESC'
+  }
+  
+  return db.prepare(`
+    SELECT s.*, 
+           p.updated_at as last_used,
+           COALESCE(p.completion_rate, 0) as completion_rate,
+           COALESCE(p.study_time, 0) as study_time
+    FROM shards s
+    LEFT JOIN progress p ON s.id = p.shard_id AND p.user_id = ?
+    WHERE s.owner_id = ?
+    ${orderClause}
+  `).all(userId, userId)
+}
+
+export const updateProgress = (userId, shardId) => {
+  const now = new Date().toISOString()
+  
+  return db.prepare(`
+    INSERT INTO progress (user_id, shard_id, timestamp, updated_at)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(user_id, shard_id) DO UPDATE SET
+      updated_at = ?,
+      timestamp = ?
+  `).run(userId, shardId, now, now, now, now)
+}
+
 export const findPublic = () => {
   return db.prepare('SELECT * FROM shards WHERE public = TRUE').all()
 }

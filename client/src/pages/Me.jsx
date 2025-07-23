@@ -11,7 +11,6 @@ export const Me = () => {
   
   return (
     <Stack spacing={3}>
-      <Typography level="h1">Profile</Typography>
       <Card sx={{ p: 3 }}>
         <Typography level="h3" mb={2}>👤 {user.name}</Typography>
         <Typography level="body-sm" color="neutral" mb={2}>

@@ -14,8 +14,6 @@ import {
 } from '@mui/icons-material'
 
 export const BottomNav = ({ activeTab, onTabChange }) => {
-  const colors = ['primary', 'success', 'warning', 'danger']
-
   return (
     <Box sx={{
       position: 'fixed',
@@ -41,10 +39,22 @@ export const BottomNav = ({ activeTab, onTabChange }) => {
             py: 1,
             flex: 1,
             transition: '0.3s',
-            fontWeight: 'md',
+            fontWeight: 'sm',
             fontSize: 'sm',
+            color: 'text.tertiary',
             [`&:not(.${tabClasses.selected}):not(:hover)`]: {
-              opacity: 0.7,
+              '& svg': {
+                opacity: 0.6
+              },
+              '& > span:last-child': {
+                opacity: 0.5
+              }
+            },
+            [`&.${tabClasses.selected}`]: {
+              color: 'primary.500',
+              bgcolor: 'transparent',
+              opacity: 1,
+              fontWeight: 'md'
             },
           },
         })}
@@ -58,40 +68,36 @@ export const BottomNav = ({ activeTab, onTabChange }) => {
           <Tab
             disableIndicator
             orientation="vertical"
-            {...(activeTab === 0 && { color: colors[0] })}
           >
             <ListItemDecorator>
-              <HomeRounded />
+              <HomeRounded sx={{ fontSize: 28, color: 'inherit' }} />
             </ListItemDecorator>
             Home
           </Tab>
           <Tab
             disableIndicator
             orientation="vertical"
-            {...(activeTab === 1 && { color: colors[1] })}
           >
             <ListItemDecorator>
-              <Search />
+              <Search sx={{ fontSize: 28, color: 'inherit' }} />
             </ListItemDecorator>
             Explore
           </Tab>
           <Tab
             disableIndicator
             orientation="vertical"
-            {...(activeTab === 2 && { color: colors[2] })}
           >
             <ListItemDecorator>
-              <People />
+              <People sx={{ fontSize: 28, color: 'inherit' }} />
             </ListItemDecorator>
             Friends
           </Tab>
           <Tab
             disableIndicator
             orientation="vertical"
-            {...(activeTab === 3 && { color: colors[3] })}
           >
             <ListItemDecorator>
-              <Person />
+              <Person sx={{ fontSize: 28, color: 'inherit' }} />
             </ListItemDecorator>
             Me
           </Tab>

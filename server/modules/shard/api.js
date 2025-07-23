@@ -15,13 +15,13 @@ const upload = multer({
 // GET /api/shards - Get user's shards or public shards
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { type = 'user' } = req.query
+    const { type = 'user', sort = 'last_used' } = req.query
     
     let shards
     if (type === 'public') {
       shards = shardModel.findPublic()
     } else {
-      shards = shardModel.findByOwner(req.userId)
+      shards = shardModel.findByOwnerWithProgress(req.userId, sort)
     }
     
     res.json({ shards })
@@ -47,6 +47,11 @@ router.get('/:id', requireAuth, async (req, res) => {
     
     // Get linked subtitles
     const subtitles = shardModel.getSubtitles(shard.id)
+    
+    // Track progress when user opens shard
+    if (shard.owner_id === req.userId) {
+      shardModel.updateProgress(req.userId, shard.id)
+    }
     
     console.log(`📖 Loading shard ${req.params.id}:`, {
       name: shard.name,

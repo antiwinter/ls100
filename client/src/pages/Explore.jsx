@@ -7,7 +7,6 @@ import {
 
 export const Explore = () => (
   <Stack spacing={3}>
-    <Typography level="h1">Explore</Typography>
     <Card sx={{ p: 3 }}>
       <Typography level="h3" mb={2}>🎭 Popular Movies</Typography>
       <Typography>

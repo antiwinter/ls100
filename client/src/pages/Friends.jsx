@@ -7,7 +7,6 @@ import {
 
 export const Friends = () => (
   <Stack spacing={3}>
-    <Typography level="h1">Friends</Typography>
     <Card sx={{ p: 3 }}>
       <Typography level="h3" mb={2}>👥 Learning Together</Typography>
       <Typography>
