@@ -123,9 +123,16 @@ Book Shard        ✓       ✓      ✓     ✓
 ```
 client/src/
 ├── shards/
-│   ├── subtitle/     # Subtitle-specific UI
-│   ├── deck/         # Deck-specific UI  
-│   └── book/         # Book-specific UI
+│   ├── subtitle/     # Subtitle-specific implementation
+│   │   ├── SubtitleShard.js    # Logic (detector, shard management)
+│   │   ├── SubtitleReader.jsx  # UI (reader component)
+│   │   └── index.js            # Export all functionality
+│   ├── deck/         # Deck-specific implementation (future)
+│   └── book/         # Book-specific implementation (future)
+├── components/
+│   ├── GlobalImport.jsx      # Universal file import handler
+│   ├── auth/                 # Authentication components
+│   └── shared/               # Common UI components
 ├── modules/
 │   ├── reader/       # Text reading components
 │   ├── marker/       # Selection/highlighting
@@ -156,6 +163,29 @@ server/
 └── data/
     ├── database.sqlite # SQLite database
     └── subtitles/      # Subtitle files
+```
+
+## Shard Component Architecture
+
+### Content Detection System
+Each shard type provides a detector function for automatic content type identification:
+
+```javascript
+// Example: subtitle shard detector
+export const detect = (filename, buffer) => ({
+  match: filename.endsWith('.srt'),
+  confidence: 0.9,
+  metadata: { movieName: 'The Matrix', language: 'en' }
+})
+```
+
+### Global Import Flow
+```
+1. User uploads file → GlobalImport.jsx
+2. Call all shard detectors (subtitle.detect, deck.detect, etc.)
+3. Highest confidence detector wins
+4. Winning shard handles full creation flow
+5. Navigate to appropriate reader
 ```
 
 ## Key Decisions

@@ -72,6 +72,21 @@ Based on completed research, we have validated free APIs for:
 - Public/private shard system
 - Progress tracking with foreign keys
 
+#### 1.1.5 Frontend: Modular Shard Component System
+**Goal**: Create extensible shard component architecture starting with subtitle type
+
+**Tasks**:
+- Create subtitle shard component (`client/src/shards/subtitle/`)
+  - `SubtitleShard.js` - Logic (detector, shard management, full flow)
+  - `SubtitleReader.jsx` - UI (reader component)
+  - `index.js` - Export all subtitle functionality
+- Implement content detector with confidence scoring
+- Create subtitle-specific reader/browser component
+- Add fallback cover generator (text-based with movie title)
+- Build global import component (`src/components/GlobalImport.jsx`)
+
+**Flow**: Upload SRT → Auto-detect subtitle → Create shard → Show in home → Open reader
+
 #### 1.2 Frontend: Navigation Update & Shard Library
 **Goal**: Update navigation for shard-based system
 
@@ -182,12 +197,15 @@ Based on completed research, we have validated free APIs for:
 
 - [Auth](docs/auth.md) - User authentication, JWT, database schema
 - [Shard](docs/shard.md) - Shard management, API endpoints, progress tracking
-- [Subtitle](docs/subtitle.md) - Two-layer storage, lightning upload, SRT parsing
+- [Subtitle](docs/subtitle.md) - Backend subtitle management, two-layer storage, lightning upload
+- [Shard-Subtitle](docs/shard-subtitle.md) - Frontend subtitle shard component, detector, reader
+- [Import](docs/import.md) - GlobalImport component, content detection system
 
 ## Current Status
 
 - **Phase 0**: ✅ Complete (Auth + Navigation)
 - **Phase 1.1**: ✅ Complete (SQLite setup with module organization)
+- **Phase 1.1.5**: 📋 Next (Modular shard component system)
 - **Next**: Frontend shard library and subtitle upload component
 
 ## Success Metrics

@@ -1,5 +1,7 @@
 # Subtitle Module
 
+Backend subtitle management system with two-layer storage architecture.
+
 ## Database Schema
 
 ```sql
