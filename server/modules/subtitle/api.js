@@ -2,7 +2,7 @@ import express from 'express'
 import multer from 'multer'
 import * as subtitleModel from './data.js'
 import { uploadSubtitle, computeHash, getSubtitle } from './storage.js'
-import { parseMovieInfo, detectLang } from './detect.js'
+import { detectLang } from './detect.js'
 import { requireAuth } from '../../utils/auth-middleware.js'
 
 const router = express.Router()
@@ -23,8 +23,7 @@ router.post('/upload', requireAuth, upload.single('subtitle'), async (req, res) 
     const { movie_name, language, auto_detect = true } = req.body
     const filename = req.file.originalname
 
-    // Auto-detect movie info from filename
-    const filenameInfo = parseMovieInfo(filename)
+    // Movie info parsing moved to frontend
     
     // Auto-detect language from content
     const content = req.file.buffer.toString('utf8')
@@ -75,9 +74,6 @@ router.post('/analyze', requireAuth, upload.single('subtitle'), async (req, res)
     const filename = req.file.originalname
     const content = req.file.buffer.toString('utf8')
     
-    // Parse filename
-    const filenameInfo = parseMovieInfo(filename)
-    
     // Detect language from content
     const detectedLangs = detectLang(content)
     
@@ -94,12 +90,9 @@ router.post('/analyze', requireAuth, upload.single('subtitle'), async (req, res)
         ref_count: existing.ref_count
       } : null,
       suggestions: {
-        movie_name: filenameInfo.movieName,
         language: {
-          from_filename: filenameInfo.language,
           from_content: detectedLangs
-        },
-        year: filenameInfo.year
+        }
       }
     })
   } catch (error) {
@@ -131,6 +124,24 @@ router.get('/:hash/content', requireAuth, async (req, res) => {
     const content = await getSubtitle(req.params.hash)
     res.setHeader('Content-Type', 'text/plain; charset=utf-8')
     res.send(content)
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message })
+  }
+})
+
+// Get parsed subtitle lines by hash
+router.get('/:hash/lines', requireAuth, async (req, res) => {
+  try {
+    const subtitle = subtitleModel.findByHash(req.params.hash)
+    if (!subtitle) {
+      return res.status(404).json({ message: 'Subtitle not found' })
+    }
+
+    const content = await getSubtitle(req.params.hash)
+    const { parseSrt } = await import('./storage.js')
+    const { parsed } = parseSrt(content.toString('utf8'))
+    
+    res.json({ lines: parsed })
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message })
   }
