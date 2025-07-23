@@ -167,26 +167,50 @@ server/
 
 ## Shard Component Architecture
 
-### Content Detection System
+### Content Detection System ✅ IMPLEMENTED
 Each shard type provides a detector function for automatic content type identification:
 
 ```javascript
-// Example: subtitle shard detector
-export const detect = (filename, buffer) => ({
-  match: filename.endsWith('.srt'),
-  confidence: 0.9,
-  metadata: { movieName: 'The Matrix', language: 'en' }
-})
+// Implemented: subtitle shard detector
+export const detect = (filename, buffer) => {
+  const content = buffer.toString('utf8')
+  const hasExt = /\.(srt|vtt|ass|ssa|sub)$/i.test(filename)
+  const hasPattern = /\d{2}:\d{2}:\d{2}[,.]\d{3}/.test(content)
+  
+  return {
+    match: hasExt || hasPattern,
+    confidence: hasExt ? 0.9 : (hasPattern ? 0.7 : 0.0),
+    metadata: parseMovieInfo(filename) // Enhanced movie info parsing
+  }
+}
 ```
 
-### Global Import Flow
+### Global Import Flow ✅ WORKING
 ```
-1. User uploads file → GlobalImport.jsx
-2. Call all shard detectors (subtitle.detect, deck.detect, etc.)
-3. Highest confidence detector wins
-4. Winning shard handles full creation flow
-5. Navigate to appropriate reader
+1. User uploads file → GlobalImport.jsx ✅
+2. Call all shard detectors (currently subtitle.detect) ✅
+3. Show detection results with metadata preview ✅
+4. User confirms → winning shard handles full creation flow ✅
+5. Navigate to appropriate reader ✅
 ```
+
+## Component Extraction Strategy
+
+### UI Modularity
+- `HeaderToolbar.jsx` - Top navigation with import button
+- `BottomNav.jsx` - 4-tab navigation (Home/Explore/Friends/Me)  
+- `ShardBrowser.jsx` - Grid display of user's shards
+- `GlobalImport.jsx` - Universal file upload and detection
+
+### Page Components
+- `pages/Home.jsx` - Container for HomeTab content
+- `pages/Explore.jsx` - Public shard discovery
+- `pages/Friends.jsx` - Social learning features
+- `pages/Me.jsx` - Profile and settings
+
+### Utility Functions
+- `utils/dateFormat.js` - Human-readable relative time formatting
+- `config/api.js` - Centralized API calls with smart Content-Type handling
 
 ## Key Decisions
 1. **No complex state management** - React Context sufficient

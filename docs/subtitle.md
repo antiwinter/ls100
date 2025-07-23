@@ -1,25 +1,66 @@
 # Subtitle Module
 
-Backend subtitle management system with two-layer storage architecture.
+Backend subtitle management system with two-table storage architecture.
 
-## Database Schema
+## Two-Table Storage Architecture
 
+### Problem Solved
+Previous architecture used file hash as subtitle_id, causing metadata conflicts when same content had different filenames/metadata.
+
+### Solution: Separation of Content and Metadata
+
+#### OSS Files Table (`server/utils/oss-files.js`)
 ```sql
--- Subtitles table
-CREATE TABLE subtitles (
-  subtitle_id TEXT PRIMARY KEY,  -- SHA256 hash
-  filename TEXT NOT NULL,
-  movie_name TEXT NOT NULL,
-  language TEXT NOT NULL,
-  duration TEXT NOT NULL,
-  ref_count INTEGER DEFAULT 1,
-  first_uploaded TEXT NOT NULL
+CREATE TABLE oss_files (
+  oss_id TEXT PRIMARY KEY,        -- SHA256 hash of file content
+  ref_count INTEGER DEFAULT 1,    -- Number of subtitle records referencing this
+  file_size INTEGER NOT NULL,     -- File size in bytes  
+  created_at TEXT NOT NULL,       -- When first uploaded
+  updated_at TEXT NOT NULL        -- Last reference update
 );
-
-CREATE INDEX idx_subtitles_movie ON subtitles(movie_name);
 ```
 
-## Two-Layer Storage Architecture
+**Purpose**: Content deduplication by hash
+- One record per unique file content
+- Reference counting for cleanup
+- Shared across multiple subtitle records
+
+#### Subtitles Table (`server/modules/subtitle/data.js`)
+```sql
+CREATE TABLE subtitles (
+  subtitle_id TEXT PRIMARY KEY,   -- Unique ID (sub_timestamp_random)
+  filename TEXT NOT NULL,         -- Original filename
+  movie_name TEXT NOT NULL,       -- Parsed/provided movie name
+  language TEXT NOT NULL,         -- Detected language (en, zh, etc.)
+  duration TEXT NOT NULL,         -- Parsed duration (HH:MM:SS)
+  oss_id TEXT NOT NULL,          -- References oss_files.oss_id
+  created_at TEXT NOT NULL,       -- When created
+  updated_at TEXT NOT NULL        -- Last updated
+);
+```
+
+**Purpose**: Unique metadata per upload
+- Each upload gets unique subtitle_id
+- Same content can have different metadata
+- Links to OSS file via oss_id
+
+### OSS Files Management
+
+The OSS files are managed by a separate utility module at `server/utils/oss-files.js` with operations:
+
+```js
+// OSS file operations
+import * as ossModel from '../../utils/oss-files.js'
+
+ossModel.create(oss_id, file_size)     // Create new OSS file record
+ossModel.findById(oss_id)              // Find OSS file by hash
+ossModel.incrementRef(oss_id)          // Add reference when subtitle created
+ossModel.decrementRef(oss_id)          // Remove reference when subtitle deleted
+ossModel.getOrphanedFiles()            // Get files with ref_count = 0 for cleanup
+ossModel.remove(oss_id)                // Remove OSS file record after physical deletion
+```
+
+## Legacy Storage Implementation (Reference)
 
 ### Layer 1: Abstract Storage (OSS-like)
 
@@ -97,50 +138,94 @@ export const computeHash = (buffer) => {
   return crypto.createHash('sha256').update(buffer).digest('hex')
 }
 
-export const uploadSubtitle = async (hash, buffer, metadata) => {
-  // Check if exists
-  const existing = await findByHash(hash)
-  if (existing) {
-    await incrementRef(hash)
-    return { subtitle_id: hash, lightning: true, metadata: existing }
+export const uploadSubtitle = async (oss_id, buffer, metadata) => {
+  // Check for exact duplicate (same content + same metadata)
+  const duplicate = findDuplicate(
+    metadata.filename,
+    metadata.movie_name,
+    metadata.language,
+    oss_id
+  )
+  
+  if (duplicate) {
+    // Exact same subtitle already exists - lightning upload
+    return { subtitle_id: duplicate.subtitle_id, lightning: true, metadata: duplicate }
   }
 
-  // Store file via abstract storage
-  const filename = `${hash}.srt`
-  await storage.put(filename, buffer)
+  // Check if OSS file already exists
+  let ossFile = ossModel.findById(oss_id)
+  if (!ossFile) {
+    // New file content - store it
+    const filename = `${oss_id}.srt`
+    await storage.put(filename, buffer)
+    
+    // Create OSS file record
+    ossFile = ossModel.create(oss_id, buffer.length)
+  } else {
+    // File content exists, increment reference
+    ossFile = ossModel.incrementRef(oss_id)
+  }
 
-  // Parse subtitle content
+  // Parse subtitle content for duration
   const content = buffer.toString('utf8')
   const parsed = parseSrt(content)
 
-  // Store metadata in database
+  // Create new subtitle record with unique metadata
   const subtitleData = {
-    subtitle_id: hash,
-    filename,
+    filename: metadata.filename,
     movie_name: metadata.movie_name || 'Unknown Movie',
     language: metadata.language || 'en',
     duration: parsed.duration,
-    ref_count: 1,
-    first_uploaded: new Date().toISOString()
+    oss_id: oss_id
   }
 
-  await create(subtitleData)
-  return { subtitle_id: hash, lightning: false, metadata: subtitleData }
+  const subtitle = create(subtitleData)
+  
+  // Lightning if file content existed (but different metadata)
+  const isLightning = ossFile.ref_count > 1
+  
+  return { 
+    subtitle_id: subtitle.subtitle_id, 
+    lightning: isLightning, 
+    metadata: subtitle 
+  }
 }
 
-export const getSubtitle = async (hash) => {
-  const filename = `${hash}.srt`
+export const getSubtitle = async (oss_id) => {
+  const filename = `${oss_id}.srt`
   return await storage.get(filename)
 }
 
-export const deleteSubtitle = async (hash) => {
-  const filename = `${hash}.srt`
-  await storage.delete(filename)
-  await remove(hash)
+export const deleteSubtitle = async (subtitle_id) => {
+  const subtitle = findById(subtitle_id)
+  if (!subtitle) return
+  
+  // Decrement OSS file reference
+  const ossResult = ossModel.decrementRef(subtitle.oss_id)
+  
+  // If no more references, delete physical file
+  if (ossResult.shouldDelete) {
+    const filename = `${subtitle.oss_id}.srt`
+    await storage.delete(filename)
+    ossModel.remove(subtitle.oss_id)
+  }
+  
+  // Remove subtitle record
+  remove(subtitle_id)
 }
 ```
 
-## API Endpoints
+## Upload Flow (Updated Architecture)
+
+1. **File Upload**: POST `/api/subtitles/upload`
+2. **Hash Computation**: SHA256 of file content → oss_id
+3. **Duplicate Check**: Check for exact metadata match (filename + movie + language + oss_id)
+4. **Auto-Detection**: Parse movie name from filename, detect language from content
+5. **Storage Decision**:
+   - **Exact duplicate**: Reuse existing subtitle record (true lightning)
+   - **Same content, different metadata**: Create new subtitle record, reuse OSS file
+   - **New content**: Create both OSS file and subtitle record
+6. **Response**: Return subtitle_id and lightning status
 
 ## Auto-Detection Features
 
@@ -162,6 +247,24 @@ Parses common subtitle filename patterns to extract movie information:
 ```
 
 ### Language Detection (from content)
+
+#### Problem: Franc Library Explosion
+Original per-line detection returned 98+ languages for English subtitles.
+
+#### Solution: Frequency-Based Algorithm
+1. **Process all lines**: Detect language for each text line
+2. **Count frequencies**: Build histogram of detected languages  
+3. **Top language**: Always include most frequent
+4. **90% threshold**: Include secondary only if count ≥ 90% of top
+5. **Franc mapping**: Convert 3-letter codes (cmn→zh, eng→en)
+
+```javascript
+// Example results:
+// eng: 754 lines (24.5%)
+// sco: 410 lines (13.3%) → 13.3/24.5 = 54.3% < 90% → exclude
+// Result: ["en"]
+```
+
 Uses the **franc** library for highly accurate language detection:
 - **Industry-standard accuracy**: Supports 400+ languages with statistical analysis
 - **N-gram based**: Advanced pattern recognition using trigrams
@@ -205,20 +308,14 @@ Upload subtitle with auto-detection and lightning deduplication.
 **Response:**
 ```js
 {
-  subtitle_id: "abc123...",
-  lightning: true/false,  // true = existing file
-  metadata: { movie_name, language, duration, filename, auto_detected: {...} },
+  subtitle_id: "sub_175324998459_7rdkklck",  // Unique subtitle ID
+  lightning: true/false,  // true = exact duplicate or content reuse
+  metadata: { movie_name, language, duration, filename, oss_id, created_at, updated_at },
   suggestions: {
     movie_name: "The Matrix",
     language: {
-      from_filename: "en",
-      from_content: {
-        language: "en", 
-        confidence: 0.95,
-        detected_as: "English"
-      }
-    },
-    year: 1999
+      from_content: ["en"]  // Frequency-based detection result
+    }
   }
 }
 ```
@@ -234,11 +331,15 @@ Analyze subtitle file without uploading (get detection suggestions).
 {
   filename: "movie.en.srt",
   hash: "abc123...",
-  existing: { movie_name, language, ref_count } || null,
+  existing_files: 2,  // Number of subtitle records using this content
+  existing_samples: [
+    { movie_name: "Movie Title", language: "en", filename: "movie.en.srt" },
+    { movie_name: "Movie Title", language: "zh", filename: "movie.zh.srt" }
+  ],
   suggestions: {
-    movie_name: "Movie Title",
-    language: { from_filename: "en", from_content: {...} },
-    year: 2023
+    language: {
+      from_content: ["en"]  // Frequency-based detection result
+    }
   }
 }
 ```
@@ -247,25 +348,46 @@ Analyze subtitle file without uploading (get detection suggestions).
 
 ```js
 // modules/subtitle/data.js
-export const create = (data) => {
-  return db.prepare(`
-    INSERT INTO subtitles VALUES (?, ?, ?, ?, ?, ?, ?)
+const generateId = () => {
+  return `sub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+}
+
+export const create = (subtitleData) => {
+  const subtitle = {
+    subtitle_id: generateId(),
+    filename: subtitleData.filename,
+    movie_name: subtitleData.movie_name,
+    language: subtitleData.language,
+    duration: subtitleData.duration,
+    oss_id: subtitleData.oss_id,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  }
+  
+  db.prepare(`
+    INSERT INTO subtitles VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    data.subtitle_id, data.filename, data.movie_name,
-    data.language, data.duration, data.ref_count, data.first_uploaded
+    subtitle.subtitle_id, subtitle.filename, subtitle.movie_name,
+    subtitle.language, subtitle.duration, subtitle.oss_id,
+    subtitle.created_at, subtitle.updated_at
   )
+  
+  return subtitle
 }
 
-export const findByHash = (hash) => {
-  return db.prepare('SELECT * FROM subtitles WHERE subtitle_id = ?').get(hash)
+export const findById = (subtitle_id) => {
+  return db.prepare('SELECT * FROM subtitles WHERE subtitle_id = ?').get(subtitle_id)
 }
 
-export const incrementRef = (hash) => {
-  return db.prepare('UPDATE subtitles SET ref_count = ref_count + 1 WHERE subtitle_id = ?').run(hash)
+export const findByOssId = (oss_id) => {
+  return db.prepare('SELECT * FROM subtitles WHERE oss_id = ?').all(oss_id)
 }
 
-export const decrementRef = (hash) => {
-  return db.prepare('UPDATE subtitles SET ref_count = ref_count - 1 WHERE subtitle_id = ?').run(hash)
+export const findDuplicate = (filename, movie_name, language, oss_id) => {
+  return db.prepare(`
+    SELECT * FROM subtitles 
+    WHERE filename = ? AND movie_name = ? AND language = ? AND oss_id = ?
+  `).get(filename, movie_name, language, oss_id)
 }
 ```
 

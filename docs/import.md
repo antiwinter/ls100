@@ -1,94 +1,75 @@
-# Import System
+# Global Import System ✅ IMPLEMENTED
 
-## GlobalImport Component
+## Overview
+Universal file upload system that automatically detects content type and creates appropriate shards.
 
-Universal file import handler that automatically detects content type and routes to appropriate shard processor.
+## Implementation Status
 
-### File Location
-```
-client/src/components/GlobalImport.jsx
-```
+### GlobalImport Component ✅
+**Location**: `client/src/components/GlobalImport.jsx`
 
-### Component Interface
+**Features Implemented**:
+- ✅ Drag-and-drop file upload
+- ✅ File type detection using registered shard detectors  
+- ✅ Detection results display with confidence scores
+- ✅ Metadata preview (movie name, language, year)
+- ✅ Upload progress indication
+- ✅ Error handling and user feedback
+
+### Detection Registry ✅
+Currently supports:
+- **Subtitle Detection**: `.srt`, `.vtt`, `.ass` files + content pattern matching
+- **Movie Info Parsing**: Filename analysis for movie name, year, language
+- **Confidence Scoring**: Extension-based (90%) vs content-based (70%)
+
+### Usage Flow ✅
+1. **File Selection**: User drops file or clicks to browse
+2. **Detection**: Run registered detectors (currently subtitle detector)
+3. **Results Display**: Show detected type, confidence, and parsed metadata
+4. **User Review**: User can see extracted movie name, language, year
+5. **Upload**: Click "Create Shard" to upload and create shard record
+6. **Completion**: Shard appears in home library, ready to open
+
+## Integration Points
+
+### HeaderToolbar Integration ✅
+- Import button in top-right corner
+- Opens GlobalImport modal overlay
+- Closes on successful upload or cancel
+
+### Shard Creation Flow ✅
+1. GlobalImport detects content type
+2. Calls appropriate shard processor (e.g., `SubtitleShard.createShard`)
+3. Processor handles upload + shard creation
+4. Returns to home with new shard visible
+
+## Future Extensibility
+
+### Adding New Shard Types
+To add new content types:
+
+1. **Create shard detector**:
 ```javascript
-// GlobalImport.jsx
-export const GlobalImport = ({ onComplete }) => {
-  const [uploading, setUploading] = useState(false)
-  const [detected, setDetected] = useState(null)
-  
-  const handleFileUpload = async (file) => {
-    setUploading(true)
-    
-    // 1. Run all shard detectors
-    const results = await runDetectors(file)
-    
-    // 2. Pick highest confidence match
-    const winner = results.sort((a, b) => b.confidence - a.confidence)[0]
-    
-    // 3. Use winning shard's processor
-    if (winner.confidence > 0.5) {
-      const shard = await winner.processor.createShard(file, user)
-      onComplete(shard)
-    }
-    
-    setUploading(false)
-  }
-  
-  return (
-    <Box>
-      {/* File drop zone */}
-      {/* Upload progress */}
-      {/* Detection results */}
-    </Box>
-  )
-}
+// In your-shard/YourShard.js
+export const detect = (filename, buffer) => ({
+  match: /\.(pdf|epub)$/i.test(filename),
+  confidence: 0.9,
+  metadata: { title: 'Extracted Title', pages: 200 }
+})
 ```
 
-### Detection Registry
+2. **Register in GlobalImport**:
 ```javascript
-// Import all shard detectors
-import * as subtitle from '../shards/subtitle'
-// import * as deck from '../shards/deck' (future)
-// import * as book from '../shards/book' (future)
+import { detect as detectSubtitle } from '../shards/subtitle'
+import { detect as detectBook } from '../shards/book'
 
 const detectors = [
-  { name: 'subtitle', ...subtitle },
-  // { name: 'deck', ...deck },
-  // { name: 'book', ...book }
+  { name: 'subtitle', detect: detectSubtitle, processor: SubtitleShard },
+  { name: 'book', detect: detectBook, processor: BookShard }
 ]
-
-export const runDetectors = async (file) => {
-  const buffer = await file.arrayBuffer()
-  
-  return detectors.map(d => ({
-    name: d.name,
-    processor: d,
-    ...d.detect(file.name, buffer)
-  }))
-}
 ```
 
-### Usage Flow
-```
-1. User drops/selects file → GlobalImport.jsx
-2. runDetectors() calls all shard type detectors
-3. Highest confidence detector wins (>0.5 threshold)
-4. Winner's createShard() processes the file
-5. onComplete() callback with created shard
-6. Navigate to appropriate reader
-```
-
-### Error Handling
-```javascript
-// Handle detection failures
-if (winner.confidence < 0.5) {
-  // Show "unsupported file type" message
-  // Allow manual type selection
-}
-
-// Handle upload failures  
-catch (error) {
-  // Show error message
-  // Allow retry
-}
-``` 
+The system will automatically:
+- Run all detectors on uploaded files
+- Show results for matching types
+- Use appropriate processor for shard creation 
