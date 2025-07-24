@@ -1,10 +1,11 @@
 import { runMigrations, db } from '../utils/dbc.js'
 import * as subtitleModel from '../modules/subtitle/data.js'
 import { computeHash, parseSrt, uploadSubtitle, getSubtitle } from '../modules/subtitle/storage.js'
-import { parseMovieInfo, detectLang } from '../modules/subtitle/detect.js'
 import fs from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
+
+// Note: parseMovieInfo and detectLang moved to frontend
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -192,61 +193,7 @@ try {
   // Test 12: Auto-detection features
   console.log('\n12. Testing auto-detection features...')
   
-  // Test filename parsing
-  const testFilenames = [
-    'The.Matrix.1999.720p.BluRay.x264-SPARKS.en.srt',
-    '[Group] Inception (2010) [1080p].zh-CN.srt',
-    'Interstellar.2014.WEBRip.x264.es.srt'
-  ]
-  
-  for (const filename of testFilenames) {
-    const parsed = parseMovieInfo(filename)
-    console.log(`   📁 ${filename}`)
-    console.log(`      Movie: ${parsed.movieName}`)
-    console.log(`      Language: ${parsed.language}`)
-    console.log(`      Year: ${parsed.year}`)
-  }
-  
-  // Test language detection from content
-  const spanishContent = `1
-00:00:01,000 --> 00:00:04,000
-Hola, bienvenido a nuestra aplicación de aprendizaje de idiomas.
-
-2
-00:00:05,000 --> 00:00:08,000
-Este es un subtítulo de muestra para las pruebas.`
-
-  const chineseContent = `1
-00:00:01,000 --> 00:00:04,000
-你好，欢迎使用我们的语言学习应用程序。
-
-2
-00:00:05,000 --> 00:00:08,000
-这是用于测试的示例字幕。`
-
-  const dualLangContent = `1
-00:00:01,000 --> 00:00:04,000
-Hello, welcome to our app.
-你好，欢迎使用我们的应用程序。
-
-2
-00:00:05,000 --> 00:00:08,000
-This is a test subtitle.
-这是一个测试字幕。`
-
-  const langTests = [
-    { name: 'English', content: sampleSrtContent },
-    { name: 'Spanish', content: spanishContent },
-    { name: 'Chinese', content: chineseContent },
-    { name: 'Dual Language', content: dualLangContent }
-  ]
-
-  for (const test of langTests) {
-    const detected = detectLang(test.content)
-    console.log(`   🌐 ${test.name}: ${detected.join(', ')}`)
-  }
-
-  console.log('✅ Auto-detection features working correctly')
+  // Note: Filename parsing and language detection tests removed - now handled in frontend
 
   console.log('\n🎉 All subtitle module tests passed!')
 

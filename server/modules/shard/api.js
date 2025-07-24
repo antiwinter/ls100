@@ -24,7 +24,13 @@ router.get('/', requireAuth, async (req, res) => {
       shards = shardModel.findByOwnerWithProgress(req.userId, sort)
     }
     
-    res.json({ shards })
+    // Include subtitles data for each shard (needed for movie names in covers)
+    const shardsWithSubtitles = shards.map(shard => ({
+      ...shard,
+      subtitles: shardModel.getSubtitles(shard.id)
+    }))
+    
+    res.json({ shards: shardsWithSubtitles })
   } catch (error) {
     console.error('Get shards error:', error)
     res.status(500).json({ error: 'Failed to get shards' })

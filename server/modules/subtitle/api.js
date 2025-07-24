@@ -3,7 +3,6 @@ import multer from 'multer'
 import chalk from 'chalk'
 import * as subtitleModel from './data.js'
 import { uploadSubtitle, computeHash, getSubtitle } from './storage.js'
-import { detectLang } from './detect.js'
 import { requireAuth } from '../../utils/auth-middleware.js'
 
 const router = express.Router()
@@ -21,23 +20,14 @@ router.post('/upload', requireAuth, upload.single('subtitle'), async (req, res) 
       return res.status(400).json({ message: 'No subtitle file provided' })
     }
 
-    const { movie_name, language, auto_detect = true } = req.body
+    const { movie_name, language } = req.body
     const filename = req.file.originalname
-
-    // Auto-detect language from content
-    const content = req.file.buffer.toString('utf8')
-    const detectedLangs = detectLang(content)
     
-    // Prepare metadata with auto-detection fallbacks
+    // Prepare metadata (language detection now handled in frontend)
     const metadata = {
       movie_name: movie_name || 'Unknown Movie',
-      language: language || detectedLangs[0] || 'en',
-      filename: filename,
-      // Store auto-detection info for user review
-      auto_detected: {
-        detected_langs: detectedLangs,
-        used_auto_detection: !movie_name || !language
-      }
+      language: language || 'en', // Frontend should provide this
+      filename: filename
     }
 
     // Compute hash
@@ -54,18 +44,18 @@ router.post('/upload', requireAuth, upload.single('subtitle'), async (req, res) 
     const emoji = result.lightning ? '⚡' : '➕'
     const sizeKB = (req.file.buffer.length / 1024).toFixed(1)
     const hashDigest = hash.substring(0, 6)
-    const detectedLangsStr = detectedLangs.join(',')
+    const languageStr = metadata.language || 'unknown'
     
     console.log(
       `${emoji} ${chalk.green('imported')} ${metadata.movie_name} ` +
-      `${chalk.yellow(`[${detectedLangsStr}], ${sizeKB}KB, ${hashDigest}`)}`
+      `${chalk.yellow(`[${languageStr}], ${sizeKB}KB, ${hashDigest}`)}`
     )
     
     // Include detection suggestions in response
     result.suggestions = {
       movie_name: movie_name,
       language: {
-        from_content: detectedLangs
+        from_content: [metadata.language || 'en']
       }
     }
 
@@ -75,7 +65,7 @@ router.post('/upload', requireAuth, upload.single('subtitle'), async (req, res) 
   }
 })
 
-// Get detection suggestions for a file (without uploading)
+// Analyze file for duplicates (language detection now handled in frontend)
 router.post('/analyze', requireAuth, upload.single('subtitle'), async (req, res) => {
   try {
     if (!req.file) {
@@ -83,10 +73,6 @@ router.post('/analyze', requireAuth, upload.single('subtitle'), async (req, res)
     }
 
     const filename = req.file.originalname
-    const content = req.file.buffer.toString('utf8')
-    
-    // Detect language from content
-    const detectedLangs = detectLang(content)
     
     // Compute hash for duplicate check
     const hash = computeHash(req.file.buffer)
@@ -100,12 +86,7 @@ router.post('/analyze', requireAuth, upload.single('subtitle'), async (req, res)
         movie_name: f.movie_name,
         language: f.language,
         filename: f.filename
-      })),
-      suggestions: {
-        language: {
-          from_content: detectedLangs
-        }
-      }
+      }))
     })
   } catch (error) {
     res.status(500).json({ message: 'Analysis failed', error: error.message })
