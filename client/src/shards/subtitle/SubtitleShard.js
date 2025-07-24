@@ -1,4 +1,7 @@
 import { apiCall } from "../../config/api";
+import { detectLanguageWithConfidence } from "../../utils/languageDetection";
+import { SubtitleShardEditor } from "./SubtitleShardEditor.jsx";
+import { SubtitleReader } from "./SubtitleReader.jsx";
 
 // Content detector with confidence scoring
 export const detect = (filename, buffer) => {
@@ -12,6 +15,22 @@ export const detect = (filename, buffer) => {
 
   // Extract movie info for metadata
   const metadata = parseMovieInfo(filename);
+
+  // For subtitle files, also detect language from content
+  if (hasExt || hasPattern) {
+    try {
+      const langDetection = detectLanguageWithConfidence(content);
+      
+      // Enhance metadata with detected language (overrides filename-based detection)
+      metadata.language = langDetection.language;
+      metadata.languageConfidence = langDetection.confidence;
+      metadata.textLinesCount = langDetection.textLinesCount;
+    } catch (langError) {
+      console.warn('Language detection failed:', langError);
+      // Keep filename-based language detection as fallback
+      metadata.languageConfidence = 0.3;
+    }
+  }
 
   return {
     match: hasExt || hasPattern,
@@ -213,6 +232,35 @@ export const generateCover = (title, identifier = '') => {
     textColor: textColor
   };
 };
+
+// Generate cover from shard data - subtitle engine knows how to extract relevant info
+export const generateCoverFromShard = (shard) => {
+  // Subtitle engine knows: use movie_name from subtitles, fallback to shard name
+  const movieName = shard.subtitles?.[0]?.movie_name || shard.name;
+  const identifier = shard.id?.toString() || movieName;
+  
+  return generateCover(movieName, identifier);
+};
+
+// Get suggested shard name from detected info
+export const getSuggestedName = (detectedInfo) => {
+  // Subtitle engine knows how to extract movie name from metadata
+  return detectedInfo.metadata?.movieName || 
+         detectedInfo.metadata?.movie_name || 
+         detectedInfo.filename?.replace(/\.[^/.]+$/, '') || 
+         'Untitled Shard';
+};
+
+// Shard type metadata
+export const shardTypeInfo = {
+  name: 'subtitle',
+  displayName: 'Subtitle Shard',
+  color: '#4facfe'
+};
+
+// Engine components
+export const EditorComponent = SubtitleShardEditor;
+export const ReaderComponent = SubtitleReader;
 
 // Create shard with full flow
 export const createShard = async (file, user) => {

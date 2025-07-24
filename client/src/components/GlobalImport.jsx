@@ -9,7 +9,7 @@ import {
 } from '@mui/joy'
 import { CloudUpload } from '@mui/icons-material'
 import { useAuth } from '../context/AuthContext'
-import { detectLanguageWithConfidence } from '../utils/languageDetection'
+
 
 // Import all shard detectors
 import * as subtitle from '../shards/subtitle'
@@ -65,30 +65,6 @@ export const GlobalImport = ({ onConfigure, onCancel }) => {
         setError('Unsupported file type')
         setProcessing(false)
         return
-      }
-      
-      // If we detected a subtitle file, also detect language from content
-      if (winner?.name === 'subtitle') {
-        try {
-          const content = new TextDecoder('utf-8').decode(buffer)
-          const langDetection = detectLanguageWithConfidence(content)
-          
-          // Enhance metadata with detected language
-          winner.metadata = {
-            ...winner.metadata,
-            language: langDetection.language,
-            languageConfidence: langDetection.confidence,
-            textLinesCount: langDetection.textLinesCount
-          }
-        } catch (langError) {
-          console.warn('Language detection failed:', langError)
-          // Fallback to English
-          winner.metadata = {
-            ...winner.metadata,
-            language: 'en',
-            languageConfidence: 0.3
-          }
-        }
       }
       
       // Automatically proceed to configuration

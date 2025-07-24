@@ -3,21 +3,22 @@ import { useNavigate } from 'react-router-dom'
 import { 
   Box, 
   Stack,
-  Button
+  Button,
+  Typography
 } from '@mui/joy'
 import { GlobalImport } from '../components/GlobalImport'
 import { BrowserToolbar } from '../components/BrowserToolbar'
 import { BrowserEditBar } from '../components/BrowserEditBar'
 import { ShardBrowser } from '../components/ShardBrowser'
 import { AppDialog } from '../components/AppDialog'
-import { SubtitleReader } from '../shards/subtitle'
 import { apiCall } from '../config/api'
+import { getReaderComponent } from '../shards/engines.js'
 
 export const Home = ({ onEditModeChange }) => {
   const navigate = useNavigate()
   const [shards, setShards] = useState([])
   const [showImport, setShowImport] = useState(false)
-  const [readerShardId, setReaderShardId] = useState(null)
+  const [readerShard, setReaderShard] = useState(null)
   const [sortBy, setSortBy] = useState(() => {
     return localStorage.getItem('shard-sort') || 'last_used'
   })
@@ -72,11 +73,12 @@ export const Home = ({ onEditModeChange }) => {
 
 
   const handleOpenReader = (shardId) => {
-    setReaderShardId(shardId)
+    const shard = shards.find(s => s.id === shardId)
+    setReaderShard(shard)
   }
 
   const handleCloseReader = () => {
-    setReaderShardId(null)
+    setReaderShard(null)
   }
 
   // Selection handlers
@@ -157,10 +159,25 @@ export const Home = ({ onEditModeChange }) => {
   }
 
   // Show reader if shard selected
-  if (readerShardId) {
+  if (readerShard) {
+    const ReaderComponent = getReaderComponent(readerShard.type)
+    
+    if (!ReaderComponent) {
+      return (
+        <Box sx={{ p: 4, textAlign: 'center' }}>
+          <Typography level="h4" sx={{ mb: 2 }}>
+            No reader available for {readerShard.type} shards
+          </Typography>
+          <Button onClick={handleCloseReader}>
+            Back to Home
+          </Button>
+        </Box>
+      )
+    }
+    
     return (
-      <SubtitleReader 
-        shardId={readerShardId} 
+      <ReaderComponent 
+        shardId={readerShard.id} 
         onBack={handleCloseReader}
       />
     )

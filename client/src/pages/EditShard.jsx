@@ -12,9 +12,14 @@ import {
   Link
 } from '@mui/joy'
 import { ArrowBack, Upload, Link as LinkIcon } from '@mui/icons-material'
-import { SubtitleShardEditor, shardTypeInfo as subtitleTypeInfo, createShard as createSubtitleShard, generateCover } from '../shards/subtitle'
 import { AppDialog } from '../components/AppDialog'
 import { apiCall } from '../config/api'
+import { 
+  getSuggestedName, 
+  getShardTypeInfo, 
+  createShard, 
+  getEditorComponent 
+} from '../shards/engines.js'
 
 export const EditShard = () => {
   const navigate = useNavigate()
@@ -39,11 +44,8 @@ export const EditShard = () => {
     if (mode === 'create' && detectedInfo) {
 
       
-      // Use movie name from metadata (note: parseMovieInfo returns 'movieName' not 'movie_name')
-      const defaultName = detectedInfo.metadata?.movieName || 
-                          detectedInfo.metadata?.movie_name || 
-                          detectedInfo.filename?.replace(/\.[^/.]+$/, '') || 
-                          'Untitled Shard'
+      // Use engine-specific suggested name
+      const defaultName = getSuggestedName(detectedInfo)
       
       
       setFormData({
@@ -69,14 +71,8 @@ export const EditShard = () => {
 
       
       if (mode === 'create' && detectedInfo) {
-        
-        let shard
-        if (detectedInfo.shardType === 'subtitle') {
-          
-          shard = await createSubtitleShard(detectedInfo.file, {})
-        } else {
-          throw new Error(`Unknown shard type: ${detectedInfo.shardType}`)
-        }
+        // Create new shard with engine-specific logic
+        const shard = await createShard(detectedInfo)
         
         // Update shard with user-configured data
         const updateData = {
@@ -120,17 +116,17 @@ export const EditShard = () => {
     navigate('/')
   }
 
-  const getShardTypeInfo = () => {
-    // For now, handle subtitle type, can be extended for other types
-    if (mode === 'create' && detectedInfo?.shardType === 'subtitle') {
-      return subtitleTypeInfo
-    } else if (mode === 'edit' && shardData?.type === 'subtitle') {
-      return subtitleTypeInfo
+  const getShardTypeDisplayInfo = () => {
+    // Get type info based on detected type or existing shard
+    if (mode === 'create' && detectedInfo) {
+      return getShardTypeInfo(detectedInfo.shardType)
+    } else if (mode === 'edit' && shardData) {
+      return getShardTypeInfo(shardData.type)
     }
     return { displayName: 'Unknown', color: '#666' }
   }
 
-  const shardTypeInfo = getShardTypeInfo()
+  const shardTypeInfo = getShardTypeDisplayInfo()
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.body' }}>
@@ -220,15 +216,28 @@ export const EditShard = () => {
 
           {/* Shard-Specific Configuration */}
           <Box>
-            {(detectedInfo?.shardType === 'subtitle' || shardData?.type === 'subtitle') && (
-              <SubtitleShardEditor
-                mode={mode}
-                shardData={shardData}
-                detectedInfo={detectedInfo}
-                onChange={setShardSpecificData}
-                onCoverClick={() => setShowCoverDialog(true)}
-              />
-            )}
+            {(() => {
+              const shardType = mode === 'create' ? detectedInfo?.shardType : shardData?.type
+              const EditorComponent = getEditorComponent(shardType)
+              
+              if (!EditorComponent) {
+                return (
+                  <Typography level="body-sm" color="warning">
+                    No editor available for {shardType} shards
+                  </Typography>
+                )
+              }
+              
+              return (
+                <EditorComponent
+                  mode={mode}
+                  shardData={shardData}
+                  detectedInfo={detectedInfo}
+                  onChange={setShardSpecificData}
+                  onCoverClick={() => setShowCoverDialog(true)}
+                />
+              )
+            })()}
           </Box>
         </Stack>
       </Box>

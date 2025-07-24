@@ -6,7 +6,7 @@ import {
   IconButton
 } from '@mui/joy'
 import { CheckCircle, RadioButtonUnchecked, Add } from '@mui/icons-material'
-import { generateCover } from '../shards/subtitle/SubtitleShard.js'
+import { generateCoverFromShard } from '../shards/engines.js'
 
 export const ShardBrowser = ({ shards, onOpenShard, editing, selected = [], onToggleSelect, onImport }) => {
   if (shards.length === 0) {
@@ -114,9 +114,8 @@ export const ShardBrowser = ({ shards, onOpenShard, editing, selected = [], onTo
                     if (shard.cover_url) {
                       return '#f0f0f0'
                     }
-                    // Otherwise use dynamic generation with movie name
-                    const movieName = shard.subtitles?.[0]?.movie_name || shard.name
-                    const dynamicCover = generateCover(movieName, shard.id?.toString() || movieName)
+                    // Otherwise use dynamic generation via shard engine
+                    const dynamicCover = generateCoverFromShard(shard)
                     return dynamicCover.background
                   })(),
                   display: 'flex',
@@ -168,8 +167,6 @@ export const ShardBrowser = ({ shards, onOpenShard, editing, selected = [], onTo
                           onError={(e) => {
                             // Fallback to dynamic cover if image fails to load
                             e.target.style.display = 'none'
-                            const movieName = shard.subtitles?.[0]?.movie_name || shard.name
-                            const dynamicCover = generateCover(movieName, shard.id?.toString() || movieName)
                             const fallbackElement = e.target.nextSibling
                             if (fallbackElement) {
                               fallbackElement.style.display = 'flex'
@@ -179,9 +176,8 @@ export const ShardBrowser = ({ shards, onOpenShard, editing, selected = [], onTo
                       )
                     }
                     
-                    // Use dynamic generation with movie name
-                    const movieName = shard.subtitles?.[0]?.movie_name || shard.name
-                    const dynamicCover = generateCover(movieName, shard.id?.toString() || movieName)
+                    // Use dynamic generation via shard engine
+                    const dynamicCover = generateCoverFromShard(shard)
                     
                     if (dynamicCover.formattedText && dynamicCover.formattedText.lines) {
                       return dynamicCover.formattedText.lines.map((line, index) => (
@@ -213,7 +209,7 @@ export const ShardBrowser = ({ shards, onOpenShard, editing, selected = [], onTo
                         textShadow: '0 1px 2px rgba(0,0,0,0.7)',
                         letterSpacing: '0.5px'
                       }}>
-                        {movieName.toUpperCase()}
+                        {(dynamicCover.title || shard.name).toUpperCase()}
                       </Box>
                     )
                   })()}
