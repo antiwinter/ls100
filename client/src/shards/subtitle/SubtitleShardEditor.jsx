@@ -7,11 +7,79 @@ import {
   Chip, 
   Card,
   Switch,
-  Input
+  Input,
+  IconButton,
+  Modal,
+  ModalDialog,
+  DialogTitle,
+  DialogContent
 } from '@mui/joy'
-import { Add, Upload, Link as LinkIcon } from '@mui/icons-material'
+import { Add, Upload, Link as LinkIcon, Close } from '@mui/icons-material'
 import { detectLanguageWithConfidence } from '../../utils/languageDetection'
-import { generateCover } from './SubtitleShard.js'
+import { generateCover, detect as detectSubtitle } from './SubtitleShard.js'
+
+// Component for filename display with CSS ellipsis and long press tooltip
+const TruncatedFilename = ({ filename, isEnabled, onLongPress, onShortPress }) => {
+  const [isPressed, setIsPressed] = useState(false)
+  const pressTimerRef = useRef(null)
+  const longPressThreshold = 500 // 500ms for long press
+  const isLongPressRef = useRef(false)
+
+  const handlePressStart = (e) => {
+    e.preventDefault() // Prevent text selection
+    e.stopPropagation() // Stop event bubbling
+    setIsPressed(true)
+    isLongPressRef.current = false
+    
+    pressTimerRef.current = setTimeout(() => {
+      isLongPressRef.current = true
+      onLongPress(filename)
+      setIsPressed(false)
+    }, longPressThreshold)
+  }
+
+  const handlePressEnd = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    if (pressTimerRef.current) {
+      clearTimeout(pressTimerRef.current)
+      pressTimerRef.current = null
+    }
+    
+    // If it wasn't a long press, trigger short press
+    if (!isLongPressRef.current) {
+      onShortPress()
+    }
+    
+    setIsPressed(false)
+  }
+
+  return (
+    <Typography 
+      level="body-sm" 
+      sx={{ 
+        flex: 1,
+        color: isEnabled ? 'text.primary' : 'text.secondary',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        userSelect: 'none',
+        cursor: 'pointer',
+        opacity: isPressed ? 0.7 : 1,
+        transition: 'opacity 0.1s ease'
+      }}
+      onMouseDown={handlePressStart}
+      onMouseUp={handlePressEnd}
+      onMouseLeave={handlePressEnd}
+      onTouchStart={handlePressStart}
+      onTouchEnd={handlePressEnd}
+      title={filename} // Fallback tooltip for desktop
+    >
+      {filename}
+    </Typography>
+  )
+}
 
 export const SubtitleShardEditor = ({ 
   mode = 'create', 
@@ -29,7 +97,10 @@ export const SubtitleShardEditor = ({
     if (mode === 'create' && detectedInfo?.metadata?.language) {
       return [{ code: detectedInfo.metadata.language, enabled: true }]
     } else if (mode === 'edit' && shardData?.languages) {
-      return shardData.languages.map(lang => ({ code: lang, enabled: true }))
+      return shardData.languages.map((lang, index) => ({ 
+        code: lang, 
+        enabled: index === 0 // Only first language is enabled (learning language)
+      }))
     }
     return [{ code: 'en', enabled: true }] // fallback
   }
@@ -40,10 +111,32 @@ export const SubtitleShardEditor = ({
     url: '',
     file: null
   })
+  const [errorDialog, setErrorDialog] = useState({ open: false, message: '' })
+  const [tooltipDialog, setTooltipDialog] = useState({ open: false, filename: '' })
+
+  const handleLongPress = (filename) => {
+    setTooltipDialog({ open: true, filename })
+  }
 
   const handleLanguageToggle = (index) => {
-    const newLanguages = [...languages]
-    newLanguages[index].enabled = !newLanguages[index].enabled
+    const newLanguages = languages.map((lang, i) => ({
+      ...lang,
+      enabled: i === index // Single selection: only the clicked one is enabled
+    }))
+    setLanguages(newLanguages)
+    // Only pass cover data if user has configured custom cover
+    const coverToSave = coverData.type === 'generated' ? null : coverData
+    onChange?.({ languages: newLanguages, cover: coverToSave })
+  }
+
+  const handleLanguageDelete = (index) => {
+    if (languages.length <= 1) return // Don't allow deleting the last language
+    
+    const newLanguages = languages.filter((_, i) => i !== index)
+    // If we deleted the enabled language, enable the first one
+    if (languages[index].enabled && newLanguages.length > 0) {
+      newLanguages[0].enabled = true
+    }
     setLanguages(newLanguages)
     // Only pass cover data if user has configured custom cover
     const coverToSave = coverData.type === 'generated' ? null : coverData
@@ -59,24 +152,54 @@ export const SubtitleShardEditor = ({
     if (!file) return
 
     try {
+      // First, check if the file is a valid subtitle file
+      const buffer = await file.arrayBuffer()
+      const detectionResult = detectSubtitle(file.name, buffer)
+      
+      if (!detectionResult.match || detectionResult.confidence < 0.5) {
+        setErrorDialog({ 
+          open: true, 
+          message: 'The selected file is not a valid subtitle file. Please select a subtitle file (.srt, .vtt, .ass, etc.)' 
+        })
+        return
+      }
+
       // Auto-detect language from the file content
-      const content = await file.text()
+      const content = new TextDecoder('utf-8').decode(buffer)
       const langDetection = detectLanguageWithConfidence(content)
       
       // Check if this language is already in the list
       const existingLang = languages.find(lang => lang.code === langDetection.language)
       if (existingLang) {
-
+        setErrorDialog({ 
+          open: true, 
+          message: `${langDetection.language.toUpperCase()} language is already added to this shard.` 
+        })
         return
       }
       
-      const newLanguages = [...languages, { code: langDetection.language, enabled: true }]
+      // Only enable new language if no languages are currently enabled
+      const hasEnabledLanguage = languages.some(lang => lang.enabled)
+      const newLanguages = [...languages, { 
+        code: langDetection.language, 
+        enabled: !hasEnabledLanguage, // Only enable if no other language is enabled
+        filename: file.name // Store filename for display
+      }]
       setLanguages(newLanguages)
       // Only pass cover data if user has configured custom cover
       const coverToSave = coverData.type === 'generated' ? null : coverData
       onChange?.({ languages: newLanguages, cover: coverToSave })
     } catch (error) {
       console.error('Failed to process language file:', error)
+      setErrorDialog({ 
+        open: true, 
+        message: 'Failed to process the selected file. Please try again.' 
+      })
+    } finally {
+      // Clear the file input to allow selecting the same file again if needed
+      if (e.target) {
+        e.target.value = ''
+      }
     }
   }
 
@@ -141,39 +264,77 @@ export const SubtitleShardEditor = ({
           Subtitles
         </Typography>
         <Stack spacing={1}>
-          {languages.map((lang, index) => (
-            <Box
-              key={index}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                p: 1,
-                border: '1px solid',
-                borderColor: lang.enabled ? 'primary.200' : 'neutral.300',
-                borderRadius: 8,
-                bgcolor: lang.enabled ? 'primary.50' : 'neutral.50',
-                opacity: lang.enabled ? 1 : 0.6
-              }}
-            >
-              <Chip
-                variant={lang.enabled ? 'solid' : 'outlined'}
-                color={lang.enabled ? 'primary' : 'neutral'}
-                size="sm"
-                onClick={() => handleLanguageToggle(index)}
-                sx={{ 
-                  cursor: 'pointer',
-                  minWidth: 40,
-                  '&:hover': { opacity: 0.8 }
+          {languages.map((lang, index) => {
+            const filename = index === 0 && detectedInfo?.filename 
+              ? detectedInfo.filename 
+              : lang.filename || `Additional ${lang.code.toUpperCase()} subtitle file`
+            
+            return (
+              <Box
+                key={index}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  p: 1,
+                  border: '1px solid',
+                  borderColor: lang.enabled ? 'primary.200' : 'neutral.300',
+                  borderRadius: 8,
+                  bgcolor: lang.enabled ? 'primary.50' : 'neutral.50',
+                  opacity: lang.enabled ? 1 : 0.6,
+                  position: 'relative'
                 }}
               >
-                {lang.code.toUpperCase()}
-              </Chip>
-              <Typography level="body-sm" sx={{ flex: 1, color: lang.enabled ? 'text.primary' : 'text.secondary' }}>
-                {index === 0 && detectedInfo?.filename ? detectedInfo.filename : `Additional ${lang.code.toUpperCase()} subtitle file`}
-              </Typography>
-            </Box>
-          ))}
+                                 <Chip
+                   variant={lang.enabled ? 'solid' : 'outlined'}
+                   color={lang.enabled ? 'primary' : 'neutral'}
+                   size="sm"
+                   sx={{ 
+                     minWidth: 40,
+                     display: 'flex',
+                     justifyContent: 'center',
+                     alignItems: 'center',
+                     textAlign: 'center',
+                     '& .MuiChip-label': {
+                       display: 'flex',
+                       justifyContent: 'center',
+                       alignItems: 'center',
+                       width: '100%'
+                     }
+                   }}
+                 >
+                  {lang.code.toUpperCase()}
+                </Chip>
+                
+                                 <TruncatedFilename 
+                   filename={filename}
+                   isEnabled={lang.enabled}
+                   onLongPress={handleLongPress}
+                   onShortPress={() => handleLanguageToggle(index)}
+                 />
+                
+                {/* Delete button - only show when there are multiple languages */}
+                {languages.length > 1 && (
+                  <IconButton
+                    size="sm"
+                    variant="plain"
+                    color="neutral"
+                    onClick={() => handleLanguageDelete(index)}
+                    sx={{
+                      minWidth: 32,
+                      minHeight: 32,
+                      '&:hover': { 
+                        bgcolor: 'danger.100',
+                        color: 'danger.500'
+                      }
+                    }}
+                  >
+                    <Close fontSize="small" />
+                  </IconButton>
+                )}
+              </Box>
+            )
+          })}
           
           {/* Add Language Button */}
           <Box
@@ -196,7 +357,7 @@ export const SubtitleShardEditor = ({
           </Box>
         </Stack>
         <Typography level="body-xs" sx={{ mt: 1, color: 'text.tertiary' }}>
-          You can always add other languages to this shard later
+          Tap to select learning language. Long press filename to view full name.
         </Typography>
         
         {/* Hidden file input for language files */}
@@ -342,6 +503,54 @@ export const SubtitleShardEditor = ({
           </Box>
         </Stack>
       </Box>
+      
+      {/* Error Dialog */}
+      <Modal open={errorDialog.open} onClose={() => setErrorDialog({ open: false, message: '' })}>
+        <ModalDialog variant="outlined" role="alertdialog">
+          <DialogTitle>Error</DialogTitle>
+          <DialogContent>
+            {errorDialog.message}
+          </DialogContent>
+          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', pt: 2 }}>
+            <Button 
+              variant="solid" 
+              color="primary" 
+              onClick={() => setErrorDialog({ open: false, message: '' })}
+            >
+              OK
+            </Button>
+          </Box>
+        </ModalDialog>
+      </Modal>
+
+      {/* Filename Tooltip Dialog */}
+      <Modal open={tooltipDialog.open} onClose={() => setTooltipDialog({ open: false, filename: '' })}>
+        <ModalDialog variant="outlined" size="md">
+          <DialogTitle>Full Filename</DialogTitle>
+          <DialogContent>
+            <Typography 
+              level="body-sm" 
+              sx={{ 
+                wordBreak: 'break-all',
+                fontFamily: 'monospace',
+                fontSize: '0.875rem',
+                lineHeight: 1.5
+              }}
+            >
+              {tooltipDialog.filename}
+            </Typography>
+          </DialogContent>
+          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', pt: 2 }}>
+            <Button 
+              variant="outlined" 
+              color="neutral" 
+              onClick={() => setTooltipDialog({ open: false, filename: '' })}
+            >
+              Close
+            </Button>
+          </Box>
+        </ModalDialog>
+      </Modal>
     </Stack>
   )
 } 
