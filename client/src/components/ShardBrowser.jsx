@@ -6,6 +6,7 @@ import {
   IconButton
 } from '@mui/joy'
 import { CheckCircle, RadioButtonUnchecked, Add } from '@mui/icons-material'
+import { generateCover } from '../shards/subtitle/SubtitleShard.js'
 
 export const ShardBrowser = ({ shards, onOpenShard, editing, selected = [], onToggleSelect, onImport }) => {
   if (shards.length === 0) {
@@ -109,12 +110,14 @@ export const ShardBrowser = ({ shards, onOpenShard, editing, selected = [], onTo
                   height: 100, 
                   borderRadius: 8,
                   background: (() => {
-                    try {
-                      const cover = JSON.parse(shard.cover || '{}')
-                      return cover.background || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-                    } catch {
-                      return 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                    // If custom cover URL exists, use solid color background (image will overlay)
+                    if (shard.cover_url) {
+                      return '#f0f0f0'
                     }
+                    // Otherwise use dynamic generation with movie name
+                    const movieName = shard.subtitles?.[0]?.movie_name || shard.name
+                    const dynamicCover = generateCover(movieName, shard.id?.toString() || movieName)
+                    return dynamicCover.background
                   })(),
                   display: 'flex',
                   alignItems: 'center',
@@ -150,79 +153,69 @@ export const ShardBrowser = ({ shards, onOpenShard, editing, selected = [], onTo
                   }}
                 >
                   {(() => {
-                    // Function to calculate text color based on background brightness
-                    const getTextColor = (background) => {
-                      // Extract colors from gradient for brightness calculation
-                      const colorMatch = background.match(/#([a-f\d]{6})/gi)
-                      if (!colorMatch) return '#ffffff'
-                      
-                      // Use first color in gradient for calculation
-                      const hex = colorMatch[0].replace('#', '')
-                      const r = parseInt(hex.substr(0, 2), 16)
-                      const g = parseInt(hex.substr(2, 2), 16)
-                      const b = parseInt(hex.substr(4, 2), 16)
-                      
-                      // Calculate brightness (0-255)
-                      const brightness = (r * 299 + g * 587 + b * 114) / 1000
-                      
-                      // Return black for bright backgrounds, white for dark
-                      return brightness > 140 ? '#000000' : '#ffffff'
-                    }
-
-                    try {
-                      const cover = JSON.parse(shard.cover || '{}')
-                      const formattedText = cover.formattedText
-                      const background = cover.background || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-                      const textColor = getTextColor(background)
-                      
-                      if (formattedText && formattedText.lines) {
-                        return formattedText.lines.map((line, index) => (
-                          <Box
-                            key={index}
-                            sx={{
-                              fontSize: line.size === 'large' ? '16px' : 
-                                      line.size === 'medium' ? '13px' : '11px',
-                              fontWeight: 900,
-                              fontFamily: '"Inter", "Roboto", "Arial Black", sans-serif',
-                              lineHeight: 0.9,
-                              color: textColor,
-                              textShadow: textColor === '#ffffff' ? '0 1px 2px rgba(0,0,0,0.7)' : '0 1px 2px rgba(255,255,255,0.7)',
-                              mb: index < formattedText.lines.length - 1 ? 0.3 : 0,
-                              letterSpacing: '0.5px'
-                            }}
-                          >
-                            {line.text}
-                          </Box>
-                        ))
-                      }
-                      
-                      // Fallback for old covers
+                    // If custom cover URL exists, try to load it
+                    if (shard.cover_url) {
                       return (
-                        <Box sx={{ 
-                          fontSize: '14px', 
-                          fontWeight: 900,
-                          fontFamily: '"Inter", "Roboto", "Arial Black", sans-serif',
-                          color: textColor,
-                          textShadow: textColor === '#ffffff' ? '0 1px 2px rgba(0,0,0,0.7)' : '0 1px 2px rgba(255,255,255,0.7)',
-                          letterSpacing: '0.5px'
-                        }}>
-                          {(cover.title || shard.name).toUpperCase()}
-                        </Box>
-                      )
-                    } catch {
-                      return (
-                        <Box sx={{ 
-                          fontSize: '14px', 
-                          fontWeight: 900,
-                          fontFamily: '"Inter", "Roboto", "Arial Black", sans-serif',
-                          color: '#ffffff',
-                          textShadow: '0 1px 2px rgba(0,0,0,0.7)',
-                          letterSpacing: '0.5px'
-                        }}>
-                          {shard.name.toUpperCase()}
-                        </Box>
+                        <img
+                          src={shard.cover_url}
+                          alt={`${shard.name} cover`}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            borderRadius: 8
+                          }}
+                          onError={(e) => {
+                            // Fallback to dynamic cover if image fails to load
+                            e.target.style.display = 'none'
+                            const movieName = shard.subtitles?.[0]?.movie_name || shard.name
+                            const dynamicCover = generateCover(movieName, shard.id?.toString() || movieName)
+                            const fallbackElement = e.target.nextSibling
+                            if (fallbackElement) {
+                              fallbackElement.style.display = 'flex'
+                            }
+                          }}
+                        />
                       )
                     }
+                    
+                    // Use dynamic generation with movie name
+                    const movieName = shard.subtitles?.[0]?.movie_name || shard.name
+                    const dynamicCover = generateCover(movieName, shard.id?.toString() || movieName)
+                    
+                    if (dynamicCover.formattedText && dynamicCover.formattedText.lines) {
+                      return dynamicCover.formattedText.lines.map((line, index) => (
+                        <Box
+                          key={index}
+                          sx={line.styles || {
+                            fontSize: '14px',
+                            fontWeight: 900,
+                            fontFamily: '"Inter", "Roboto", "Arial Black", sans-serif',
+                            lineHeight: 0.9,
+                            color: dynamicCover.textColor || '#ffffff',
+                            textShadow: '0 1px 2px rgba(0,0,0,0.7)',
+                            mb: index < dynamicCover.formattedText.lines.length - 1 ? 0.3 : 0,
+                            letterSpacing: '0.5px'
+                          }}
+                        >
+                          {line.text}
+                        </Box>
+                      ))
+                    }
+                    
+                    // Fallback
+                    return (
+                      <Box sx={{ 
+                        fontSize: '14px', 
+                        fontWeight: 900,
+                        fontFamily: '"Inter", "Roboto", "Arial Black", sans-serif',
+                        color: dynamicCover.textColor || '#ffffff',
+                        textShadow: '0 1px 2px rgba(0,0,0,0.7)',
+                        letterSpacing: '0.5px'
+                      }}>
+                        {movieName.toUpperCase()}
+                      </Box>
+                    )
                   })()}
                 </Box>
               </Box>

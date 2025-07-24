@@ -5,11 +5,11 @@ import {
   Typography, 
   Card,
   LinearProgress,
-  Stack,
   Alert
 } from '@mui/joy'
-import { CloudUpload, CheckCircle, Error } from '@mui/icons-material'
+import { CloudUpload } from '@mui/icons-material'
 import { useAuth } from '../context/AuthContext'
+import { detectLanguageWithConfidence } from '../utils/languageDetection'
 
 // Import all shard detectors
 import * as subtitle from '../shards/subtitle'
@@ -22,17 +22,17 @@ const detectors = [
   // Future: { name: 'book', ...book }
 ]
 
-export const GlobalImport = ({ onComplete, onCancel }) => {
+export const GlobalImport = ({ onConfigure, onCancel }) => {
   const { user } = useAuth()
   const [file, setFile] = useState(null)
-  const [uploading, setUploading] = useState(false)
-  const [detected, setDetected] = useState(null)
   const [error, setError] = useState(null)
+  const [processing, setProcessing] = useState(false)
 
   const handleFileSelect = (e) => {
     const selectedFile = e.target.files?.[0]
     if (selectedFile) {
       setFile(selectedFile)
+      setProcessing(true)
       detectType(selectedFile)
     }
   }
@@ -42,6 +42,7 @@ export const GlobalImport = ({ onComplete, onCancel }) => {
     const droppedFile = e.dataTransfer.files?.[0]
     if (droppedFile) {
       setFile(droppedFile)
+      setProcessing(true)
       detectType(droppedFile)
     }
   }
@@ -60,50 +61,67 @@ export const GlobalImport = ({ onComplete, onCancel }) => {
       // Pick highest confidence match
       const winner = results.sort((a, b) => b.confidence - a.confidence)[0]
       
-      setDetected(winner)
-      setError(null)
+      if (!winner?.match || winner.confidence < 0.5) {
+        setError('Unsupported file type')
+        setProcessing(false)
+        return
+      }
+      
+      // If we detected a subtitle file, also detect language from content
+      if (winner?.name === 'subtitle') {
+        try {
+          const content = new TextDecoder('utf-8').decode(buffer)
+          const langDetection = detectLanguageWithConfidence(content)
+          
+          // Enhance metadata with detected language
+          winner.metadata = {
+            ...winner.metadata,
+            language: langDetection.language,
+            languageConfidence: langDetection.confidence,
+            textLinesCount: langDetection.textLinesCount
+          }
+        } catch (langError) {
+          console.warn('Language detection failed:', langError)
+          // Fallback to English
+          winner.metadata = {
+            ...winner.metadata,
+            language: 'en',
+            languageConfidence: 0.3
+          }
+        }
+      }
+      
+      // Automatically proceed to configuration
+      const detectedInfo = {
+        file,
+        shardType: winner.name,
+        metadata: winner.metadata,
+        processor: winner.processor,
+        filename: file.name
+      }
+      
+
+      onConfigure?.(detectedInfo)
+      
     } catch (err) {
       setError('Failed to analyze file')
-      setDetected(null)
+      setProcessing(false)
     }
   }
 
-  const handleUpload = async () => {
-    if (!detected || !file) return
-    
-    if (detected.confidence < 0.5) {
-      setError('Unsupported file type')
-      return
-    }
 
-    setUploading(true)
-    setError(null)
-    
-    try {
-      const shard = await detected.processor.createShard(file, user)
-      onComplete(shard)
-    } catch (err) {
-      setError(err.message || 'Upload failed')
-    } finally {
-      setUploading(false)
-    }
-  }
 
   const handleCancel = () => {
     setFile(null)
-    setDetected(null)
     setError(null)
+    setProcessing(false)
     onCancel?.()
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography level="h2" sx={{ mb: 3 }}>
-        Upload Learning Content
-      </Typography>
-
+    <Box>
       {/* File Drop Zone */}
-      {!file && (
+      {!processing && (
         <Card
           sx={{
             p: 4,
@@ -135,72 +153,26 @@ export const GlobalImport = ({ onComplete, onCancel }) => {
         </Card>
       )}
 
-      {/* File Info & Detection Results */}
-      {file && detected && (
-        <Card sx={{ p: 3, mb: 3 }}>
-          <Stack spacing={2}>
-            <Typography level="h4">📁 {file.name}</Typography>
-            
-            {detected.match ? (
-              <Alert color="success" startDecorator={<CheckCircle />}>
-                Detected as: {detected.name} (confidence: {Math.round(detected.confidence * 100)}%)
-              </Alert>
-            ) : (
-              <Alert color="warning" startDecorator={<Error />}>
-                Unsupported file type
-              </Alert>
-            )}
-            
-            {detected.metadata && (
-              <Box>
-                <Typography level="body-sm" color="neutral">
-                  Movie: {detected.metadata.movieName}
-                </Typography>
-                <Typography level="body-sm" color="neutral">
-                  Language: {detected.metadata.language}
-                </Typography>
-                {detected.metadata.year && (
-                  <Typography level="body-sm" color="neutral">
-                    Year: {detected.metadata.year}
-                  </Typography>
-                )}
-              </Box>
-            )}
-          </Stack>
-        </Card>
-      )}
-
-      {/* Error */}
-      {error && (
-        <Alert color="danger" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
-
-      {/* Upload Progress */}
-      {uploading && (
-        <Box sx={{ mb: 3 }}>
-          <Typography level="body-sm" sx={{ mb: 1 }}>
-            Creating shard...
+      {/* Processing State */}
+      {processing && (
+        <Box sx={{ textAlign: 'center', py: 6 }}>
+          <Typography level="body-md" sx={{ mb: 2 }}>
+            Processing file...
           </Typography>
           <LinearProgress />
         </Box>
       )}
 
-      {/* Actions */}
-      {file && (
-        <Stack direction="row" spacing={2} justifyContent="flex-end">
-          <Button variant="outlined" onClick={handleCancel}>
-            Cancel
+      {/* Error */}
+      {error && (
+        <Box sx={{ textAlign: 'center' }}>
+          <Alert color="danger" sx={{ mb: 3 }}>
+            {error}
+          </Alert>
+          <Button variant="outlined" size="sm" onClick={handleCancel}>
+            Try Again
           </Button>
-          <Button 
-            onClick={handleUpload}
-            disabled={!detected?.match || uploading}
-            loading={uploading}
-          >
-            Create Shard
-          </Button>
-        </Stack>
+        </Box>
       )}
     </Box>
   )

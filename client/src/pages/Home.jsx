@@ -1,18 +1,20 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { 
   Box, 
   Stack,
-  Modal,
-  ModalDialog
+  Button
 } from '@mui/joy'
 import { GlobalImport } from '../components/GlobalImport'
 import { BrowserToolbar } from '../components/BrowserToolbar'
 import { BrowserEditBar } from '../components/BrowserEditBar'
 import { ShardBrowser } from '../components/ShardBrowser'
+import { AppDialog } from '../components/AppDialog'
 import { SubtitleReader } from '../shards/subtitle'
 import { apiCall } from '../config/api'
 
 export const Home = ({ onEditModeChange }) => {
+  const navigate = useNavigate()
   const [shards, setShards] = useState([])
   const [showImport, setShowImport] = useState(false)
   const [readerShardId, setReaderShardId] = useState(null)
@@ -22,10 +24,10 @@ export const Home = ({ onEditModeChange }) => {
   const [editing, setEditing] = useState(false)
   const [selected, setSelected] = useState([])
 
-  // Load user's shards
+  // Load user's shards on mount and when sort changes
   useEffect(() => {
     loadShards()
-  }, [sortBy])
+  }, [sortBy]) // Will run on mount (initial sortBy) and when sortBy changes
 
   // Notify parent of edit mode changes
   useEffect(() => {
@@ -46,11 +48,28 @@ export const Home = ({ onEditModeChange }) => {
     localStorage.setItem('shard-sort', newSort)
   }
 
-  const handleImportComplete = (shard) => {
-    setShards(prev => [shard, ...prev])
+  const handleImportConfigure = (info) => {
+
     setShowImport(false)
-    setReaderShardId(shard.id)
+    
+    // Create a clean version of detectedInfo without functions
+    const cleanDetectedInfo = {
+      file: info.file,
+      shardType: info.shardType,
+      metadata: info.metadata,
+      filename: info.filename,
+      // Don't pass processor (contains functions)
+    }
+    
+    navigate('/edit-shard', {
+      state: {
+        mode: 'create',
+        detectedInfo: cleanDetectedInfo
+      }
+    })
   }
+
+
 
   const handleOpenReader = (shardId) => {
     setReaderShardId(shardId)
@@ -151,15 +170,18 @@ export const Home = ({ onEditModeChange }) => {
 
   return (
     <>
-      {/* Import Modal */}
-      <Modal open={showImport} onClose={() => setShowImport(false)}>
-        <ModalDialog sx={{ width: '90vw', maxWidth: 600 }}>
-          <GlobalImport
-            onComplete={handleImportComplete}
-            onCancel={() => setShowImport(false)}
-          />
-        </ModalDialog>
-      </Modal>
+      {/* Import Dialog */}
+      <AppDialog 
+        open={showImport} 
+        onClose={() => setShowImport(false)}
+        title="Select Learning Content"
+        maxWidth={500}
+      >
+        <GlobalImport
+          onConfigure={handleImportConfigure}
+          onCancel={() => setShowImport(false)}
+        />
+      </AppDialog>
 
       {/* Home Tab Content */}
       <Stack spacing={0}>
@@ -174,14 +196,16 @@ export const Home = ({ onEditModeChange }) => {
             onMakePrivate={handleMakePrivate}
           />
         ) : (
-          <BrowserToolbar 
-            title="Home"
-            onImport={() => setShowImport(true)}
-            sortBy={sortBy}
-            onSortChange={handleSortChange}
-            onSelect={handleStartEdit}
-            hasShards={shards.length > 0}
-          />
+          <>
+            <BrowserToolbar 
+              title="Home"
+              onImport={() => setShowImport(true)}
+              sortBy={sortBy}
+              onSortChange={handleSortChange}
+              onSelect={handleStartEdit}
+              hasShards={shards.length > 0}
+            />
+          </>
         )}
         <Box sx={{ p: 2 }}>
           <ShardBrowser 

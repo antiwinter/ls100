@@ -166,14 +166,51 @@ export const generateCover = (title, identifier = '') => {
     hash = hash & hash; // Convert to 32-bit integer
   }
   const gradientIndex = Math.abs(hash) % COVER_GRADIENTS.length;
+  const gradient = COVER_GRADIENTS[gradientIndex];
+  
+  // Calculate text color based on background brightness
+  const getTextColor = (background) => {
+    const colorMatch = background.match(/#([a-f\d]{6})/gi)
+    if (!colorMatch) return '#ffffff'
+    
+    const hex = colorMatch[0].replace('#', '')
+    const r = parseInt(hex.substr(0, 2), 16)
+    const g = parseInt(hex.substr(2, 2), 16)
+    const b = parseInt(hex.substr(4, 2), 16)
+    
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000
+    return brightness > 140 ? '#000000' : '#ffffff'
+  }
+  
+  const textColor = getTextColor(gradient)
+  const formattedText = formatCoverText(title)
+  
+  // Add complete styling to each line for consistent rendering across browser and preview
+  const styledFormattedText = {
+    ...formattedText,
+    lines: formattedText.lines.map((line, index) => ({
+      ...line,
+      styles: {
+        fontSize: line.size === 'large' ? '16px' : 
+                line.size === 'medium' ? '13px' : '11px',
+        fontWeight: 900,
+        fontFamily: '"Inter", "Roboto", "Arial Black", sans-serif',
+        lineHeight: 0.9,
+        color: textColor,
+        textShadow: textColor === '#ffffff' ? '0 1px 2px rgba(0,0,0,0.7)' : '0 1px 2px rgba(255,255,255,0.7)',
+        mb: index < formattedText.lines.length - 1 ? 0.3 : 0,
+        letterSpacing: '0.5px'
+      }
+    }))
+  }
   
   return {
     type: "text",
     title,
-    formattedText: formatCoverText(title),
+    formattedText: styledFormattedText,
     style: "movie-poster",
-    background: COVER_GRADIENTS[gradientIndex],
-    textColor: "#ffffff"
+    background: gradient,
+    textColor: textColor
   };
 };
 
@@ -186,6 +223,7 @@ export const createShard = async (file, user) => {
   const formData = new FormData();
   formData.append("subtitle", file);
   formData.append("movie_name", movieInfo.movieName);
+  formData.append("language", movieInfo.language);
 
   const uploadResult = await apiCall("/api/subtitles/upload", {
     method: "POST",
@@ -194,8 +232,7 @@ export const createShard = async (file, user) => {
 
   // 2. Create shard with auto-detected metadata
   const { metadata } = uploadResult;
-  // Use filename for gradient selection since shard ID doesn't exist yet
-  const cover = generateCover(metadata.movie_name, file.name);
+  // Don't save generated cover - only save if user configures URL/upload/poster
 
   const response = await apiCall("/api/shards", {
     method: "POST",
@@ -203,20 +240,14 @@ export const createShard = async (file, user) => {
       name: metadata.movie_name,
       description: `Movie: ${metadata.movie_name} (${metadata.language})`,
       subtitles: [uploadResult.subtitle_id],
-      cover: JSON.stringify(cover),
+      cover_url: null, // Only set when user configures custom cover
       public: false,
     }),
   });
 
   const shard = response.shard;
 
-  console.log("🎬 Shard created:", {
-    name: shard.name,
-    id: shard.id,
-    created_at: shard.created_at,
-    metadata: metadata,
-    cover: cover,
-  });
+
 
   return shard;
 };

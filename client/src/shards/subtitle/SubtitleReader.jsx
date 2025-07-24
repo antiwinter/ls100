@@ -181,7 +181,7 @@ const renderText = (text) => {
 const handleWordClick = (e) => {
   const word = e.target.getAttribute('data-word')
   if (word && word.length > 1) {
-    console.log('Selected word:', word)
+
     // TODO: Open dictionary or add to learning list
   }
 } 
