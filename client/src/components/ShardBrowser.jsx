@@ -5,7 +5,7 @@ import {
   Grid,
   IconButton
 } from '@mui/joy'
-import { PlayArrow, CheckCircle, RadioButtonUnchecked, Add } from '@mui/icons-material'
+import { CheckCircle, RadioButtonUnchecked, Add } from '@mui/icons-material'
 
 export const ShardBrowser = ({ shards, onOpenShard, editing, selected = [], onToggleSelect, onImport }) => {
   if (shards.length === 0) {
@@ -136,29 +136,92 @@ export const ShardBrowser = ({ shards, onOpenShard, editing, selected = [], onTo
                     {isSelected ? <CheckCircle /> : <RadioButtonUnchecked />}
                   </IconButton>
                 )}
-                <PlayArrow sx={{ color: 'white', fontSize: 24 }} />
                 <Box
                   sx={{
                     position: 'absolute',
                     inset: 0,
                     display: 'flex',
+                    flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    background: 'rgba(0,0,0,0.3)',
-                    borderRadius: 6,
-                    color: 'white',
-                    fontSize: '11px',
-                    fontWeight: 'bold',
                     textAlign: 'center',
-                    p: 0.5
+                    p: 1,
+                    lineHeight: 1
                   }}
                 >
                   {(() => {
+                    // Function to calculate text color based on background brightness
+                    const getTextColor = (background) => {
+                      // Extract colors from gradient for brightness calculation
+                      const colorMatch = background.match(/#([a-f\d]{6})/gi)
+                      if (!colorMatch) return '#ffffff'
+                      
+                      // Use first color in gradient for calculation
+                      const hex = colorMatch[0].replace('#', '')
+                      const r = parseInt(hex.substr(0, 2), 16)
+                      const g = parseInt(hex.substr(2, 2), 16)
+                      const b = parseInt(hex.substr(4, 2), 16)
+                      
+                      // Calculate brightness (0-255)
+                      const brightness = (r * 299 + g * 587 + b * 114) / 1000
+                      
+                      // Return black for bright backgrounds, white for dark
+                      return brightness > 140 ? '#000000' : '#ffffff'
+                    }
+
                     try {
                       const cover = JSON.parse(shard.cover || '{}')
-                      return cover.title || shard.name
+                      const formattedText = cover.formattedText
+                      const background = cover.background || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                      const textColor = getTextColor(background)
+                      
+                      if (formattedText && formattedText.lines) {
+                        return formattedText.lines.map((line, index) => (
+                          <Box
+                            key={index}
+                            sx={{
+                              fontSize: line.size === 'large' ? '16px' : 
+                                      line.size === 'medium' ? '13px' : '11px',
+                              fontWeight: 900,
+                              fontFamily: '"Inter", "Roboto", "Arial Black", sans-serif',
+                              lineHeight: 0.9,
+                              color: textColor,
+                              textShadow: textColor === '#ffffff' ? '0 1px 2px rgba(0,0,0,0.7)' : '0 1px 2px rgba(255,255,255,0.7)',
+                              mb: index < formattedText.lines.length - 1 ? 0.3 : 0,
+                              letterSpacing: '0.5px'
+                            }}
+                          >
+                            {line.text}
+                          </Box>
+                        ))
+                      }
+                      
+                      // Fallback for old covers
+                      return (
+                        <Box sx={{ 
+                          fontSize: '14px', 
+                          fontWeight: 900,
+                          fontFamily: '"Inter", "Roboto", "Arial Black", sans-serif',
+                          color: textColor,
+                          textShadow: textColor === '#ffffff' ? '0 1px 2px rgba(0,0,0,0.7)' : '0 1px 2px rgba(255,255,255,0.7)',
+                          letterSpacing: '0.5px'
+                        }}>
+                          {(cover.title || shard.name).toUpperCase()}
+                        </Box>
+                      )
                     } catch {
-                      return shard.name
+                      return (
+                        <Box sx={{ 
+                          fontSize: '14px', 
+                          fontWeight: 900,
+                          fontFamily: '"Inter", "Roboto", "Arial Black", sans-serif',
+                          color: '#ffffff',
+                          textShadow: '0 1px 2px rgba(0,0,0,0.7)',
+                          letterSpacing: '0.5px'
+                        }}>
+                          {shard.name.toUpperCase()}
+                        </Box>
+                      )
                     }
                   })()}
                 </Box>
@@ -169,13 +232,14 @@ export const ShardBrowser = ({ shards, onOpenShard, editing, selected = [], onTo
                 level="body-sm" 
                 sx={{ 
                   fontWeight: 'md',
-                  fontSize: '0.75rem',
+                  fontSize: '0.65rem',
                   lineHeight: 1.2,
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   px: 1,
-                  mt: 0.5
+                  mt: 0.5,
+                  color: 'text.secondary'
                 }}
               >
                 {shard.name}
