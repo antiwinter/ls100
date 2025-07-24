@@ -2,12 +2,10 @@ import {
   Box,
   Typography,
   Card,
-  Stack,
   Grid,
   IconButton
 } from '@mui/joy'
 import { PlayArrow, CheckCircle, RadioButtonUnchecked, Add } from '@mui/icons-material'
-import { formatRelativeTime } from '../utils/dateFormat'
 
 export const ShardBrowser = ({ shards, onOpenShard, editing, selected = [], onToggleSelect, onImport }) => {
   if (shards.length === 0) {
@@ -59,47 +57,56 @@ export const ShardBrowser = ({ shards, onOpenShard, editing, selected = [], onTo
   }
 
   return (
-    <Grid container spacing={2}>
-      {shards.map((shard, index) => {
-        const isSelected = selected.includes(shard.id)
-        
-        return (
-          <Grid key={shard.id || `shard-${index}`} xs={12} sm={6} md={4}>
+    <Box sx={{ 
+      maxWidth: 800, 
+      mx: 'auto',
+      px: 2,
+      pt: 1.5
+    }}>
+      <Grid container rowSpacing={3.5} columnSpacing={1.5}>
+        {shards.map((shard, index) => {
+          const isSelected = selected.includes(shard.id)
+          
+          return (
+            <Grid 
+              key={shard.id || `shard-${index}`} 
+              xs={4} 
+              sm={3} 
+              md={2.4} 
+              lg={2} 
+              xl={1.7}
+              sx={{
+                display: 'flex',
+                justifyContent: 'center'
+              }}
+            >
             <Card 
               sx={{ 
-                p: 3, 
+                p: 0, 
                 cursor: 'pointer',
                 transition: 'all 0.2s',
                 position: 'relative',
+                border: 'none',
+                boxShadow: 'none',
+                bgcolor: 'transparent',
+                width: '100%',
+                maxWidth: 90,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1,
                 ...(!editing && {
                   '&:hover': { 
-                    transform: 'translateY(-2px)',
-                    boxShadow: 'lg'
+                    transform: 'translateY(-2px)'
                   }
                 })
               }}
               onClick={() => editing ? onToggleSelect(shard.id) : onOpenShard(shard.id)}
             >
-              {editing && (
-                <IconButton
-                  sx={{
-                    position: 'absolute',
-                    top: 8,
-                    right: 8,
-                    zIndex: 1
-                  }}
-                  size="sm"
-                  color={isSelected ? 'primary' : 'neutral'}
-                >
-                  {isSelected ? <CheckCircle /> : <RadioButtonUnchecked />}
-                </IconButton>
-              )}
-            <Stack spacing={2}>
               {/* Cover */}
               <Box 
                 sx={{ 
                   width: '100%', 
-                  height: 120, 
+                  height: 100, 
                   borderRadius: 8,
                   background: (() => {
                     try {
@@ -115,7 +122,21 @@ export const ShardBrowser = ({ shards, onOpenShard, editing, selected = [], onTo
                   position: 'relative'
                 }}
               >
-                <PlayArrow sx={{ color: 'white', fontSize: 36 }} />
+                {editing && (
+                  <IconButton
+                    sx={{
+                      position: 'absolute',
+                      top: 8,
+                      right: 8,
+                      zIndex: 1
+                    }}
+                    size="sm"
+                    color={isSelected ? 'primary' : 'neutral'}
+                  >
+                    {isSelected ? <CheckCircle /> : <RadioButtonUnchecked />}
+                  </IconButton>
+                )}
+                <PlayArrow sx={{ color: 'white', fontSize: 24 }} />
                 <Box
                   sx={{
                     position: 'absolute',
@@ -124,12 +145,12 @@ export const ShardBrowser = ({ shards, onOpenShard, editing, selected = [], onTo
                     alignItems: 'center',
                     justifyContent: 'center',
                     background: 'rgba(0,0,0,0.3)',
-                    borderRadius: 8,
+                    borderRadius: 6,
                     color: 'white',
-                    fontSize: '14px',
+                    fontSize: '11px',
                     fontWeight: 'bold',
                     textAlign: 'center',
-                    p: 1
+                    p: 0.5
                   }}
                 >
                   {(() => {
@@ -144,41 +165,26 @@ export const ShardBrowser = ({ shards, onOpenShard, editing, selected = [], onTo
               </Box>
 
               {/* Info */}
-              <Box>
-                <Typography level="title-md" noWrap>
-                  {shard.name}
-                </Typography>
-                {shard.description && (
-                  <Typography 
-                    level="body-sm" 
-                    color="neutral"
-                    sx={{ 
-                      mt: 0.5,
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden'
-                    }}
-                  >
-                    {shard.description}
-                  </Typography>
-                )}
-                <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                  <Typography level="body-xs" color="neutral">
-                    {formatRelativeTime(shard.last_used || shard.created_at)}
-                  </Typography>
-                  {shard.completion_rate > 0 && (
-                    <Typography level="body-xs" color="primary">
-                      • {Math.round(shard.completion_rate * 100)}%
-                    </Typography>
-                  )}
-                </Stack>
-              </Box>
-            </Stack>
-          </Card>
-        </Grid>
-        )
-      })}
-    </Grid>
+              <Typography 
+                level="body-sm" 
+                sx={{ 
+                  fontWeight: 'md',
+                  fontSize: '0.75rem',
+                  lineHeight: 1.2,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  px: 1,
+                  mt: 0.5
+                }}
+              >
+                {shard.name}
+              </Typography>
+            </Card>
+          </Grid>
+          )
+        })}
+      </Grid>
+    </Box>
   )
-} 
+}
