@@ -94,6 +94,42 @@ Based on completed research, we have validated free APIs for:
 
 **Flow**: Upload SRT → Auto-detect subtitle → Create shard → Show in home → Open reader ✅
 
+#### 1.1.6 Frontend: Shard Creation Flow Optimization ✅
+**Goal**: Streamline "Create a Shard" experience from multi-step dialog to full-page flow
+
+**Status**: Complete - Enhanced UI/UX with type-agnostic architecture
+
+**Completed**:
+- ✅ **Full-Page EditShard** (`client/src/pages/EditShard.jsx`)
+  - Converted from dialog to dedicated page with back button
+  - Fixed action bar at bottom for mobile-friendly experience
+  - Hidden horizontal scroll, proper responsive design
+- ✅ **Streamlined Import Flow** 
+  - Skip intermediate "upload/detection" dialog
+  - Direct navigation from file selection to EditShard page
+  - Processing state with LinearProgress indicator
+- ✅ **Type-Agnostic Architecture** (`client/src/shards/engines.js`)
+  - Shard engine registry system for extensibility
+  - Generic functions: `getSuggestedName`, `getShardTypeInfo`, `createShard`, `getEditorComponent`
+  - Clean separation of concerns between UI and shard-specific logic
+- ✅ **Enhanced EditShard UX**
+  - Movie name as default shard name with proper casing
+  - Shard type chip moved to label row for better hierarchy  
+  - Description as link that opens dialog, inline display when present
+  - Click-to-edit cover preview with dynamic generation
+- ✅ **Mobile-Optimized Language Selection**
+  - CSS ellipsis for accurate filename truncation (no JS char counting)
+  - Long press (500ms) to show full filename in modal
+  - Short press to select learning language
+  - Cross-platform touch/mouse event handling
+  - Centered language chips with improved visual design
+- ✅ **Dynamic Cover System**
+  - Consistent text styling between browser and preview
+  - Only save custom covers (URL/upload), use dynamic generation as default
+  - Proper font sizing and letter spacing for movie titles
+
+**Flow**: Select file → Auto-process → Navigate to EditShard → Configure → Create ✅
+
 #### 1.2 Frontend: Navigation Update & Shard Library
 **Goal**: Update navigation for shard-based system
 
@@ -212,14 +248,15 @@ Based on completed research, we have validated free APIs for:
 ## Current Status
 
 **Active Phase**: 1.2 (Next)
-**Progress**: Modular subtitle shard architecture complete, ready for enhanced navigation and discovery features
+**Progress**: Streamlined shard creation flow complete, ready for enhanced navigation and discovery features
 
-**Latest Completion**: Phase 1.1.5 - Modular shard component system with complete subtitle upload/display/reader workflow
+**Latest Completion**: Phase 1.1.6 - Shard creation flow optimization with full-page UI and type-agnostic architecture
 
 **Phases Complete**:
 - **Phase 0**: ✅ Auth + Navigation 
 - **Phase 1.1**: ✅ SQLite Database Setup
 - **Phase 1.1.5**: ✅ Modular Shard Component System
+- **Phase 1.1.6**: ✅ Shard Creation Flow Optimization
 - **Next**: Phase 1.2 - Navigation Update & Shard Library
 
 ## Success Metrics

@@ -118,12 +118,72 @@ export const findPublic = () => {
 }
 ```
 
+## Frontend Components
+
+### EditShard Page ✅ IMPLEMENTED
+**Location**: `client/src/pages/EditShard.jsx`
+
+Full-page shard creation and editing interface:
+
+**Features**:
+- **Modes**: Create new shard or edit existing shard
+- **Navigation**: Back button, React Router state passing
+- **Form Fields**: Name, description (optional via dialog)
+- **Type-Agnostic**: Works with any shard type via engine registry
+- **Mobile-Optimized**: Fixed action bar, hidden horizontal scroll
+- **Dynamic Editor**: Loads shard-specific editor component
+
+**Navigation Flow**:
+```javascript
+// Create flow: Home → GlobalImport → EditShard → Home
+navigate('/edit-shard', {
+  state: {
+    mode: 'create',
+    detectedInfo: { file, shardType, metadata, filename }
+  }
+})
+
+// Edit flow: Home → EditShard → Home  
+navigate('/edit-shard', {
+  state: {
+    mode: 'edit', 
+    shardData: existingShard
+  }
+})
+```
+
+**Integration with Engine Registry**:
+- `getSuggestedName(detectedInfo)` - Auto-populate shard name
+- `getShardTypeInfo(shardType)` - Display type chip and colors  
+- `createShard(detectedInfo)` - Handle shard-specific creation
+- `getEditorComponent(shardType)` - Load dynamic editor UI
+
+### Shard Creation Flow ✅ STREAMLINED
+**Complete Flow**: File Selection → Auto-Detection → EditShard Page → Configuration → Creation
+
+1. **File Upload**: `GlobalImport.jsx` handles file selection and drag-drop
+2. **Auto-Detection**: Run shard detectors, pick winner automatically
+3. **Direct Navigation**: Skip intermediate dialogs, go straight to EditShard
+4. **Configuration**: User configures name, description, type-specific settings
+5. **Creation**: Engine-specific `createShard()` called, then generic shard update
+6. **Return**: Navigate back to home with new shard visible
+
+### ShardBrowser Integration ✅ DYNAMIC COVERS
+**Location**: `client/src/components/ShardBrowser.jsx`
+
+- **Custom Covers**: Load `shard.cover_url` if user uploaded/set custom cover
+- **Dynamic Covers**: Generate covers on-the-fly using `generateCoverFromShard(shard)`
+- **Fallback Chain**: Custom URL → Dynamic generation → Simple title display
+- **Type-Agnostic**: Works with any shard type via engine registry
+
 ## Shard Types
 
 ### Subtitle Shard
 - Links to subtitle files via `shard_subtitles` table
 - Contains movie metadata in JSON
 - Supports multiple subtitle files per shard
+- **Editor**: `SubtitleShardEditor.jsx` with language selection and cover preview
+- **Reader**: `SubtitleReader.jsx` with line-by-line navigation
 
 ### Future: Deck Shard
 - Flashcard collections

@@ -189,9 +189,47 @@ export const detect = (filename, buffer) => {
 ```
 1. User uploads file → GlobalImport.jsx ✅
 2. Call all shard detectors (currently subtitle.detect) ✅
-3. Show detection results with metadata preview ✅
-4. User confirms → winning shard handles full creation flow ✅
-5. Navigate to appropriate reader ✅
+3. Auto-detect and proceed directly to EditShard page ✅
+4. Configure shard settings → Create via engine registry ✅
+5. Navigate back to home with new shard ✅
+```
+
+### Shard Engine Registry System ✅ IMPLEMENTED
+**Location**: `client/src/shards/engines.js`
+
+Type-agnostic architecture that allows UI components to work with any shard type:
+
+```javascript
+// Central registry mapping shard types to their engines
+const SHARD_ENGINES = {
+  subtitle: subtitleEngine,
+  // Future: audio: audioEngine, image: imageEngine
+}
+
+// Generic functions that delegate to appropriate engine
+export const getSuggestedName = (detectedInfo) => { ... }
+export const getShardTypeInfo = (shardType) => { ... }
+export const createShard = async (detectedInfo) => { ... }
+export const getEditorComponent = (shardType) => { ... }
+export const getReaderComponent = (shardType) => { ... }
+export const generateCoverFromShard = (shard) => { ... }
+```
+
+**Benefits**:
+- **UI Components**: `EditShard.jsx`, `ShardBrowser.jsx`, `Home.jsx` are completely type-agnostic
+- **Easy Extension**: Adding new shard types only requires implementing the engine interface
+- **Consistent API**: All shard types provide same functions (getSuggestedName, createShard, etc.)
+- **Dynamic Rendering**: Editor and Reader components loaded dynamically based on shard type
+
+**Engine Interface**: Each shard engine must export:
+```javascript
+export const detect = (filename, buffer) => { ... }
+export const getSuggestedName = (detectedInfo) => { ... }
+export const createShard = async (file, options) => { ... }
+export const generateCoverFromShard = (shard) => { ... }
+export const shardTypeInfo = { name, displayName, color }
+export const EditorComponent = YourShardEditor
+export const ReaderComponent = YourShardReader
 ```
 
 ## Component Extraction Strategy

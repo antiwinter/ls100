@@ -11,9 +11,9 @@ Universal file upload system that automatically detects content type and creates
 **Features Implemented**:
 - ✅ Drag-and-drop file upload
 - ✅ File type detection using registered shard detectors  
-- ✅ Detection results display with confidence scores
-- ✅ Metadata preview (movie name, language, year)
-- ✅ Upload progress indication
+- ✅ Auto-proceed to shard creation (no intermediate dialog)
+- ✅ Processing progress with LinearProgress indicator
+- ✅ Type-agnostic architecture via shard engine registry
 - ✅ Error handling and user feedback
 
 ### Detection Registry ✅
@@ -22,13 +22,13 @@ Currently supports:
 - **Movie Info Parsing**: Filename analysis for movie name, year, language
 - **Confidence Scoring**: Extension-based (90%) vs content-based (70%)
 
-### Usage Flow ✅
+### Usage Flow ✅ STREAMLINED
 1. **File Selection**: User drops file or clicks to browse
-2. **Detection**: Run registered detectors (currently subtitle detector)
-3. **Results Display**: Show detected type, confidence, and parsed metadata
-4. **User Review**: User can see extracted movie name, language, year
-5. **Upload**: Click "Create Shard" to upload and create shard record
-6. **Completion**: Shard appears in home library, ready to open
+2. **Auto-Detection**: Run registered detectors, pick highest confidence winner
+3. **Processing Indicator**: Show LinearProgress during detection and setup
+4. **Direct Navigation**: Automatically navigate to EditShard page with detected info
+5. **Shard Configuration**: User configures name, description, type-specific settings
+6. **Creation**: Shard created via engine registry, return to home library
 
 ## Integration Points
 
@@ -37,18 +37,19 @@ Currently supports:
 - Opens GlobalImport modal overlay
 - Closes on successful upload or cancel
 
-### Shard Creation Flow ✅
-1. GlobalImport detects content type
-2. Calls appropriate shard processor (e.g., `SubtitleShard.createShard`)
-3. Processor handles upload + shard creation
-4. Returns to home with new shard visible
+### Shard Creation Flow ✅ ENGINE REGISTRY
+1. **GlobalImport** detects content type and navigates to EditShard
+2. **EditShard** uses `getSuggestedName()` and `getEditorComponent()` from engine registry
+3. **User Configuration** via type-specific editor component
+4. **Creation** via `createShard()` from engine registry + generic shard update
+5. **Return** to home with new shard visible in ShardBrowser
 
 ## Future Extensibility
 
 ### Adding New Shard Types
-To add new content types:
+To add new content types with the engine registry system:
 
-1. **Create shard detector**:
+1. **Implement Shard Engine Interface**:
 ```javascript
 // In your-shard/YourShard.js
 export const detect = (filename, buffer) => ({
@@ -56,20 +57,38 @@ export const detect = (filename, buffer) => ({
   confidence: 0.9,
   metadata: { title: 'Extracted Title', pages: 200 }
 })
+
+export const getSuggestedName = (detectedInfo) => { ... }
+export const createShard = async (file, options) => { ... }
+export const shardTypeInfo = { name: 'book', displayName: 'Book', color: '#4CAF50' }
+export const EditorComponent = BookShardEditor
+export const ReaderComponent = BookReader
 ```
 
-2. **Register in GlobalImport**:
+2. **Register in Engine Registry**:
 ```javascript
-import { detect as detectSubtitle } from '../shards/subtitle'
-import { detect as detectBook } from '../shards/book'
+// In client/src/shards/engines.js
+import * as bookEngine from './book/BookShard.js'
+
+const SHARD_ENGINES = {
+  subtitle: subtitleEngine,
+  book: bookEngine  // Add new engine
+}
+```
+
+3. **Register Detector in GlobalImport**:
+```javascript
+// In client/src/components/GlobalImport.jsx
+import * as book from '../shards/book'
 
 const detectors = [
-  { name: 'subtitle', detect: detectSubtitle, processor: SubtitleShard },
-  { name: 'book', detect: detectBook, processor: BookShard }
+  { name: 'subtitle', ...subtitle },
+  { name: 'book', ...book }
 ]
 ```
 
 The system will automatically:
 - Run all detectors on uploaded files
-- Show results for matching types
-- Use appropriate processor for shard creation 
+- Navigate to EditShard with detected info
+- Load appropriate editor component dynamically
+- Handle creation via engine registry 
