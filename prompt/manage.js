@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-const { Command } = require('commander');
-const fs = require('fs').promises;
-const path = require('path');
-const os = require('os');
+import { Command } from 'commander';
+import { promises as fs } from 'fs';
+import path from 'path';
+import os from 'os';
 
 const program = new Command();
 
