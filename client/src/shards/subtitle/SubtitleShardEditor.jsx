@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { 
   Box, 
   Typography, 
@@ -16,9 +16,9 @@ import {
   Tooltip
 } from '@mui/joy'
 import { Add, Upload, Link as LinkIcon, Close } from '@mui/icons-material'
-import { detectLanguageWithConfidence } from '../../utils/languageDetection'
 import { generateCover, detect as detectSubtitle } from './SubtitleShard.js'
 import { useLongPress } from '../../utils/useLongPress.js'
+import { apiCall } from '../../config/api.js'
 
 // Simplified component for filename display with tooltip
 const TruncatedFilename = ({ filename, isMain, showTooltip, onTooltipClose }) => {
@@ -106,16 +106,66 @@ export const SubtitleShardEditor = ({
   const getInitialLanguages = () => {
     if (mode === 'create' && detectedInfo?.metadata?.language) {
       return [{ code: detectedInfo.metadata.language, isMain: true }]
-    } else if (mode === 'edit' && shardData?.languages) {
-      return shardData.languages.map((lang, index) => ({ 
-        code: lang, 
-        isMain: index === 0 // First language is main (learning) language
+    } else if (mode === 'edit' && shardData?.shard_data?.languages) {
+      return shardData.shard_data.languages.map((lang, index) => ({ 
+        code: lang.code,
+        filename: lang.filename,
+        movie_name: lang.movie_name,
+        subtitle_id: lang.subtitle_id,  // Include subtitle_id for linking
+        isMain: lang.isMain || index === 0  // Use passed flag, fallback to first
       }))
     }
     return [{ code: 'en', isMain: true }] // fallback
   }
 
   const [languages, setLanguages] = useState(getInitialLanguages())
+  
+  // Update languages when shardData changes (for edit mode)
+  useEffect(() => {
+    if (mode === 'edit' && shardData?.shard_data?.languages) {
+      console.debug('🔄 [SubtitleEditor] Updating languages from shardData:', shardData.shard_data.languages)
+      const updatedLanguages = shardData.shard_data.languages.map((lang, index) => ({
+        code: lang.code,
+        filename: lang.filename,
+        movie_name: lang.movie_name,
+        subtitle_id: lang.subtitle_id,  // Include subtitle_id for linking
+        isMain: lang.isMain || index === 0  // Use passed flag, fallback to first
+      }))
+      setLanguages(updatedLanguages)
+      console.debug('🎨 [SubtitleEditor] Cover will use movie:', updatedLanguages[0]?.movie_name)
+    }
+  }, [mode, shardData?.shard_data?.languages?.length, shardData?.shard_data?.languages?.[0]?.movie_name])
+  
+  // Format languages data for engine processing
+  const formatEngineData = (languagesList) => {
+    const coverToSave = coverData.type === 'generated' ? null : coverData
+    
+    if (mode === 'edit') {
+      // In edit mode, format subtitles with is_main flags for backend
+      const subtitles = languagesList
+        .filter(lang => lang.subtitle_id || lang.pendingFile)
+        .map(lang => ({
+          subtitle_id: lang.subtitle_id,
+          is_main: lang.isMain || false,
+          pendingFile: lang.pendingFile,
+          pendingMovieName: lang.pendingMovieName,
+          code: lang.code
+        }))
+      
+      return {
+        languages: languagesList, // Keep for UI
+        subtitles: subtitles,     // For backend processing
+        cover: coverToSave
+      }
+    } else {
+      // In create mode, just pass languages for UI
+      return {
+        languages: languagesList,
+        cover: coverToSave
+      }
+    }
+  }
+
   const [coverData, setCoverData] = useState({
     type: 'generated', // 'generated' | 'uploaded' | 'url'
     url: '',
@@ -156,14 +206,20 @@ export const SubtitleShardEditor = ({
   }, [])
 
   const handleLanguageToggle = (index) => {
+    console.debug('🔄 [SubtitleEditor] Language toggle:', { index, currentLanguages: languages })
+    
     const newLanguages = languages.map((lang, i) => ({
       ...lang,
       isMain: i === index // Single selection: only the clicked one is main
     }))
+    
+    console.debug('🔄 [SubtitleEditor] Updated languages after toggle:', newLanguages)
     setLanguages(newLanguages)
-    // Only pass cover data if user has configured custom cover
-    const coverToSave = coverData.type === 'generated' ? null : coverData
-    onChange?.({ languages: newLanguages, cover: coverToSave })
+    
+    // Format and pass engine-specific data
+    const engineData = formatEngineData(newLanguages)
+    console.debug('🔄 [SubtitleEditor] Engine data after toggle:', engineData)
+    onChange?.(engineData)
   }
 
   const handleLanguageDelete = (index) => {
@@ -172,10 +228,11 @@ export const SubtitleShardEditor = ({
     if (languages[index].isMain && newLanguages.length > 0) {
       newLanguages[0].isMain = true
     }
-    setLanguages(newLanguages)
-    // Only pass cover data if user has configured custom cover
-    const coverToSave = coverData.type === 'generated' ? null : coverData
-    onChange?.({ languages: newLanguages, cover: coverToSave })
+          setLanguages(newLanguages)
+      
+      // Format and pass engine-specific data
+      const engineData = formatEngineData(newLanguages)
+      onChange?.(engineData)
   }
 
   const handleAddLanguage = () => {
@@ -184,12 +241,15 @@ export const SubtitleShardEditor = ({
 
   const handleLanguageFileSelect = async (e) => {
     const file = e.target.files?.[0]
+    console.debug('🔍 [SubtitleEditor] File selected:', file?.name, 'size:', file?.size)
+    
     if (!file) return
-
+    
     try {
       // First, check if the file is a valid subtitle file
       const buffer = await file.arrayBuffer()
       const detectionResult = detectSubtitle(file.name, buffer)
+      console.debug('🔍 [SubtitleEditor] Subtitle detection result:', detectionResult)
       
       if (!detectionResult.match || detectionResult.confidence < 0.5) {
         setErrorDialog({ 
@@ -199,33 +259,67 @@ export const SubtitleShardEditor = ({
         return
       }
 
-      // Auto-detect language from the file content
-      const content = new TextDecoder('utf-8').decode(buffer)
-      const langDetection = detectLanguageWithConfidence(content)
+      // Use language from comprehensive detection (no duplication)
+      const detectedLanguage = detectionResult.metadata.language
+      console.debug('🔍 [SubtitleEditor] Using detected language:', detectedLanguage)
       
       // Check if this language is already in the list
-      const existingLang = languages.find(lang => lang.code === langDetection.language)
+      const existingLang = languages.find(lang => lang.code === detectedLanguage)
       if (existingLang) {
         setErrorDialog({ 
           open: true, 
-          message: `${langDetection.language.toUpperCase()} language is already added to this shard.` 
+          message: `${detectedLanguage.toUpperCase()} language is already added to this shard.` 
         })
         return
       }
       
+      // Movie name logic: always follow the main language
+      let movieName = "Unknown Movie"
+      
+      // Determine if this new language will become main
+      const hasMain = languages.some(lang => lang.isMain)
+      const willBeMain = !hasMain // If no main exists, this becomes main
+      
+      console.debug('🔍 [SubtitleEditor] Main language logic:', { hasMain, willBeMain, currentLanguages: languages })
+      
+      if (willBeMain) {
+        // New language becomes main -> use its movie name
+        movieName = detectionResult?.metadata?.movieName || "Unknown Movie"
+        console.debug('🔍 [SubtitleEditor] New main language, using movie name:', movieName)
+      } else {
+        // Keep existing main language's movie name
+        const mainLang = languages.find(lang => lang.isMain)
+        if (mainLang?.movie_name) {
+          movieName = mainLang.movie_name
+        } else if (detectedInfo?.metadata?.movieName || detectedInfo?.metadata?.movie_name) {
+          movieName = detectedInfo.metadata.movieName || detectedInfo.metadata.movie_name
+        }
+        console.debug('🔍 [SubtitleEditor] Keeping main language movie name:', movieName, 'from:', mainLang)
+      }
+
       // Only make new language main if no languages are currently main
-      const hasMainLanguage = languages.some(lang => lang.isMain)
-      const newLanguages = [...languages, { 
-        code: langDetection.language, 
-        isMain: !hasMainLanguage, // Only make main if no other language is main
-        filename: file.name // Store filename for display
-      }]
+      const newLanguage = { 
+        code: detectedLanguage, 
+        isMain: willBeMain,
+        filename: file.name, // Store filename for display
+        movie_name: movieName,
+        pendingFile: file, // Store file for later upload
+        pendingMovieName: movieName // Store movie name for upload
+      }
+      
+      console.debug('🔍 [SubtitleEditor] Creating new language entry:', newLanguage)
+
+      const newLanguages = [...languages, newLanguage]
       setLanguages(newLanguages)
-      // Only pass cover data if user has configured custom cover
-      const coverToSave = coverData.type === 'generated' ? null : coverData
-      onChange?.({ languages: newLanguages, cover: coverToSave })
+      console.debug('🔍 [SubtitleEditor] Updated languages list:', newLanguages)
+
+      // Format engine-specific data
+      const engineData = formatEngineData(newLanguages)
+      console.debug('🔍 [SubtitleEditor] Formatted engine data:', engineData)
+      onChange?.(engineData)
+      
     } catch (error) {
-      console.error('Failed to process language file:', error)
+      console.error('❌ [SubtitleEditor] Failed to process language file:', error)
       setErrorDialog({ 
         open: true, 
         message: 'Failed to process the selected file. Please try again.' 
@@ -276,20 +370,31 @@ export const SubtitleShardEditor = ({
     return null
   }
 
-  const getGeneratedCoverData = () => {
-    // Get movie name from detected info for generated cover (parseMovieInfo returns 'movieName' not 'movie_name')
-    const movieName = mode === 'create' && detectedInfo?.metadata?.movieName
-      ? detectedInfo.metadata.movieName
-      : mode === 'create' && detectedInfo?.metadata?.movie_name
-      ? detectedInfo.metadata.movie_name
-      : 'Movie Title'
+  // Calculate cover data only when actual movie data changes
+  const generatedCoverData = useMemo(() => {
+    let movieName = 'Movie Title'
+    let identifier = 'default'
+    
+    if (mode === 'create' && detectedInfo?.metadata) {
+      // Create mode: use detected info
+      movieName = detectedInfo.metadata.movieName || detectedInfo.metadata.movie_name || 'Movie Title'
+      identifier = movieName
+    } else if (mode === 'edit' && languages.length > 0) {
+      // Edit mode: use movie name from loaded subtitles  
+      movieName = languages[0].movie_name || 'Movie Title'
+      identifier = movieName
+    }
     
     return {
       movieName,
-      // We'll use the filename or movie name to generate consistent colors
-      identifier: detectedInfo?.filename || movieName
+      identifier
     }
-  }
+  }, [
+    mode, 
+    detectedInfo?.metadata?.movieName, 
+    detectedInfo?.metadata?.movie_name,
+    languages?.[0]?.movie_name  // Only when actual movie name changes
+  ])
 
   return (
     <Stack spacing={3}>
@@ -300,9 +405,18 @@ export const SubtitleShardEditor = ({
         </Typography>
         <Stack spacing={1}>
           {languages.map((lang, index) => {
-            const filename = index === 0 && detectedInfo?.filename 
+            // In edit mode, always use the filename from loaded subtitle data
+            // In create mode, use detectedInfo for the first entry only
+            let filename = (mode === 'create' && index === 0 && detectedInfo?.filename)
               ? detectedInfo.filename 
               : lang.filename || `Additional ${lang.code.toUpperCase()} subtitle file`
+            
+            // Add pending indicator for files not yet uploaded
+            if (lang.pendingFile) {
+              filename = `${filename} (pending upload)`
+            }
+            
+            
             
             return (
               <LanguageBox
@@ -422,7 +536,7 @@ export const SubtitleShardEditor = ({
                 />
               ) : (
                 (() => {
-                  const coverDataInfo = getGeneratedCoverData()
+                                      const coverDataInfo = generatedCoverData
                   const generatedCover = generateCover(coverDataInfo.movieName, coverDataInfo.identifier)
                   
                   // Function to calculate text color based on background brightness

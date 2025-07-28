@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS oss_files (
   oss_id TEXT PRIMARY KEY,           -- SHA256 hash of file content
   ref_count INTEGER DEFAULT 1,       -- Number of subtitle records referencing this file
   file_size INTEGER NOT NULL,        -- File size in bytes
+  meta_data TEXT,                    -- JSON metadata like {filename: "movie.srt", ...}
   created_at TEXT NOT NULL,          -- When first uploaded
   updated_at TEXT NOT NULL           -- Last reference update
 );

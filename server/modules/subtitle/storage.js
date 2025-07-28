@@ -62,7 +62,7 @@ export const uploadSubtitle = async (oss_id, buffer, metadata) => {
     const filename = `${oss_id}.srt`
     await storage.put(filename, buffer)
     
-    // Create OSS file record
+    // Create OSS file record (keep meta_data for future use, but don't populate for now)
     ossFile = ossModel.create(oss_id, buffer.length)
   } else {
     // File content exists, increment reference

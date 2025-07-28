@@ -1,15 +1,15 @@
 import { db } from './dbc.js'
 
 // Create OSS file record (for new content)
-export const create = (oss_id, file_size) => {
+export const create = (oss_id, file_size, meta_data = null) => {
   const now = new Date().toISOString()
   
   db.prepare(`
-    INSERT INTO oss_files (oss_id, ref_count, file_size, created_at, updated_at)
-    VALUES (?, 1, ?, ?, ?)
-  `).run(oss_id, file_size, now, now)
+    INSERT INTO oss_files (oss_id, ref_count, file_size, meta_data, created_at, updated_at)
+    VALUES (?, 1, ?, ?, ?, ?)
+  `).run(oss_id, file_size, meta_data, now, now)
   
-  return { oss_id, ref_count: 1, file_size, created_at: now, updated_at: now }
+  return { oss_id, ref_count: 1, file_size, meta_data, created_at: now, updated_at: now }
 }
 
 // Find OSS file by hash

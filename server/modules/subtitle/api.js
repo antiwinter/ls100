@@ -15,13 +15,29 @@ const upload = multer({
 
 // Upload subtitle with lightning deduplication and auto-detection
 router.post('/upload', requireAuth, upload.single('subtitle'), async (req, res) => {
+  console.debug('🔍 [Server] Subtitle upload request:', {
+    hasFile: !!req.file,
+    filename: req.file?.originalname,
+    fileSize: req.file?.size,
+    body: req.body,
+    headers: Object.keys(req.headers)
+  })
+  
   try {
     if (!req.file) {
+      console.log('❌ [Server] No file provided in upload request')
       return res.status(400).json({ message: 'No subtitle file provided' })
     }
 
     const { movie_name, language } = req.body
     const filename = req.file.originalname
+    
+    console.debug('🔍 [Server] Processing subtitle upload:', {
+      filename,
+      movie_name,
+      language,
+      fileSize: req.file.size
+    })
     
     // Prepare metadata (language detection now handled in frontend)
     const metadata = {
@@ -29,6 +45,8 @@ router.post('/upload', requireAuth, upload.single('subtitle'), async (req, res) 
       language: language || 'en', // Frontend should provide this
       filename: filename
     }
+    
+    console.debug('🔍 [Server] Prepared metadata:', metadata)
 
     // Compute hash
     const hash = computeHash(req.file.buffer)
@@ -59,8 +77,20 @@ router.post('/upload', requireAuth, upload.single('subtitle'), async (req, res) 
       }
     }
 
+    console.debug('✅ [Server] Subtitle upload successful:', {
+      subtitle_id: result.subtitle_id,
+      lightning: result.lightning,
+      hash: hash.substring(0, 8)
+    })
+    
     res.json(result)
   } catch (error) {
+    console.error('❌ [Server] Subtitle upload failed:', {
+      error: error.message,
+      stack: error.stack,
+      filename: req.file?.originalname,
+      body: req.body
+    })
     res.status(500).json({ message: 'Upload failed', error: error.message })
   }
 })

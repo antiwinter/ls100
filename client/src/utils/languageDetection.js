@@ -48,25 +48,41 @@ export const detectLanguageFromContent = (content) => {
   // Score each language based on pattern matches
   for (const [lang, patterns] of Object.entries(LANGUAGE_PATTERNS)) {
     let score = 0
+    let matchDetails = []
     for (const pattern of patterns) {
       const matches = combinedText.match(pattern) || []
       score += matches.length
+      if (matches.length > 0) {
+        matchDetails.push({ pattern: pattern.toString(), matches: matches.length })
+      }
     }
     
     // Normalize by text length
     langScores[lang] = score / combinedText.length * 1000
+    
+    if (score > 0) {
+      console.debug(`🔍 [LanguageDetection] ${lang.toUpperCase()} score: ${langScores[lang].toFixed(2)} (${score} matches)`, matchDetails.slice(0, 2))
+    }
   }
   
   // Return language with highest score, fallback to English
   const sortedLangs = Object.entries(langScores)
     .sort(([,a], [,b]) => b - a)
   
+  console.debug('🔍 [LanguageDetection] Language scores:', sortedLangs.slice(0, 3))
+  
   const topLang = sortedLangs[0]?.[0]
-  return topLang && langScores[topLang] > 1 ? topLang : 'en'
+  const result = topLang && langScores[topLang] > 1 ? topLang : 'en'
+  
+  console.debug('🔍 [LanguageDetection] Selected language:', result, `(top score: ${langScores[topLang]?.toFixed(2) || 'N/A'})`)
+  
+  return result
 }
 
 // Enhanced detection with confidence scoring
 export const detectLanguageWithConfidence = (content) => {
+  console.debug('🔍 [LanguageDetection] Starting language detection for content length:', content.length)
+  
   const detected = detectLanguageFromContent(content)
   
   // Simple confidence calculation based on detection
@@ -77,12 +93,23 @@ export const detectLanguageWithConfidence = (content) => {
     line.trim().length > 3
   )
   
+  console.debug('🔍 [LanguageDetection] Text analysis:', {
+    totalLines: lines.length,
+    textLines: textLines.length,
+    detectedLanguage: detected,
+    firstFewTextLines: textLines.slice(0, 3)
+  })
+  
   // Higher confidence for more text content
   const confidence = Math.min(0.9, Math.max(0.3, textLines.length / 100))
   
-  return {
+  const result = {
     language: detected,
     confidence,
     textLinesCount: textLines.length
   }
+  
+  console.debug('🔍 [LanguageDetection] Final result:', result)
+  
+  return result
 } 

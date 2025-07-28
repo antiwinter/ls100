@@ -7,7 +7,7 @@ const generateId = () => {
 export const create = (data) => {
   const shard = {
     id: generateId(),
-    type: data.type || 'subtitle',
+    type: data.type, // Type should be provided by caller (API layer handles defaults)
     name: data.name,
     owner_id: data.owner_id,
     description: data.description || '',
@@ -112,19 +112,7 @@ export const remove = (id) => {
   return db.prepare('DELETE FROM shards WHERE id = ?').run(id)
 }
 
-export const linkSubtitle = (shardId, subtitleId) => {
-  return db.prepare(`
-    INSERT OR IGNORE INTO shard_subtitles VALUES (?, ?)
-  `).run(shardId, subtitleId)
-}
-
-export const getSubtitles = (shardId) => {
-  return db.prepare(`
-    SELECT s.* FROM subtitles s
-    JOIN shard_subtitles ss ON s.subtitle_id = ss.subtitle_id
-    WHERE ss.shard_id = ?
-  `).all(shardId)
-}
+// Note: Subtitle-specific functions moved to server/shards/subtitle/data.js
 
 export const getStats = () => {
   const result = db.prepare(`

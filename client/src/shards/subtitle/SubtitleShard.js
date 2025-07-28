@@ -5,38 +5,58 @@ import { SubtitleReader } from "./SubtitleReader.jsx";
 
 // Content detector with confidence scoring
 export const detect = (filename, buffer) => {
-  const content = buffer.toString("utf8");
+  console.debug('🔍 [SubtitleShard] Detecting subtitle file:', filename, 'size:', buffer.byteLength || buffer.length)
+  
+  // Handle both ArrayBuffer (browser) and Buffer (Node.js)
+  let content;
+  if (buffer instanceof ArrayBuffer) {
+    content = new TextDecoder('utf-8').decode(buffer);
+  } else {
+    content = buffer.toString("utf8");
+  }
+  
+  console.debug('🔍 [SubtitleShard] Content preview (first 200 chars):', content.substring(0, 200))
 
   // Check file extension
   const hasExt = /\.(srt|vtt|ass|ssa|sub)$/i.test(filename);
 
   // Check content pattern (timestamps + text)
   const hasPattern = /\d{2}:\d{2}:\d{2}[,.]\d{3}/.test(content);
+  
+  console.debug('🔍 [SubtitleShard] File validation:', { hasExt, hasPattern })
 
   // Extract movie info for metadata
   const metadata = parseMovieInfo(filename);
+  console.debug('🔍 [SubtitleShard] Parsed metadata from filename:', metadata)
 
   // For subtitle files, also detect language from content
   if (hasExt || hasPattern) {
     try {
       const langDetection = detectLanguageWithConfidence(content);
+      console.debug('🔍 [SubtitleShard] Language detection result:', langDetection)
       
       // Enhance metadata with detected language (overrides filename-based detection)
       metadata.language = langDetection.language;
       metadata.languageConfidence = langDetection.confidence;
       metadata.textLinesCount = langDetection.textLinesCount;
+      
+      console.debug('🔍 [SubtitleShard] Final metadata after language detection:', metadata)
     } catch (langError) {
-      console.warn('Language detection failed:', langError);
+      console.warn('❌ [SubtitleShard] Language detection failed:', langError);
       // Keep filename-based language detection as fallback
       metadata.languageConfidence = 0.3;
     }
   }
 
-  return {
+  const result = {
     match: hasExt || hasPattern,
     confidence: hasExt ? 0.9 : hasPattern ? 0.7 : 0.0,
     metadata,
-  };
+  }
+  
+  console.debug('🔍 [SubtitleShard] Final detection result:', result)
+  
+  return result;
 };
 
 // Parse movie info from filename (moved from backend)
@@ -237,9 +257,9 @@ export const generateCover = (title, identifier = '') => {
 export const generateCoverFromShard = (shard) => {
   // Subtitle engine knows: use movie_name from subtitles, fallback to shard name
   const movieName = shard.subtitles?.[0]?.movie_name || shard.name;
-  const identifier = shard.id?.toString() || movieName;
-  
-  return generateCover(movieName, identifier);
+  const identifier = movieName;
+  const coverResult = generateCover(movieName, identifier);  
+  return coverResult;
 };
 
 // Get suggested shard name from detected info
@@ -262,40 +282,115 @@ export const shardTypeInfo = {
 export const EditorComponent = SubtitleShardEditor;
 export const ReaderComponent = SubtitleReader;
 
-// Create shard with full flow
+// Create shard with full flow (legacy - now handled by EditShard)
 export const createShard = async (file, user) => {
+  console.log('🔍 [SubtitleShard] createShard called with:', { fileName: file?.name, fileSize: file?.size })
+  
   // Parse movie info from filename
   const movieInfo = parseMovieInfo(file.name);
+  console.log('🔍 [SubtitleShard] Parsed movie info:', movieInfo)
 
-  // 1. Upload subtitle file
+  // Upload subtitle file and return info for EditShard to handle
   const formData = new FormData();
   formData.append("subtitle", file);
-  formData.append("movie_name", movieInfo.movieName);
-  formData.append("language", movieInfo.language);
+  formData.append("movie_name", movieInfo.movieName || "Unknown Movie");
+  formData.append("language", movieInfo.language || "en");
+  
+  console.log('🔍 [SubtitleShard] FormData values:', {
+    hasFile: !!file,
+    movie_name: movieInfo.movieName || "Unknown Movie",
+    language: movieInfo.language || "en"
+  })
 
   const uploadResult = await apiCall("/api/subtitles/upload", {
     method: "POST",
     body: formData,
   });
 
-  // 2. Create shard with auto-detected metadata
-  const { metadata } = uploadResult;
-  // Don't save generated cover - only save if user configures URL/upload/poster
-
-  const response = await apiCall("/api/shards", {
-    method: "POST",
-    body: JSON.stringify({
-      name: metadata.movie_name,
-      description: `Movie: ${metadata.movie_name} (${metadata.language})`,
-      subtitles: [uploadResult.subtitle_id],
-      cover_url: null, // Only set when user configures custom cover
-      public: false,
-    }),
-  });
-
-  const shard = response.shard;
-
-
-
-  return shard;
+  // Return subtitle info instead of creating shard directly
+  // EditShard will handle the actual shard creation with all subtitles
+  return {
+    subtitle_id: uploadResult.subtitle_id,
+    metadata: uploadResult.metadata,
+    movieInfo
+  };
 };
+
+// Engine interface: Create initial content from detected info
+export const createContent = async (detectedInfo) => {
+  // Extract file from detectedInfo structure
+  return await createShard(detectedInfo.file, null)
+}
+
+// Engine interface: Process engine data (uploads, etc.)
+export const processData = async (engineData, apiCall) => {
+  if (!engineData?.subtitles) {
+    return engineData // No subtitles to process
+  }
+  
+  const processedSubtitles = []
+  
+  // Handle initial content if provided
+  if (engineData.initialContent) {
+    processedSubtitles.push({
+      subtitle_id: engineData.initialContent.subtitle_id,
+      is_main: true // Initial content is main by default
+    })
+  }
+  
+  // Process any additional subtitles
+  for (const subtitle of engineData.subtitles) {
+    if (subtitle.pendingFile) {
+      console.log('📤 [SubtitleEngine] Uploading pending file:', subtitle.pendingFile.name)
+      
+      const formData = new FormData()
+      formData.append("subtitle", subtitle.pendingFile)
+      formData.append("movie_name", subtitle.pendingMovieName)
+      formData.append("language", subtitle.code)
+
+      const uploadResult = await apiCall("/api/subtitles/upload", {
+        method: "POST",
+        body: formData,
+      })
+      
+      console.log('✅ [SubtitleEngine] File uploaded:', uploadResult.subtitle_id)
+      
+      processedSubtitles.push({
+        subtitle_id: uploadResult.subtitle_id,
+        is_main: subtitle.is_main
+      })
+    } else if (subtitle.subtitle_id) {
+      // Already uploaded
+      processedSubtitles.push({
+        subtitle_id: subtitle.subtitle_id,
+        is_main: subtitle.is_main
+      })
+    }
+  }
+  
+  return {
+    ...engineData,
+    subtitles: processedSubtitles // Replace with processed data
+  }
+}
+
+// Process raw API data into subtitle engine format
+export const processShardData = (raw) => {
+  if (!raw.subtitles) return raw
+  
+  const languages = raw.subtitles.map((sub, i) => ({
+    code: sub.language,
+    filename: sub.filename,
+    movie_name: sub.movie_name,
+    subtitle_id: sub.subtitle_id,
+    isMain: sub.is_main || i === 0
+  }))
+  
+  return {
+    ...raw,
+    shard_data: { languages }
+  }
+}
+
+// Legacy alias for backward compatibility
+export const processPendingUploads = processData

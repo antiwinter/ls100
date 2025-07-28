@@ -71,6 +71,30 @@ export const getEditorComponent = (shardType) => {
   return engine?.EditorComponent || null
 }
 
+// Generic engine content creation
+export const createShardContent = async (engineType, detectedInfo) => {
+  const engine = getEngine(engineType)
+  if (!engine?.createContent) {
+    throw new Error(`Engine ${engineType} does not support content creation`)
+  }
+  return await engine.createContent(detectedInfo)
+}
+
+// Generic engine data processing
+export const processEngineData = async (engineType, engineData, apiCall) => {
+  const engine = getEngine(engineType)
+  if (!engine?.processData) {
+    return engineData
+  }
+  return await engine.processData(engineData, apiCall)
+}
+
+// Process raw shard data from API into engine format
+export const processShardData = (engineType, rawData) => {
+  const engine = getEngine(engineType)
+  return engine?.processShardData?.(rawData) || rawData
+}
+
 // Get reader component for shard type  
 export const getReaderComponent = (shardType) => {
   const engine = getEngine(shardType)

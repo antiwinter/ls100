@@ -14,14 +14,7 @@ CREATE TABLE IF NOT EXISTS shards (
   FOREIGN KEY (owner_id) REFERENCES users(id)
 );
 
--- Shard-Subtitle links (many-to-many)
-CREATE TABLE IF NOT EXISTS shard_subtitles (
-  shard_id TEXT NOT NULL,
-  subtitle_id TEXT NOT NULL,
-  PRIMARY KEY (shard_id, subtitle_id),
-  FOREIGN KEY (shard_id) REFERENCES shards(id) ON DELETE CASCADE,
-  FOREIGN KEY (subtitle_id) REFERENCES subtitles(subtitle_id)
-);
+-- Note: shard_subtitles table moved to server/shards/subtitle/migration.sql
 
 -- Progress tracking
 CREATE TABLE IF NOT EXISTS progress (
