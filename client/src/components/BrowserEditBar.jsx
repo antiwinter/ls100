@@ -5,16 +5,34 @@ import {
   Button,
   Stack
 } from '@mui/joy'
-import { CheckCircleOutline, CheckCircle, Close, Delete, Public, Lock } from '@mui/icons-material'
+import { CheckCircleOutline, CheckCircle, Close, Delete, Edit } from '@mui/icons-material'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faMask } from '@fortawesome/free-solid-svg-icons'
 
-export const BrowserEditBar = ({ selectedCount, totalCount, onSelectAll, onCancel, onDelete, onMakePublic, onMakePrivate }) => {
-  const allSelected = selectedCount === totalCount
-  const disabled = selectedCount === 0
-  const deleteRef = useRef(null)
-  const publicRef = useRef(null)
-  const privateRef = useRef(null)
+// Custom mask icon with optional slash overlay
+const MaskIcon = ({ withSlash = false }) => (
+  <Box sx={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+    <FontAwesomeIcon icon={faMask} style={{ fontSize: 20 }} />
+    {withSlash && (
+      <Box
+        sx={{
+          position: 'absolute',
+          width: '120%',
+          height: '2px',
+          bgcolor: 'currentColor',
+          transform: 'rotate(-45deg)',
+          borderRadius: 1
+        }}
+      />
+    )}
+  </Box>
+)
 
-  const handleButtonPress = (buttonRef, bgColor, originalHandler) => {
+// Reusable action button component
+const ActionButton = ({ icon, text, onClick, disabled, color, bgColor, textColor }) => {
+  const buttonRef = useRef(null)
+
+  const handlePress = () => {
     if (buttonRef.current) {
       buttonRef.current.style.backgroundColor = bgColor
       setTimeout(() => {
@@ -23,8 +41,49 @@ export const BrowserEditBar = ({ selectedCount, totalCount, onSelectAll, onCance
         }
       }, 200)
     }
-    originalHandler()
+    onClick()
   }
+
+  return (
+    <Button
+      ref={buttonRef}
+      onClick={handlePress}
+      disabled={disabled}
+      color={disabled ? 'neutral' : color}
+      variant="plain"
+      size="md"
+      sx={{
+        flexDirection: 'column',
+        width: 100,
+        fontWeight: 'normal',
+        fontSize: 'xs',
+        py: 0.75,
+        height: 'auto',
+        transition: 'background-color 0.2s ease-out',
+        ...(textColor && !disabled && { color: textColor })
+      }}
+    >
+      <Box sx={{ mb: 0.25 }}>
+        {icon}
+      </Box>
+      <Box
+        sx={{
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          width: '100%'
+        }}
+      >
+        {text}
+      </Box>
+    </Button>
+  )
+}
+
+export const BrowserEditBar = ({ selectedCount, totalCount, selectedShards = [], onSelectAll, onCancel, onDelete, onEdit, onMakePublic, onMakePrivate }) => {
+  const allSelected = selectedCount === totalCount
+  const disabled = selectedCount === 0
+  const hasPublicShard = selectedShards.some(shard => shard.public)
 
   return (
     <>
@@ -107,75 +166,33 @@ export const BrowserEditBar = ({ selectedCount, totalCount, onSelectAll, onCance
           </Typography>
           
           <Stack direction="row" spacing={3} justifyContent="center">
-            <Button
-            ref={deleteRef}
-            onClick={() => handleButtonPress(deleteRef, '#FEE2E2', onDelete)}
-            disabled={disabled}
-            color={disabled ? 'neutral' : undefined}
-            variant="plain"
-            size="md"
-            sx={{
-              flexDirection: 'column',
-              minWidth: 'auto',
-              fontWeight: 'normal',
-              fontSize: 'xs',
-              py: 0.75,
-              height: 'auto',
-              ...(!disabled && {
-                color: '#FD7A7A'
-              }),
-              transition: 'background-color 0.2s ease-out'
-            }}
-          >
-            <Delete sx={{ 
-              fontSize: 20, 
-              mb: 0.25,
-              color: disabled ? 'inherit' : '#FD7A7A'
-            }} />
-            Delete
-          </Button>
-          
-          <Button
-            ref={publicRef}
-            onClick={() => handleButtonPress(publicRef, '#E0F2FE', onMakePublic)}
-            disabled={disabled}
-            color={disabled ? 'neutral' : 'primary'}
-            variant="plain"
-            size="md"
-            sx={{
-              flexDirection: 'column',
-              minWidth: 'auto',
-              fontWeight: 'normal',
-              fontSize: 'xs',
-              py: 0.75,
-              height: 'auto',
-              transition: 'background-color 0.2s ease-out'
-            }}
-          >
-            <Public sx={{ fontSize: 20, mb: 0.25 }} />
-            Public
-          </Button>
-          
-          <Button
-            ref={privateRef}
-            onClick={() => handleButtonPress(privateRef, '#E0F2FE', onMakePrivate)}
-            disabled={disabled}
-            color={disabled ? 'neutral' : 'primary'}
-            variant="plain"
-            size="md"
-            sx={{
-              flexDirection: 'column',
-              minWidth: 'auto',
-              fontWeight: 'normal',
-              fontSize: 'xs',
-              py: 0.75,
-              height: 'auto',
-              transition: 'background-color 0.2s ease-out'
-            }}
-          >
-            <Lock sx={{ fontSize: 20, mb: 0.25 }} />
-            Private
-          </Button>
+            <ActionButton
+              icon={<Delete sx={{ fontSize: 20, color: disabled ? 'inherit' : '#FD7A7A' }} />}
+              text="Delete"
+              onClick={onDelete}
+              disabled={disabled}
+              color={undefined}
+              bgColor="#FEE2E2"
+              textColor="#FD7A7A"
+            />
+            
+            <ActionButton
+              icon={<Edit sx={{ fontSize: 20 }} />}
+              text="Edit"
+              onClick={onEdit}
+              disabled={disabled || selectedCount !== 1}
+              color="primary"
+              bgColor="#E0F2FE"
+            />
+            
+            <ActionButton
+              icon={<MaskIcon withSlash={!hasPublicShard} />}
+              text={hasPublicShard ? 'Make private' : 'Make public'}
+              onClick={hasPublicShard ? onMakePrivate : onMakePublic}
+              disabled={disabled}
+              color="primary"
+              bgColor="#E0F2FE"
+            />
           </Stack>
         </Stack>
       </Box>

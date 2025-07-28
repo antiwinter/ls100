@@ -18,6 +18,7 @@ import {
 import { Add, Upload, Link as LinkIcon, Close } from '@mui/icons-material'
 import { detectLanguageWithConfidence } from '../../utils/languageDetection'
 import { generateCover, detect as detectSubtitle } from './SubtitleShard.js'
+import { useLongPress } from '../../utils/useLongPress.js'
 
 // Simplified component for filename display with tooltip
 const TruncatedFilename = ({ filename, isMain, showTooltip, onTooltipClose }) => {
@@ -59,75 +60,17 @@ const TruncatedFilename = ({ filename, isMain, showTooltip, onTooltipClose }) =>
   )
 }
 
-// Reusable language box component with long/short press
-const LanguageBox = ({ children, isMain, isAddButton, onClick, onLongPress, filename }) => {
-  const [isPressed, setIsPressed] = useState(false)
-  const pressTimerRef = useRef(null)
-  const longPressThreshold = 500 // 500ms for long press
-  const isLongPressRef = useRef(false)
-
-  // Cleanup timer on unmount
-  useEffect(() => {
-    return () => {
-      if (pressTimerRef.current) {
-        clearTimeout(pressTimerRef.current)
-      }
-    }
-  }, [])
-
-  const handlePressStart = (e) => {
-    if (isAddButton) return
-    e.preventDefault() // Block context menu (console errors are preferable)
-    startPress()
-  }
-
-  const handlePressEnd = (e) => {
-    if (isAddButton) return
-    e.preventDefault() // Block context menu (console errors are preferable)
-    endPress()
-  }
-
-  const startPress = () => {
-    setIsPressed(true)
-    isLongPressRef.current = false
-    
-    pressTimerRef.current = setTimeout(() => {
-      isLongPressRef.current = true
-      onLongPress?.(filename)
-      setIsPressed(false)
-    }, longPressThreshold)
-  }
-
-  const endPress = () => {
-    if (pressTimerRef.current) {
-      clearTimeout(pressTimerRef.current)
-      pressTimerRef.current = null
-    }
-    
-    // If it wasn't a long press, trigger short press (set main)
-    if (!isLongPressRef.current) {
-      onClick?.()
-    }
-    
-    setIsPressed(false)
-  }
-
-  const handleClick = (e) => {
-    if (isAddButton) {
-      onClick?.() // Normal click for add button
-    }
-    // For language entries, we handle via press logic above
-  }
+// Reusable language box component
+const LanguageBox = ({ children, isMain, isAddButton, onClick, onLongPress }) => {
+  const longPressHandlers = useLongPress(
+    onLongPress, // Long press callback
+    onClick, // Short press callback
+    { delay: 500 }
+  )
 
   return (
     <Box
-      onClick={handleClick}
-      onMouseDown={!isAddButton ? handlePressStart : undefined}
-      onMouseUp={!isAddButton ? handlePressEnd : undefined}
-      onMouseLeave={!isAddButton ? endPress : undefined}
-      onTouchStart={!isAddButton ? handlePressStart : undefined}
-      onTouchEnd={!isAddButton ? handlePressEnd : undefined}
-      onContextMenu={!isAddButton ? (e) => e.preventDefault() : undefined}
+      {...(!isAddButton ? longPressHandlers.handlers : { onClick })}
       sx={{
         display: 'flex',
         alignItems: 'center',
@@ -139,11 +82,8 @@ const LanguageBox = ({ children, isMain, isAddButton, onClick, onLongPress, file
         borderRadius: 8,
         bgcolor: isAddButton ? 'transparent' : (isMain ? 'primary.50' : 'rgba(20, 184, 166, 0.08)'),
         cursor: 'pointer',
-        opacity: isPressed ? 0.7 : 1,
-        transition: 'opacity 0.1s ease',
         userSelect: 'none',
-        '&:hover': { bgcolor: isAddButton ? 'neutral.50' : undefined },
-        position: 'relative'
+        '&:hover': { bgcolor: isAddButton ? 'neutral.50' : undefined }
       }}
     >
       {children}
@@ -183,12 +123,37 @@ export const SubtitleShardEditor = ({
   })
   const [errorDialog, setErrorDialog] = useState({ open: false, message: '' })
   const [activeTooltip, setActiveTooltip] = useState(null) // Track which tooltip is shown
+  const tooltipTimerRef = useRef(null) // Track the auto-hide timer
 
   const handleTooltipClick = (filename) => {
-    setActiveTooltip(filename)
-    // Auto-hide tooltip after 3 seconds
-    setTimeout(() => setActiveTooltip(null), 3000)
+    // Clear any existing timer
+    if (tooltipTimerRef.current) {
+      clearTimeout(tooltipTimerRef.current)
+      tooltipTimerRef.current = null
+    }
+
+    if (activeTooltip === filename) {
+      // If same tooltip is already shown, hide it
+      setActiveTooltip(null)
+    } else {
+      // Show new tooltip
+      setActiveTooltip(filename)
+      // Auto-hide tooltip after 4 seconds (longer for better UX)
+      tooltipTimerRef.current = setTimeout(() => {
+        setActiveTooltip(null)
+        tooltipTimerRef.current = null
+      }, 4000)
+    }
   }
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (tooltipTimerRef.current) {
+        clearTimeout(tooltipTimerRef.current)
+      }
+    }
+  }, [])
 
   const handleLanguageToggle = (index) => {
     const newLanguages = languages.map((lang, i) => ({
@@ -345,8 +310,7 @@ export const SubtitleShardEditor = ({
                 isMain={lang.isMain}
                 isAddButton={false}
                 onClick={() => handleLanguageToggle(index)}
-                onLongPress={handleTooltipClick}
-                filename={filename}
+                onLongPress={() => handleTooltipClick(filename)}
               >
                 <Chip
                   variant={lang.isMain ? 'solid' : 'outlined'}
@@ -411,7 +375,7 @@ export const SubtitleShardEditor = ({
           </LanguageBox>
         </Stack>
         <Typography level="body-xs" sx={{ mt: 1, color: 'text.tertiary' }}>
-          Solid = Main language, Outlined = Reference. Press to select main, long press to view filename.
+          Solid = Main language, Outlined = Reference. Press to select main, long press to view filename (press again to hide).
         </Typography>
         
         {/* Hidden file input for language files */}

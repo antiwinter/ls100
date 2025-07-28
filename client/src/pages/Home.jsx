@@ -158,6 +158,22 @@ export const Home = ({ onEditModeChange }) => {
     }
   }
 
+  const handleEdit = () => {
+    if (selected.length !== 1) return
+    
+    const shardId = selected[0]
+    const shard = shards.find(s => s.id === shardId)
+    
+    if (!shard) return
+    
+    navigate('/edit-shard', {
+      state: {
+        mode: 'edit',
+        shardData: shard
+      }
+    })
+  }
+
   // Show reader if shard selected
   if (readerShard) {
     const ReaderComponent = getReaderComponent(readerShard.type)
@@ -206,9 +222,11 @@ export const Home = ({ onEditModeChange }) => {
           <BrowserEditBar 
             selectedCount={selected.length}
             totalCount={shards.length}
+            selectedShards={shards.filter(s => selected.includes(s.id))}
             onSelectAll={handleSelectAll}
             onCancel={handleCancelEdit}
             onDelete={handleDelete}
+            onEdit={handleEdit}
             onMakePublic={handleMakePublic}
             onMakePrivate={handleMakePrivate}
           />
@@ -232,6 +250,7 @@ export const Home = ({ onEditModeChange }) => {
             selected={selected}
             onToggleSelect={handleToggleSelect}
             onImport={() => setShowImport(true)}
+            onStartEdit={handleStartEdit}
           />
         </Box>
       </Stack>
