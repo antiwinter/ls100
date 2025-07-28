@@ -31,6 +31,20 @@ const theme = extendTheme({
           800: '#6b21b8',  // Very dark purple
           900: '#581c87',  // Darkest purple
         },
+        
+        // WARNING PALETTE - Golden/Orange (from your image)
+        warning: {
+          50: '#fffbeb',   // Very light cream
+          100: '#fef3c7',  // Light cream
+          200: '#fde68a',  // Light yellow
+          300: '#fcd34d',  // Medium light yellow
+          400: '#fbbf24',  // Medium golden
+          500: '#f59e0b',  // Main golden (S marker position)
+          600: '#d97706',  // Dark golden
+          700: '#b45309',  // Darker orange
+          800: '#92400e',  // Dark orange
+          900: '#78350f',  // Darkest orange
+        },
       }
     },
     dark: {
@@ -59,6 +73,18 @@ const theme = extendTheme({
           700: '#7c3aed',
           800: '#6b21b8',
           900: '#581c87',
+        },
+        warning: {
+          50: '#fffbeb',
+          100: '#fef3c7',
+          200: '#fde68a',
+          300: '#fcd34d',
+          400: '#fbbf24',
+          500: '#f59e0b',  // Same main golden
+          600: '#d97706',
+          700: '#b45309',
+          800: '#92400e',
+          900: '#78350f',
         },
       }
     }

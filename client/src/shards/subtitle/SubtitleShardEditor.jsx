@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { 
   Box, 
   Typography, 
@@ -12,72 +12,142 @@ import {
   Modal,
   ModalDialog,
   DialogTitle,
-  DialogContent
+  DialogContent,
+  Tooltip
 } from '@mui/joy'
 import { Add, Upload, Link as LinkIcon, Close } from '@mui/icons-material'
 import { detectLanguageWithConfidence } from '../../utils/languageDetection'
 import { generateCover, detect as detectSubtitle } from './SubtitleShard.js'
 
-// Component for filename display with CSS ellipsis and long press tooltip
-const TruncatedFilename = ({ filename, isEnabled, onLongPress, onShortPress }) => {
+// Simplified component for filename display with tooltip
+const TruncatedFilename = ({ filename, isMain, showTooltip, onTooltipClose }) => {
+  return (
+    <Tooltip
+      open={showTooltip}
+      title={
+        <Box
+          sx={{
+            maxWidth: 320,
+            whiteSpace: 'normal',
+            wordWrap: 'break-word',
+            fontFamily: 'monospace',
+            fontSize: '0.75rem',
+            p: 0.5
+          }}
+        >
+          {filename}
+        </Box>
+      }
+      placement="top"
+      arrow
+      onClose={onTooltipClose}
+    >
+      <Typography 
+        level="body-sm" 
+        sx={{ 
+          flex: 1,
+          color: isMain ? 'primary.700' : 'primary.500',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          userSelect: 'none'
+        }}
+      >
+        {filename}
+      </Typography>
+    </Tooltip>
+  )
+}
+
+// Reusable language box component with long/short press
+const LanguageBox = ({ children, isMain, isAddButton, onClick, onLongPress, filename }) => {
   const [isPressed, setIsPressed] = useState(false)
   const pressTimerRef = useRef(null)
   const longPressThreshold = 500 // 500ms for long press
   const isLongPressRef = useRef(false)
 
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (pressTimerRef.current) {
+        clearTimeout(pressTimerRef.current)
+      }
+    }
+  }, [])
+
   const handlePressStart = (e) => {
-    e.preventDefault() // Prevent text selection
-    e.stopPropagation() // Stop event bubbling
+    if (isAddButton) return
+    e.preventDefault() // Block context menu (console errors are preferable)
+    startPress()
+  }
+
+  const handlePressEnd = (e) => {
+    if (isAddButton) return
+    e.preventDefault() // Block context menu (console errors are preferable)
+    endPress()
+  }
+
+  const startPress = () => {
     setIsPressed(true)
     isLongPressRef.current = false
     
     pressTimerRef.current = setTimeout(() => {
       isLongPressRef.current = true
-      onLongPress(filename)
+      onLongPress?.(filename)
       setIsPressed(false)
     }, longPressThreshold)
   }
 
-  const handlePressEnd = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    
+  const endPress = () => {
     if (pressTimerRef.current) {
       clearTimeout(pressTimerRef.current)
       pressTimerRef.current = null
     }
     
-    // If it wasn't a long press, trigger short press
+    // If it wasn't a long press, trigger short press (set main)
     if (!isLongPressRef.current) {
-      onShortPress()
+      onClick?.()
     }
     
     setIsPressed(false)
   }
 
+  const handleClick = (e) => {
+    if (isAddButton) {
+      onClick?.() // Normal click for add button
+    }
+    // For language entries, we handle via press logic above
+  }
+
   return (
-    <Typography 
-      level="body-sm" 
-      sx={{ 
-        flex: 1,
-        color: isEnabled ? 'text.primary' : 'text.secondary',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-        userSelect: 'none',
+    <Box
+      onClick={handleClick}
+      onMouseDown={!isAddButton ? handlePressStart : undefined}
+      onMouseUp={!isAddButton ? handlePressEnd : undefined}
+      onMouseLeave={!isAddButton ? endPress : undefined}
+      onTouchStart={!isAddButton ? handlePressStart : undefined}
+      onTouchEnd={!isAddButton ? handlePressEnd : undefined}
+      onContextMenu={!isAddButton ? (e) => e.preventDefault() : undefined}
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1,
+        py: 0.5,
+        px: 1,
+        border: isAddButton ? '1px dashed' : '1px solid',
+        borderColor: isAddButton ? 'neutral.300' : (isMain ? 'primary.200' : 'primary.100'),
+        borderRadius: 8,
+        bgcolor: isAddButton ? 'transparent' : (isMain ? 'primary.50' : 'rgba(20, 184, 166, 0.08)'),
         cursor: 'pointer',
         opacity: isPressed ? 0.7 : 1,
-        transition: 'opacity 0.1s ease'
+        transition: 'opacity 0.1s ease',
+        userSelect: 'none',
+        '&:hover': { bgcolor: isAddButton ? 'neutral.50' : undefined },
+        position: 'relative'
       }}
-      onMouseDown={handlePressStart}
-      onMouseUp={handlePressEnd}
-      onMouseLeave={handlePressEnd}
-      onTouchStart={handlePressStart}
-      onTouchEnd={handlePressEnd}
-      title={filename} // Fallback tooltip for desktop
     >
-      {filename}
-    </Typography>
+      {children}
+    </Box>
   )
 }
 
@@ -95,14 +165,14 @@ export const SubtitleShardEditor = ({
   // Initialize language tags based on mode
   const getInitialLanguages = () => {
     if (mode === 'create' && detectedInfo?.metadata?.language) {
-      return [{ code: detectedInfo.metadata.language, enabled: true }]
+      return [{ code: detectedInfo.metadata.language, isMain: true }]
     } else if (mode === 'edit' && shardData?.languages) {
       return shardData.languages.map((lang, index) => ({ 
         code: lang, 
-        enabled: index === 0 // Only first language is enabled (learning language)
+        isMain: index === 0 // First language is main (learning) language
       }))
     }
-    return [{ code: 'en', enabled: true }] // fallback
+    return [{ code: 'en', isMain: true }] // fallback
   }
 
   const [languages, setLanguages] = useState(getInitialLanguages())
@@ -112,16 +182,18 @@ export const SubtitleShardEditor = ({
     file: null
   })
   const [errorDialog, setErrorDialog] = useState({ open: false, message: '' })
-  const [tooltipDialog, setTooltipDialog] = useState({ open: false, filename: '' })
+  const [activeTooltip, setActiveTooltip] = useState(null) // Track which tooltip is shown
 
-  const handleLongPress = (filename) => {
-    setTooltipDialog({ open: true, filename })
+  const handleTooltipClick = (filename) => {
+    setActiveTooltip(filename)
+    // Auto-hide tooltip after 3 seconds
+    setTimeout(() => setActiveTooltip(null), 3000)
   }
 
   const handleLanguageToggle = (index) => {
     const newLanguages = languages.map((lang, i) => ({
       ...lang,
-      enabled: i === index // Single selection: only the clicked one is enabled
+      isMain: i === index // Single selection: only the clicked one is main
     }))
     setLanguages(newLanguages)
     // Only pass cover data if user has configured custom cover
@@ -130,12 +202,10 @@ export const SubtitleShardEditor = ({
   }
 
   const handleLanguageDelete = (index) => {
-    if (languages.length <= 1) return // Don't allow deleting the last language
-    
     const newLanguages = languages.filter((_, i) => i !== index)
-    // If we deleted the enabled language, enable the first one
-    if (languages[index].enabled && newLanguages.length > 0) {
-      newLanguages[0].enabled = true
+    // If we deleted the main language, make the first one main (if any remain)
+    if (languages[index].isMain && newLanguages.length > 0) {
+      newLanguages[0].isMain = true
     }
     setLanguages(newLanguages)
     // Only pass cover data if user has configured custom cover
@@ -178,11 +248,11 @@ export const SubtitleShardEditor = ({
         return
       }
       
-      // Only enable new language if no languages are currently enabled
-      const hasEnabledLanguage = languages.some(lang => lang.enabled)
+      // Only make new language main if no languages are currently main
+      const hasMainLanguage = languages.some(lang => lang.isMain)
       const newLanguages = [...languages, { 
         code: langDetection.language, 
-        enabled: !hasEnabledLanguage, // Only enable if no other language is enabled
+        isMain: !hasMainLanguage, // Only make main if no other language is main
         filename: file.name // Store filename for display
       }]
       setLanguages(newLanguages)
@@ -270,94 +340,78 @@ export const SubtitleShardEditor = ({
               : lang.filename || `Additional ${lang.code.toUpperCase()} subtitle file`
             
             return (
-              <Box
+              <LanguageBox
                 key={index}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                  p: 1,
-                  border: '1px solid',
-                  borderColor: lang.enabled ? 'primary.200' : 'neutral.300',
-                  borderRadius: 8,
-                  bgcolor: lang.enabled ? 'primary.50' : 'neutral.50',
-                  opacity: lang.enabled ? 1 : 0.6,
-                  position: 'relative'
-                }}
+                isMain={lang.isMain}
+                isAddButton={false}
+                onClick={() => handleLanguageToggle(index)}
+                onLongPress={handleTooltipClick}
+                filename={filename}
               >
-                                 <Chip
-                   variant={lang.enabled ? 'solid' : 'outlined'}
-                   color={lang.enabled ? 'primary' : 'neutral'}
-                   size="sm"
-                   sx={{ 
-                     minWidth: 40,
-                     display: 'flex',
-                     justifyContent: 'center',
-                     alignItems: 'center',
-                     textAlign: 'center',
-                     '& .MuiChip-label': {
-                       display: 'flex',
-                       justifyContent: 'center',
-                       alignItems: 'center',
-                       width: '100%'
-                     }
-                   }}
-                 >
+                <Chip
+                  variant={lang.isMain ? 'solid' : 'outlined'}
+                  color="primary"
+                  size="sm"
+                  sx={{ 
+                    minWidth: 40,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    textAlign: 'center',
+                    '& .MuiChip-label': {
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      width: '100%'
+                    }
+                  }}
+                >
                   {lang.code.toUpperCase()}
                 </Chip>
                 
-                                 <TruncatedFilename 
-                   filename={filename}
-                   isEnabled={lang.enabled}
-                   onLongPress={handleLongPress}
-                   onShortPress={() => handleLanguageToggle(index)}
-                 />
+                <TruncatedFilename 
+                  filename={filename}
+                  isMain={lang.isMain}
+                  showTooltip={activeTooltip === filename}
+                  onTooltipClose={() => setActiveTooltip(null)}
+                />
                 
-                {/* Delete button - only show when there are multiple languages */}
-                {languages.length > 1 && (
-                  <IconButton
-                    size="sm"
-                    variant="plain"
-                    color="neutral"
-                    onClick={() => handleLanguageDelete(index)}
-                    sx={{
-                      minWidth: 32,
-                      minHeight: 32,
-                      '&:hover': { 
-                        bgcolor: 'danger.100',
-                        color: 'danger.500'
-                      }
-                    }}
-                  >
-                    <Close fontSize="small" />
-                  </IconButton>
-                )}
-              </Box>
+                {/* Delete button - always show */}
+                <IconButton
+                  size="sm"
+                  variant="plain"
+                  color="neutral"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleLanguageDelete(index)
+                  }}
+                  sx={{
+                    minWidth: 24,
+                    minHeight: 24,
+                    '&:hover': { 
+                      bgcolor: 'danger.100',
+                      color: 'danger.500'
+                    }
+                  }}
+                >
+                  <Close fontSize="small" />
+                </IconButton>
+              </LanguageBox>
             )
           })}
           
           {/* Add Language Button */}
-          <Box
+          <LanguageBox
+            isAddButton={true}
             onClick={handleAddLanguage}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              p: 1,
-              border: '1px dashed',
-              borderColor: 'neutral.300',
-              borderRadius: 8,
-              cursor: 'pointer',
-              '&:hover': { bgcolor: 'neutral.50' }
-            }}
           >
             <Typography level="body-sm" color="neutral">
-              + Add subtitle in another lang
+              + Add a subtitle
             </Typography>
-          </Box>
+          </LanguageBox>
         </Stack>
         <Typography level="body-xs" sx={{ mt: 1, color: 'text.tertiary' }}>
-          Tap to select learning language. Long press filename to view full name.
+          Solid = Main language, Outlined = Reference. Press to select main, long press to view filename.
         </Typography>
         
         {/* Hidden file input for language files */}
@@ -523,34 +577,7 @@ export const SubtitleShardEditor = ({
         </ModalDialog>
       </Modal>
 
-      {/* Filename Tooltip Dialog */}
-      <Modal open={tooltipDialog.open} onClose={() => setTooltipDialog({ open: false, filename: '' })}>
-        <ModalDialog variant="outlined" size="md">
-          <DialogTitle>Full Filename</DialogTitle>
-          <DialogContent>
-            <Typography 
-              level="body-sm" 
-              sx={{ 
-                wordBreak: 'break-all',
-                fontFamily: 'monospace',
-                fontSize: '0.875rem',
-                lineHeight: 1.5
-              }}
-            >
-              {tooltipDialog.filename}
-            </Typography>
-          </DialogContent>
-          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', pt: 2 }}>
-            <Button 
-              variant="outlined" 
-              color="neutral" 
-              onClick={() => setTooltipDialog({ open: false, filename: '' })}
-            >
-              Close
-            </Button>
-          </Box>
-        </ModalDialog>
-      </Modal>
+
     </Stack>
   )
 } 
