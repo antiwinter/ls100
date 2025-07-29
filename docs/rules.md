@@ -1,5 +1,6 @@
 # Documentation Rules
 
+* check against relavant code before writing any sections of docs
 * README.md focus on usage
 * plan.md focus on plan, phase, todo, progress, etc.
 * design.md focus on architecture, high level design

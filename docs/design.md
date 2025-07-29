@@ -194,42 +194,53 @@ export const detect = (filename, buffer) => {
 5. Navigate back to home with new shard ✅
 ```
 
-### Shard Engine Registry System ✅ IMPLEMENTED
-**Location**: `client/src/shards/engines.js`
+### Shard Engine Registry System ✅ ENHANCED
+**Location**: `client/src/shards/engines.js` + `server/shards/engines.js`
 
-Type-agnostic architecture that allows UI components to work with any shard type:
+Unified client-server engine architecture with clean API abstraction:
 
 ```javascript
-// Central registry mapping shard types to their engines
+// Client-side engine registry (client/src/shards/engines.js)
 const SHARD_ENGINES = {
   subtitle: subtitleEngine,
-  // Future: audio: audioEngine, image: imageEngine
+  // Future: deck: deckEngine, book: bookEngine
 }
 
 // Generic functions that delegate to appropriate engine
-export const getSuggestedName = (detectedInfo) => { ... }
-export const getShardTypeInfo = (shardType) => { ... }
-export const createShard = async (detectedInfo) => { ... }
-export const getEditorComponent = (shardType) => { ... }
-export const getReaderComponent = (shardType) => { ... }
-export const generateCoverFromShard = (shard) => { ... }
+export const engineGetTag = (shardType) => { ... }
+export const engineGetEditor = (shardType) => { ... }
+export const engineGetReader = (shardType) => { ... }
+export const engineGenCover = (shard) => { ... }
+export const engineSaveData = async (shard, apiCall) => { ... }
+
+// Server-side engine processing (server/shards/engines.js)
+export const engineProcessCreate = async (shard, data) => { ... }
+export const engineProcessUpdate = async (shard, data, updates) => { ... }
+export const engineValidateData = (type, data) => { ... }
+export const engineGetData = (type, shardId) => { ... }
 ```
 
-**Benefits**:
-- **UI Components**: `EditShard.jsx`, `ShardBrowser.jsx`, `Home.jsx` are completely type-agnostic
-- **Easy Extension**: Adding new shard types only requires implementing the engine interface
-- **Consistent API**: All shard types provide same functions (getSuggestedName, createShard, etc.)
-- **Dynamic Rendering**: Editor and Reader components loaded dynamically based on shard type
+**Major Improvements**:
+- **Unified Data Flow**: Engines handle data processing on both client and server
+- **Clean API**: Removed legacy functions, simplified engine interface
+- **Better Abstraction**: Server-side engine processing handles database operations
+- **Consistent Naming**: All engine functions use `engine*` prefix for clarity
 
-**Engine Interface**: Each shard engine must export:
+**Engine Interface** (Updated): Each shard engine must export:
 ```javascript
+// Client-side (SubtitleShard.js)
 export const detect = (filename, buffer) => { ... }
-export const getSuggestedName = (detectedInfo) => { ... }
-export const createShard = async (file, options) => { ... }
-export const generateCoverFromShard = (shard) => { ... }
+export const processData = async (shard, apiCall) => { ... }
+export const generateCover = (shard) => { ... }
 export const shardTypeInfo = { name, displayName, color }
 export const EditorComponent = YourShardEditor
 export const ReaderComponent = YourShardReader
+
+// Server-side (server/shards/subtitle/engine.js)
+export const getData = (shardId) => { ... }
+export const processCreate = async (shard, data) => { ... }
+export const processUpdate = async (shard, data) => { ... }
+export const validateData = (data) => { ... }
 ```
 
 ## Component Extraction Strategy
@@ -250,6 +261,26 @@ export const ReaderComponent = YourShardReader
 - `utils/dateFormat.js` - Human-readable relative time formatting
 - `config/api.js` - Centralized API calls with smart Content-Type handling
 
+## Recent Major Updates ✅ 2024
+
+### UI/UX Enhancements
+- **Long Press Support**: Custom `useLongPress()` hook for consistent gesture recognition
+- **FontAwesome Integration**: Enhanced icons (mask icon for private shards)
+- **Enhanced EditShard Flow**: Unified data handling, cover preview, improved validation
+- **Touch Optimizations**: Better feedback, gesture recognition, tooltip system
+
+### Engine System Refactoring
+- **Unified Data Processing**: Single flow for create/edit operations
+- **Server-Side Engines**: Backend engine processing for data validation and operations
+- **Clean API**: Removed legacy functions, simplified engine interface
+- **Better Abstraction**: Engines handle their own database operations
+
+### BrowserEditBar Improvements
+- **Component Extraction**: Reusable `ActionButton` component
+- **Enhanced Privacy Toggle**: Smart toggle between public/private based on selection
+- **Edit Single Shard**: New edit functionality for individual shards
+- **Visual Improvements**: Better feedback, consistent styling
+
 ## Key Decisions
 1. **No complex state management** - React Context sufficient
 2. **SQLite database** - ACID transactions, easy PostgreSQL migration
@@ -258,3 +289,4 @@ export const ReaderComponent = YourShardReader
 5. **Monorepo** - Client/server in same repo for easy development
 6. **Module-based organization** - Each feature module contains both API routes and models
 7. **Self-contained modules** - Reusable functionality across different shard types
+8. **Engine Abstraction** - Unified client-server processing for extensible shard types
