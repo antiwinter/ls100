@@ -69,9 +69,7 @@ export const EditShard = () => {
         description: '',
         type: detectedInfo.shardType,
         public: false, // Default to private
-        data: {
-          initialFile: detectedInfo // Let engine handle this properly
-        }
+        data: {} // Keep empty, let editor initialize from detectedInfo
       })
     } else if (mode === 'edit' && navigationShardData) {
       const fetchShardDetails = async () => {
