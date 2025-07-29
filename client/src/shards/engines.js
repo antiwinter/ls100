@@ -15,7 +15,7 @@ export const getEngine = (shardType) => {
 export const engineGenCover = (shard) => {
   const engine = getEngine(shard.type)
   
-  if (!engine || !engine.generateCoverFromShard) {
+  if (!engine || !engine.generateCover) {
     // Fallback for unknown types or engines without cover generation
     return {
       type: "text",

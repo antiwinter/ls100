@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { 
   Box, 
@@ -17,17 +17,17 @@ import { apiCall } from '../config/api'
 import { 
   engineGetTag, 
   engineGetEditor,
-  engineSaveData
+  engineSaveData,
+  engineGenCover
 } from '../shards/engines.js'
 
 export const EditShard = () => {
   const navigate = useNavigate()
   const location = useLocation()
+  const fileInputRef = useRef(null)
   
   // Get data passed from navigation state
   const { mode = 'create', detectedInfo = null } = location.state || {}
-  
-
   
   // Unified shard data structure for both create and edit modes
   const [shardData, _setShardData] = useState({
@@ -51,6 +51,7 @@ export const EditShard = () => {
   const [saving, setSaving] = useState(false)
   const [showDescriptionDialog, setShowDescriptionDialog] = useState(false)
   const [showCoverDialog, setShowCoverDialog] = useState(false)
+  const [coverUrl, setCoverUrl] = useState('')
 
   // Get shard data from navigation or URL
   const navigationShardData = location.state?.shardData
@@ -102,6 +103,21 @@ export const EditShard = () => {
       
       console.log(`📝 [EditShard] ${isCreate ? 'Creating' : 'Updating'} shard:`, shardData.type)
       
+      // Handle cover file upload if needed
+      if (shardData.coverFile) {
+        const formData = new FormData()
+        formData.append('cover', shardData.coverFile)
+        
+        const uploadResult = await apiCall('/api/files/upload', {
+          method: 'POST',
+          body: formData
+        })
+        
+        // Replace file with URL
+        shardData.cover = uploadResult.url
+        delete shardData.coverFile
+      }
+      
       // Process uploads and prepare shardData for backend
       await engineSaveData(shardData, apiCall)
       
@@ -128,6 +144,28 @@ export const EditShard = () => {
 
   const handleBack = () => {
     navigate('/')
+  }
+
+  const handleCoverUpload = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const url = URL.createObjectURL(file)
+    _setShardData(prev => ({ ...prev, cover: url, coverFile: file }))
+    setShowCoverDialog(false)
+  }
+
+  const handleCoverUrl = () => {
+    if (coverUrl.trim()) {
+      _setShardData(prev => ({ ...prev, cover: coverUrl.trim() }))
+      setCoverUrl('')
+      setShowCoverDialog(false)
+    }
+  }
+
+  const resetCover = () => {
+    _setShardData(prev => ({ ...prev, cover: null, coverFile: null }))
+    setShowCoverDialog(false)
   }
 
   const getShardTypeDisplayInfo = () => {
@@ -223,6 +261,106 @@ export const EditShard = () => {
             </Box>
           </Stack>
 
+          {/* Cover Preview */}
+          <Box>
+            <Typography level="body-sm" sx={{ mb: 1, fontWeight: 'bold', color: 'text.secondary' }}>
+              Preview
+            </Typography>
+            <Box
+              sx={{
+                width: 90,
+                height: 100,
+                borderRadius: 8,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                overflow: 'hidden',
+                border: '1px solid',
+                borderColor: 'divider'
+              }}
+              onClick={() => setShowCoverDialog(true)}
+            >
+              {shardData.cover ? (
+                <img
+                  src={shardData.cover}
+                  alt="Cover preview"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    borderRadius: 8
+                  }}
+                />
+              ) : (
+                (() => {
+                  if (!shardData.type) {
+                    return (
+                      <Box sx={{ 
+                        fontSize: '11px', 
+                        color: 'text.tertiary',
+                        textAlign: 'center'
+                      }}>
+                        No Preview
+                      </Box>
+                    )
+                  }
+                  
+                  const cover = engineGenCover(shardData)
+                  
+                  return (
+                    <Box
+                      sx={{
+                        width: '100%',
+                        height: '100%',
+                        background: cover.background,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: cover.textColor,
+                        textAlign: 'center',
+                        p: 1,
+                        borderRadius: 8,
+                        lineHeight: 1
+                      }}
+                    >
+                      {cover.formattedText?.lines ? 
+                        cover.formattedText.lines.map((line, index) => (
+                          <Box
+                            key={index}
+                            sx={line.styles || {
+                              fontSize: '11px',
+                              fontWeight: 900,
+                              fontFamily: '"Inter", "Roboto", "Arial Black", sans-serif',
+                              lineHeight: 0.9,
+                              color: cover.textColor,
+                              textShadow: cover.textColor === '#ffffff' ? '0 1px 2px rgba(0,0,0,0.7)' : '0 1px 2px rgba(255,255,255,0.7)',
+                              mb: index < cover.formattedText.lines.length - 1 ? 0.2 : 0,
+                              letterSpacing: '0.3px'
+                            }}
+                          >
+                            {line.text}
+                          </Box>
+                        )) :
+                        <Box sx={{ 
+                          fontSize: '11px', 
+                          fontWeight: 900,
+                          fontFamily: '"Inter", "Roboto", "Arial Black", sans-serif',
+                          color: cover.textColor,
+                          textShadow: cover.textColor === '#ffffff' ? '0 1px 2px rgba(0,0,0,0.7)' : '0 1px 2px rgba(255,255,255,0.7)',
+                          letterSpacing: '0.3px'
+                        }}>
+                          {cover.title?.toUpperCase() || 'SHARD'}
+                        </Box>
+                      }
+                    </Box>
+                  )
+                })()
+              )}
+            </Box>
+          </Box>
+
           {/* Shard-Specific Configuration */}
           <Box>
             {(() => {
@@ -316,55 +454,67 @@ export const EditShard = () => {
             </Button>
           </Box>
         </Stack>
-      </AppDialog>
-
-      {/* Cover Dialog */}
+              </AppDialog>
+  
+        {/* Cover Dialog */}
       <AppDialog
         open={showCoverDialog}
         onClose={() => setShowCoverDialog(false)}
-        title="Cover Image"
+        title="Shard Cover"
         maxWidth={400}
       >
         <Stack spacing={2}>
           <Typography level="body-sm">
-            Upload a custom image or provide a URL for the shard cover.
+            Upload an image or paste a URL for your shard cover
           </Typography>
           
-          <Stack direction="row" spacing={1}>
+          <Stack spacing={1}>
             <Button
-              variant="outlined"
-              size="sm"
               startDecorator={<Upload />}
-              sx={{ flex: 1 }}
+              variant="outlined"
+              onClick={() => fileInputRef.current?.click()}
             >
               Upload Image
             </Button>
-            <Button
-              variant="outlined"
-              size="sm"
-              startDecorator={<LinkIcon />}
-              sx={{ flex: 1 }}
-            >
-              Use URL
-            </Button>
+            
+            <Stack direction="row" spacing={1}>
+              <Input
+                placeholder="Or paste image URL..."
+                value={coverUrl}
+                onChange={(e) => setCoverUrl(e.target.value)}
+                size="sm"
+                sx={{ flex: 1 }}
+              />
+              <Button
+                size="sm"
+                startDecorator={<LinkIcon />}
+                onClick={handleCoverUrl}
+                disabled={!coverUrl.trim()}
+              >
+                Set
+              </Button>
+            </Stack>
+            
+            {shardData.cover && (
+              <Button
+                variant="outlined"
+                color="danger"
+                size="sm"
+                onClick={resetCover}
+              >
+                Reset to Generated
+              </Button>
+            )}
           </Stack>
-          
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-            <Button 
-              variant="outlined" 
-              size="sm" 
-              onClick={() => setShowCoverDialog(false)}
-            >
-              Cancel
-            </Button>
-            <Button 
-              size="sm" 
-              onClick={() => setShowCoverDialog(false)}
-            >
-              Save
-            </Button>
-          </Box>
         </Stack>
+        
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={handleCoverUpload}
+        />
       </AppDialog>
     </Box>
   )
