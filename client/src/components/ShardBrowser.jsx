@@ -8,7 +8,7 @@ import {
 import { CheckCircle, RadioButtonUnchecked, Add } from '@mui/icons-material'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faMask } from '@fortawesome/free-solid-svg-icons'
-import { generateCoverFromShard } from '../shards/engines.js'
+import { engineGenCover } from '../shards/engines.js'
 import { useLongPress } from '../utils/useLongPress.js'
 
 // Empty state component
@@ -123,12 +123,12 @@ const ShardItem = ({ shard, index, isSelected, editing, onToggleSelect, onOpenSh
             height: 100, 
             borderRadius: 8,
             background: (() => {
-              // If custom cover URL exists, use solid color background (image will overlay)
-              if (shard.cover_url) {
+              // If custom cover exists, use solid color background (image will overlay)
+              if (shard.cover) {
                 return '#f0f0f0'
               }
               // Otherwise use dynamic generation via shard engine
-              const dynamicCover = generateCoverFromShard(shard)
+              const dynamicCover = engineGenCover(shard)
               return dynamicCover.background
             })(),
             display: 'flex',
@@ -184,11 +184,11 @@ const ShardItem = ({ shard, index, isSelected, editing, onToggleSelect, onOpenSh
             }}
           >
             {(() => {
-              // If custom cover URL exists, try to load it
-              if (shard.cover_url) {
+              // If custom cover exists, try to load it
+              if (shard.cover) {
                 return (
                   <img
-                    src={shard.cover_url}
+                    src={shard.cover}
                     alt={`${shard.name} cover`}
                     style={{
                       width: '100%',
@@ -209,7 +209,7 @@ const ShardItem = ({ shard, index, isSelected, editing, onToggleSelect, onOpenSh
               }
               
               // Use dynamic generation via shard engine
-              const dynamicCover = generateCoverFromShard(shard)
+              const dynamicCover = engineGenCover(shard)
               
               if (dynamicCover.formattedText && dynamicCover.formattedText.lines) {
                 return dynamicCover.formattedText.lines.map((line, index) => (

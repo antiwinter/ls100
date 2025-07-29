@@ -5,98 +5,92 @@ export const engine = {
   type: 'subtitle',
   
   // Process shard creation with subtitle-specific logic
-  async processCreate(shard, shardData) {
+  async processCreate(shard, data) {
     console.log('📽️ [SubtitleEngine] Processing shard creation:', shard.id)
-    console.log('📽️ [SubtitleEngine] Shard data:', shardData)
-    
-    // Handle initial content (single subtitle from file upload)
-    if (shardData.initialContent?.subtitle_id) {
-      const subtitleId = shardData.initialContent.subtitle_id
-      console.log('🔗 [SubtitleEngine] Linking initial subtitle:', subtitleId, 'as main')
-      subtitleData.linkSubtitle(shard.id, subtitleId, true) // Initial subtitle is main
-    }
-    
-    // Handle additional subtitles array (for multi-language shards)
-    if (shardData.subtitles && Array.isArray(shardData.subtitles)) {
-      console.log('🔗 [SubtitleEngine] Linking additional subtitles:', shardData.subtitles)
-      
-      for (const subtitle of shardData.subtitles) {
-        // Handle both old format (just ID) and new format (object with is_main)
-        const subtitleId = typeof subtitle === 'string' ? subtitle : subtitle.subtitle_id
-        const isMain = typeof subtitle === 'object' ? subtitle.is_main : false
-        
-        if (subtitleId) {
-          console.log('🔗 [SubtitleEngine] Linking subtitle:', subtitleId, 'isMain:', isMain)
-          subtitleData.linkSubtitle(shard.id, subtitleId, isMain)
-        }
-      }
-      
-      console.log('✅ [SubtitleEngine] All subtitles linked successfully')
-    }
-    
-    return shard
+    return this._processSubtitles(shard, data, true)
   },
   
   // Process shard updates with subtitle-specific logic
-  async processUpdate(shard, shardData, updateData) {
+  async processUpdate(shard, data, updateData) {
     console.log('📽️ [SubtitleEngine] Processing shard update:', shard.id)
-    console.log('📝 [SubtitleEngine] Desired subtitle IDs:', shardData.subtitles)
+    return this._processSubtitles(shard, data, false)
+  },
+  
+  // Internal: Handle subtitle linking logic (shared between create/update)
+  _processSubtitles(shard, data, isCreate) {
+    console.log('📝 [SubtitleEngine] Processing subtitles:', data)
     
-    // Handle subtitle linking/unlinking if needed
-    if (shardData.subtitles && Array.isArray(shardData.subtitles)) {
-      // Get currently linked subtitles
-      const currentSubtitles = subtitleData.getSubtitles(shard.id)
-      const currentSubtitleIds = currentSubtitles.map(s => s.subtitle_id)
-      
-      // Parse desired subtitles (handle both old and new format)
-      const desiredSubtitles = shardData.subtitles.map(subtitle => {
-        if (typeof subtitle === 'string') {
-          return { subtitle_id: subtitle, is_main: false }
+    // Handle initial content (single subtitle from file upload) - create only
+    if (isCreate && data.initialContent?.subtitle_id) {
+      const subtitleId = data.initialContent.subtitle_id
+      console.log('🔗 [SubtitleEngine] Linking initial subtitle:', subtitleId, 'as main')
+      subtitleData.linkSubtitle(shard.id, subtitleId, true)
+    }
+    
+    // Handle languages array (consistent with frontend format)
+    if (data.languages && Array.isArray(data.languages)) {
+      if (isCreate) {
+        // Create: Just link all languages
+        console.log('🔗 [SubtitleEngine] Linking languages for creation:', data.languages)
+        for (const language of data.languages) {
+          if (language.subtitle_id) {
+            subtitleData.linkSubtitle(shard.id, language.subtitle_id, language.isMain || false)
+          }
         }
-        return subtitle
-      }).filter(s => s.subtitle_id)
-      
-      const desiredSubtitleIds = desiredSubtitles.map(s => s.subtitle_id)
-      
-      console.log('🔍 [SubtitleEngine] Current subtitle IDs:', currentSubtitleIds)
-      console.log('🎯 [SubtitleEngine] Desired subtitles:', desiredSubtitles)
-      
-      // Find subtitles to unlink (in current but not in desired)
-      const toUnlink = currentSubtitleIds.filter(id => !desiredSubtitleIds.includes(id))
-      // Find subtitles to link (in desired but not in current)
-      const toLink = desiredSubtitles.filter(s => !currentSubtitleIds.includes(s.subtitle_id))
-      
-      console.log('❌ [SubtitleEngine] Unlinking subtitles:', toUnlink)
-      console.log('✅ [SubtitleEngine] Linking new subtitles:', toLink.map(s => s.subtitle_id))
-      
-      // Unlink removed subtitles
-      for (const subtitleId of toUnlink) {
-        subtitleData.unlinkSubtitle(shard.id, subtitleId)
+      } else {
+        // Update: Compare current vs desired and sync
+        const currentSubtitles = subtitleData.getSubtitles(shard.id)
+        const currentIds = currentSubtitles.map(s => s.subtitle_id)
+        
+        const desiredLanguages = data.languages.filter(lang => lang.subtitle_id)
+        const desiredIds = desiredLanguages.map(lang => lang.subtitle_id)
+        
+        // Unlink removed, link new, update is_main flags
+        const toUnlink = currentIds.filter(id => !desiredIds.includes(id))
+        
+        console.log('❌ [SubtitleEngine] Unlinking:', toUnlink)
+        console.log('✅ [SubtitleEngine] Linking:', desiredIds)
+        
+        for (const subtitleId of toUnlink) {
+          subtitleData.unlinkSubtitle(shard.id, subtitleId)
+        }
+        
+        for (const language of desiredLanguages) {
+          subtitleData.linkSubtitle(shard.id, language.subtitle_id, language.isMain || false)
+        }
       }
       
-      // Link/update all desired subtitles with correct is_main flags
-      for (const subtitle of desiredSubtitles) {
-        console.log('🔗 [SubtitleEngine] Linking/updating subtitle:', subtitle.subtitle_id, 'isMain:', subtitle.is_main)
-        subtitleData.linkSubtitle(shard.id, subtitle.subtitle_id, subtitle.is_main)
-      }
-      
-      console.log('🔄 [SubtitleEngine] Subtitle links updated successfully')
+      console.log('✅ [SubtitleEngine] Subtitle processing completed')
     }
     
     return shard
   },
   
-  // Validate subtitle-specific shard data
-  validateShardData(shardData) {
-    if (!shardData) return { valid: true }
+  // Validate subtitle-specific data
+  validateData(data) {
+    if (!data) return { valid: true }
     
-    if (shardData.subtitles && !Array.isArray(shardData.subtitles)) {
+    if (data.languages && !Array.isArray(data.languages)) {
       return { 
         valid: false, 
-        error: 'subtitles must be an array of subtitle IDs' 
+        error: 'languages must be an array of language objects' 
       }
     }
     
     return { valid: true }
+  },
+  
+  // Get engine-specific data for shard (unified frontend format)
+  getData(shardId) {
+    const subtitles = subtitleData.getSubtitles(shardId)
+    return {
+      languages: subtitles.map(sub => ({
+        code: sub.language,
+        filename: sub.filename,
+        movie_name: sub.movie_name,
+        subtitle_id: sub.subtitle_id,
+        isMain: !!sub.is_main
+      }))
+    }
   }
 } 

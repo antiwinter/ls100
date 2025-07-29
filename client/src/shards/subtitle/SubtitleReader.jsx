@@ -32,9 +32,9 @@ export const SubtitleReader = ({ shardId, onBack }) => {
       setShard(shardData.shard)
       
       // Load subtitle content (first subtitle for now)
-      if (shardData.shard.subtitles?.length > 0) {
-        await loadSubtitle(shardData.shard.subtitles[0].subtitle_id)
-      }
+          if (shardData.shard.data?.languages?.length > 0) {
+      await loadSubtitle(shardData.shard.data.languages[0].subtitle_id)
+    }
     } catch (error) {
       console.error('Failed to load shard:', error)
     } finally {

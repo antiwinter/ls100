@@ -28,7 +28,7 @@ export const getDefaultEngineType = () => {
 }
 
 // Process shard creation with engine-specific logic
-export const processShardCreate = async (shard, shardData) => {
+export const engineProcessCreate = async (shard, data) => {
   const engine = getEngine(shard.type)
   
   if (!engine || !engine.processCreate) {
@@ -36,11 +36,11 @@ export const processShardCreate = async (shard, shardData) => {
     return shard
   }
   
-  return await engine.processCreate(shard, shardData)
+  return await engine.processCreate(shard, data)
 }
 
 // Process shard update with engine-specific logic
-export const processShardUpdate = async (shard, shardData, updateData) => {
+export const engineProcessUpdate = async (shard, data, updateData) => {
   const engine = getEngine(shard.type)
   
   if (!engine || !engine.processUpdate) {
@@ -48,16 +48,27 @@ export const processShardUpdate = async (shard, shardData, updateData) => {
     return shard
   }
   
-  return await engine.processUpdate(shard, shardData, updateData)
+  return await engine.processUpdate(shard, data, updateData)
 }
 
 // Validate shard data with engine-specific logic
-export const validateShardData = (shardType, shardData) => {
+export const engineValidateData = (shardType, data) => {
   const engine = getEngine(shardType)
   
-  if (!engine || !engine.validateShardData) {
+  if (!engine || !engine.validateData) {
     return { valid: true }
   }
   
-  return engine.validateShardData(shardData)
+  return engine.validateData(data)
+}
+
+// Get engine-specific shard data
+export const engineGetData = (shardType, shardId) => {
+  const engine = getEngine(shardType)
+  
+  if (!engine || !engine.getData) {
+    return {}
+  }
+  
+  return engine.getData(shardId)
 } 

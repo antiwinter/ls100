@@ -12,7 +12,7 @@ import { BrowserEditBar } from '../components/BrowserEditBar'
 import { ShardBrowser } from '../components/ShardBrowser'
 import { AppDialog } from '../components/AppDialog'
 import { apiCall } from '../config/api'
-import { getReaderComponent } from '../shards/engines.js'
+import { engineGetReader } from '../shards/engines.js'
 
 export const Home = ({ onEditModeChange }) => {
   const navigate = useNavigate()
@@ -176,7 +176,7 @@ export const Home = ({ onEditModeChange }) => {
 
   // Show reader if shard selected
   if (readerShard) {
-    const ReaderComponent = getReaderComponent(readerShard.type)
+            const ReaderComponent = engineGetReader(readerShard.type)
     
     if (!ReaderComponent) {
       return (

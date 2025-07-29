@@ -1,18 +1,12 @@
 import express from 'express'
-import multer from 'multer'
 import * as shardModel from './data.js'
-import { uploadSubtitle, computeHash } from '../subtitle/storage.js'
+// Removed subtitle-specific imports - now handled via engine abstraction
 import { requireAuth } from '../../utils/auth-middleware.js'
-import { processShardCreate, processShardUpdate, validateShardData, getEngineTypes, getDefaultEngineType } from '../../shards/engines.js'
-import { getSubtitles } from '../../shards/subtitle/data.js'
+import { engineProcessCreate, engineProcessUpdate, engineValidateData, getEngineTypes, getDefaultEngineType, engineGetData } from '../../shards/engines.js'
 
 const router = express.Router()
 
-// Configure multer for memory storage
-const upload = multer({ 
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 500 * 1024 } // 500KB limit
-})
+// Multer removed - file uploads now handled by specific engine modules
 
 // GET /api/shards - Get user's shards or public shards
 router.get('/', requireAuth, async (req, res) => {
@@ -26,13 +20,13 @@ router.get('/', requireAuth, async (req, res) => {
       shards = shardModel.findByOwnerWithProgress(req.userId, sort)
     }
     
-    // Include subtitles data for each shard (needed for movie names in covers)
-    const shardsWithSubtitles = shards.map(shard => ({
+    // Include engine-specific data for each shard
+    const shardsWithData = shards.map(shard => ({
       ...shard,
-      subtitles: getSubtitles(shard.id)
+      data: engineGetData(shard.type, shard.id)
     }))
     
-    res.json({ shards: shardsWithSubtitles })
+    res.json({ shards: shardsWithData })
   } catch (error) {
     console.error('Get shards error:', error)
     res.status(500).json({ error: 'Failed to get shards' })
@@ -53,33 +47,24 @@ router.get('/:id', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Access denied' })
     }
     
-    // Get linked subtitles
-    const subtitles = getSubtitles(shard.id)
+    // Get engine-specific data
+    const data = engineGetData(shard.type, shard.id)
     
-    console.log(`🔍 [API] Fetching subtitles for shard ${req.params.id}:`)
-    console.log(`📋 [API] Raw subtitles query result:`, subtitles)
+    console.log(`🔍 [API] Fetching data for shard ${req.params.id}:`)
+    console.log(`📋 [API] Engine data result:`, data)
     
     // Track progress when user opens shard
     if (shard.owner_id === req.userId) {
       shardModel.updateProgress(req.userId, shard.id)
     }
     
-    console.log(`📖 [API] Loading shard ${req.params.id}:`, {
-      name: shard.name,
-      subtitles: subtitles.length,
-      subtitleDetails: subtitles.map(s => ({ 
-        id: s.subtitle_id, 
-        lang: s.language, 
-        movie: s.movie_name, 
-        filename: s.filename 
-      }))
-    })
+    console.log(`📖 [API] Loading shard ${req.params.id}:`, { name: shard.name, data: JSON.stringify(data) })
     
     const responseData = {
       shard: {
         ...shard,
         metadata: JSON.parse(shard.metadata),
-        subtitles
+        data
       }
     }
     
@@ -95,7 +80,7 @@ router.get('/:id', requireAuth, async (req, res) => {
 // POST /api/shards - Create new shard
 router.post('/', requireAuth, async (req, res) => {
   try {
-    const { name, description, cover, metadata, subtitles, public: isPublic, type, shard_data } = req.body
+    const { name, description, cover, metadata, public: isPublic, type, data } = req.body
     
     // Use default engine type if none specified (handled by getEngine)
     const finalType = type || getDefaultEngineType()
@@ -104,29 +89,29 @@ router.post('/', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Shard name is required' })
     }
     
-    // Validate engine-specific shard data
-    if (shard_data) {
-      const validation = validateShardData(finalType, shard_data)
+    // Validate engine-specific data
+    if (data) {
+      const validation = engineValidateData(finalType, data)
       if (!validation.valid) {
         return res.status(400).json({ error: validation.error })
       }
     }
     
-    console.log('🎯 [API] Creating shard with engine processing:', { type: finalType, shard_data })
+    console.log('🎯 [API] Creating shard with engine processing:', { type: finalType, data })
     
     // Create basic shard record
     const shard = shardModel.create({
       type: finalType,
       name,
       description,
-      cover,
+      cover, // URL string for custom cover
       metadata,
       public: isPublic || false,
       owner_id: req.userId
     })
     
-    // Process with engine-specific logic (handles subtitle linking, etc.)
-    const processedShard = await processShardCreate(shard, shard_data || { subtitles })
+    // Process with engine-specific logic
+    const processedShard = await engineProcessCreate(shard, data || {})
     
     res.json({ 
       shard: {
@@ -153,11 +138,11 @@ router.put('/:id', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Access denied' })
     }
     
-    const { name, description, cover, metadata, public: isPublic, shard_data } = req.body
+    const { name, description, cover, metadata, public: isPublic, data } = req.body
     
-    // Validate engine-specific shard data
-    if (shard_data) {
-      const validation = validateShardData(shard.type, shard_data)
+    // Validate engine-specific data
+    if (data) {
+      const validation = engineValidateData(shard.type, data)
       if (!validation.valid) {
         return res.status(400).json({ error: validation.error })
       }
@@ -174,11 +159,11 @@ router.put('/:id', requireAuth, async (req, res) => {
     shardModel.update(req.params.id, updates)
     const updated = shardModel.findById(req.params.id)
     
-    // Process with engine-specific logic if shard_data provided
+    // Process with engine-specific logic if data provided
     let processedShard = updated
-    if (shard_data) {
-      console.log('🎯 [API] Updating shard with engine processing:', { type: shard.type, shard_data })
-      processedShard = await processShardUpdate(updated, shard_data, updates)
+    if (data) {
+      console.log('🎯 [API] Updating shard with engine processing:', { type: shard.type, data })
+      processedShard = await engineProcessUpdate(updated, data, updates)
     }
     
     res.json({ 
@@ -214,70 +199,9 @@ router.delete('/:id', requireAuth, async (req, res) => {
   }
 })
 
-// POST /api/shards/subtitle/upload - Upload subtitle with lightning upload
-router.post('/subtitle/upload', requireAuth, upload.single('subtitle'), async (req, res) => {
-  try {
-    const { hash, movie_name, language } = req.body
-    
-    if (!hash) {
-      return res.status(400).json({ error: 'Hash is required' })
-    }
-    
-    if (!req.file) {
-      return res.status(400).json({ error: 'Subtitle file is required' })
-    }
-    
-    // Verify hash matches file content
-    const fileHash = computeHash(req.file.buffer)
-    if (fileHash !== hash) {
-      return res.status(400).json({ error: 'Hash does not match file content' })
-    }
-    
-    // Upload subtitle using new storage system
-    const result = await uploadSubtitle(hash, req.file.buffer, {
-      movie_name: movie_name || 'Unknown Movie',
-      language: language || 'en'
-    })
-    
-    res.json(result)
-  } catch (error) {
-    console.error('Upload subtitle error:', error)
-    res.status(500).json({ error: error.message || 'Failed to upload subtitle' })
-  }
-})
-
-// POST /api/shards/:id/subtitles - Link subtitle to shard (legacy - use shard_data in PUT instead)
-router.post('/:id/subtitles', requireAuth, async (req, res) => {
-  try {
-    const { subtitle_id } = req.body
-    
-    if (!subtitle_id) {
-      return res.status(400).json({ error: 'subtitle_id is required' })
-    }
-    
-    const shard = shardModel.findById(req.params.id)
-    
-    if (!shard) {
-      return res.status(404).json({ error: 'Shard not found' })
-    }
-    
-    // Check if user owns this shard
-    if (shard.owner_id !== req.userId) {
-      return res.status(403).json({ error: 'Access denied' })
-    }
-    
-    console.log(`🔗 [API] Legacy subtitle linking: ${subtitle_id} to shard ${req.params.id}`)
-    
-    // Use engine system for linking
-    await processShardUpdate(shard, { subtitles: [subtitle_id] }, {})
-    
-    console.log(`✅ [API] Successfully linked subtitle to shard`)
-    
-    res.json({ success: true })
-  } catch (error) {
-    console.error('Link subtitle to shard error:', error)
-    res.status(500).json({ error: 'Failed to link subtitle to shard' })
-  }
-})
+// Subtitle-specific routes removed to maintain engine abstraction
+// These endpoints should be handled by the subtitle module directly:
+// - /api/subtitles/upload (already exists)  
+// - Subtitle linking via PUT /api/shards/:id with data
 
 export default router 

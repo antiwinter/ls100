@@ -11,8 +11,8 @@ export const getEngine = (shardType) => {
   return SHARD_ENGINES[shardType]
 }
 
-// Generic cover generation - delegates to appropriate shard engine
-export const generateCoverFromShard = (shard) => {
+// Generic cover generation
+export const engineGenCover = (shard) => {
   const engine = getEngine(shard.type)
   
   if (!engine || !engine.generateCoverFromShard) {
@@ -25,22 +25,11 @@ export const generateCoverFromShard = (shard) => {
     }
   }
   
-  return engine.generateCoverFromShard(shard)
+  return engine.generateCover(shard)
 }
 
-// Get suggested shard name from detected info
-export const getSuggestedName = (detectedInfo) => {
-  const engine = getEngine(detectedInfo.shardType)
-  
-  if (!engine || !engine.getSuggestedName) {
-    return detectedInfo.filename?.replace(/\.[^/.]+$/, '') || 'Untitled Shard'
-  }
-  
-  return engine.getSuggestedName(detectedInfo)
-}
-
-// Get shard type info
-export const getShardTypeInfo = (shardType) => {
+// Get shard type info/tags
+export const engineGetTag = (shardType) => {
   const engine = getEngine(shardType)
   
   if (!engine || !engine.shardTypeInfo) {
@@ -54,49 +43,23 @@ export const getShardTypeInfo = (shardType) => {
   return engine.shardTypeInfo
 }
 
-// Create shard using engine
-export const createShard = async (detectedInfo) => {
-  const engine = getEngine(detectedInfo.shardType)
-  
-  if (!engine || !engine.createShard) {
-    throw new Error(`No createShard method for engine: ${detectedInfo.shardType}`)
-  }
-  
-  return engine.createShard(detectedInfo.file, {})
-}
-
-// Get editor component for shard type
-export const getEditorComponent = (shardType) => {
+// Get editor component
+export const engineGetEditor = (shardType) => {
   const engine = getEngine(shardType)
   return engine?.EditorComponent || null
 }
 
-// Generic engine content creation
-export const createShardContent = async (engineType, detectedInfo) => {
-  const engine = getEngine(engineType)
-  if (!engine?.createContent) {
-    throw new Error(`Engine ${engineType} does not support content creation`)
-  }
-  return await engine.createContent(detectedInfo)
-}
-
-// Generic engine data processing
-export const processEngineData = async (engineType, engineData, apiCall) => {
-  const engine = getEngine(engineType)
-  if (!engine?.processData) {
-    return engineData
-  }
-  return await engine.processData(engineData, apiCall)
-}
-
-// Process raw shard data from API into engine format
-export const processShardData = (engineType, rawData) => {
-  const engine = getEngine(engineType)
-  return engine?.processShardData?.(rawData) || rawData
-}
-
-// Get reader component for shard type  
-export const getReaderComponent = (shardType) => {
+// Get reader component
+export const engineGetReader = (shardType) => {
   const engine = getEngine(shardType)
   return engine?.ReaderComponent || null
+}
+
+// Save data processing - handles uploads and converts shardData to backend format
+export const engineSaveData = async (shard, apiCall) => {
+  const engine = getEngine(shard.type)
+  if (!engine?.processData) {
+    return
+  }
+  await engine.processData(shard, apiCall)
 } 

@@ -15,12 +15,9 @@ import { ArrowBack, Upload, Link as LinkIcon } from '@mui/icons-material'
 import { AppDialog } from '../components/AppDialog'
 import { apiCall } from '../config/api'
 import { 
-  getSuggestedName, 
-  getShardTypeInfo, 
-  getEditorComponent,
-  createShardContent,
-  processEngineData,
-  processShardData
+  engineGetTag, 
+  engineGetEditor,
+  engineSaveData
 } from '../shards/engines.js'
 
 export const EditShard = () => {
@@ -33,11 +30,24 @@ export const EditShard = () => {
 
   
   // Unified shard data structure for both create and edit modes
-  const [shardData, setShardData] = useState({
+  const [shardData, _setShardData] = useState({
     name: '',
     description: '',
-    shard_data: {}
+    cover: null,
+    data: {}
   })
+
+  // Helper to normalize shard data with fallbacks
+  const setShardData = (shard) => {
+    _setShardData({
+      name: shard.name || '',
+      description: shard.description || '',
+      cover: shard.cover || null,
+      type: shard.type || null,
+      public: shard.public !== undefined ? shard.public : false, // Default to private
+      data: shard.data || {}
+    })
+  }
   const [saving, setSaving] = useState(false)
   const [showDescriptionDialog, setShowDescriptionDialog] = useState(false)
   const [showCoverDialog, setShowCoverDialog] = useState(false)
@@ -48,40 +58,34 @@ export const EditShard = () => {
 
   useEffect(() => {
     if (mode === 'create' && detectedInfo) {
-      // Create mode: use detected metadata for initial name
-      const defaultName = detectedInfo?.metadata?.movieName || 
-                         detectedInfo?.metadata?.movie_name || 
+      // Create mode: initialize with detected info (engine will process)
+      const defaultName = detectedInfo?.metadata?.suggestedName || 
+                         detectedInfo?.filename?.replace(/\.[^/.]+$/, '') || 
                          'New Shard'
       
       setShardData({
         name: defaultName,
         description: '',
-        shard_data: {}
+        type: detectedInfo.shardType,
+        public: false, // Default to private
+        data: {
+          initialFile: detectedInfo // Let engine handle this properly
+        }
       })
     } else if (mode === 'edit' && navigationShardData) {
       const fetchShardDetails = async () => {
         try {
           console.log('📝 [EditShard] Edit mode - loading shard details for ID:', shardId)
           const response = await apiCall(`/api/shards/${shardId}`)
-          const rawData = response.shard
-          console.log('📋 [EditShard] Raw shard data:', rawData)
-          
-          // Process engine-specific data
-          const processedData = processShardData(navigationShardData.type, rawData)
-          console.log('🔍 [EditShard] Processed shard data:', processedData)
+        
+        // Backend now returns unified format directly
+        const shard = response.shard
+          console.log('🔍 [EditShard] Processed shard data:', shard)
             
-          setShardData({
-            name: processedData.name || '',
-            description: processedData.description || '',
-            shard_data: processedData.shard_data || {}
-          })
+          setShardData(shard)
         } catch (error) {
           console.error('❌ [EditShard] Failed to fetch shard details:', error)
-          setShardData({
-            name: navigationShardData.name || '',
-            description: navigationShardData.description || '',
-            shard_data: {}
-          })
+          setShardData(navigationShardData)
         }
       }
       
@@ -94,62 +98,24 @@ export const EditShard = () => {
     try {
       console.log('💾 [EditShard] Saving shard data:', shardData)
       
-      // Unified create/edit flow using engine-agnostic methods
-      const engineType = mode === 'create' ? detectedInfo?.shardType : navigationShardData?.type
+      const isCreate = mode === 'create'
       
-      if (mode === 'create' && detectedInfo) {
-        console.log('🎯 [EditShard] Creating shard via engine:', engineType)
-        
-        // Let engine handle initial content creation
-        const initialContent = await createShardContent(engineType, detectedInfo)
-        console.log('📤 [EditShard] Initial content created:', initialContent)
-        
-        // Process any additional engine data
-        const processedData = await processEngineData(engineType, {
-          ...shardData.shard_data,
-          initialContent
-        }, apiCall)
-        
-        // Create shard with processed data
-        const createData = {
-          type: engineType,
-          name: shardData.name,
-          description: shardData.description,
-          cover_url: processedData?.cover?.type !== 'generated' ? processedData?.cover?.url : null,
-          public: false,
-          shard_data: processedData
+      console.log(`📝 [EditShard] ${isCreate ? 'Creating' : 'Updating'} shard:`, shardData.type)
+      
+      // Process uploads and prepare shardData for backend
+      await engineSaveData(shardData, apiCall)
+      
+      // Submit shardData directly
+      const result = await apiCall(
+        isCreate ? "/api/shards" : `/api/shards/${shardId}`,
+        {
+          method: isCreate ? "POST" : "PUT",
+          body: JSON.stringify(shardData)
         }
-        
-        const shard = await apiCall("/api/shards", {
-          method: "POST",
-          body: JSON.stringify(createData)
-        })
-        
-        console.log('✅ [EditShard] Shard created:', shard.shard.id)
-
-      } else if (mode === 'edit' && navigationShardData) {
-        console.log('📝 [EditShard] Updating shard via engine:', engineType)
-        
-        // Process engine data using generic method
-        const processedData = await processEngineData(engineType, shardData.shard_data, apiCall)
-        
-        const updateData = {
-          name: shardData.name,
-          description: shardData.description,
-          cover_url: processedData?.cover?.type !== 'generated' ? processedData?.cover?.url : null
-        }
-        
-        if (processedData && Object.keys(processedData).length > 0) {
-          updateData.shard_data = processedData
-        }
-        
-        await apiCall(`/api/shards/${shardId}`, {
-          method: 'PUT',
-          body: JSON.stringify(updateData)
-        })
-        
-        console.log('✅ [EditShard] Shard updated successfully')
-      }
+      )
+      
+      console.log(`✅ [EditShard] Shard ${isCreate ? 'created' : 'updated'}:`, 
+        isCreate ? result.shard.id : shardId)
       
       // Navigate back to home
       navigate('/')
@@ -165,13 +131,8 @@ export const EditShard = () => {
   }
 
   const getShardTypeDisplayInfo = () => {
-    // Get type info based on detected type or existing shard
-    if (mode === 'create' && detectedInfo) {
-      return getShardTypeInfo(detectedInfo.shardType)
-    } else if (mode === 'edit' && navigationShardData) {
-      return getShardTypeInfo(navigationShardData.type)
-    }
-    return { displayName: 'Unknown', color: '#666' }
+    // Get type info from current shardData
+    return shardData.type ? engineGetTag(shardData.type) : { displayName: 'Unknown', color: '#666' }
   }
 
   const shardTypeInfo = getShardTypeDisplayInfo()
@@ -233,7 +194,7 @@ export const EditShard = () => {
               </Stack>
               <Input
                 value={shardData.name}
-                onChange={(e) => setShardData(prev => ({ ...prev, name: e.target.value }))}
+                onChange={(e) => _setShardData(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="Enter shard name"
                 size="sm"
                 sx={{ mb: 0.5 }}
@@ -265,13 +226,12 @@ export const EditShard = () => {
           {/* Shard-Specific Configuration */}
           <Box>
             {(() => {
-              const shardType = mode === 'create' ? detectedInfo?.shardType : navigationShardData?.type
-              const EditorComponent = getEditorComponent(shardType)
+              const EditorComponent = engineGetEditor(shardData.type)
               
               if (!EditorComponent) {
                 return (
                   <Typography level="body-sm" color="warning">
-                    No editor available for {shardType} shards
+                    No editor available for {shardData.type} shards
                   </Typography>
                 )
               }
@@ -281,11 +241,10 @@ export const EditShard = () => {
                   mode={mode}
                   shardData={shardData}
                   detectedInfo={detectedInfo}
-                  onChange={(engineData) => setShardData(prev => ({
+                  onChange={(engineData) => _setShardData(prev => ({
                     ...prev,
-                    shard_data: { ...prev.shard_data, ...engineData }
+                    data: { ...prev.data, ...engineData }
                   }))}
-                  onCoverClick={() => setShowCoverDialog(true)}
                 />
               )
             })()}
@@ -319,7 +278,7 @@ export const EditShard = () => {
           size="sm"
           onClick={handleSave}
           loading={saving}
-          disabled={!shardData.name.trim() || (shardData.shard_data.languages && shardData.shard_data.languages.length === 0)}
+          disabled={!shardData.name.trim() || (shardData.data.languages && shardData.data.languages.length === 0)}
         >
           {mode === 'create' ? 'Create Shard' : 'Save Changes'}
         </Button>
@@ -335,7 +294,7 @@ export const EditShard = () => {
         <Stack spacing={2}>
           <Textarea
             value={shardData.description}
-            onChange={(e) => setShardData(prev => ({ ...prev, description: e.target.value }))}
+            onChange={(e) => _setShardData(prev => ({ ...prev, description: e.target.value }))}
             placeholder="Describe this learning content..."
             minRows={3}
             maxRows={6}

@@ -16,7 +16,7 @@ import {
   Tooltip
 } from '@mui/joy'
 import { Add, Upload, Link as LinkIcon, Close } from '@mui/icons-material'
-import { generateCover, detect as detectSubtitle } from './SubtitleShard.js'
+import { detect as detectSubtitle } from './SubtitleShard.js'
 import { useLongPress } from '../../utils/useLongPress.js'
 import { apiCall } from '../../config/api.js'
 
@@ -95,19 +95,14 @@ export const SubtitleShardEditor = ({
   mode = 'create', 
   shardData = null,
   detectedInfo = null,
-  onChange,
-  onCoverClick
+  onChange
 }) => {
   const fileInputRef = useRef(null)
-  const [customCoverUrl, setCustomCoverUrl] = useState('')
-  const [showCoverUrlInput, setShowCoverUrlInput] = useState(false)
   
   // Initialize language tags based on mode
   const getInitialLanguages = () => {
-    if (mode === 'create' && detectedInfo?.metadata?.language) {
-      return [{ code: detectedInfo.metadata.language, isMain: true }]
-    } else if (mode === 'edit' && shardData?.shard_data?.languages) {
-      return shardData.shard_data.languages.map((lang, index) => ({ 
+    if (mode === 'edit' && shardData?.data?.languages) {
+      return shardData.data.languages.map((lang, index) => ({ 
         code: lang.code,
         filename: lang.filename,
         movie_name: lang.movie_name,
@@ -115,62 +110,62 @@ export const SubtitleShardEditor = ({
         isMain: lang.isMain || index === 0  // Use passed flag, fallback to first
       }))
     }
-    return [{ code: 'en', isMain: true }] // fallback
+    return [] // Start empty for create mode, will be populated by processing initialFile
   }
 
   const [languages, setLanguages] = useState(getInitialLanguages())
   
+  // Process initial file in create mode (engine-specific logic)
+  useEffect(() => {
+    if (mode === 'create' && shardData?.data?.initialFile) {
+      const initialFile = shardData.data.initialFile
+      const movieName = initialFile.metadata?.movieName || initialFile.metadata?.movie_name || "Unknown Movie"
+      const language = initialFile.metadata?.language || "en"
+      
+      console.debug('🔍 [SubtitleEditor] Processing initial file:', initialFile.filename)
+      
+      const initialLanguage = {
+        code: language,
+        filename: initialFile.filename,
+        movie_name: movieName,
+        file: initialFile.file,
+        isMain: true
+      }
+      
+      setLanguages([initialLanguage])
+      console.debug('🔍 [SubtitleEditor] Initial language created:', initialLanguage)
+      
+      // Notify parent of the processed data
+      const engineData = formatEngineData([initialLanguage])
+      onChange?.(engineData)
+    }
+  }, [mode, shardData?.data?.initialFile])
+  
   // Update languages when shardData changes (for edit mode)
   useEffect(() => {
-    if (mode === 'edit' && shardData?.shard_data?.languages) {
-      console.debug('🔄 [SubtitleEditor] Updating languages from shardData:', shardData.shard_data.languages)
-      const updatedLanguages = shardData.shard_data.languages.map((lang, index) => ({
+    if (mode === 'edit' && shardData?.data?.languages) {
+      console.debug('🔄 [SubtitleEditor] Updating languages from shardData:', shardData.data.languages)
+      const updatedLanguages = shardData.data.languages.map((lang, index) => ({
         code: lang.code,
         filename: lang.filename,
         movie_name: lang.movie_name,
-        subtitle_id: lang.subtitle_id,  // Include subtitle_id for linking
+        subtitle_id: lang.subtitle_id,
         isMain: lang.isMain || index === 0  // Use passed flag, fallback to first
       }))
       setLanguages(updatedLanguages)
       console.debug('🎨 [SubtitleEditor] Cover will use movie:', updatedLanguages[0]?.movie_name)
     }
-  }, [mode, shardData?.shard_data?.languages?.length, shardData?.shard_data?.languages?.[0]?.movie_name])
+  }, [mode, shardData?.data?.languages?.length, shardData?.data?.languages?.[0]?.movie_name])
   
   // Format languages data for engine processing
   const formatEngineData = (languagesList) => {
-    const coverToSave = coverData.type === 'generated' ? null : coverData
-    
-    if (mode === 'edit') {
-      // In edit mode, format subtitles with is_main flags for backend
-      const subtitles = languagesList
-        .filter(lang => lang.subtitle_id || lang.pendingFile)
-        .map(lang => ({
-          subtitle_id: lang.subtitle_id,
-          is_main: lang.isMain || false,
-          pendingFile: lang.pendingFile,
-          pendingMovieName: lang.pendingMovieName,
-          code: lang.code
-        }))
-      
-      return {
-        languages: languagesList, // Keep for UI
-        subtitles: subtitles,     // For backend processing
-        cover: coverToSave
-      }
-    } else {
-      // In create mode, just pass languages for UI
-      return {
-        languages: languagesList,
-        cover: coverToSave
-      }
+    // Engine only handles language data
+    return {
+      languages: languagesList // Frontend format with isMain
     }
   }
 
-  const [coverData, setCoverData] = useState({
-    type: 'generated', // 'generated' | 'uploaded' | 'url'
-    url: '',
-    file: null
-  })
+
   const [errorDialog, setErrorDialog] = useState({ open: false, message: '' })
   const [activeTooltip, setActiveTooltip] = useState(null) // Track which tooltip is shown
   const tooltipTimerRef = useRef(null) // Track the auto-hide timer
@@ -297,14 +292,13 @@ export const SubtitleShardEditor = ({
         console.debug('🔍 [SubtitleEditor] Keeping main language movie name:', movieName, 'from:', mainLang)
       }
 
-      // Only make new language main if no languages are currently main
+      // Store file for later upload (no upload yet)
       const newLanguage = { 
         code: detectedLanguage, 
         isMain: willBeMain,
-        filename: file.name, // Store filename for display
+        filename: file.name,
         movie_name: movieName,
-        pendingFile: file, // Store file for later upload
-        pendingMovieName: movieName // Store movie name for upload
+        file: file // Store file object for later upload
       }
       
       console.debug('🔍 [SubtitleEditor] Creating new language entry:', newLanguage)
@@ -332,69 +326,9 @@ export const SubtitleShardEditor = ({
     }
   }
 
-  const handleCoverUpload = (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    const url = URL.createObjectURL(file)
-    const newCoverData = { type: 'uploaded', url, file }
-    setCoverData(newCoverData)
-    // Pass actual cover data for uploads (will be saved as cover_url)
-    onChange?.({ languages, cover: newCoverData })
-  }
-
-  const handleCoverUrl = (url) => {
-    const newCoverData = { type: 'url', url, file: null }
-    setCoverData(newCoverData)
-    setCustomCoverUrl(url)
-    // Pass actual cover data for URLs (will be saved as cover_url)
-    onChange?.({ languages, cover: newCoverData })
-  }
-
-  const resetToGeneratedCover = () => {
-    const newCoverData = { type: 'generated', url: '', file: null }
-    setCoverData(newCoverData)
-    setCustomCoverUrl('')
-    setShowCoverUrlInput(false)
-    // Pass null for generated covers (won't be saved, uses dynamic generation)
-    onChange?.({ languages, cover: null })
-  }
 
 
 
-  const getCurrentCoverPreview = () => {
-    if (coverData.type === 'uploaded' || coverData.type === 'url') {
-      return coverData.url
-    }
-    // For generated covers, return null to show the generated cover component
-    return null
-  }
-
-  // Calculate cover data only when actual movie data changes
-  const generatedCoverData = useMemo(() => {
-    let movieName = 'Movie Title'
-    let identifier = 'default'
-    
-    if (mode === 'create' && detectedInfo?.metadata) {
-      // Create mode: use detected info
-      movieName = detectedInfo.metadata.movieName || detectedInfo.metadata.movie_name || 'Movie Title'
-      identifier = movieName
-    } else if (mode === 'edit' && languages.length > 0) {
-      // Edit mode: use movie name from loaded subtitles  
-      movieName = languages[0].movie_name || 'Movie Title'
-      identifier = movieName
-    }
-    
-    return {
-      movieName,
-      identifier
-    }
-  }, [
-    mode, 
-    detectedInfo?.metadata?.movieName, 
-    detectedInfo?.metadata?.movie_name,
-    languages?.[0]?.movie_name  // Only when actual movie name changes
-  ])
 
   return (
     <Stack spacing={3}>
@@ -502,111 +436,7 @@ export const SubtitleShardEditor = ({
         />
       </Box>
 
-      {/* Cover Preview Section */}
-      <Box>
-        <Typography level="body-sm" sx={{ mb: 1, fontWeight: 'bold', color: 'text.secondary' }}>
-          Preview
-        </Typography>
-        {/* Cover Preview */}
-        <Box
-          sx={{
-            width: 90,
-            height: 100,
-            borderRadius: 8,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            overflow: 'hidden',
-            border: '1px solid',
-            borderColor: 'divider'
-          }}
-          onClick={onCoverClick}
-        >
-              {getCurrentCoverPreview() ? (
-                <img
-                  src={getCurrentCoverPreview()}
-                  alt="Cover preview"
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    borderRadius: 8
-                  }}
-                />
-              ) : (
-                (() => {
-                                      const coverDataInfo = generatedCoverData
-                  const generatedCover = generateCover(coverDataInfo.movieName, coverDataInfo.identifier)
-                  
-                  // Function to calculate text color based on background brightness
-                  const getTextColor = (background) => {
-                    const colorMatch = background.match(/#([a-f\d]{6})/gi)
-                    if (!colorMatch) return '#ffffff'
-                    
-                    const hex = colorMatch[0].replace('#', '')
-                    const r = parseInt(hex.substr(0, 2), 16)
-                    const g = parseInt(hex.substr(2, 2), 16)
-                    const b = parseInt(hex.substr(4, 2), 16)
-                    
-                    const brightness = (r * 299 + g * 587 + b * 114) / 1000
-                    return brightness > 140 ? '#000000' : '#ffffff'
-                  }
 
-                  const textColor = getTextColor(generatedCover.background)
-                  
-                  return (
-                    <Box
-                      sx={{
-                        width: '100%',
-                        height: '100%',
-                        background: generatedCover.background,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: textColor,
-                        textAlign: 'center',
-                        p: 1,
-                        borderRadius: 8,
-                        lineHeight: 1
-                      }}
-                    >
-                                        {generatedCover.formattedText?.lines ? 
-                    generatedCover.formattedText.lines.map((line, index) => (
-                      <Box
-                        key={index}
-                        sx={line.styles || {
-                          fontSize: '11px',
-                          fontWeight: 900,
-                          fontFamily: '"Inter", "Roboto", "Arial Black", sans-serif',
-                          lineHeight: 0.9,
-                          color: textColor,
-                          textShadow: textColor === '#ffffff' ? '0 1px 2px rgba(0,0,0,0.7)' : '0 1px 2px rgba(255,255,255,0.7)',
-                          mb: index < generatedCover.formattedText.lines.length - 1 ? 0.2 : 0,
-                          letterSpacing: '0.3px'
-                        }}
-                      >
-                        {line.text}
-                      </Box>
-                    )) :
-                    <Box sx={{ 
-                      fontSize: '11px', 
-                      fontWeight: 900,
-                      fontFamily: '"Inter", "Roboto", "Arial Black", sans-serif',
-                      color: textColor,
-                      textShadow: textColor === '#ffffff' ? '0 1px 2px rgba(0,0,0,0.7)' : '0 1px 2px rgba(255,255,255,0.7)',
-                      letterSpacing: '0.3px'
-                    }}>
-                      {coverDataInfo.movieName.toUpperCase()}
-                    </Box>
-                  }
-                    </Box>
-                  )
-                })()
-              )}
-            </Box>
-      </Box>
 
       {/* Pro Features (Disabled) */}
       <Box>
