@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { apiCall } from '../config/api'
+import { log } from '../utils/logger'
 
 const AuthContext = createContext()
 
@@ -30,7 +31,7 @@ export const AuthProvider = ({ children }) => {
       const data = await apiCall('/api/auth/me')
       setUser(data.user)
     } catch (error) {
-      console.error('Auth check failed:', error)
+      log.error('Auth check failed:', error)
       localStorage.removeItem('token')
     } finally {
       setLoading(false)

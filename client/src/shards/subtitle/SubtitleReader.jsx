@@ -15,6 +15,8 @@ import {
   Pause
 } from '@mui/icons-material'
 import { apiCall } from '../../config/api'
+import { log } from '../../utils/logger'
+
 
 export const SubtitleReader = ({ shardId, onBack }) => {
   const [lines, setLines] = useState([])
@@ -36,7 +38,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
       await loadSubtitle(shardData.shard.data.languages[0].subtitle_id)
     }
     } catch (error) {
-      console.error('Failed to load shard:', error)
+      log.error('Failed to load shard:', error)
     } finally {
       setLoading(false)
     }
@@ -47,7 +49,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
       const data = await apiCall(`/api/subtitles/${subtitleId}/lines`)
       setLines(data.lines || [])
     } catch (error) {
-      console.error('Failed to load subtitle:', error)
+      log.error('Failed to load subtitle:', error)
     }
   }
 

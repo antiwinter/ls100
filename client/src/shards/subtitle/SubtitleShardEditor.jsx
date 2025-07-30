@@ -16,6 +16,8 @@ import {
 import { Close } from '@mui/icons-material'
 import { detect } from './SubtitleShard.js'
 import { useLongPress } from '../../utils/useLongPress.js'
+import { log } from '../../utils/logger'
+
 
 // Extract language data from detectedInfo
 const extractLanguage = (detectedInfo) => {
@@ -105,14 +107,14 @@ export const SubtitleShardEditor = ({
     if (langs.length > 0) {
       setLanguages(langs)
       onChange?.({ languages: langs })
-      console.debug('🔍 [SubtitleEditor] Initialized languages:', langs)
+      log.debug('🔍 Initialized languages:', langs)
     }
   }, [mode, detectedInfo, shardData?.data?.languages?.length])
 
   // Update languages when shardData changes (edit mode)
   useEffect(() => {
     if (mode === 'edit' && shardData?.data?.languages) {
-      console.debug('🔄 [SubtitleEditor] Updating from shardData:', shardData.data.languages)
+      log.debug('🔄 Updating from shardData:', shardData.data.languages)
       setLanguages(shardData.data.languages)
     }
   }, [mode, shardData?.data?.languages?.length, shardData?.data?.languages?.[0]?.movie_name])
@@ -207,7 +209,7 @@ export const SubtitleShardEditor = ({
       onChange?.({ languages: langs })
       
     } catch (error) {
-      console.error('❌ [SubtitleEditor] Failed to process language file:', error)
+      log.error('❌ Failed to process language file:', error)
       setErrorDialog({ 
         open: true, 
         message: 'Failed to process the selected file. Please try again.' 

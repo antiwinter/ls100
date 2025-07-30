@@ -13,6 +13,7 @@ import {
 } from '@mui/joy'
 import { ArrowBack, Upload, Link as LinkIcon } from '@mui/icons-material'
 import { AppDialog } from '../components/AppDialog'
+import { log } from '../utils/logger'
 import { apiCall } from '../config/api'
 import { 
   engineGetTag, 
@@ -20,6 +21,7 @@ import {
   engineSaveData,
   engineGenCover
 } from '../shards/engines.js'
+
 
 export const EditShard = () => {
   const navigate = useNavigate()
@@ -74,16 +76,16 @@ export const EditShard = () => {
     } else if (mode === 'edit' && navigationShardData) {
       const fetchShardDetails = async () => {
         try {
-          console.log('📝 [EditShard] Edit mode - loading shard details for ID:', shardId)
+          log.info('📝 Edit mode - loading shard details for ID:', shardId)
           const response = await apiCall(`/api/shards/${shardId}`)
         
         // Backend now returns unified format directly
         const shard = response.shard
-          console.log('🔍 [EditShard] Processed shard data:', shard)
+          log.info('🔍 Processed shard data:', shard)
             
           setShardData(shard)
         } catch (error) {
-          console.error('❌ [EditShard] Failed to fetch shard details:', error)
+          log.error('❌ Failed to fetch shard details:', error)
           setShardData(navigationShardData)
         }
       }
@@ -95,11 +97,11 @@ export const EditShard = () => {
   const handleSave = async () => {
     setSaving(true)
     try {
-      console.log('💾 [EditShard] Saving shard data:', shardData)
+      log.info('💾 Saving shard data:', shardData)
       
       const isCreate = mode === 'create'
       
-      console.log(`📝 [EditShard] ${isCreate ? 'Creating' : 'Updating'} shard:`, shardData.type)
+      log.info(`📝 ${isCreate ? 'Creating' : 'Updating'} shard:`, shardData.type)
       
       // Handle cover file upload if needed
       if (shardData.coverFile) {
@@ -128,13 +130,13 @@ export const EditShard = () => {
         }
       )
       
-      console.log(`✅ [EditShard] Shard ${isCreate ? 'created' : 'updated'}:`, 
+      log.info(`✅ Shard ${isCreate ? 'created' : 'updated'}:`, 
         isCreate ? result.shard.id : shardId)
       
       // Navigate back to home
       navigate('/')
     } catch (error) {
-      console.error('Failed to save shard:', error)
+      log.error('Failed to save shard:', error)
     } finally {
       setSaving(false)
     }

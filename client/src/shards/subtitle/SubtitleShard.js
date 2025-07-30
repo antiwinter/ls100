@@ -2,10 +2,12 @@ import { apiCall } from "../../config/api";
 import { detectLanguageWithConfidence } from "../../utils/languageDetection";
 import { SubtitleShardEditor } from "./SubtitleShardEditor.jsx";
 import { SubtitleReader } from "./SubtitleReader.jsx";
+import { log } from "../../utils/logger";
+
 
 // Content detector with confidence scoring
 export const detect = (filename, buffer) => {
-  console.debug('🔍 [SubtitleShard] Detecting subtitle file:', filename, 'size:', buffer.byteLength || buffer.length)
+  log.debug('Detecting subtitle file:', filename, 'size:', buffer.byteLength || buffer.length)
   
   // Handle both ArrayBuffer (browser) and Buffer (Node.js)
   let content;
@@ -15,7 +17,7 @@ export const detect = (filename, buffer) => {
     content = buffer.toString("utf8");
   }
   
-  console.debug('🔍 [SubtitleShard] Content preview (first 200 chars):', content.substring(0, 200))
+  log.debug('🔍 Content preview (first 200 chars):', content.substring(0, 200))
 
   // Check file extension
   const hasExt = /\.(srt|vtt|ass|ssa|sub)$/i.test(filename);
@@ -23,26 +25,26 @@ export const detect = (filename, buffer) => {
   // Check content pattern (timestamps + text)
   const hasPattern = /\d{2}:\d{2}:\d{2}[,.]\d{3}/.test(content);
   
-  console.debug('🔍 [SubtitleShard] File validation:', { hasExt, hasPattern })
+  log.debug('🔍 File validation:', { hasExt, hasPattern })
 
   // Extract movie info for metadata
   const metadata = parseMovieInfo(filename);
-  console.debug('🔍 [SubtitleShard] Parsed metadata from filename:', metadata)
+  log.debug('🔍 Parsed metadata from filename:', metadata)
 
   // For subtitle files, also detect language from content
   if (hasExt || hasPattern) {
     try {
       const langDetection = detectLanguageWithConfidence(content);
-      console.debug('🔍 [SubtitleShard] Language detection result:', langDetection)
+      log.debug('🔍 Language detection result:', langDetection)
       
       // Enhance metadata with detected language (overrides filename-based detection)
       metadata.language = langDetection.language;
       metadata.languageConfidence = langDetection.confidence;
       metadata.textLinesCount = langDetection.textLinesCount;
       
-      console.debug('🔍 [SubtitleShard] Final metadata after language detection:', metadata)
+      log.debug('🔍 Final metadata after language detection:', metadata)
     } catch (langError) {
-      console.warn('❌ [SubtitleShard] Language detection failed:', langError);
+      log.warn('❌ Language detection failed:', langError);
       // Keep filename-based language detection as fallback
       metadata.languageConfidence = 0.3;
     }
@@ -58,7 +60,7 @@ export const detect = (filename, buffer) => {
     },
   }
   
-  console.debug('🔍 [SubtitleShard] Final detection result:', result)
+  log.debug('🔍 Final detection result:', result)
   
   return result;
 };
@@ -277,7 +279,7 @@ export const processData = async (shard, apiCall) => {
     for (const language of shard.data.languages) {
       if (language.file) {
         // Upload new file
-        console.log('📤 [SubtitleEngine] Uploading file:', language.filename)
+        log.info('📤 Uploading file:', language.filename)
         
         const formData = new FormData()
         formData.append("subtitle", language.file)
@@ -289,7 +291,7 @@ export const processData = async (shard, apiCall) => {
           body: formData,
         })
         
-        console.log('✅ [SubtitleEngine] File uploaded, subtitle_id:', uploadResult.subtitle_id)
+        log.info('✅ File uploaded, subtitle_id:', uploadResult.subtitle_id)
         
         // Replace file with subtitle_id
         delete language.file

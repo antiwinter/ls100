@@ -2,6 +2,9 @@
 // Note: This is a simplified version without franc dependency
 // TODO: Add franc package or implement with different library
 
+import { log } from './logger'
+
+
 // Map language patterns to codes for basic detection
 const LANGUAGE_PATTERNS = {
   en: [
@@ -58,10 +61,10 @@ export const detectLanguageFromContent = (content) => {
     }
     
     // Normalize by text length
-    langScores[lang] = score / combinedText.length * 1000
+    langScores= score / combinedText.length * 1000
     
     if (score > 0) {
-      console.debug(`🔍 [LanguageDetection] ${lang.toUpperCase()} score: ${langScores[lang].toFixed(2)} (${score} matches)`, matchDetails.slice(0, 2))
+      log.debug(`🔍 ${lang.toUpperCase()} score: ${langScores[lang].toFixed(2)} (${score} matches)`, matchDetails.slice(0, 2))
     }
   }
   
@@ -69,19 +72,19 @@ export const detectLanguageFromContent = (content) => {
   const sortedLangs = Object.entries(langScores)
     .sort(([,a], [,b]) => b - a)
   
-  console.debug('🔍 [LanguageDetection] Language scores:', sortedLangs.slice(0, 3))
+  log.debug('🔍 Language scores:', sortedLangs.slice(0, 3))
   
   const topLang = sortedLangs[0]?.[0]
-  const result = topLang && langScores[topLang] > 1 ? topLang : 'en'
+  const result = topLang && langScores> 1 ? topLang : 'en'
   
-  console.debug('🔍 [LanguageDetection] Selected language:', result, `(top score: ${langScores[topLang]?.toFixed(2) || 'N/A'})`)
+  log.debug('🔍 Selected language:', result, `(top score: ${langScores[topLang]?.toFixed(2) || 'N/A'})`)
   
   return result
 }
 
 // Enhanced detection with confidence scoring
 export const detectLanguageWithConfidence = (content) => {
-  console.debug('🔍 [LanguageDetection] Starting language detection for content length:', content.length)
+  log.debug('🔍 Starting language detection for content length:', content.length)
   
   const detected = detectLanguageFromContent(content)
   
@@ -93,7 +96,7 @@ export const detectLanguageWithConfidence = (content) => {
     line.trim().length > 3
   )
   
-  console.debug('🔍 [LanguageDetection] Text analysis:', {
+  log.debug('🔍 Text analysis:', {
     totalLines: lines.length,
     textLines: textLines.length,
     detectedLanguage: detected,
@@ -109,7 +112,7 @@ export const detectLanguageWithConfidence = (content) => {
     textLinesCount: textLines.length
   }
   
-  console.debug('🔍 [LanguageDetection] Final result:', result)
+  log.debug('🔍 Final result:', result)
   
   return result
 } 

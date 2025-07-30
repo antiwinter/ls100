@@ -13,6 +13,7 @@ import { ShardBrowser } from '../components/ShardBrowser'
 import { AppDialog } from '../components/AppDialog'
 import { apiCall } from '../config/api'
 import { engineGetReader } from '../shards/engines.js'
+import { log } from '../utils/logger'
 
 export const Home = ({ onEditModeChange }) => {
   const navigate = useNavigate()
@@ -40,7 +41,7 @@ export const Home = ({ onEditModeChange }) => {
       const data = await apiCall(`/api/shards?sort=${sortBy}`)
       setShards(data.shards || [])
     } catch (error) {
-      console.error('Failed to load shards:', error)
+      log.error('Failed to load shards:', error)
     }
   }
 
@@ -122,7 +123,7 @@ export const Home = ({ onEditModeChange }) => {
       
       setSelected([])
     } catch (error) {
-      console.error('Failed to delete shards:', error)
+      log.error('Failed to delete shards:', error)
     }
   }
 
@@ -138,7 +139,7 @@ export const Home = ({ onEditModeChange }) => {
       ))
       await loadShards()
     } catch (error) {
-      console.error('Failed to make shards public:', error)
+      log.error('Failed to make shards public:', error)
     }
   }
 
@@ -154,7 +155,7 @@ export const Home = ({ onEditModeChange }) => {
       ))
       await loadShards()
     } catch (error) {
-      console.error('Failed to make shards private:', error)
+      log.error('Failed to make shards private:', error)
     }
   }
 
