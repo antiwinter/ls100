@@ -26,7 +26,25 @@ WHERE (shard_id, subtitle_id) IN (
   AND ss2.is_main = TRUE
 );
 
+-- Subtitle-specific progress tracking
+CREATE TABLE IF NOT EXISTS subtitle_progress (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT NOT NULL,
+  shard_id TEXT NOT NULL,
+  timestamp TEXT NOT NULL,
+  words TEXT DEFAULT '[]',
+  bookmarks TEXT DEFAULT '[]',
+  study_time INTEGER DEFAULT 0,
+  completion_rate REAL DEFAULT 0.0,
+  updated_at TEXT NOT NULL,
+  UNIQUE(user_id, shard_id),
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (shard_id) REFERENCES shards(id) ON DELETE CASCADE
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_shard_subtitles_shard ON shard_subtitles(shard_id);
 CREATE INDEX IF NOT EXISTS idx_shard_subtitles_subtitle ON shard_subtitles(subtitle_id);
-CREATE INDEX IF NOT EXISTS idx_shard_subtitles_main ON shard_subtitles(shard_id, is_main); 
+CREATE INDEX IF NOT EXISTS idx_shard_subtitles_main ON shard_subtitles(shard_id, is_main);
+CREATE INDEX IF NOT EXISTS idx_subtitle_progress_user ON subtitle_progress(user_id);
+CREATE INDEX IF NOT EXISTS idx_subtitle_progress_shard ON subtitle_progress(shard_id); 

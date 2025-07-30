@@ -197,9 +197,6 @@ router.delete('/:id', requireAuth, async (req, res) => {
   }
 })
 
-// Subtitle-specific routes removed to maintain engine abstraction
-// These endpoints should be handled by the subtitle module directly:
-// - /api/subtitles/upload (already exists)  
-// - Subtitle linking via PUT /api/shards/:id with data
+// Any Engine-specific functionality should NOT be put here
 
 export default router 

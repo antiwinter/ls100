@@ -15,24 +15,8 @@ CREATE TABLE IF NOT EXISTS shards (
 );
 
 -- Note: shard_subtitles table moved to server/shards/subtitle/migration.sql
-
--- Progress tracking
-CREATE TABLE IF NOT EXISTS progress (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id TEXT NOT NULL,
-  shard_id TEXT NOT NULL,
-  timestamp TEXT NOT NULL,
-  words TEXT DEFAULT '[]',
-  bookmarks TEXT DEFAULT '[]',
-  study_time INTEGER DEFAULT 0,
-  completion_rate REAL DEFAULT 0.0,
-  updated_at TEXT NOT NULL,
-  UNIQUE(user_id, shard_id),
-  FOREIGN KEY (user_id) REFERENCES users(id),
-  FOREIGN KEY (shard_id) REFERENCES shards(id) ON DELETE CASCADE
-);
+-- Note: progress tracking moved to engine-specific modules (e.g., subtitle_progress)
 
 -- Shard indexes
 CREATE INDEX IF NOT EXISTS idx_shards_owner ON shards(owner_id);
-CREATE INDEX IF NOT EXISTS idx_shards_public ON shards(public);
-CREATE INDEX IF NOT EXISTS idx_progress_user ON progress(user_id); 
+CREATE INDEX IF NOT EXISTS idx_shards_public ON shards(public); 

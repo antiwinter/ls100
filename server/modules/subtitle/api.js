@@ -154,7 +154,7 @@ router.get('/:id/content', requireAuth, async (req, res) => {
   }
 })
 
-// Get parsed subtitle lines by ID
+// Get parsed subtitle lines by ID with pagination support
 router.get('/:id/lines', requireAuth, async (req, res) => {
   try {
     const subtitle = subtitleModel.findById(req.params.id)
@@ -162,15 +162,41 @@ router.get('/:id/lines', requireAuth, async (req, res) => {
       return res.status(404).json({ message: 'Subtitle not found' })
     }
 
-    log.debug({ subtitleId: req.params.id, ossId: subtitle.oss_id }, 'Loading subtitle lines')
+    // Parse pagination params
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200) // Max 200 lines per request
+    const offset = Math.max(parseInt(req.query.offset) || 0, 0)
+
+    log.debug({ 
+      subtitleId: req.params.id, 
+      ossId: subtitle.oss_id,
+      limit,
+      offset 
+    }, 'Loading subtitle lines')
     
     const content = await getSubtitle(subtitle.oss_id)
     const { parseSrt } = await import('./storage.js')
     const { parsed } = parseSrt(content.toString('utf8'))
     
-    log.debug({ lineCount: parsed.length }, 'Parsed subtitle lines')
+    // Apply pagination
+    const total = parsed.length
+    const paginatedLines = parsed.slice(offset, offset + limit)
     
-    res.json({ lines: parsed })
+    log.debug({ 
+      totalLines: total,
+      returnedLines: paginatedLines.length,
+      offset,
+      limit 
+    }, 'Parsed subtitle lines with pagination')
+    
+    res.json({ 
+      lines: paginatedLines,
+      pagination: {
+        total,
+        offset,
+        limit,
+        hasMore: offset + limit < total
+      }
+    })
   } catch (error) {
     log.error({ error, subtitleId: req.params.id }, 'Failed to load subtitle lines')
     res.status(500).json({ message: 'Server error', error: error.message })

@@ -32,4 +32,61 @@ export const getShardsForSubtitle = (subtitleId) => {
     JOIN shard_subtitles ss ON s.id = ss.shard_id
     WHERE ss.subtitle_id = ?
   `).all(subtitleId)
+}
+
+// Subtitle-specific word selection management
+export const getWords = (userId, shardId) => {
+  const result = db.prepare(`
+    SELECT words FROM subtitle_progress WHERE user_id = ? AND shard_id = ?
+  `).get(userId, shardId)
+  
+  if (!result) return []
+  
+  try {
+    return JSON.parse(result.words || '[]')
+  } catch {
+    return []
+  }
+}
+
+export const updateWords = (userId, shardId, words) => {
+  // Ensure uniqueness and filter out empty values
+  const uniqueWords = [...new Set(words.filter(w => w && typeof w === 'string'))]
+  const wordsJson = JSON.stringify(uniqueWords)
+  const now = new Date().toISOString()
+  
+  const existing = db.prepare(`
+    SELECT id FROM subtitle_progress WHERE user_id = ? AND shard_id = ?
+  `).get(userId, shardId)
+  
+  if (existing) {
+    // Update existing record
+    return db.prepare(`
+      UPDATE subtitle_progress SET words = ?, updated_at = ? 
+      WHERE user_id = ? AND shard_id = ?
+    `).run(wordsJson, now, userId, shardId)
+  } else {
+    // Create new record
+    return db.prepare(`
+      INSERT INTO subtitle_progress (user_id, shard_id, words, timestamp, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(userId, shardId, wordsJson, now, now)
+  }
+}
+
+export const addWords = (userId, shardId, newWords) => {
+  const words = getWords(userId, shardId)
+  // Add new words that aren't already present
+  const wordsToAdd = Array.isArray(newWords) ? newWords : [newWords]
+  const updated = [...words, ...wordsToAdd.filter(w => !words.includes(w))]
+  updateWords(userId, shardId, updated)
+  return updated
+}
+
+export const removeWords = (userId, shardId, wordsToRemove) => {
+  const words = getWords(userId, shardId)
+  const removeList = Array.isArray(wordsToRemove) ? wordsToRemove : [wordsToRemove]
+  const filtered = words.filter(w => !removeList.includes(w))
+  updateWords(userId, shardId, filtered)
+  return filtered
 } 

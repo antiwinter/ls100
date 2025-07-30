@@ -6,6 +6,7 @@ import dotenv from 'dotenv'
 import authRoutes from './modules/auth/api.js'
 import shardsRoutes from './modules/shard/api.js'
 import subtitleRoutes from './modules/subtitle/api.js'
+import subtitleWordsRoutes from './shards/subtitle/words-api.js'
 import { runMigrations } from './utils/dbc.js'
 import { log, loggerMiddleware } from './utils/logger.js'
 import { httpLogger } from './utils/httpLogger.js'
@@ -51,6 +52,7 @@ app.use(loggerMiddleware)
 app.use('/api/auth', authRoutes)
 app.use('/api/shards', shardsRoutes)
 app.use('/api/subtitles', subtitleRoutes)
+app.use('/api/subtitle-shards', subtitleWordsRoutes)
 app.get('/api/hello', (req, res) => {
   res.json({
     message: 'Hello from backend!',

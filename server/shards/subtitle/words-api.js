@@ -1,0 +1,106 @@
+import express from 'express'
+import * as subtitleData from './data.js'
+import * as shardModel from '../../modules/shard/data.js'
+import { requireAuth } from '../../utils/auth-middleware.js'
+import { log } from '../../utils/logger.js'
+
+const router = express.Router()
+
+// Reusable shard access validation
+const validateShardAccess = async (req, res, next) => {
+  try {
+    const shardId = req.params.shardId
+    const shard = shardModel.findById(shardId)
+    
+    if (!shard) {
+      return res.status(404).json({ error: 'Shard not found' })
+    }
+    
+    if (shard.owner_id !== req.userId && !shard.public) {
+      return res.status(403).json({ error: 'Access denied' })
+    }
+    
+    if (shard.type !== 'subtitle') {
+      return res.status(400).json({ error: 'Not a subtitle shard' })
+    }
+    
+    req.shard = shard
+    next()
+  } catch (error) {
+    log.error({ error, shardId: req.params.shardId }, 'Failed to validate shard access')
+    res.status(500).json({ error: 'Failed to validate shard access' })
+  }
+}
+
+// GET /api/subtitle-shards/:shardId/words - Get selected words
+router.get('/:shardId/words', requireAuth, validateShardAccess, async (req, res) => {
+  try {
+    const words = subtitleData.getWords(req.userId, req.params.shardId)
+    res.json({ words })
+  } catch (error) {
+    log.error({ error, shardId: req.params.shardId }, 'Failed to get selected words')
+    res.status(500).json({ error: 'Failed to get selected words' })
+  }
+})
+
+// POST /api/subtitle-shards/:shardId/words - Add word to selection
+router.post('/:shardId/words', requireAuth, validateShardAccess, async (req, res) => {
+  try {
+    const { word } = req.body
+    
+    if (!word || typeof word !== 'string') {
+      return res.status(400).json({ error: 'Word is required' })
+    }
+    
+    const words = subtitleData.addWords(req.userId, req.params.shardId, [word.toLowerCase()])
+    res.json({ words })
+  } catch (error) {
+    log.error({ error, shardId: req.params.shardId }, 'Failed to add selected word')
+    res.status(500).json({ error: 'Failed to add selected word' })
+  }
+})
+
+// DELETE /api/subtitle-shards/:shardId/words/:word - Remove word from selection
+router.delete('/:shardId/words/:word', requireAuth, validateShardAccess, async (req, res) => {
+  try {
+    const word = req.params.word
+    const words = subtitleData.removeWords(req.userId, req.params.shardId, [word.toLowerCase()])
+    res.json({ words })
+  } catch (error) {
+    log.error({ error, shardId: req.params.shardId }, 'Failed to remove selected word')
+    res.status(500).json({ error: 'Failed to remove selected word' })
+  }
+})
+
+// PUT /api/subtitle-shards/:shardId/words - Batch update selected words
+router.put('/:shardId/words', requireAuth, validateShardAccess, async (req, res) => {
+  try {
+    const { additions = [], removals = [] } = req.body
+    
+    if (!Array.isArray(additions) || !Array.isArray(removals)) {
+      return res.status(400).json({ error: 'Additions and removals must be arrays' })
+    }
+    
+    // Process arrays for consistency
+    const cleanAdditions = additions.filter(w => typeof w === 'string').map(w => w.toLowerCase())
+    const cleanRemovals = removals.filter(w => typeof w === 'string').map(w => w.toLowerCase())
+    
+    // Add words
+    if (cleanAdditions.length > 0) {
+      subtitleData.addWords(req.userId, req.params.shardId, cleanAdditions)
+    }
+    
+    // Remove words  
+    if (cleanRemovals.length > 0) {
+      subtitleData.removeWords(req.userId, req.params.shardId, cleanRemovals)
+    }
+    
+    const words = subtitleData.getWords(req.userId, req.params.shardId)
+    res.json({ words })
+  } catch (error) {
+    log.error({ error, shardId: req.params.shardId }, 'Failed to batch update selected words')
+    res.status(500).json({ error: 'Failed to batch update selected words' })
+  }
+})
+
+export default router
