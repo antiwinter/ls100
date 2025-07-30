@@ -25,14 +25,15 @@ const extractLanguage = (detectedInfo) => {
   
   const movieName = detectedInfo.metadata?.movieName || detectedInfo.metadata?.movie_name || "Unknown Movie"
   const language = detectedInfo.metadata?.language || "en"
-  
-  return [{
+  const lang = {
     code: language,
     filename: detectedInfo.filename,
     movie_name: movieName,
     file: detectedInfo.file,
     isMain: true
-  }]
+  }
+  log.debug('extracted', detectedInfo, lang)
+  return [lang]
 }
 
 const TruncatedFilename = ({ filename, isMain, showTooltip, onTooltipClose }) => (
@@ -103,21 +104,23 @@ export const SubtitleShardEditor = ({
 
   // Initialize languages from shardData or detectedInfo
   useEffect(() => {
-    const langs = shardData?.data?.languages || extractLanguage(detectedInfo)
-    if (langs.length > 0) {
-      setLanguages(langs)
-      onChange?.({ languages: langs })
-      log.debug('🔍 Initialized languages:', langs)
-    }
-  }, [mode, detectedInfo, shardData?.data?.languages?.length])
+    let langs =
+      // Edit mode: use shard data
+      shardData?.data?.languages ||
+      // Create mode: use detected info
+      extractLanguage(detectedInfo);
+    log.debug("🔍 Languages loaded:", langs);
 
-  // Update languages when shardData changes (edit mode)
-  useEffect(() => {
-    if (mode === 'edit' && shardData?.data?.languages) {
-      log.debug('🔄 Updating from shardData:', shardData.data.languages)
-      setLanguages(shardData.data.languages)
+    if (langs && langs.length > 0) {
+      setLanguages(langs);
+      onChange?.({ languages: langs });
     }
-  }, [mode, shardData?.data?.languages?.length, shardData?.data?.languages?.[0]?.movie_name])
+  }, [
+    mode,
+    detectedInfo,
+    shardData?.data?.languages?.length,
+    shardData?.data?.languages?.[0]?.movie_name,
+  ]);
 
   const handleTooltipClick = (filename) => {
     if (tooltipTimerRef.current) {
@@ -240,7 +243,13 @@ export const SubtitleShardEditor = ({
                   variant={lang.isMain ? 'solid' : 'outlined'}
                   color="primary"
                   size="sm"
-                  sx={{ minWidth: 40 }}
+                  sx={{ 
+                    minWidth: 40,
+                    textAlign: 'center',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
                 >
                   {lang.code.toUpperCase()}
                 </Chip>

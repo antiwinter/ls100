@@ -4,10 +4,11 @@
 English learning app using movie subtitles with mobile-first design.
 
 ## Tech Stack
-- **Frontend**: React 18 + Vite + MUI Joy UI
-- **Backend**: Express.js + Node.js + SQLite
+- **Frontend**: React 18 + Vite + MUI Joy UI + loglevel
+- **Backend**: Express.js + Node.js + SQLite + Pino + Morgan
 - **Package Manager**: Yarn workspaces
 - **Database**: SQLite with migration to PostgreSQL/MySQL path
+- **Logging**: Pino (backend), Morgan (HTTP), loglevel (frontend)
 
 ## Project Structure
 ```
@@ -52,7 +53,41 @@ apiCall('/api/endpoint', options)  // Auto-handles auth + errors
 - **Tabs**: Home/Explore/Friends/Me with color-coded active states
 - **Icons**: Material-UI icons with proper touch targets
 
-### 4. Development Setup
+### 4. Logging System
+**Location**: `server/utils/logger.js` + `server/utils/httpLogger.js` + `client/src/utils/logger.js`
+
+**Backend Logging (Pino + Morgan)**:
+- **HTTP Requests**: Morgan with user context (`GET /api/shards 200 john@example.com(user_123) 12.3ms`)
+- **Application Logs**: Pino with auto file detection and request context
+- **Structured Output**: JSON in production, pretty-printed in development
+- **User Context**: Automatic user ID/name in all request-scoped logs
+
+```javascript
+// Backend usage
+import { log } from '../utils/logger.js'
+log.info({ shardId: 'shard_123' }, 'Processing shard creation')
+// Output: {"level":"info","file":"engine.js","userId":"user_123","userName":"john@example.com","shardId":"shard_123","msg":"Processing shard creation"}
+```
+
+**Frontend Logging (loglevel)**:
+- **Environment-aware**: Debug level in dev, warn+ in production
+- **Browser-native**: File names shown automatically in DevTools
+- **Simple import**: Direct usage without component context
+
+```javascript
+// Frontend usage
+import { log } from '../utils/logger'
+log.debug('Detecting subtitle file:', filename)
+// Output: [SubtitleShard.js:10] Detecting subtitle file: movie.srt
+```
+
+**Design Principles**:
+- No manual component labels (browser/server shows file info)
+- HTTP auto-logged by Morgan (no manual request logging)
+- One-line object logging preferred over multiline
+- Structured data for production analysis
+
+### 5. Development Setup
 **Scripts**:
 ```bash
 yarn dev     # Both frontend + backend with hot reload
@@ -260,6 +295,8 @@ export const validateData = (data) => { ... }
 ### Utility Functions
 - `utils/dateFormat.js` - Human-readable relative time formatting
 - `config/api.js` - Centralized API calls with smart Content-Type handling
+- `utils/logger.js` - Production-ready logging (Pino backend, loglevel frontend)
+- `utils/httpLogger.js` - HTTP request logging with user context (Morgan)
 
 ## Recent Major Updates ✅ 2024
 
@@ -281,6 +318,12 @@ export const validateData = (data) => { ... }
 - **Edit Single Shard**: New edit functionality for individual shards
 - **Visual Improvements**: Better feedback, consistent styling
 
+### Production Logging System
+- **Unified Architecture**: Pino (backend) + Morgan (HTTP) + loglevel (frontend)
+- **Auto Context Detection**: File names and user context automatically included
+- **Environment Optimization**: Debug in dev, structured JSON in production
+- **Clean Implementation**: No manual component labels, consistent import patterns
+
 ## Key Decisions
 1. **No complex state management** - React Context sufficient
 2. **SQLite database** - ACID transactions, easy PostgreSQL migration
@@ -290,3 +333,4 @@ export const validateData = (data) => { ... }
 6. **Module-based organization** - Each feature module contains both API routes and models
 7. **Self-contained modules** - Reusable functionality across different shard types
 8. **Engine Abstraction** - Unified client-server processing for extensible shard types
+9. **Production Logging** - Structured logging with auto context detection, no manual labeling
