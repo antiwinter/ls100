@@ -7,5 +7,5 @@ export {
   ReaderComponent,
   processData
 } from './SubtitleShard.js'
-export { SubtitleReader } from './SubtitleReader.jsx'
+export { SubtitleReader } from './reader/SubtitleReader.jsx'
 export { SubtitleShardEditor } from './SubtitleShardEditor.jsx' 

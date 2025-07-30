@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Box, Typography, LinearProgress, Button } from '@mui/joy'
-import { apiCall } from '../../config/api'
-import { log } from '../../utils/logger'
-import { ActionDrawer, DictDrawer, Toolbar, SubtitleViewer } from './reader'
-import { useWordSync } from './reader/WordSync.js'
+import { apiCall } from '../../../config/api'
+import { log } from '../../../utils/logger'
+import { ActionDrawer, DictDrawer, Toolbar, SubtitleViewer } from '.'
+import { useWordSync } from './WordSync.js'
 
 export const SubtitleReader = ({ shardId, onBack }) => {
   const [shard, setShard] = useState(null)
@@ -37,7 +37,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
 
   const loadSelectedWords = async () => {
     try {
-      const data = await apiCall(`/api/shards/${shardId}/words`)
+      const data = await apiCall(`/api/subtitle-shards/${shardId}/words`)
       setSelectedWords(new Set(data.words || []))
     } catch (error) {
       log.error('Failed to load selected words:', error)

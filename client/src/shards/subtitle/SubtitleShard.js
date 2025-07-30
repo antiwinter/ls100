@@ -1,7 +1,7 @@
 import { apiCall } from "../../config/api";
 import { detectLanguageWithConfidence } from "../../utils/languageDetection";
 import { SubtitleShardEditor } from "./SubtitleShardEditor.jsx";
-import { SubtitleReader } from "./SubtitleReader.jsx";
+import { SubtitleReader } from "./reader/SubtitleReader.jsx";
 import { log } from "../../utils/logger";
 
 
