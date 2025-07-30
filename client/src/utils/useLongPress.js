@@ -47,7 +47,8 @@ export const useLongPress = (onLongPress, onClick, { delay = 500, moveThreshold 
   const end = useCallback((e) => {
     clear()
     
-    if (shouldClick()) onClick?.(e)
+    // Don't call onClick here - let handleClick be the single source of truth
+    // if (shouldClick()) onClick?.(e)  ← REMOVED
     
     // Delay reset for PC mouse events (onMouseUp fires before onClick)
     if (isLong.current) {
@@ -58,7 +59,7 @@ export const useLongPress = (onLongPress, onClick, { delay = 500, moveThreshold 
     } else {
       isLong.current = moved.current = false
     }
-  }, [clear, onClick])
+  }, [clear])
 
   const handleClick = useCallback((e) => {
     if (shouldClick()) onClick?.(e)
