@@ -4,6 +4,7 @@ import chalk from 'chalk'
 import * as subtitleModel from './data.js'
 import { uploadSubtitle, computeHash, getSubtitle } from './storage.js'
 import { requireAuth } from '../../utils/auth-middleware.js'
+import { log } from '../../utils/logger.js'
 
 const router = express.Router()
 
@@ -15,29 +16,28 @@ const upload = multer({
 
 // Upload subtitle with lightning deduplication and auto-detection
 router.post('/upload', requireAuth, upload.single('subtitle'), async (req, res) => {
-  console.debug('🔍 [Server] Subtitle upload request:', {
+  log.debug({ 
     hasFile: !!req.file,
     filename: req.file?.originalname,
     fileSize: req.file?.size,
-    body: req.body,
-    headers: Object.keys(req.headers)
-  })
+    body: req.body
+  }, 'Subtitle upload request')
   
   try {
     if (!req.file) {
-      console.log('❌ [Server] No file provided in upload request')
+      log.warn('No file provided in upload request')
       return res.status(400).json({ message: 'No subtitle file provided' })
     }
 
     const { movie_name, language } = req.body
     const filename = req.file.originalname
     
-    console.debug('🔍 [Server] Processing subtitle upload:', {
+    log.debug({
       filename,
       movie_name,
       language,
       fileSize: req.file.size
-    })
+    }, 'Processing subtitle upload')
     
     // Prepare metadata (language detection now handled in frontend)
     const metadata = {
@@ -46,7 +46,7 @@ router.post('/upload', requireAuth, upload.single('subtitle'), async (req, res) 
       filename: filename
     }
     
-    console.debug('🔍 [Server] Prepared metadata:', metadata)
+    log.debug({ metadata }, 'Prepared subtitle metadata')
 
     // Compute hash
     const hash = computeHash(req.file.buffer)
@@ -64,10 +64,13 @@ router.post('/upload', requireAuth, upload.single('subtitle'), async (req, res) 
     const hashDigest = hash.substring(0, 6)
     const languageStr = metadata.language || 'unknown'
     
-    console.log(
-      `${emoji} ${chalk.green('imported')} ${metadata.movie_name} ` +
-      `${chalk.yellow(`[${languageStr}], ${sizeKB}KB, ${hashDigest}`)}`
-    )
+    log.info({
+      movieName: metadata.movie_name,
+      language: languageStr,
+      sizeKB: parseFloat(sizeKB),
+      hash: hashDigest,
+      lightning: result.lightning
+    }, `Subtitle imported: ${metadata.movie_name}`)
     
     // Include detection suggestions in response
     result.suggestions = {
@@ -77,20 +80,19 @@ router.post('/upload', requireAuth, upload.single('subtitle'), async (req, res) 
       }
     }
 
-    console.debug('✅ [Server] Subtitle upload successful:', {
+    log.debug({
       subtitle_id: result.subtitle_id,
       lightning: result.lightning,
       hash: hash.substring(0, 8)
-    })
+    }, 'Subtitle upload successful')
     
     res.json(result)
   } catch (error) {
-    console.error('❌ [Server] Subtitle upload failed:', {
-      error: error.message,
-      stack: error.stack,
+    log.error({
+      error,
       filename: req.file?.originalname,
       body: req.body
-    })
+    }, 'Subtitle upload failed')
     res.status(500).json({ message: 'Upload failed', error: error.message })
   }
 })
@@ -160,17 +162,17 @@ router.get('/:id/lines', requireAuth, async (req, res) => {
       return res.status(404).json({ message: 'Subtitle not found' })
     }
 
-    console.log(`📖 Loading subtitle lines for: ${req.params.id} (oss_id: ${subtitle.oss_id})`)
+    log.debug({ subtitleId: req.params.id, ossId: subtitle.oss_id }, 'Loading subtitle lines')
     
     const content = await getSubtitle(subtitle.oss_id)
     const { parseSrt } = await import('./storage.js')
     const { parsed } = parseSrt(content.toString('utf8'))
     
-    console.log(`📄 Parsed ${parsed.length} subtitle lines`)
+    log.debug({ lineCount: parsed.length }, 'Parsed subtitle lines')
     
     res.json({ lines: parsed })
   } catch (error) {
-    console.error('Lines endpoint error:', error)
+    log.error({ error, subtitleId: req.params.id }, 'Failed to load subtitle lines')
     res.status(500).json({ message: 'Server error', error: error.message })
   }
 })

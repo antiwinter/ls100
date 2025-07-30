@@ -7,6 +7,8 @@ import authRoutes from './modules/auth/api.js'
 import shardsRoutes from './modules/shard/api.js'
 import subtitleRoutes from './modules/subtitle/api.js'
 import { runMigrations } from './utils/dbc.js'
+import { log, loggerMiddleware } from './utils/logger.js'
+import { httpLogger } from './utils/httpLogger.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -21,9 +23,9 @@ const isDev = process.env.NODE_ENV !== 'production'
 // Initialize database
 try {
   runMigrations()
-  console.log('✅ Database initialized')
+  log.info('Database initialized')
 } catch (error) {
-  console.error('❌ Database initialization failed:', error)
+  log.error({ error }, 'Database initialization failed')
   process.exit(1)
 }
 
@@ -32,12 +34,18 @@ if (isDev) {
   app.use(cors())
 }
 
+// HTTP request logging
+app.use(httpLogger)
+
 // Only parse JSON for requests with application/json content type
 app.use(express.json({ 
   limit: '500KB',
   type: 'application/json'
 }))
 app.use(express.urlencoded({ extended: true, limit: '500KB' }))
+
+// Add request context for logs (must be after body parsing for auth to work)
+app.use(loggerMiddleware)
 
 // API routes
 app.use('/api/auth', authRoutes)
@@ -73,7 +81,6 @@ if (!isDev) {
 }
 
 app.listen(port, '0.0.0.0', () => {
-  console.log(`Server running at http://localhost:${port}`)
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`)
-  console.log(`Loaded .env from: ${path.join(__dirname, '.env')}`)
+  log.info({ port, environment: process.env.NODE_ENV || 'development' }, 'Server started')
+  log.debug({ envFile: path.join(__dirname, '.env') }, 'Environment configuration loaded')
 }) 

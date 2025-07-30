@@ -2,6 +2,7 @@ import express from 'express'
 import jwt from 'jsonwebtoken'
 import * as userModel from './data.js'
 import { requireAuth, JWT_SECRET } from '../../utils/auth-middleware.js'
+import { log } from '../../utils/logger.js'
 
 const router = express.Router()
 
@@ -27,7 +28,7 @@ router.post('/register', async (req, res) => {
     const { password_hash, ...userInfo } = user
     res.json({ user: userInfo })
   } catch (error) {
-    console.error('Register error:', error)
+    log.error({ error, email: req.body?.email }, 'Registration failed')
     res.status(500).json({ error: 'Registration failed' })
   }
 })
@@ -63,7 +64,7 @@ router.post('/login', async (req, res) => {
     const { password_hash, ...userInfo } = user
     res.json({ user: userInfo, token })
   } catch (error) {
-    console.error('Login error:', error)
+    log.error({ error, email: req.body?.email }, 'Login failed')
     res.status(500).json({ error: 'Login failed' })
   }
 })
@@ -81,7 +82,7 @@ router.get('/me', requireAuth, async (req, res) => {
     const { password_hash, ...userInfo } = user
     res.json({ user: userInfo })
   } catch (error) {
-    console.error('Auth error:', error)
+    log.error({ error }, 'Auth me endpoint failed')
     res.status(500).json({ error: 'Server error' })
   }
 })

@@ -1,4 +1,5 @@
 import { engine as subtitleEngine } from './subtitle/engine.js'
+import { log } from '../utils/logger.js'
 
 // Registry of shard engines by type
 const SHARD_ENGINES = {
@@ -32,7 +33,7 @@ export const engineProcessCreate = async (shard, data) => {
   const engine = getEngine(shard.type)
   
   if (!engine || !engine.processCreate) {
-    console.log(`⚠️ [EngineRegistry] No processCreate method for engine: ${shard.type}`)
+    log.warn({ shardType: shard.type }, 'No processCreate method for engine')
     return shard
   }
   
@@ -44,7 +45,7 @@ export const engineProcessUpdate = async (shard, data, updateData) => {
   const engine = getEngine(shard.type)
   
   if (!engine || !engine.processUpdate) {
-    console.log(`⚠️ [EngineRegistry] No processUpdate method for engine: ${shard.type}`)
+    log.warn({ shardType: shard.type }, 'No processUpdate method for engine')
     return shard
   }
   

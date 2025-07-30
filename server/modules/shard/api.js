@@ -3,6 +3,7 @@ import * as shardModel from './data.js'
 // Removed subtitle-specific imports - now handled via engine abstraction
 import { requireAuth } from '../../utils/auth-middleware.js'
 import { engineProcessCreate, engineProcessUpdate, engineValidateData, getEngineTypes, getDefaultEngineType, engineGetData } from '../../shards/engines.js'
+import { log } from '../../utils/logger.js'
 
 const router = express.Router()
 
@@ -28,7 +29,7 @@ router.get('/', requireAuth, async (req, res) => {
     
     res.json({ shards: shardsWithData })
   } catch (error) {
-    console.error('Get shards error:', error)
+    log.error({ error }, 'Failed to get shards')
     res.status(500).json({ error: 'Failed to get shards' })
   }
 })
@@ -50,15 +51,12 @@ router.get('/:id', requireAuth, async (req, res) => {
     // Get engine-specific data
     const data = engineGetData(shard.type, shard.id)
     
-    console.log(`🔍 [API] Fetching data for shard ${req.params.id}:`)
-    console.log(`📋 [API] Engine data result:`, data)
+    log.debug({ shardId: req.params.id, data }, 'Fetching shard data')
     
     // Track progress when user opens shard
     if (shard.owner_id === req.userId) {
       shardModel.updateProgress(req.userId, shard.id)
     }
-    
-    console.log(`📖 [API] Loading shard ${req.params.id}:`, { name: shard.name, data: JSON.stringify(data) })
     
     const responseData = {
       shard: {
@@ -68,11 +66,11 @@ router.get('/:id', requireAuth, async (req, res) => {
       }
     }
     
-    console.log(`📤 [API] Sending response:`, responseData)
+    log.debug({ shardId: req.params.id, name: shard.name }, 'Sending shard response')
     
     res.json(responseData)
   } catch (error) {
-    console.error('Get shard error:', error)
+    log.error({ error, shardId: req.params.id }, 'Failed to get shard')
     res.status(500).json({ error: 'Failed to get shard' })
   }
 })
@@ -97,7 +95,7 @@ router.post('/', requireAuth, async (req, res) => {
       }
     }
     
-    console.log('🎯 [API] Creating shard with engine processing:', { type: finalType, data })
+    log.info({ type: finalType, data }, 'Creating shard with engine processing')
     
     // Create basic shard record
     const shard = shardModel.create({
@@ -120,7 +118,7 @@ router.post('/', requireAuth, async (req, res) => {
       }
     })
   } catch (error) {
-    console.error('Create shard error:', error)
+    log.error({ error }, 'Failed to create shard')
     res.status(500).json({ error: 'Failed to create shard' })
   }
 })
@@ -162,7 +160,7 @@ router.put('/:id', requireAuth, async (req, res) => {
     // Process with engine-specific logic if data provided
     let processedShard = updated
     if (data) {
-      console.log('🎯 [API] Updating shard with engine processing:', { type: shard.type, data })
+      log.info({ shardId: req.params.id, type: shard.type, data }, 'Updating shard with engine processing')
       processedShard = await engineProcessUpdate(updated, data, updates)
     }
     
@@ -173,7 +171,7 @@ router.put('/:id', requireAuth, async (req, res) => {
       }
     })
   } catch (error) {
-    console.error('Update shard error:', error)
+    log.error({ error, shardId: req.params.id }, 'Failed to update shard')
     res.status(500).json({ error: 'Failed to update shard' })
   }
 })
@@ -194,7 +192,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
     shardModel.remove(req.params.id)
     res.json({ message: 'Shard deleted successfully' })
   } catch (error) {
-    console.error('Delete shard error:', error)
+    log.error({ error, shardId: req.params.id }, 'Failed to delete shard')
     res.status(500).json({ error: 'Failed to delete shard' })
   }
 })
