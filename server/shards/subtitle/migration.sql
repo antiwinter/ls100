@@ -12,11 +12,6 @@ CREATE TABLE IF NOT EXISTS shard_subtitles (
   FOREIGN KEY (subtitle_id) REFERENCES subtitles(subtitle_id) ON DELETE CASCADE
 );
 
--- Migration: Add is_main column if it doesn't exist
--- This is safe to run multiple times - ignore if column exists
-ALTER TABLE shard_subtitles ADD COLUMN is_main BOOLEAN DEFAULT FALSE;
--- Note: SQLite doesn't support IF NOT EXISTS for ADD COLUMN, so we handle the error in code
-
 -- Set the first subtitle of each shard as main (for existing data)
 -- Only run if there are no main languages set yet
 UPDATE shard_subtitles 

@@ -2,6 +2,7 @@
 * don't implement uncessary methods for a module, focus on the ones we need. entites should not be multipled uncessarily
 * don't implement duplicated code, extract to a reusable function (or even separate module/file) when ever possible.
 * we don't need Legacy aliases for backward compatibility, in this dev phase, just always make the code clean, clean and clean
+* for complex modifications, always output plan for confirmation first, do not modify code directly
 
 
 # JS things
