@@ -1,55 +1,81 @@
 import { useRef, useCallback } from 'react'
 
-export const useLongPress = (onLongPress, onClick, { delay = 500 } = {}) => {
-  const timeoutRef = useRef(null)
-  const isLongPressRef = useRef(false)
+// Extract position from touch/mouse event
+const getPos = (e) => ({ 
+  x: e.touches ? e.touches[0].clientX : e.clientX,
+  y: e.touches ? e.touches[0].clientY : e.clientY 
+})
 
-  const start = useCallback((e) => {
-    isLongPressRef.current = false
-    
-    timeoutRef.current = setTimeout(() => {
-      isLongPressRef.current = true
-      onLongPress?.(e)
-    }, delay)
-  }, [onLongPress, delay])
+// Calculate distance between two points
+const getDist = (a, b) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y))
+
+export const useLongPress = (onLongPress, onClick, { delay = 500, moveThreshold = 10 } = {}) => {
+  const timer = useRef(null)
+  const resetTimer = useRef(null) 
+  const isLong = useRef(false)
+  const startPos = useRef({ x: 0, y: 0 })
+  const moved = useRef(false)
 
   const clear = useCallback(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
-      timeoutRef.current = null
-    }
+    if (timer.current) clearTimeout(timer.current)
+    if (resetTimer.current) clearTimeout(resetTimer.current)
+    timer.current = resetTimer.current = null
   }, [])
+
+  const shouldClick = () => !isLong.current && !moved.current
+
+  const start = useCallback((e) => {
+    clear()
+    isLong.current = moved.current = false
+    startPos.current = getPos(e)
+    
+    timer.current = setTimeout(() => {
+      isLong.current = true
+      onLongPress?.(e)
+    }, delay)
+  }, [onLongPress, delay, clear])
+
+  const move = useCallback((e) => {
+    if (!timer.current) return
+    
+    if (getDist(getPos(e), startPos.current) > moveThreshold) {
+      moved.current = true
+      clear()
+    }
+  }, [moveThreshold, clear])
 
   const end = useCallback((e) => {
     clear()
     
-    // If it wasn't a long press, trigger click
-    if (!isLongPressRef.current) {
-      onClick?.(e)
-    }
+    if (shouldClick()) onClick?.(e)
     
-    isLongPressRef.current = false
+    // Delay reset for PC mouse events (onMouseUp fires before onClick)
+    if (isLong.current) {
+      resetTimer.current = setTimeout(() => {
+        isLong.current = moved.current = false
+        resetTimer.current = null
+      }, 0)
+    } else {
+      isLong.current = moved.current = false
+    }
   }, [clear, onClick])
 
   const handleClick = useCallback((e) => {
-    // If long press wasn't triggered, handle as normal click
-    if (!isLongPressRef.current) {
-      onClick?.(e)
-    }
+    if (shouldClick()) onClick?.(e)
   }, [onClick])
 
-  const handlers = {
-    onMouseDown: start,
-    onMouseUp: end,
-    onMouseLeave: clear,
-    onTouchStart: start,
-    onTouchEnd: end,
-    onClick: handleClick,
-    onContextMenu: (e) => e.preventDefault() // Prevent native context menu
-  }
-
   return {
-    handlers,
-    isLongPress: isLongPressRef.current
+    handlers: {
+      onMouseDown: start,
+      onMouseUp: end, 
+      onMouseMove: move,
+      onMouseLeave: clear,
+      onTouchStart: start,
+      onTouchEnd: end,
+      onTouchMove: move,
+      onClick: handleClick,
+      onContextMenu: (e) => e.preventDefault()
+    },
+    isLongPress: isLong.current
   }
 } 
