@@ -4,12 +4,12 @@ import {
   Stack,
   Typography,
   Button,
-  Card,
-  CircularProgress
+  Card
 } from '@mui/joy'
 import { RateReview } from '@mui/icons-material'
 import { apiCall } from '../../../config/api'
 import { log } from '../../../utils/logger'
+import { InfiniteScroll } from '../../../components/InfiniteScroll'
 
 // Multi-language subtitle display with infinite scroll and word selection
 export const SubtitleViewer = ({ 
@@ -25,7 +25,6 @@ export const SubtitleViewer = ({
   const [hasMore, setHasMore] = useState(true)
   const [page, setPage] = useState(0)
   const viewerRef = useRef(null)
-  const observerRef = useRef(null)
 
   // Load subtitle lines with pagination
   const loadLines = useCallback(async (pageNum = 0, reset = false) => {
@@ -72,30 +71,12 @@ export const SubtitleViewer = ({
     }
   }, [shard, loadLines])
 
-  // Infinite scroll intersection observer
-  useEffect(() => {
-    if (!viewerRef.current) return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const [entry] = entries
-        if (entry.isIntersecting && hasMore && !loading) {
-          loadLines(page + 1)
-        }
-      },
-      { threshold: 0.5 }
-    )
-
-    observerRef.current = observer
-    
-    // Observe the last element
-    const lastElement = viewerRef.current.lastElementChild
-    if (lastElement) {
-      observer.observe(lastElement)
+  // Handle loading more content for infinite scroll
+  const handleLoadMore = useCallback(() => {
+    if (!loading && hasMore) {
+      loadLines(page + 1)
     }
-
-    return () => observer.disconnect()
-  }, [lines, page, hasMore, loading, loadLines])
+  }, [loading, hasMore, page, loadLines])
 
   // Handle click anywhere to show toolbar
   const handleViewerClick = (e) => {
@@ -203,69 +184,12 @@ export const SubtitleViewer = ({
         </Button>
       </Stack>
 
-      {/* Subtitle content */}
-      <Stack spacing={3} sx={{ px: 2 }}>
-        {Object.entries(groupedLines).map(([timestamp, groupLines]) => {
-          const isCurrentGroup = groupLines.some(line => 
-            lines.indexOf(line) === currentIndex
-          )
-          
-          return (
-            <Card
-              key={timestamp}
-              variant={isCurrentGroup ? 'soft' : 'outlined'}
-              sx={{
-                p: 2,
-                backgroundColor: isCurrentGroup 
-                  ? 'var(--joy-palette-primary-50)' 
-                  : 'transparent'
-              }}
-            >
-              {/* Timestamp */}
-              <Typography level="body-xs" color="neutral" sx={{ mb: 1 }}>
-                {formatTime(parseInt(timestamp))}
-              </Typography>
-              
-              {/* Languages */}
-              <Stack spacing={1}>
-                {groupLines.map((line, idx) => {
-                  const language = getLanguageInfo(line, shard)
-                  
-                  return (
-                    <Box key={idx}>
-                      <Typography
-                        level="body-sm"
-                        color="neutral"
-                        sx={{ fontSize: 'xs', mb: 0.5 }}
-                      >
-                        {language.name}
-                      </Typography>
-                      <Typography
-                        level="body-md"
-                        sx={{
-                          lineHeight: 1.6,
-                          fontSize: language.code === 'zh' ? 'lg' : 'md'
-                        }}
-                      >
-                        {renderText(line.data?.text)}
-                      </Typography>
-                    </Box>
-                  )
-                })}
-              </Stack>
-            </Card>
-          )
-        })}
-
-        {/* Loading indicator */}
-        {loading && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-            <CircularProgress size="sm" />
-          </Box>
-        )}
-
-        {/* End indicator */}
-        {!hasMore && lines.length > 0 && (
+      {/* Subtitle content with infinite scroll */}
+      <InfiniteScroll
+        onLoadMore={handleLoadMore}
+        hasMore={hasMore}
+        loading={loading}
+        endMessage={
           <Typography 
             level="body-sm" 
             color="neutral" 
@@ -273,8 +197,62 @@ export const SubtitleViewer = ({
           >
             End of subtitles
           </Typography>
-        )}
-      </Stack>
+        }
+      >
+        <Stack spacing={3} sx={{ px: 2 }}>
+          {Object.entries(groupedLines).map(([timestamp, groupLines]) => {
+            const isCurrentGroup = groupLines.some(line => 
+              lines.indexOf(line) === currentIndex
+            )
+            
+            return (
+              <Card
+                key={timestamp}
+                variant={isCurrentGroup ? 'soft' : 'outlined'}
+                sx={{
+                  p: 2,
+                  backgroundColor: isCurrentGroup 
+                    ? 'var(--joy-palette-primary-50)' 
+                    : 'transparent'
+                }}
+              >
+                {/* Timestamp */}
+                <Typography level="body-xs" color="neutral" sx={{ mb: 1 }}>
+                  {formatTime(parseInt(timestamp))}
+                </Typography>
+                
+                {/* Languages */}
+                <Stack spacing={1}>
+                  {groupLines.map((line, idx) => {
+                    const language = getLanguageInfo(line, shard)
+                    
+                    return (
+                      <Box key={idx}>
+                        <Typography
+                          level="body-sm"
+                          color="neutral"
+                          sx={{ fontSize: 'xs', mb: 0.5 }}
+                        >
+                          {language.name}
+                        </Typography>
+                        <Typography
+                          level="body-md"
+                          sx={{
+                            lineHeight: 1.6,
+                            fontSize: language.code === 'zh' ? 'lg' : 'md'
+                          }}
+                        >
+                          {renderText(line.data?.text)}
+                        </Typography>
+                      </Box>
+                    )
+                  })}
+                </Stack>
+              </Card>
+            )
+          })}
+        </Stack>
+      </InfiniteScroll>
     </Box>
   )
 }

@@ -7,13 +7,14 @@ import {
   IconButton
 } from '@mui/joy'
 import { Close, DragHandle } from '@mui/icons-material'
-import { log } from '../../../utils/logger'
+import { log } from '../utils/logger'
 
-// Bottom slide-up drawer with swipe gestures and configurable height
+// Configurable drawer with swipe gestures, positioning, and height options
 export const ActionDrawer = ({ 
   open, 
   onClose, 
   size = 'half', // 'half' | 'full' | 'fit-content'
+  position = 'bottom', // 'top' | 'bottom'
   content,
   children 
 }) => {
@@ -46,9 +47,11 @@ export const ActionDrawer = ({
     const currentY = e.touches ? e.touches[0].clientY : e.clientY
     const deltaY = currentY - startY.current
     
-    // Only allow downward drag
-    if (deltaY > 0) {
-      setDragY(deltaY)
+    // Allow appropriate drag direction based on position
+    if (position === 'bottom' && deltaY > 0) {
+      setDragY(deltaY) // Downward drag for bottom drawer
+    } else if (position === 'top' && deltaY < 0) {
+      setDragY(Math.abs(deltaY)) // Upward drag for top drawer
     }
   }
 
@@ -93,7 +96,7 @@ export const ActionDrawer = ({
       onClose={onClose}
       sx={{
         display: 'flex',
-        alignItems: 'flex-end',
+        alignItems: position === 'top' ? 'flex-start' : 'flex-end',
         justifyContent: 'center',
         zIndex: 1300
       }}
@@ -105,21 +108,27 @@ export const ActionDrawer = ({
           inset: 0,
           bgcolor: 'rgba(0, 0, 0, 0.5)',
           display: 'flex',
-          alignItems: 'flex-end',
-          justifyContent: 'center'
+          alignItems: position === 'top' ? 'flex-start' : 'flex-end',
+          justifyContent: 'center',
+          pt: position === 'top' ? 2 : 0,
+          pb: position === 'bottom' ? 2 : 0
         }}
       >
         <Box
           ref={drawerRef}
           sx={{
             bgcolor: 'background.body',
-            borderTopLeftRadius: 'lg',
-            borderTopRightRadius: 'lg',
+            borderTopLeftRadius: position === 'bottom' ? 'lg' : 0,
+            borderTopRightRadius: position === 'bottom' ? 'lg' : 0,
+            borderBottomLeftRadius: position === 'top' ? 'lg' : 0,
+            borderBottomRightRadius: position === 'top' ? 'lg' : 0,
             width: '100%',
             maxWidth: '500px',
             height: getHeight(),
             maxHeight: '90vh',
-            transform: `translateY(${dragY}px)`,
+            transform: position === 'bottom' 
+              ? `translateY(${dragY}px)` 
+              : `translateY(${-dragY}px)`,
             transition: isDragging ? 'none' : 'transform 0.3s ease-out',
             boxShadow: 'lg',
             display: 'flex',
@@ -133,26 +142,28 @@ export const ActionDrawer = ({
           onMouseMove={handleDragMove}
           onMouseUp={handleDragEnd}
         >
-          {/* Drag Handle */}
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              py: 1,
-              cursor: 'grab',
-              '&:active': { cursor: 'grabbing' }
-            }}
-          >
-            <DragHandle sx={{ color: 'neutral.400' }} />
-          </Box>
+          {/* Drag Handle - position based */}
+          {position === 'bottom' && (
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                py: 1,
+                cursor: 'grab',
+                '&:active': { cursor: 'grabbing' }
+              }}
+            >
+              <DragHandle sx={{ color: 'neutral.400' }} />
+            </Box>
+          )}
 
           {/* Header with close button */}
           <Stack
             direction="row"
             justifyContent="space-between"
             alignItems="center"
-            sx={{ px: 2, pb: 1, borderBottom: 1, borderColor: 'divider' }}
+            sx={{ px: 2, py: 1, borderBottom: position === 'top' ? 0 : 1, borderTop: position === 'top' ? 1 : 0, borderColor: 'divider' }}
           >
             <Typography level="h4">Tools</Typography>
             <IconButton
@@ -164,6 +175,22 @@ export const ActionDrawer = ({
               <Close />
             </IconButton>
           </Stack>
+
+          {/* Drag Handle for top position */}
+          {position === 'top' && (
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                py: 1,
+                cursor: 'grab',
+                '&:active': { cursor: 'grabbing' }
+              }}
+            >
+              <DragHandle sx={{ color: 'neutral.400' }} />
+            </Box>
+          )}
 
           {/* Content */}
           <Box sx={{ flex: 1, p: 2, overflow: 'auto' }}>

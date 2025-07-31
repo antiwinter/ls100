@@ -2,7 +2,10 @@ import { useState, useEffect } from 'react'
 import { Box, Typography, LinearProgress, Button } from '@mui/joy'
 import { apiCall } from '../../../config/api'
 import { log } from '../../../utils/logger'
-import { ActionDrawer, DictDrawer, Toolbar, SubtitleViewer } from '.'
+import { Dict } from './Dict.jsx'
+import { Toolbar } from './Toolbar.jsx'
+import { SubtitleViewer } from './SubtitleViewer.jsx'
+import { ActionDrawer } from '../../../components/ActionDrawer.jsx'
 import { useWordSync } from './WordSync.js'
 
 export const SubtitleReader = ({ shardId, onBack }) => {
@@ -138,8 +141,8 @@ export const SubtitleReader = ({ shardId, onBack }) => {
         <Typography>Word Tools Coming Soon</Typography>
       </ActionDrawer>
 
-      {/* Dictionary Drawer */}
-      <DictDrawer
+      {/* Dictionary */}
+      <Dict
         word={dictDrawer.word}
         position={dictDrawer.position}
         visible={dictDrawer.visible}
