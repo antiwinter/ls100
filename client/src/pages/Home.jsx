@@ -15,7 +15,7 @@ import { apiCall } from '../config/api'
 import { engineGetReader } from '../shards/engines.js'
 import { log } from '../utils/logger'
 
-export const Home = ({ onEditModeChange }) => {
+export const Home = ({ onEditModeChange, onReaderModeChange }) => {
   const navigate = useNavigate()
   const [shards, setShards] = useState([])
   const [showImport, setShowImport] = useState(false)
@@ -35,6 +35,11 @@ export const Home = ({ onEditModeChange }) => {
   useEffect(() => {
     onEditModeChange?.(editing)
   }, [editing, onEditModeChange])
+
+  // Notify parent of reader mode changes
+  useEffect(() => {
+    onReaderModeChange?.(!!readerShard)
+  }, [readerShard, onReaderModeChange])
 
   const loadShards = async () => {
     try {

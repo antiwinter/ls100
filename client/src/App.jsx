@@ -10,6 +10,7 @@ import { BottomNav } from './components/BottomNav'
 
 const MainApp = () => {
   const [homeEditMode, setHomeEditMode] = useState(false)
+  const [homeReaderMode, setHomeReaderMode] = useState(false)
   const location = useLocation()
   
   // Determine active tab based on current route
@@ -23,8 +24,8 @@ const MainApp = () => {
     }
   }
 
-  // Check if we should hide bottom nav (edit mode or on EditShard page)
-  const shouldHideBottomNav = homeEditMode || location.pathname === '/edit-shard'
+  // Check if we should hide bottom nav (edit mode, reader mode, or on EditShard page)
+  const shouldHideBottomNav = homeEditMode || homeReaderMode || location.pathname === '/edit-shard'
 
   return (
     <Box sx={{ 
@@ -40,7 +41,7 @@ const MainApp = () => {
         pb: shouldHideBottomNav ? 0 : 10 // Space for bottom navigation when visible
       }}>
         <Routes>
-          <Route path="/" element={<Home onEditModeChange={setHomeEditMode} />} />
+          <Route path="/" element={<Home onEditModeChange={setHomeEditMode} onReaderModeChange={setHomeReaderMode} />} />
           <Route path="/edit-shard" element={<EditShard />} />
           <Route path="/explore" element={<Box sx={{ p: 2 }}><Explore /></Box>} />
           <Route path="/friends" element={<Box sx={{ p: 2 }}><Friends /></Box>} />

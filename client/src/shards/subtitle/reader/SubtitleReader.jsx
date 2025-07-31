@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Box, Typography, LinearProgress, Button } from '@mui/joy'
+import { Box, Typography, LinearProgress, Button, Stack } from '@mui/joy'
+import { RateReview } from '@mui/icons-material'
 import { apiCall } from '../../../config/api'
 import { log } from '../../../utils/logger'
-import { Dict } from './Dict.jsx'
+import { Dict as DictDrawer } from './Dict.jsx'
 import { Toolbar } from './Toolbar.jsx'
 import { SubtitleViewer } from './SubtitleViewer.jsx'
 import { ActionDrawer } from '../../../components/ActionDrawer.jsx'
@@ -47,8 +48,10 @@ export const SubtitleReader = ({ shardId, onBack }) => {
     }
   }
 
-  // Handle word selection
+  // Handle word selection with performance tracking
   const handleWordClick = (word, element) => {
+    const startTime = performance.now()
+    
     const isSelected = selectedWords.has(word)
     
     if (isSelected) {
@@ -58,12 +61,14 @@ export const SubtitleReader = ({ shardId, onBack }) => {
       setSelectedWords(newWords)
       queueRemove(word)
     } else {
-      // Show dictionary first
-      const rect = element.getBoundingClientRect()
-      const viewportHeight = window.innerHeight
-      const position = rect.top < (viewportHeight / 2) ? 'top' : 'bottom'
+      // Show dictionary first - optimize position calculation
+      const position = element.offsetTop < window.innerHeight / 2 ? 'top' : 'bottom'
       
+      // Use React's concurrent features for immediate UI update
       setDictDrawer({ visible: true, word, position })
+      
+      // Log performance
+      log.debug(`Word click to drawer: ${(performance.now() - startTime).toFixed(2)}ms`)
     }
   }
 
@@ -114,7 +119,12 @@ export const SubtitleReader = ({ shardId, onBack }) => {
   const movieName = shard.data?.languages?.[0]?.movie_name || shard.name
 
   return (
-    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ 
+      height: '100vh', 
+      display: 'flex', 
+      flexDirection: 'column',
+      overflow: 'hidden' // Prevent page-level scrolling
+    }}>
       {/* Toolbar */}
       <Toolbar
         visible={showToolbar}
@@ -123,13 +133,39 @@ export const SubtitleReader = ({ shardId, onBack }) => {
         movieName={movieName}
       />
 
+      {/* Header with Movie Name and Review */}
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="center"
+        sx={{ 
+          px: 1, 
+          py: 0.5,
+          bgcolor: 'background.body',
+          borderBottom: '1px solid',
+          borderColor: 'divider'
+        }}
+      >
+        <Typography level="body-sm" color="neutral">
+          {movieName}
+        </Typography>
+        <Button
+          variant="plain"
+          size="sm"
+          startDecorator={<RateReview />}
+          onClick={handleReviewClick}
+          sx={{ minHeight: 'auto', py: 0.5 }}
+        >
+          Review
+        </Button>
+      </Stack>
+
       {/* Main viewer */}
       <SubtitleViewer
         shard={shard}
         selectedWords={selectedWords}
         onWordClick={handleWordClick}
         onToolbarRequest={handleToolbarRequest}
-        onReviewClick={handleReviewClick}
       />
 
       {/* Action Drawer */}
@@ -142,7 +178,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
       </ActionDrawer>
 
       {/* Dictionary */}
-      <Dict
+      <DictDrawer
         word={dictDrawer.word}
         position={dictDrawer.position}
         visible={dictDrawer.visible}

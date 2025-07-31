@@ -1,95 +1,98 @@
-import { useEffect, useRef, useCallback } from 'react'
+import React, { useEffect, useRef, useCallback } from 'react'
 import { Box, CircularProgress, Typography } from '@mui/joy'
 import { log } from '../utils/logger'
 
 /**
- * Reusable infinite scroll component using Intersection Observer API
- * Based on: https://blog.logrocket.com/react-infinite-scroll/
+ * Pure intersection-based infinite scroll detector
+ * Observes anchor elements provided by parent
  */
 export const InfiniteScroll = ({
   children,
   onLoadMore,
-  hasMore = true,
   loading = false,
   loader = null,
-  endMessage = null,
-  rootMargin = '100px',
-  threshold = 0.1
+  anchors = []  // Array of elements to observe
 }) => {
-  const observerRef = useRef(null)
-  const triggerRef = useRef(null)
+  const containerRef = useRef(null)
+  
+  const DEBUG_INTERSECTION = true
 
-  // Intersection Observer callback
+  // Intersection callback  
   const handleIntersection = useCallback((entries) => {
-    const [entry] = entries
-    
-    if (entry.isIntersecting && hasMore && !loading && onLoadMore) {
-      log.debug('Infinite scroll triggered - loading more content')
-      onLoadMore()
-    }
-  }, [hasMore, loading, onLoadMore])
+    entries.forEach(entry => {
+      if (!entry.isIntersecting || loading || !onLoadMore) return
+      
+      log.debug(`Intersection detected on element:`, entry.target)
+      onLoadMore(entry.target)  // Pass back the actual observed element
+    })
+  }, [loading, onLoadMore])
 
-  // Set up Intersection Observer
+  // Set up intersection observers on anchor elements
   useEffect(() => {
-    const trigger = triggerRef.current
+    const container = containerRef.current
+    log.debug(`🔍 IS setup: container=${!!container}, anchors=${anchors.length}`)
     
-    if (!trigger) return
+    if (!container || !anchors.length) return
 
-    const options = {
-      root: null, // Use viewport as root
-      rootMargin,
-      threshold
-    }
+    const observer = new IntersectionObserver(handleIntersection, {
+      root: container,
+      threshold: 0.1
+    })
 
-    observerRef.current = new IntersectionObserver(handleIntersection, options)
-    observerRef.current.observe(trigger)
-
+    // Debug styling and observe each anchor
+    anchors.forEach((anchor, idx) => {
+      if (anchor) {
+        log.debug(`🔍 Observing anchor ${idx}:`, anchor.tagName)
+        if (DEBUG_INTERSECTION) {
+          anchor.style.backgroundColor = 'rgba(255, 0, 0, 0.2)'
+        }
+        observer.observe(anchor)
+      }
+    })
+    
     return () => {
-      if (observerRef.current && trigger) {
-        observerRef.current.unobserve(trigger)
-        observerRef.current.disconnect()
+      observer.disconnect()
+      
+      // Clean up debug styling
+      if (DEBUG_INTERSECTION) {
+        anchors.forEach(anchor => {
+          if (anchor) {
+            anchor.style.backgroundColor = ''
+          }
+        })
       }
     }
-  }, [handleIntersection, rootMargin, threshold])
-
-  // Default loader component
-  const defaultLoader = (
-    <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-      <CircularProgress size="sm" />
-    </Box>
-  )
-
-  // Default end message
-  const defaultEndMessage = (
-    <Box sx={{ textAlign: 'center', py: 2 }}>
-      <Typography level="body-sm" color="neutral">
-        No more content to load
-      </Typography>
-    </Box>
-  )
+  }, [handleIntersection, anchors])
 
   return (
-    <Box>
-      {/* Main content */}
+    <Box 
+      ref={containerRef}
+      data-scroll-container="true"
+      sx={{ 
+        flex: 1,
+        maxHeight: '100%',
+        overflow: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        px: 1,
+        py: 1,
+        // Hide scrollbar but keep scrolling
+        scrollbarWidth: 'none', // Firefox
+        msOverflowStyle: 'none', // IE
+        '&::-webkit-scrollbar': {
+          display: 'none' // Webkit browsers
+        }
+      }}
+    >
       {children}
       
-      {/* Intersection trigger element */}
-      {hasMore && (
-        <div 
-          ref={triggerRef}
-          style={{ 
-            height: '1px', 
-            width: '100%',
-            position: 'relative'
-          }}
-        />
-      )}
-      
       {/* Loading indicator */}
-      {loading && (loader || defaultLoader)}
-      
-      {/* End message when no more content */}
-      {!hasMore && !loading && (endMessage || defaultEndMessage)}
+      {loading && (
+        loader || (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+            <CircularProgress size="sm" />
+          </Box>
+        )
+      )}
     </Box>
   )
 }

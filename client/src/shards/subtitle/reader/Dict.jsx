@@ -37,8 +37,7 @@ export const Dict = ({
       
       try {
         // TODO: Replace with actual dictionary API call
-        // For now, mock the data structure
-        await new Promise(resolve => setTimeout(resolve, 500)) // Simulate API delay
+        // For now, mock the data structure immediately
         
         setDefinition({
           word: word.toLowerCase(),

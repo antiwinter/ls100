@@ -154,7 +154,7 @@ router.get('/:id/content', requireAuth, async (req, res) => {
   }
 })
 
-// Get parsed subtitle lines by ID with pagination support
+// Get parsed subtitle lines by ID with line-based pagination support
 router.get('/:id/lines', requireAuth, async (req, res) => {
   try {
     const subtitle = subtitleModel.findById(req.params.id)
@@ -162,40 +162,41 @@ router.get('/:id/lines', requireAuth, async (req, res) => {
       return res.status(404).json({ message: 'Subtitle not found' })
     }
 
-    // Parse pagination params
-    const limit = Math.min(parseInt(req.query.limit) || 50, 200) // Max 200 lines per request
-    const offset = Math.max(parseInt(req.query.offset) || 0, 0)
+    // Parse line-based pagination params
+    const start = Math.max(parseInt(req.query.start) || 0, 0)
+    const requestedCount = parseInt(req.query.count) || 200
+    const count = requestedCount === -1 ? -1 : Math.min(requestedCount, 200) // count=-1 means all lines
 
     log.debug({ 
       subtitleId: req.params.id, 
       ossId: subtitle.oss_id,
-      limit,
-      offset 
+      start,
+      count 
     }, 'Loading subtitle lines')
     
     const content = await getSubtitle(subtitle.oss_id)
     const { parseSrt } = await import('./storage.js')
     const { parsed } = parseSrt(content.toString('utf8'))
     
-    // Apply pagination
+    // Apply line-based pagination
     const total = parsed.length
-    const paginatedLines = parsed.slice(offset, offset + limit)
+    const endIndex = count === -1 ? total : Math.min(start + count, total)
+    const lines = parsed.slice(start, endIndex)
     
     log.debug({ 
-      totalLines: total,
-      returnedLines: paginatedLines.length,
-      offset,
-      limit 
-    }, 'Parsed subtitle lines with pagination')
+      total,
+      returned: lines.length,
+      start,
+      count,
+      endIndex
+    }, 'Parsed subtitle lines with line-based pagination')
     
     res.json({ 
-      lines: paginatedLines,
-      pagination: {
-        total,
-        offset,
-        limit,
-        hasMore: offset + limit < total
-      }
+      lines,
+      total,
+      start,
+      count: lines.length,
+      hasMore: endIndex < total
     })
   } catch (error) {
     log.error({ error, subtitleId: req.params.id }, 'Failed to load subtitle lines')

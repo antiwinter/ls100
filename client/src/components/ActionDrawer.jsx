@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { 
-  Box, 
-  Modal,
+import {
+  Box,
   Stack,
   Typography,
   IconButton
@@ -18,6 +17,11 @@ export const ActionDrawer = ({
   content,
   children 
 }) => {
+  // Performance tracking for drawer render
+  if (open) {
+    console.time('ActionDrawer-render')
+  }
+  
   const [dragY, setDragY] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   const drawerRef = useRef(null)
@@ -69,12 +73,7 @@ export const ActionDrawer = ({
     setDragY(0)
   }
 
-  // Handle click outside to close
-  const handleBackdropClick = (e) => {
-    if (e.target === e.currentTarget) {
-      onClose()
-    }
-  }
+
 
   // Auto-hide on escape key
   useEffect(() => {
@@ -90,34 +89,30 @@ export const ActionDrawer = ({
 
   if (!open) return null
 
+  // End performance tracking
+  if (open && console.timeEnd) {
+    setTimeout(() => console.timeEnd('ActionDrawer-render'), 0)
+  }
+
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
+    <Box
       sx={{
+        position: 'fixed',
+        inset: 0,
         display: 'flex',
         alignItems: position === 'top' ? 'flex-start' : 'flex-end',
         justifyContent: 'center',
+        pt: position === 'top' ? 2 : 0,
+        pb: position === 'bottom' ? 2 : 0,
+        pointerEvents: 'none', // Let clicks pass through to content below
         zIndex: 1300
       }}
     >
-      <Box
-        onClick={handleBackdropClick}
-        sx={{
-          position: 'fixed',
-          inset: 0,
-          bgcolor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: position === 'top' ? 'flex-start' : 'flex-end',
-          justifyContent: 'center',
-          pt: position === 'top' ? 2 : 0,
-          pb: position === 'bottom' ? 2 : 0
-        }}
-      >
         <Box
           ref={drawerRef}
           sx={{
             bgcolor: 'background.body',
+            pointerEvents: 'auto', // Re-enable pointer events for drawer content
             borderTopLeftRadius: position === 'bottom' ? 'lg' : 0,
             borderTopRightRadius: position === 'bottom' ? 'lg' : 0,
             borderBottomLeftRadius: position === 'top' ? 'lg' : 0,
@@ -204,7 +199,6 @@ export const ActionDrawer = ({
             )}
           </Box>
         </Box>
-      </Box>
-    </Modal>
+    </Box>
   )
 }
