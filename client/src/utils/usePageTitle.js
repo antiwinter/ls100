@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { APP_CONFIG, getAppTitle } from '../config/app'
+import { APP } from '../config/constants'
 
 /**
  * Custom hook to manage page titles dynamically using centralized config
@@ -8,8 +8,10 @@ import { APP_CONFIG, getAppTitle } from '../config/app'
  */
 export const usePageTitle = (pageTitle = '', description = '') => {
   useEffect(() => {
-    // Set title using centralized helper
-    document.title = getAppTitle(pageTitle)
+    // Set title with inline helper logic
+    document.title = pageTitle 
+      ? `${pageTitle} | ${APP.short}`
+      : APP.name
     
     // Update meta description if provided
     if (description) {
@@ -22,10 +24,10 @@ export const usePageTitle = (pageTitle = '', description = '') => {
     // Cleanup: reset to default when component unmounts
     return () => {
       if (pageTitle) {
-        document.title = APP_CONFIG.name.full
+        document.title = APP.name
         const metaDescription = document.querySelector('meta[name="description"]')
         if (metaDescription) {
-          metaDescription.setAttribute('content', APP_CONFIG.description.short)
+          metaDescription.setAttribute('content', APP.desc)
         }
       }
     }

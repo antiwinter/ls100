@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Box, Card, Typography, Input, Button, Alert, Stack } from '@mui/joy'
 import { useAuth } from '../../context/AuthContext'
-import { APP_CONFIG } from '../../config/app'
+import { APP } from '../../config/constants'
 
 const Register = ({ onSwitchToLogin }) => {
   const [name, setName] = useState('')
@@ -72,7 +72,7 @@ const Register = ({ onSwitchToLogin }) => {
           Create your account
         </Typography>
         <Typography level="body-md" textAlign="center" mb={3} color="neutral">
-          Join {APP_CONFIG.name.short} and start learning
+          Join {APP.short} and start learning
         </Typography>
         
         <form onSubmit={handleSubmit}>

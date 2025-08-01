@@ -7,7 +7,7 @@ import Login from './components/auth/Login'
 import Register from './components/auth/Register'
 import { Home, EditShard, Explore, Friends, Me } from './pages'
 import { BottomNav } from './components/BottomNav'
-import { APP_CONFIG } from './config/app'
+import { APP } from './config/constants'
 
 const MainApp = () => {
   const [homeEditMode, setHomeEditMode] = useState(false)
@@ -96,12 +96,12 @@ const AuthFlow = () => {
 function App() {
   // Set dynamic title from centralized config
   useEffect(() => {
-    document.title = APP_CONFIG.name.full
+    document.title = APP.name
     
     // Also update meta description
     const metaDescription = document.querySelector('meta[name="description"]')
     if (metaDescription) {
-      metaDescription.setAttribute('content', APP_CONFIG.description.short)
+      metaDescription.setAttribute('content', APP.desc)
     }
   }, [])
 
@@ -109,8 +109,8 @@ function App() {
     <CssVarsProvider 
       theme={theme}
       defaultMode="system"
-              modeStorageKey={APP_CONFIG.storage.theme}
-        colorSchemeStorageKey={APP_CONFIG.storage.colorScheme}
+              modeStorageKey={APP.storage.theme}
+        colorSchemeStorageKey={APP.storage.colors}
     >
       <Router>
         <AuthProvider>

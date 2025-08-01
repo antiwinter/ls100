@@ -14,7 +14,7 @@ import { AppDialog } from '../components/AppDialog'
 import { apiCall } from '../config/api'
 import { engineGetReader } from '../shards/engines.js'
 import { log } from '../utils/logger'
-import { APP_CONFIG } from '../config/app'
+import { APP } from '../config/constants'
 
 export const Home = ({ onEditModeChange, onReaderModeChange }) => {
   const navigate = useNavigate()
@@ -22,7 +22,7 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
   const [showImport, setShowImport] = useState(false)
   const [readerShard, setReaderShard] = useState(null)
   const [sortBy, setSortBy] = useState(() => {
-    return localStorage.getItem(APP_CONFIG.storage.sortPreference) || 'last_used'
+    return localStorage.getItem(APP.storage.sort) || 'last_used'
   })
   const [editing, setEditing] = useState(false)
   const [selected, setSelected] = useState([])
@@ -53,7 +53,7 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
 
   const handleSortChange = (newSort) => {
     setSortBy(newSort)
-    localStorage.setItem(APP_CONFIG.storage.sortPreference, newSort)
+    localStorage.setItem(APP.storage.sort, newSort)
   }
 
   const handleImportConfigure = (info) => {

@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { APP } from './src/config/constants.js'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -12,14 +13,14 @@ export default defineConfig({
         enabled: true // Enable PWA in development mode
       },
       manifest: {
-        name: 'LS100 - Learn English with Movies',
-        short_name: 'LS100',
-        description: 'Interactive English learning using movie subtitles',
-        display: 'standalone',
-        orientation: 'portrait-primary',
-        scope: '/',
-        start_url: '/',
-        categories: ['education', 'entertainment'],
+        name: APP.name,
+        short_name: APP.short,
+        description: APP.desc,
+        display: APP.pwa.display,
+        orientation: APP.pwa.orientation,
+        scope: APP.pwa.scope,
+        start_url: APP.pwa.start,
+        categories: APP.pwa.categories,
         icons: [
           {
             src: 'pwa-192x192.svg',
