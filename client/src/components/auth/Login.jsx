@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Box, Card, Typography, Input, Button, Alert, Stack } from '@mui/joy'
 import { useAuth } from '../../context/AuthContext'
+import { APP_CONFIG } from '../../config/app'
 
 const Login = ({ onSwitchToRegister }) => {
   const [email, setEmail] = useState('')
@@ -36,10 +37,10 @@ const Login = ({ onSwitchToRegister }) => {
     >
       <Card sx={{ maxWidth: 400, width: '100%', p: 4 }}>
         <Typography level="h1" textAlign="center" mb={1}>
-          Sign in to LS100
+          Sign in to {APP_CONFIG.name.short}
         </Typography>
         <Typography level="body-md" textAlign="center" mb={3} color="neutral">
-          Learn English with movie subtitles
+          {APP_CONFIG.description.tagline}
         </Typography>
         
         <form onSubmit={handleSubmit}>
@@ -55,6 +56,7 @@ const Login = ({ onSwitchToRegister }) => {
               placeholder="Email address"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
               required
             />
             
@@ -63,6 +65,7 @@ const Login = ({ onSwitchToRegister }) => {
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
               required
             />
 

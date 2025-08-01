@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Box, Card, Typography, Input, Button, Alert, Stack } from '@mui/joy'
 import { useAuth } from '../../context/AuthContext'
+import { APP_CONFIG } from '../../config/app'
 
 const Register = ({ onSwitchToLogin }) => {
   const [name, setName] = useState('')
@@ -71,7 +72,7 @@ const Register = ({ onSwitchToLogin }) => {
           Create your account
         </Typography>
         <Typography level="body-md" textAlign="center" mb={3} color="neutral">
-          Join LS100 and start learning
+          Join {APP_CONFIG.name.short} and start learning
         </Typography>
         
         <form onSubmit={handleSubmit}>
@@ -87,6 +88,7 @@ const Register = ({ onSwitchToLogin }) => {
               placeholder="Full name"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              autoComplete="name"
               required
             />
 
@@ -95,6 +97,7 @@ const Register = ({ onSwitchToLogin }) => {
               placeholder="Email address"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
               required
             />
             
@@ -103,6 +106,7 @@ const Register = ({ onSwitchToLogin }) => {
               placeholder="Password (min 6 characters)"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
               required
             />
 

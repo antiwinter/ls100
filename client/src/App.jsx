@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom'
 import { CssVarsProvider, Box, Typography, Button, Card, Tabs, TabPanel } from '@mui/joy'
 import theme from './theme'
@@ -7,6 +7,7 @@ import Login from './components/auth/Login'
 import Register from './components/auth/Register'
 import { Home, EditShard, Explore, Friends, Me } from './pages'
 import { BottomNav } from './components/BottomNav'
+import { APP_CONFIG } from './config/app'
 
 const MainApp = () => {
   const [homeEditMode, setHomeEditMode] = useState(false)
@@ -93,12 +94,23 @@ const AuthFlow = () => {
 }
 
 function App() {
+  // Set dynamic title from centralized config
+  useEffect(() => {
+    document.title = APP_CONFIG.name.full
+    
+    // Also update meta description
+    const metaDescription = document.querySelector('meta[name="description"]')
+    if (metaDescription) {
+      metaDescription.setAttribute('content', APP_CONFIG.description.short)
+    }
+  }, [])
+
   return (
     <CssVarsProvider 
       theme={theme}
       defaultMode="system"
-      modeStorageKey="ls100-mode"
-      colorSchemeStorageKey="ls100-color-scheme"
+              modeStorageKey={APP_CONFIG.storage.theme}
+        colorSchemeStorageKey={APP_CONFIG.storage.colorScheme}
     >
       <Router>
         <AuthProvider>

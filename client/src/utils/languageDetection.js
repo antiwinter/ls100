@@ -61,7 +61,7 @@ export const detectLanguageFromContent = (content) => {
     }
     
     // Normalize by text length
-    langScores= score / combinedText.length * 1000
+    langScores[lang] = score / combinedText.length * 1000
     
     if (score > 0) {
       log.debug(`🔍 ${lang.toUpperCase()} score: ${langScores[lang].toFixed(2)} (${score} matches)`, matchDetails.slice(0, 2))

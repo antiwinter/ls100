@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="64" fill="#1976d2"/>
+  <text x="256" y="200" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="96" font-weight="bold">LS</text>
+  <text x="256" y="280" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="96" font-weight="bold">100</text>
+  <text x="256" y="360" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="32">Learn English</text>
+  <text x="256" y="395" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="32">with Movies</text>
+</svg>

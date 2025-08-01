@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { usePageTitle } from '../utils/usePageTitle'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { 
   Box, 
@@ -30,6 +31,14 @@ export const EditShard = () => {
   
   // Get data passed from navigation state
   const { mode = 'create', detectedInfo = null } = location.state || {}
+  
+  // Set dynamic page title based on mode
+  usePageTitle(
+    mode === 'create' ? 'Create Shard' : 'Edit Shard',
+    mode === 'create' 
+      ? 'Create a new learning shard from your content'
+      : 'Edit your learning shard settings and content'
+  )
   
   // Unified shard data structure for both create and edit modes
   const [shardData, _setShardData] = useState({
