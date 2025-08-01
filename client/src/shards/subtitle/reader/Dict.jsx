@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from 'react'
+import { useState, useEffect } from 'react'
 import { 
   Stack,
   Typography,
@@ -9,13 +9,10 @@ import {
 } from '@mui/joy'
 import { Add, VolumeUp } from '@mui/icons-material'
 import { ActionDrawer } from '../../../components/ActionDrawer.jsx'
-import { ReaderCtx } from './ReaderCtx.jsx'
 import { log } from '../../../utils/logger'
 
-// Dictionary component - state isolated via context
-export const Dict = () => {
-  const { dictDrawer, setDictDrawer } = useContext(ReaderCtx)
-  const { word, position, visible } = dictDrawer
+// Dictionary component - simple props interface
+export const Dict = ({ word, position = 'bottom', visible, onClose, onWordSelect }) => {
   const [definition, setDefinition] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -66,17 +63,11 @@ export const Dict = () => {
     loadDefinition()
   }, [visible, word])
 
-  // Handle close
-  const handleClose = () => {
-    setDictDrawer({ visible: false, word: '', position: 'bottom' })
-  }
-
   // Handle adding word to learning list
   const handleAddWord = () => {
     if (word) {
-      // TODO: Access word sync from context or parent
+      onWordSelect?.(word)
       log.debug('Added word to selection:', word)
-      handleClose()
     }
   }
 
@@ -173,7 +164,7 @@ export const Dict = () => {
   return (
     <ActionDrawer
       open={visible}
-      onClose={handleClose}
+      onClose={onClose}
       position={position}
       size="fit-content"
     >

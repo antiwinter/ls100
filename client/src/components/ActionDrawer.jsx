@@ -17,11 +17,6 @@ export const ActionDrawer = ({
   content,
   children 
 }) => {
-  // Performance tracking for drawer render
-  if (open) {
-    console.time('ActionDrawer-render')
-  }
-  
   const [dragY, setDragY] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   const drawerRef = useRef(null)
@@ -88,11 +83,6 @@ export const ActionDrawer = ({
   }, [open, onClose])
 
   if (!open) return null
-
-  // End performance tracking
-  if (open && console.timeEnd) {
-    setTimeout(() => console.timeEnd('ActionDrawer-render'), 0)
-  }
 
   return (
     <Box

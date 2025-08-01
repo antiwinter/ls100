@@ -1,24 +1,31 @@
-import { useState, useEffect, useCallback, useContext, memo } from 'react'
+import { useState, useEffect, useCallback, memo } from 'react'
 import { Box, Typography, LinearProgress, Button, Stack } from '@mui/joy'
 import { RateReview } from '@mui/icons-material'
 import { apiCall } from '../../../config/api'
 import { log } from '../../../utils/logger'
-import { ReaderProvider, ReaderCtx } from './ReaderCtx.jsx'
 import { Dict } from './Dict.jsx'
 import { ToolbarFuncs } from './ToolbarFuncs.jsx'
 import { Toolbar } from './Toolbar.jsx'
 import { SubtitleViewer } from './SubtitleViewer.jsx'
 import { useWordSync } from './WordSync.js'
 
-// Inner component - context-agnostic, stable
-const SubtitleReaderInner = ({ shardId, onBack, onWordClick, onToolbarAction }) => {
+export const SubtitleReader = ({ shardId, onBack }) => {
   const [shard, setShard] = useState(null)
   const [loading, setLoading] = useState(true)
   const [selectedWords, setSelectedWords] = useState(new Set())
   const [showToolbar, setShowToolbar] = useState(false)
   
+  // Local drawer states - simple and direct
+  const [dictDrawer, setDictDrawer] = useState({ visible: false, word: '', position: 'bottom' })
+  const [actionDrawer, setActionDrawer] = useState({ open: false, size: 'half' })
+  
   // Word sync worker
   const { queueAdd, queueRemove } = useWordSync(shardId)
+
+  // Stable word click handler
+  const handleWordClick = useCallback((word, position) => {
+    setDictDrawer({ visible: true, word, position })
+  }, [])
 
   // Load shard and selected words
   useEffect(() => {
@@ -46,15 +53,24 @@ const SubtitleReaderInner = ({ shardId, onBack, onWordClick, onToolbarAction }) 
     }
   }
 
-  // Handle toolbar visibility
-  const handleToolbarRequest = () => {
+  // Handle toolbar visibility - stable function
+  const handleToolbarRequest = useCallback(() => {
     setShowToolbar(true)
-  }
+  }, [])
 
   // Handle toolbar tool selection
   const handleToolSelect = (tool) => {
-    onToolbarAction?.()
+    setActionDrawer({ open: true, size: 'half' })
     setShowToolbar(false)
+  }
+
+  // Handle word selection from dictionary
+  const handleWordSelect = (word) => {
+    const newWords = new Set(selectedWords)
+    newWords.add(word)
+    setSelectedWords(newWords)
+    queueAdd(word)
+    setDictDrawer({ visible: false, word: '', position: 'bottom' })
   }
 
   // Handle review click (placeholder)
@@ -125,53 +141,31 @@ const SubtitleReaderInner = ({ shardId, onBack, onWordClick, onToolbarAction }) 
         </Button>
       </Stack>
 
-      {/* Main viewer - context-agnostic, stable */}
-      <SubtitleViewer
+      {/* Main viewer - memoized for stability */}
+      <MemoizedSubtitleViewer
         shard={shard}
         selectedWords={selectedWords}
-        onWordClick={onWordClick}
+        onWordClick={handleWordClick}
         onToolbarRequest={handleToolbarRequest}
+      />
+
+      {/* Direct drawer components with props */}
+      <Dict
+        word={dictDrawer.word}
+        position={dictDrawer.position}
+        visible={dictDrawer.visible}
+        onClose={() => setDictDrawer({ visible: false, word: '', position: 'bottom' })}
+        onWordSelect={handleWordSelect}
+      />
+
+      <ToolbarFuncs
+        open={actionDrawer.open}
+        size={actionDrawer.size}
+        onClose={() => setActionDrawer({ open: false, size: 'half' })}
       />
     </Box>
   )
 }
 
-// Memoize the inner component to prevent unnecessary re-renders
-const MemoizedSubtitleReaderInner = memo(SubtitleReaderInner)
-
-// Context wrapper component - isolates context consumption
-const SubtitleReaderWithContext = ({ shardId, onBack }) => {
-  const { setDictDrawer, setActionDrawer } = useContext(ReaderCtx)
-
-  // Stable handlers - setState functions are stable, no deps needed
-  const handleWordClick = useCallback((word, position) => {
-    setDictDrawer({ visible: true, word, position })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleToolbarAction = useCallback(() => {
-    setActionDrawer({ open: true, size: 'half' })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  return (
-    <>
-      <MemoizedSubtitleReaderInner 
-        shardId={shardId} 
-        onBack={onBack}
-        onWordClick={handleWordClick}
-        onToolbarAction={handleToolbarAction}
-      />
-      {/* State isolated components - only here, not in inner */}
-      <Dict />
-      <ToolbarFuncs />
-    </>
-  )
-}
-
-// Outer component with context provider
-export const SubtitleReader = ({ shardId, onBack }) => {
-  return (
-    <ReaderProvider>
-      <SubtitleReaderWithContext shardId={shardId} onBack={onBack} />
-    </ReaderProvider>
-  )
-}
+// Memoize SubtitleViewer to prevent unnecessary re-renders
+const MemoizedSubtitleViewer = memo(SubtitleViewer)
