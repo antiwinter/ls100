@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useContext } from 'react'
 import { 
   Stack,
   Typography,
@@ -9,19 +9,23 @@ import {
 } from '@mui/joy'
 import { Add, VolumeUp } from '@mui/icons-material'
 import { ActionDrawer } from '../../../components/ActionDrawer.jsx'
+import { ReaderCtx } from './ReaderCtx.jsx'
 import { log } from '../../../utils/logger'
 
-// Dictionary component using ActionDrawer for positioning and behavior
-export const Dict = ({ 
-  word, 
-  position = 'bottom', // 'top' | 'bottom' 
-  visible, 
-  onClose, 
-  onWordSelect 
-}) => {
+// Dictionary component - state isolated via context
+export const Dict = () => {
+  const { dictDrawer, setDictDrawer } = useContext(ReaderCtx)
+  const { word, position, visible } = dictDrawer
   const [definition, setDefinition] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+
+  // Track drawer visibility changes
+  useEffect(() => {
+    if (visible && word) {
+      log.debug(`📖 Dict drawer visible: ${word}`)
+    }
+  }, [visible, word])
 
   // Load dictionary data for word
   useEffect(() => {
@@ -62,11 +66,17 @@ export const Dict = ({
     loadDefinition()
   }, [visible, word])
 
+  // Handle close
+  const handleClose = () => {
+    setDictDrawer({ visible: false, word: '', position: 'bottom' })
+  }
+
   // Handle adding word to learning list
   const handleAddWord = () => {
-    if (onWordSelect && word) {
-      onWordSelect(word)
+    if (word) {
+      // TODO: Access word sync from context or parent
       log.debug('Added word to selection:', word)
+      handleClose()
     }
   }
 
@@ -163,7 +173,7 @@ export const Dict = ({
   return (
     <ActionDrawer
       open={visible}
-      onClose={onClose}
+      onClose={handleClose}
       position={position}
       size="fit-content"
     >

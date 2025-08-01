@@ -1,23 +1,21 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useContext, memo } from 'react'
 import { Box, Typography, LinearProgress, Button, Stack } from '@mui/joy'
 import { RateReview } from '@mui/icons-material'
 import { apiCall } from '../../../config/api'
 import { log } from '../../../utils/logger'
-import { Dict as DictDrawer } from './Dict.jsx'
+import { ReaderProvider, ReaderCtx } from './ReaderCtx.jsx'
+import { Dict } from './Dict.jsx'
+import { ToolbarFuncs } from './ToolbarFuncs.jsx'
 import { Toolbar } from './Toolbar.jsx'
 import { SubtitleViewer } from './SubtitleViewer.jsx'
-import { ActionDrawer } from '../../../components/ActionDrawer.jsx'
 import { useWordSync } from './WordSync.js'
 
-export const SubtitleReader = ({ shardId, onBack }) => {
+// Inner component - context-agnostic, stable
+const SubtitleReaderInner = ({ shardId, onBack, onWordClick, onToolbarAction }) => {
   const [shard, setShard] = useState(null)
   const [loading, setLoading] = useState(true)
   const [selectedWords, setSelectedWords] = useState(new Set())
-  
-  // Drawer states
   const [showToolbar, setShowToolbar] = useState(false)
-  const [actionDrawer, setActionDrawer] = useState({ open: false, size: 'half' })
-  const [dictDrawer, setDictDrawer] = useState({ visible: false, word: '', position: 'bottom' })
   
   // Word sync worker
   const { queueAdd, queueRemove } = useWordSync(shardId)
@@ -48,48 +46,15 @@ export const SubtitleReader = ({ shardId, onBack }) => {
     }
   }
 
-  // Handle word selection with performance tracking
-  const handleWordClick = (word, element) => {
-    const startTime = performance.now()
-    
-    const isSelected = selectedWords.has(word)
-    
-    if (isSelected) {
-      // Remove word
-      const newWords = new Set(selectedWords)
-      newWords.delete(word)
-      setSelectedWords(newWords)
-      queueRemove(word)
-    } else {
-      // Show dictionary first - optimize position calculation
-      const position = element.offsetTop < window.innerHeight / 2 ? 'top' : 'bottom'
-      
-      // Use React's concurrent features for immediate UI update
-      setDictDrawer({ visible: true, word, position })
-      
-      // Log performance
-      log.debug(`Word click to drawer: ${(performance.now() - startTime).toFixed(2)}ms`)
-    }
-  }
-
-  // Handle adding word from dictionary
-  const handleWordSelect = (word) => {
-    const newWords = new Set(selectedWords)
-    newWords.add(word)
-    setSelectedWords(newWords)
-    queueAdd(word)
-    setDictDrawer({ visible: false, word: '', position: 'bottom' })
+  // Handle toolbar visibility
+  const handleToolbarRequest = () => {
+    setShowToolbar(true)
   }
 
   // Handle toolbar tool selection
   const handleToolSelect = (tool) => {
-    setActionDrawer({ open: true, size: 'half' })
-    setShowToolbar(false) // Hide toolbar when drawer opens
-  }
-
-  // Handle toolbar visibility
-  const handleToolbarRequest = () => {
-    setShowToolbar(true)
+    onToolbarAction?.()
+    setShowToolbar(false)
   }
 
   // Handle review click (placeholder)
@@ -123,7 +88,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
       height: '100vh', 
       display: 'flex', 
       flexDirection: 'column',
-      overflow: 'hidden' // Prevent page-level scrolling
+      overflow: 'hidden'
     }}>
       {/* Toolbar */}
       <Toolbar
@@ -160,31 +125,53 @@ export const SubtitleReader = ({ shardId, onBack }) => {
         </Button>
       </Stack>
 
-      {/* Main viewer */}
+      {/* Main viewer - context-agnostic, stable */}
       <SubtitleViewer
         shard={shard}
         selectedWords={selectedWords}
-        onWordClick={handleWordClick}
+        onWordClick={onWordClick}
         onToolbarRequest={handleToolbarRequest}
       />
-
-      {/* Action Drawer */}
-      <ActionDrawer
-        open={actionDrawer.open}
-        onClose={() => setActionDrawer({ ...actionDrawer, open: false })}
-        size={actionDrawer.size}
-      >
-        <Typography>Word Tools Coming Soon</Typography>
-      </ActionDrawer>
-
-      {/* Dictionary */}
-      <DictDrawer
-        word={dictDrawer.word}
-        position={dictDrawer.position}
-        visible={dictDrawer.visible}
-        onClose={() => setDictDrawer({ visible: false, word: '', position: 'bottom' })}
-        onWordSelect={handleWordSelect}
-      />
     </Box>
+  )
+}
+
+// Memoize the inner component to prevent unnecessary re-renders
+const MemoizedSubtitleReaderInner = memo(SubtitleReaderInner)
+
+// Context wrapper component - isolates context consumption
+const SubtitleReaderWithContext = ({ shardId, onBack }) => {
+  const { setDictDrawer, setActionDrawer } = useContext(ReaderCtx)
+
+  // Stable handlers - setState functions are stable, no deps needed
+  const handleWordClick = useCallback((word, position) => {
+    setDictDrawer({ visible: true, word, position })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleToolbarAction = useCallback(() => {
+    setActionDrawer({ open: true, size: 'half' })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <>
+      <MemoizedSubtitleReaderInner 
+        shardId={shardId} 
+        onBack={onBack}
+        onWordClick={handleWordClick}
+        onToolbarAction={handleToolbarAction}
+      />
+      {/* State isolated components - only here, not in inner */}
+      <Dict />
+      <ToolbarFuncs />
+    </>
+  )
+}
+
+// Outer component with context provider
+export const SubtitleReader = ({ shardId, onBack }) => {
+  return (
+    <ReaderProvider>
+      <SubtitleReaderWithContext shardId={shardId} onBack={onBack} />
+    </ReaderProvider>
   )
 }

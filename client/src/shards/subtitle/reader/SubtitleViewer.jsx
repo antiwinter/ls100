@@ -8,12 +8,12 @@ import { apiCall } from '../../../config/api'
 import { log } from '../../../utils/logger'
 import { InfiniteScroll } from '../../../components/InfiniteScroll'
 
-// Multi-language subtitle display with simple infinite scroll
+// Multi-language subtitle display - context-agnostic, stable
 const SubtitleViewerComponent = ({ 
   shard, 
   currentIndex, 
   selectedWords = new Set(), 
-  onWordClick, 
+  onWordClick,
   onToolbarRequest
 }) => {
   const [lines, setLines] = useState([])
@@ -58,12 +58,21 @@ const SubtitleViewerComponent = ({
     }
   }, [shard?.data?.languages?.[0]?.subtitle_id])
 
-  // Handle word click via event delegation
+  // Handle word click via event delegation - no context coupling
   const handleClick = (e) => {
     const { word } = e.target.dataset
     if (word?.length > 1) {
       e.stopPropagation()
-      onWordClick?.(word, e.target)
+      
+      // Performance tracking for drawer opening
+      const startTime = performance.now()
+      log.debug(`🎯 Word click start: ${word}`)
+      
+      const position = e.target.offsetTop < window.innerHeight / 2 ? 'top' : 'bottom'
+      onWordClick?.(word, position)
+      
+      // Log immediate response time
+      log.debug(`🎯 Word click to drawer: ${(performance.now() - startTime).toFixed(2)}ms`)
     } else {
       onToolbarRequest?.()
     }
