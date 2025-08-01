@@ -10,6 +10,13 @@
   padding: 0;
 }
 
+/* App container - max width for better desktop experience */
+#root {
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+}
+
 body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;

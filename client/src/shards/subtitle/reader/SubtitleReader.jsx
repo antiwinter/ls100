@@ -22,9 +22,19 @@ export const SubtitleReader = ({ shardId, onBack }) => {
   // Word sync worker
   const { queueAdd, queueRemove } = useWordSync(shardId)
 
-  // Stable word click handler
-  const handleWordClick = useCallback((word, position) => {
-    setDictDrawer({ visible: true, word, position })
+  // Stable word click handler with smart positioning
+  const handleWordClick = useCallback((word, suggestedPosition) => {
+    setDictDrawer(prev => {
+      const newPosition = prev.visible ? prev.position : suggestedPosition
+      log.debug(`📖 Dict ${prev.visible ? 'open' : 'closed'} → position: ${prev.visible ? 'kept' : 'new'} (${newPosition})`)
+      
+      return {
+        visible: true,
+        word,
+        // Only update position if dict was closed - keep current position if already open
+        position: newPosition
+      }
+    })
   }, [])
 
   // Load shard and selected words

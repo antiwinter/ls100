@@ -69,17 +69,15 @@ const SubtitleViewerComponent = ({
       const startTime = performance.now()
       log.debug(`🎯 Word click start: ${word}`)
       
-      // Use mouse/touch position for accurate positioning
+      // Calculate position only for position calculation, let parent decide when to use it
       const clickY = e.clientY || 
                      (e.touches && e.touches[0]?.clientY) || 
                      (e.changedTouches && e.changedTouches[0]?.clientY) || 
-                     window.innerHeight / 2 // fallback to center
+                     window.innerHeight / 2
       const viewportHeight = window.innerHeight
-      
-      // If click is in upper half, show drawer at bottom (and vice versa)
       const position = clickY < viewportHeight / 2 ? 'bottom' : 'top'
       
-      log.debug(`🎯 Click position: ${clickY}/${viewportHeight} → drawer: ${position}`)
+      log.debug(`🎯 Click position: ${clickY}/${viewportHeight} → suggested: ${position}`)
       
       onWordClick?.(word, position)
       
