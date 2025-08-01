@@ -1,7 +1,7 @@
 import { Typography } from '@mui/joy'
 import { ActionDrawer } from '../../../components/ActionDrawer.jsx'
 
-// Toolbar functions - simple props interface
+// Toolbar functions - no title shows floating close button
 export const ToolbarFuncs = ({ open, size = 'half', onClose }) => {
   return (
     <ActionDrawer

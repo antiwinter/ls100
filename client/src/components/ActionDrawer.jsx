@@ -1,194 +1,192 @@
 import { useState, useRef, useEffect } from 'react'
-import {
-  Box,
-  Stack,
-  Typography,
-  IconButton
-} from '@mui/joy'
-import { Close, DragHandle } from '@mui/icons-material'
-import { log } from '../utils/logger'
+import { Box, Stack, Typography, IconButton } from '@mui/joy'
+import { Close } from '@mui/icons-material'
 
-// Configurable drawer with swipe gestures, positioning, and height options
+// iOS-style drag handle with rounded rectangle bars
+const Handle = () => (
+  <Box sx={{ 
+    display: 'flex', 
+    justifyContent: 'center', 
+    py: 1.5, 
+    cursor: 'grab',
+    '&:active': { cursor: 'grabbing' }
+  }}>
+    <Box sx={{
+      width: '36px',
+      height: '5px',
+      bgcolor: 'neutral.300',
+      borderRadius: '3px'
+    }} />
+  </Box>
+)
+
 export const ActionDrawer = ({ 
   open, 
   onClose, 
-  size = 'half', // 'half' | 'full' | 'fit-content'
-  position = 'bottom', // 'top' | 'bottom'
+  size = 'half', 
+  position = 'bottom',
+  title,
   content,
   children 
 }) => {
   const [dragY, setDragY] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
+  const [shouldRender, setShouldRender] = useState(false)
+  const [isEntering, setIsEntering] = useState(false)
+  const [displayPosition, setDisplayPosition] = useState(position)
+  const [isPositionChanging, setIsPositionChanging] = useState(false)
   const drawerRef = useRef(null)
   const startY = useRef(0)
 
-  // Calculate height based on size prop
-  const getHeight = () => {
-    switch (size) {
-      case 'full': return '90vh'
-      case 'half': return '50vh'
-      case 'fit-content': return 'auto'
-      default: return '50vh'
-    }
-  }
+  const isBottom = displayPosition === 'bottom'
+  const heights = { full: '90vh', half: '50vh', 'fit-content': 'auto' }
 
-  // Handle touch/mouse start
   const handleDragStart = (e) => {
     setIsDragging(true)
     startY.current = e.touches ? e.touches[0].clientY : e.clientY
     setDragY(0)
   }
 
-  // Handle touch/mouse move
   const handleDragMove = (e) => {
     if (!isDragging) return
-    
     const currentY = e.touches ? e.touches[0].clientY : e.clientY
     const deltaY = currentY - startY.current
     
-    // Allow appropriate drag direction based on position
-    if (position === 'bottom' && deltaY > 0) {
-      setDragY(deltaY) // Downward drag for bottom drawer
-    } else if (position === 'top' && deltaY < 0) {
-      setDragY(Math.abs(deltaY)) // Upward drag for top drawer
+    if ((isBottom && deltaY > 0) || (!isBottom && deltaY < 0)) {
+      setDragY(Math.abs(deltaY))
     }
   }
 
-  // Handle touch/mouse end
   const handleDragEnd = () => {
     if (!isDragging) return
-    
     setIsDragging(false)
-    
-    // Close if dragged down more than 100px
-    if (dragY > 100) {
-      onClose()
-    }
-    
+    if (dragY > 100) onClose()
     setDragY(0)
   }
 
-
-
-  // Auto-hide on escape key
+  // Manage rendering and entry animation
   useEffect(() => {
-    const handleEscape = (e) => {
-      if (e.key === 'Escape' && open) {
-        onClose()
-      }
+    if (open) {
+      // Set correct position immediately when opening
+      setDisplayPosition(position)
+      setShouldRender(true)
+      setIsEntering(true)
+      // Start enter animation after brief delay
+      const timer = setTimeout(() => setIsEntering(false), 50)
+      return () => clearTimeout(timer)
+    } else {
+      setIsEntering(false)
+      // Keep rendered during exit animation, then hide
+      const timer = setTimeout(() => setShouldRender(false), 500)
+      return () => clearTimeout(timer)
     }
-    
+  }, [open, position])
+
+  // Handle position changes while drawer is open
+  useEffect(() => {
+    if (position !== displayPosition && open && !isEntering) {
+      setIsPositionChanging(true)
+      // Change position immediately, then clear changing state after animation
+      setDisplayPosition(position)
+      const timer = setTimeout(() => {
+        setIsPositionChanging(false)
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [position, displayPosition, open, isEntering])
+
+  useEffect(() => {
+    const handleEscape = (e) => e.key === 'Escape' && open && onClose()
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
   }, [open, onClose])
 
-  if (!open) return null
+  if (!shouldRender) return null
+
+  // Calculate transform based on state
+  const getTransform = () => {
+    if (isDragging) {
+      return `translateY(${isBottom ? dragY : -dragY}px)`
+    }
+    
+    if (isEntering || !open) {
+      // Start off-screen for enter animation, or slide off-screen for exit
+      return `translateY(${isBottom ? '100%' : '-100%'})`
+    }
+    
+    // Open and stable - normal position with any drag offset
+    return `translateY(${isBottom ? dragY : -dragY}px)`
+  }
 
   return (
-    <Box
-      sx={{
-        position: 'fixed',
-        inset: 0,
-        display: 'flex',
-        alignItems: position === 'top' ? 'flex-start' : 'flex-end',
-        justifyContent: 'center',
-        pt: position === 'top' ? 2 : 0,
-        pb: position === 'bottom' ? 2 : 0,
-        pointerEvents: 'none', // Let clicks pass through to content below
-        zIndex: 1300
-      }}
-    >
-        <Box
-          ref={drawerRef}
-          sx={{
-            bgcolor: 'background.body',
-            pointerEvents: 'auto', // Re-enable pointer events for drawer content
-            borderTopLeftRadius: position === 'bottom' ? 'lg' : 0,
-            borderTopRightRadius: position === 'bottom' ? 'lg' : 0,
-            borderBottomLeftRadius: position === 'top' ? 'lg' : 0,
-            borderBottomRightRadius: position === 'top' ? 'lg' : 0,
-            width: '100%',
-            maxWidth: '500px',
-            height: getHeight(),
-            maxHeight: '90vh',
-            transform: position === 'bottom' 
-              ? `translateY(${dragY}px)` 
-              : `translateY(${-dragY}px)`,
-            transition: isDragging ? 'none' : 'transform 0.3s ease-out',
-            boxShadow: 'lg',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden'
-          }}
-          onTouchStart={handleDragStart}
-          onTouchMove={handleDragMove}
-          onTouchEnd={handleDragEnd}
-          onMouseDown={handleDragStart}
-          onMouseMove={handleDragMove}
-          onMouseUp={handleDragEnd}
-        >
-          {/* Drag Handle - position based */}
-          {position === 'bottom' && (
-            <Box
-              sx={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                py: 1,
-                cursor: 'grab',
-                '&:active': { cursor: 'grabbing' }
-              }}
-            >
-              <DragHandle sx={{ color: 'neutral.400' }} />
-            </Box>
-          )}
-
-          {/* Header with close button */}
-          <Stack
-            direction="row"
-            justifyContent="space-between"
-            alignItems="center"
-            sx={{ px: 2, py: 1, borderBottom: position === 'top' ? 0 : 1, borderTop: position === 'top' ? 1 : 0, borderColor: 'divider' }}
-          >
-            <Typography level="h4">Tools</Typography>
-            <IconButton
-              size="sm"
-              variant="plain"
-              onClick={onClose}
-              sx={{ color: 'neutral.500' }}
-            >
+    <Box sx={{
+      position: 'fixed',
+      inset: 0,
+      display: 'flex',
+      alignItems: isBottom ? 'flex-end' : 'flex-start',
+      justifyContent: 'center',
+      p: 2,
+      pointerEvents: 'none', // Never block background clicks
+      zIndex: 1300,
+      transition: isPositionChanging 
+        ? 'align-items 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)' 
+        : 'none'
+    }}>
+      <Box
+        ref={drawerRef}
+        sx={{
+          bgcolor: 'background.body',
+          pointerEvents: 'auto',
+          borderRadius: '24px',
+          width: '100%',
+          maxWidth: '500px',
+          height: heights[size] || '50vh',
+          maxHeight: '90vh',
+          transform: getTransform(),
+          transition: isDragging 
+            ? 'none' 
+            : 'transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          boxShadow: 'lg',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}
+        onTouchStart={handleDragStart}
+        onTouchMove={handleDragMove}
+        onTouchEnd={handleDragEnd}
+        onMouseDown={handleDragStart}
+        onMouseMove={handleDragMove}
+        onMouseUp={handleDragEnd}
+      >
+        {isBottom && <Handle />}
+        
+        {title ? (
+          <Stack direction="row" justifyContent="space-between" alignItems="center" 
+                 sx={{ px: 2, py: 1, borderBottom: isBottom ? 1 : 0, borderTop: isBottom ? 0 : 1, borderColor: 'divider' }}>
+            <Typography level="h4">{title}</Typography>
+            <IconButton size="sm" variant="plain" onClick={onClose} sx={{ color: 'neutral.500' }}>
               <Close />
             </IconButton>
           </Stack>
-
-          {/* Drag Handle for top position */}
-          {position === 'top' && (
-            <Box
-              sx={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                py: 1,
-                cursor: 'grab',
-                '&:active': { cursor: 'grabbing' }
-              }}
-            >
-              <DragHandle sx={{ color: 'neutral.400' }} />
-            </Box>
-          )}
-
-          {/* Content */}
-          <Box sx={{ flex: 1, p: 2, overflow: 'auto' }}>
-            {content || children || (
-              <Stack spacing={2}>
-                <Typography>Word Lists</Typography>
-                <Typography>Settings</Typography>
-                <Typography>Progress</Typography>
-                <Typography>Additional Tools</Typography>
-              </Stack>
-            )}
+        ) : (
+          <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 1 }}>
+            <IconButton size="sm" variant="plain" onClick={onClose} sx={{ 
+              color: 'neutral.500',
+              bgcolor: 'background.surface',
+              borderRadius: '50%',
+              '&:hover': { bgcolor: 'neutral.100' }
+            }}>
+              <Close />
+            </IconButton>
           </Box>
+        )}
+
+        {!isBottom && <Handle />}
+
+        <Box sx={{ flex: 1, p: 2, overflow: 'auto' }}>
+          {content || children}
         </Box>
+      </Box>
     </Box>
   )
 }

@@ -58,6 +58,11 @@ export const SubtitleReader = ({ shardId, onBack }) => {
     setShowToolbar(true)
   }, [])
 
+  // Handle empty space clicks - dismiss dictionary
+  const handleEmptyClick = useCallback(() => {
+    setDictDrawer(prev => ({ ...prev, visible: false }))
+  }, [])
+
   // Handle toolbar tool selection
   const handleToolSelect = (tool) => {
     setActionDrawer({ open: true, size: 'half' })
@@ -146,6 +151,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
         shard={shard}
         selectedWords={selectedWords}
         onWordClick={handleWordClick}
+        onEmptyClick={handleEmptyClick}
         onToolbarRequest={handleToolbarRequest}
       />
 

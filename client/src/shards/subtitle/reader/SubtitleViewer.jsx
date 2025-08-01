@@ -14,6 +14,7 @@ const SubtitleViewerComponent = ({
   currentIndex, 
   selectedWords = new Set(), 
   onWordClick,
+  onEmptyClick,
   onToolbarRequest
 }) => {
   const [lines, setLines] = useState([])
@@ -68,13 +69,26 @@ const SubtitleViewerComponent = ({
       const startTime = performance.now()
       log.debug(`🎯 Word click start: ${word}`)
       
-      const position = e.target.offsetTop < window.innerHeight / 2 ? 'top' : 'bottom'
+      // Use mouse/touch position for accurate positioning
+      const clickY = e.clientY || 
+                     (e.touches && e.touches[0]?.clientY) || 
+                     (e.changedTouches && e.changedTouches[0]?.clientY) || 
+                     window.innerHeight / 2 // fallback to center
+      const viewportHeight = window.innerHeight
+      
+      // If click is in upper half, show drawer at bottom (and vice versa)
+      const position = clickY < viewportHeight / 2 ? 'bottom' : 'top'
+      
+      log.debug(`🎯 Click position: ${clickY}/${viewportHeight} → drawer: ${position}`)
+      
       onWordClick?.(word, position)
       
       // Log immediate response time
       log.debug(`🎯 Word click to drawer: ${(performance.now() - startTime).toFixed(2)}ms`)
     } else {
-      onToolbarRequest?.()
+      // Dismiss dictionary when clicking on non-word area
+      log.debug(`🎯 Empty space click - dismissing dictionary`)
+      onEmptyClick?.()
     }
   }
 
