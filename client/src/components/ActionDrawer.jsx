@@ -9,6 +9,7 @@ const Handle = () => (
     justifyContent: 'center', 
     py: 1.5, 
     cursor: 'grab',
+    touchAction: 'none', // Prevent browser gestures on handle
     '&:active': { cursor: 'grabbing' }
   }}>
     <Box sx={{
@@ -49,35 +50,37 @@ export const ActionDrawer = ({
 
   const handleDragMove = (e) => {
     if (!isDragging) return
+    
     const currentY = e.touches ? e.touches[0].clientY : e.clientY
     const deltaY = currentY - startY.current
     
+    // Only prevent default and drag if gesture is in correct direction
     if ((isBottom && deltaY > 0) || (!isBottom && deltaY < 0)) {
+      e.preventDefault() // Prevent browser scroll/refresh only for valid drag
       setDragY(Math.abs(deltaY))
     }
   }
 
-  const handleDragEnd = () => {
+  const handleDragEnd = (e) => {
     if (!isDragging) return
     setIsDragging(false)
     if (dragY > 100) onClose()
     setDragY(0)
   }
 
-  // Manage rendering and entry animation
+  // Manage rendering state
   useEffect(() => {
     if (open) {
-      // Set correct position immediately when opening
       setDisplayPosition(position)
       setShouldRender(true)
       setIsEntering(true)
-      // Start enter animation after brief delay
+      // Complete enter animation
       const timer = setTimeout(() => setIsEntering(false), 50)
       return () => clearTimeout(timer)
     } else {
       setIsEntering(false)
-      // Keep rendered during exit animation, then hide
-      const timer = setTimeout(() => setShouldRender(false), 500)
+      // Keep rendered for exit animation
+      const timer = setTimeout(() => setShouldRender(false), 400)
       return () => clearTimeout(timer)
     }
   }, [open, position])
@@ -109,8 +112,13 @@ export const ActionDrawer = ({
       return `translateY(${isBottom ? dragY : -dragY}px)`
     }
     
-    if (isEntering || !open) {
-      // Start off-screen for enter animation, or slide off-screen for exit
+    if (isEntering) {
+      // Start off-screen for enter animation
+      return `translateY(${isBottom ? '100%' : '-100%'})`
+    }
+    
+    if (!open) {
+      // Exit to off-screen - CSS transition will handle smooth movement
       return `translateY(${isBottom ? '100%' : '-100%'})`
     }
     
@@ -125,7 +133,7 @@ export const ActionDrawer = ({
       display: 'flex',
       alignItems: isBottom ? 'flex-end' : 'flex-start',
       justifyContent: 'center',
-      p: 2,
+      p: 0.5,
       pointerEvents: 'none', // Never block background clicks
       zIndex: 1300,
       transition: isPositionChanging 
@@ -134,6 +142,7 @@ export const ActionDrawer = ({
     }}>
       <Box
         ref={drawerRef}
+        onClick={(e) => e.stopPropagation()} // Block clicks from passing through
         sx={{
           bgcolor: 'background.body',
           pointerEvents: 'auto',
@@ -145,7 +154,9 @@ export const ActionDrawer = ({
           transform: getTransform(),
           transition: isDragging 
             ? 'none' 
-            : 'transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            : !open
+              ? 'transform 0.4s ease-out'  // Smooth exit, no bounce
+              : 'transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)', // Bouncy enter
           boxShadow: 'lg',
           display: 'flex',
           flexDirection: 'column',
@@ -181,11 +192,11 @@ export const ActionDrawer = ({
           </Box>
         )}
 
-        {!isBottom && <Handle />}
-
         <Box sx={{ flex: 1, p: 2, overflow: 'auto' }}>
           {content || children}
         </Box>
+
+        {!isBottom && <Handle />}
       </Box>
     </Box>
   )
