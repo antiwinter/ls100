@@ -44,24 +44,21 @@ export const ActionDrawer = ({
 
   const handleDragStart = (e) => {
     setIsDragging(true)
-    startY.current = e.touches ? e.touches[0].clientY : e.clientY
+    startY.current = e.touches?.[0]?.clientY ?? e.clientY
     setDragY(0)
   }
 
   const handleDragMove = (e) => {
     if (!isDragging) return
+    const y = e.touches?.[0]?.clientY ?? e.clientY
+    const delta = y - startY.current
     
-    const currentY = e.touches ? e.touches[0].clientY : e.clientY
-    const deltaY = currentY - startY.current
-    
-    // Only prevent default and drag if gesture is in correct direction
-    if ((isBottom && deltaY > 0) || (!isBottom && deltaY < 0)) {
-      e.preventDefault() // Prevent browser scroll/refresh only for valid drag
-      setDragY(Math.abs(deltaY))
+    if ((isBottom && delta > 0) || (!isBottom && delta < 0)) {
+      setDragY(Math.abs(delta))
     }
   }
 
-  const handleDragEnd = (e) => {
+  const handleDragEnd = () => {
     if (!isDragging) return
     setIsDragging(false)
     if (dragY > 100) onClose()
