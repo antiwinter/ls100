@@ -70,6 +70,11 @@ rm -rf "$ENV_DIR/staging"
 mkdir -p "$ENV_DIR/staging"
 tar -xzf /tmp/ls100-deploy/deployment.tar.gz -C "$ENV_DIR/staging"
 
+# Copy infra directory to correct location
+echo "📁 Setting up infra directory..."
+rm -rf "$ROOT/infra"
+cp -r /tmp/ls100-deploy/infra "$ROOT/"
+
 # Install dependencies
 echo "📥 Installing dependencies..."
 cd "$ENV_DIR/staging"
