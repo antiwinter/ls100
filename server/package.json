@@ -23,7 +23,9 @@
     "subtitle": "^4.2.2-alpha.0"
   },
   "devDependencies": {
-    "eslint": "^8.55.0",
+    "@eslint/js": "^9.0.0",
+    "eslint": "^9.0.0",
+    "globals": "^15.0.0",
     "nodemon": "^3.0.2"
   }
 }
