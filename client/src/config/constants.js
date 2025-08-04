@@ -4,7 +4,7 @@ export const APP = {
   short: 'LS100',
   desc: 'Interactive English learning using movie subtitles',
   tagline: 'Learn English with movie subtitles',
-  version: '1.0.0',
+  version: '0.7.7',
   
   pwa: {
     display: 'standalone',

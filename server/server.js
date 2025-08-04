@@ -10,6 +10,8 @@ import subtitleWordsRoutes from './shards/subtitle/words-api.js'
 import { runMigrations } from './utils/dbc.js'
 import { log, loggerMiddleware } from './utils/logger.js'
 import { httpLogger } from './utils/httpLogger.js'
+import { ProxyClient } from '../infra/deploy/proxy-client.js'
+import packageJson from './package.json' with { type: 'json' }
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -71,6 +73,15 @@ app.get('/api/status', (req, res) => {
   })
 })
 
+app.get('/api/version', (req, res) => {
+  res.json({
+    version: packageJson.version,
+    name: packageJson.name,
+    environment: process.env.NODE_ENV || 'development',
+    timestamp: new Date().toISOString()
+  })
+})
+
 // In production, serve static files from client build
 if (!isDev) {
   const clientBuildPath = path.join(__dirname, '../client/dist')
@@ -82,7 +93,16 @@ if (!isDev) {
   })
 }
 
-app.listen(port, '0.0.0.0', () => {
+app.listen(port, '0.0.0.0', async () => {
   log.info({ port, environment: process.env.NODE_ENV || 'development' }, 'Server started')
   log.debug({ envFile: path.join(__dirname, '.env') }, 'Environment configuration loaded')
+  
+  // Register with proxy in production/staging environments
+  if (process.env.NODE_ENV !== 'development') {
+    try {
+      await ProxyClient.autoRegister()
+    } catch (error) {
+      log.warn({ error: error.message }, 'Failed to register with proxy, continuing without reverse proxy')
+    }
+  }
 }) 

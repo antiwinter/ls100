@@ -1,6 +1,6 @@
 {
   "name": "server",
-  "version": "1.0.0",
+  "version": "0.7.7",
   "type": "module",
   "scripts": {
     "dev": "nodemon server.js",
