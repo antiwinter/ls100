@@ -1,24 +1,10 @@
-export default {
+module.exports = {
   apps: [
-    // Redbird Proxy
-    {
-      name: 'redbird-proxy',
-      script: '../redbird/proxy.js',
-      cwd: '/home/ls100/proxy',
-      env: {
-        NODE_ENV: 'production'
-      },
-      max_memory_restart: '200M',
-      error_file: '/home/ls100/logs/redbird-error.log',
-      out_file: '/home/ls100/logs/redbird-out.log',
-      log_file: '/home/ls100/logs/redbird-combined.log'
-    },
-    
     // Staging Environment (main branch)
     {
       name: 'ls100-staging',
       script: './server/server.js',
-      cwd: '/home/ls100/staging',
+      cwd: '/home/ls100/staging/current',
       env: {
         NODE_ENV: 'staging',
         PORT: 6666,
@@ -35,7 +21,7 @@ export default {
     {
       name: 'ls100-production',
       script: './server/server.js',
-      cwd: '/home/ls100/production',
+      cwd: '/home/ls100/production/current',
       env: {
         NODE_ENV: 'production',
         PORT: 6667,

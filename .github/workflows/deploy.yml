@@ -17,53 +17,9 @@ on:
         - production
 
 jobs:
-  # Determine which environment to deploy
-  setup:
-    runs-on: ubuntu-latest
-    outputs:
-      environment: ${{ steps.determine-env.outputs.environment }}
-      should-deploy: ${{ steps.determine-env.outputs.should-deploy }}
-    steps:
-      - name: Determine environment
-        id: determine-env
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
-            echo "should-deploy=true" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            echo "environment=staging" >> $GITHUB_OUTPUT
-            echo "should-deploy=true" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event_name }}" = "release" ]; then
-            echo "environment=production" >> $GITHUB_OUTPUT
-            echo "should-deploy=true" >> $GITHUB_OUTPUT
-          else
-            echo "should-deploy=false" >> $GITHUB_OUTPUT
-          fi
-
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'yarn'
-      
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
-      
-      - name: Lint code
-        run: yarn lint
-      
-      - name: Build client
-        run: yarn workspace client build
-
   deploy:
-    needs: [test, setup]
     runs-on: ubuntu-latest
-    if: needs.setup.outputs.should-deploy == 'true'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
     environment: ls100
     
     steps:
@@ -75,17 +31,18 @@ jobs:
           node-version: '22'
           cache: 'yarn'
       
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
-      
-      - name: Build client
-        run: yarn workspace client build
+      - name: Install and build
+        run: |
+          yarn install --frozen-lockfile
+          yarn lint
+          yarn workspace client build
       
       - name: Create deployment package
         run: |
           mkdir -p deploy
           cp -r server deploy/
           cp -r client/dist deploy/client
+          cp -r infra deploy/
           cp package.json deploy/
           cp yarn.lock deploy/
           rm -rf deploy/server/node_modules
@@ -98,10 +55,10 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
-          source: "deployment.tar.gz,infra/deploy/deploy.sh,infra/deploy/environments.json,infra/deploy/ecosystem.config.js"
+          source: "deployment.tar.gz,infra/deploy/deploy.js"
           target: "/tmp/ls100-deploy"
       
-      - name: Deploy ${{ needs.setup.outputs.environment }}
+      - name: Deploy
         uses: appleboy/ssh-action@v0.1.10
         with:
           host: ${{ secrets.HOST }}
@@ -109,5 +66,11 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           script: |
             cd /tmp/ls100-deploy
-            chmod +x infra/deploy/deploy.sh
-            ./infra/deploy/deploy.sh ${{ needs.setup.outputs.environment }}
+            chmod +x infra/deploy/deploy.js
+            if [ "${{ github.event_name }}" = "release" ]; then
+              node infra/deploy/deploy.js production
+            elif [ "${{ github.event.inputs.environment }}" = "production" ]; then
+              node infra/deploy/deploy.js production
+            else
+              node infra/deploy/deploy.js staging
+            fi

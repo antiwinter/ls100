@@ -9,7 +9,7 @@ LS100 is a language learning app that uses movie and TV subtitles to help you le
 ## Quick Start
 
 ### Prerequisites
-- Node.js 18+ 
+- Node.js 22+ 
 - Yarn package manager
 
 ### Installation

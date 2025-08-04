@@ -10,7 +10,7 @@ import subtitleWordsRoutes from './shards/subtitle/words-api.js'
 import { runMigrations } from './utils/dbc.js'
 import { log, loggerMiddleware } from './utils/logger.js'
 import { httpLogger } from './utils/httpLogger.js'
-import { ProxyClient } from '../infra/deploy/proxy-client.js'
+
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
@@ -96,16 +96,7 @@ if (!isDev) {
   })
 }
 
-app.listen(port, '0.0.0.0', async () => {
+app.listen(port, '0.0.0.0', () => {
   log.info({ port, environment: process.env.NODE_ENV || 'development' }, 'Server started')
   log.debug({ envFile: path.join(__dirname, '.env') }, 'Environment configuration loaded')
-  
-  // Register with proxy in production/staging environments
-  if (process.env.NODE_ENV !== 'development') {
-    try {
-      await ProxyClient.autoRegister()
-    } catch (error) {
-      log.warn({ error: error.message }, 'Failed to register with proxy, continuing without reverse proxy')
-    }
-  }
 }) 

@@ -1,0 +1,10 @@
+{
+  "name": "ls100-deploy",
+  "version": "1.0.0",
+  "description": "LS100 deployment scripts",
+  "type": "commonjs",
+  "main": "deploy.js",
+  "scripts": {
+    "deploy": "node deploy.js"
+  }
+}

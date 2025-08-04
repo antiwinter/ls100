@@ -33,7 +33,7 @@
    ```bash
    # Install Node.js via nvm
    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | sudo -u ls100 bash
-   sudo -u ls100 bash -c "source ~/.nvm/nvm.sh && nvm install 18 && nvm use 18 && nvm alias default 18"
+   sudo -u ls100 bash -c "source ~/.nvm/nvm.sh && nvm install 22 && nvm use 22 && nvm alias default 22"
    
    # Install PM2 globally
    sudo -u ls100 bash -c "source ~/.nvm/nvm.sh && npm install -g pm2"
@@ -47,15 +47,12 @@
 
 5. **Deploy infrastructure**:
    ```bash
-   # Copy infrastructure files
-   sudo -u ls100 cp -r infra/redbird /home/ls100/proxy/
-   sudo -u ls100 cp infra/deploy/ecosystem.config.js /home/ls100/proxy/
+   # Copy infrastructure files  
+   sudo -u ls100 mkdir -p /home/ls100/infra/deploy
+   sudo -u ls100 cp infra/deploy/ecosystem.config.js /home/ls100/infra/deploy/
    
-   # Install dependencies and start proxy
-   cd /home/ls100/proxy/redbird
-   sudo -u ls100 bash -c "source ~/.nvm/nvm.sh && yarn install --production"
-   cd /home/ls100/proxy
-   sudo -u ls100 bash -c "source ~/.nvm/nvm.sh && pm2 start ecosystem.config.js --only redbird-proxy"
+   # Note: Redbird proxy setup is handled separately
+   # Ecosystem config only manages LS100 app deployments
    sudo -u ls100 bash -c "source ~/.nvm/nvm.sh && pm2 save"
    ```
 
@@ -74,10 +71,10 @@ Required secrets in repository settings (Environment: `ls100`):
 ### Manual Deployment
 ```bash
 # Deploy to staging
-./infra/deploy/deploy.sh staging
+node infra/deploy/deploy.js staging
 
 # Deploy to production  
-./infra/deploy/deploy.sh production
+node infra/deploy/deploy.js production
 ```
 
 ### Manual Commands
@@ -86,13 +83,12 @@ Required secrets in repository settings (Environment: `ls100`):
 pm2 list
 
 # View logs
-pm2 logs redbird-proxy
 pm2 logs ls100-staging
 pm2 logs ls100-production
 
-# Restart services
-pm2 restart redbird-proxy
+# Restart services  
 pm2 restart ls100-staging
+pm2 restart ls100-production
 ```
 
 ## Environment Variables
