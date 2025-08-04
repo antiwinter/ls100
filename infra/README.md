@@ -65,6 +65,12 @@ Automatic via GitHub Actions on push to `main`
 ### Deploy Production (release tags)
 Automatic via GitHub Actions on release publish
 
+### GitHub Actions Setup
+Required secrets in repository settings (Environment: `ls100`):
+- `HOST`: Server IP or hostname
+- `USERNAME`: `ls100` (the dedicated deployment user)
+- `SSH_KEY`: Private SSH key content (complete key with headers)
+
 ### Manual Deployment
 ```bash
 # Deploy to staging

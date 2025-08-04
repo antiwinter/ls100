@@ -51,36 +51,35 @@ echo "🚀 Deploying LS100 $ENV_NAME..."
 echo "📋 Config: $APP_NAME → $DOMAIN:$PORT"
 
 # Create directories
-sudo mkdir -p "$ENV_DIR" "$BACKUP_DIR" "$LOGS_DIR"
-sudo chown -R ls100:ls100 "$ROOT"
+mkdir -p "$ENV_DIR" "$BACKUP_DIR" "$LOGS_DIR"
 
 # Backup current deployment
 if [ -d "$ENV_DIR/current" ]; then
     echo "📦 Creating backup..."
     BACKUP_NAME="$ENV_NAME-$(date +%Y%m%d-%H%M%S)"
-    sudo -u ls100 cp -r "$ENV_DIR/current" "$BACKUP_DIR/$BACKUP_NAME"
+    cp -r "$ENV_DIR/current" "$BACKUP_DIR/$BACKUP_NAME"
     
     # Keep only specified number of backups
     RETENTION_PLUS_ONE=$((BACKUP_RETENTION + 1))
-    sudo -u ls100 bash -c "cd $BACKUP_DIR && ls -t | tail -n +$RETENTION_PLUS_ONE | xargs rm -rf"
+    cd "$BACKUP_DIR" && ls -t | tail -n +$RETENTION_PLUS_ONE | xargs rm -rf
 fi
 
 # Extract new deployment
 echo "📂 Extracting deployment..."
-sudo rm -rf "$ENV_DIR/staging"
-sudo -u ls100 mkdir -p "$ENV_DIR/staging"
-sudo -u ls100 tar -xzf /tmp/ls100-deploy/deployment.tar.gz -C "$ENV_DIR/staging"
+rm -rf "$ENV_DIR/staging"
+mkdir -p "$ENV_DIR/staging"
+tar -xzf /tmp/ls100-deploy/deployment.tar.gz -C "$ENV_DIR/staging"
 
 # Install dependencies
 echo "📥 Installing dependencies..."
 cd "$ENV_DIR/staging"
-sudo -u ls100 yarn install --production --frozen-lockfile
+yarn install --production --frozen-lockfile
 
 # Run migrations for production
 if [ "$RUN_MIGRATIONS" = "true" ]; then
     echo "🗄️  Running migrations..."
     cd "$ENV_DIR/staging/server"
-    sudo -u ls100 node -e "
+    node -e "
 import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
@@ -106,19 +105,19 @@ fi
 
 # Switch to new deployment
 echo "🔄 Switching deployment..."
-sudo rm -rf "$ENV_DIR/previous"
+rm -rf "$ENV_DIR/previous"
 if [ -d "$ENV_DIR/current" ]; then
-    sudo mv "$ENV_DIR/current" "$ENV_DIR/previous"
+    mv "$ENV_DIR/current" "$ENV_DIR/previous"
 fi
-sudo mv "$ENV_DIR/staging" "$ENV_DIR/current"
+mv "$ENV_DIR/staging" "$ENV_DIR/current"
 
 # Restart app with PM2
 echo "🔄 Restarting $APP_NAME..."
-sudo -u ls100 pm2 reload "$APP_NAME" || sudo -u ls100 pm2 start /home/ls100/proxy/ecosystem.config.js --only "$APP_NAME"
+pm2 reload "$APP_NAME" || pm2 start /home/ls100/infra/deploy/ecosystem.config.js --only "$APP_NAME"
 
 # Verify deployment
 sleep "$VERIFY_DELAY"
-if sudo -u ls100 pm2 describe "$APP_NAME" | grep -q "online"; then
+if pm2 describe "$APP_NAME" | grep -q "online"; then
     echo "✅ $ENV_NAME deployment successful!"
 else
     echo "❌ $ENV_NAME deployment failed!"
