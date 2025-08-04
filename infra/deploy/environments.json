@@ -1,0 +1,20 @@
+{
+  "staging": {
+    "name": "staging",
+    "appName": "ls100-staging",
+    "domain": "ls100.flj.icu",
+    "port": 6666,
+    "backupRetention": 3,
+    "runMigrations": false,
+    "verifyDelay": 3
+  },
+  "production": {
+    "name": "production", 
+    "appName": "ls100-production",
+    "domain": "vm.flj.icu",
+    "port": 6667,
+    "backupRetention": 5,
+    "runMigrations": true,
+    "verifyDelay": 5
+  }
+}
