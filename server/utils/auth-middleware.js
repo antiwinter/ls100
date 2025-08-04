@@ -16,7 +16,7 @@ export const requireAuth = (req, res, next) => {
     req.user = decoded
     req.userId = decoded.userId  // For backward compatibility
     next()
-  } catch (error) {
+  } catch {
     res.status(401).json({ message: 'Invalid token' })
   }
 }

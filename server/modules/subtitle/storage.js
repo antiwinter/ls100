@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url'
 import { Storage } from '../../utils/storage.js'
 import * as subtitleModel from './data.js'
 import * as ossModel from '../../utils/oss-files.js'
+import { log } from '../../utils/logger.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -34,7 +35,7 @@ export const parseSrt = (content) => {
     
     return { lines, duration: durationStr, parsed }
   } catch (error) {
-    console.error('SRT Parse Error:', error)
+    log.error({ error }, 'SRT Parse Error')
     throw new Error(`Failed to parse SRT content: ${error.message}`)
   }
 }

@@ -4,10 +4,11 @@ import globals from 'globals'
 export default [
   {
     files: ['**/*.js'],
+    ignores: ['tests/**/*'],
     languageOptions: {
       ecmaVersion: 2022,
       globals: globals.node,
-      sourceType: 'module',
+      sourceType: 'module'
     },
     rules: {
       ...js.configs.recommended.rules,
@@ -15,7 +16,7 @@ export default [
       'no-console': 'error',
       'semi': ['error', 'never'],
       'quotes': ['error', 'single'],
-      'comma-dangle': ['error', 'never'],
-    },
-  },
+      'comma-dangle': ['error', 'never']
+    }
+  }
 ]

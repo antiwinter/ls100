@@ -12,7 +12,7 @@ export const engine = {
   },
   
   // Process shard updates with subtitle-specific logic
-  async processUpdate(shard, data, updateData) {
+  async processUpdate(shard, data, _updateData) {
     log.info({ shardId: shard.id }, 'Processing shard update')
     return this._processSubtitles(shard, data, false)
   },

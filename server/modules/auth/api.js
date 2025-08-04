@@ -25,7 +25,7 @@ router.post('/register', async (req, res) => {
     const user = await userModel.create({ email, password, name })
 
     // Return user without password
-    const { password_hash, ...userInfo } = user
+    const { password_hash: __drop, ...userInfo } = user
     res.json({ user: userInfo })
   } catch (error) {
     log.error({ error, email: req.body?.email }, 'Registration failed')
@@ -61,7 +61,7 @@ router.post('/login', async (req, res) => {
     )
 
     // Return user without password
-    const { password_hash, ...userInfo } = user
+    const { password_hash: _password_hash, ...userInfo } = user
     res.json({ user: userInfo, token })
   } catch (error) {
     log.error({ error, email: req.body?.email }, 'Login failed')
@@ -79,7 +79,7 @@ router.get('/me', requireAuth, async (req, res) => {
     }
 
     // Return user without password
-    const { password_hash, ...userInfo } = user
+    const { password_hash: _password_hash, ...userInfo } = user
     res.json({ user: userInfo })
   } catch (error) {
     log.error({ error }, 'Auth me endpoint failed')

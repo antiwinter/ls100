@@ -1,5 +1,5 @@
 // Media scraping and filename parsing module
-import fs from 'fs'
+import { log } from '../../utils/logger.js'
 
 // Simple filename parser (fallback if external lib not available)
 const parseFilename = (filename) => {
@@ -48,14 +48,14 @@ class TMDbClient {
   
   async search(query, type = 'movie') {
     if (!this.apiKey) {
-      console.debug('TMDb API key not configured')
+      log.debug('TMDb API key not configured')
       return null
     }
     
     try {
       const axios = await import('axios').then(m => m.default).catch(() => null)
       if (!axios) {
-        console.debug('axios not available, skipping TMDb search')
+        log.debug('axios not available, skipping TMDb search')
         return null
       }
       
@@ -69,7 +69,7 @@ class TMDbClient {
       
       return res.data.results[0] || null
     } catch (err) {
-      console.debug('TMDb search failed:', err.message)
+      log.debug('TMDb search failed:', err.message)
       return null
     }
   }
@@ -88,7 +88,7 @@ class TMDbClient {
       
       return res.data
     } catch (err) {
-      console.debug('TMDb details failed:', err.message)
+      log.debug('TMDb details failed:', err.message)
       return null
     }
   }
@@ -96,11 +96,11 @@ class TMDbClient {
 
 // Main media info extraction
 const extractMediaInfo = async (filename, apiKey = null) => {
-  console.debug('Extracting media info for:', filename)
+  log.debug('Extracting media info for:', filename)
   
   // Parse filename first
   const parsed = parseFilename(filename)
-  console.debug('Parsed:', parsed)
+  log.debug('Parsed:', parsed)
   
   // If no API key, return parsed info only
   if (!apiKey) {
@@ -120,7 +120,7 @@ const extractMediaInfo = async (filename, apiKey = null) => {
   }
   
   if (result) {
-    console.debug('TMDb match found:', result.title || result.name)
+    log.debug('TMDb match found:', result.title || result.name)
     
     // Get detailed info
     const details = await tmdb.getDetails(result.id, searchType)
@@ -156,7 +156,7 @@ const batchExtract = async (filenames, apiKey = null) => {
         await new Promise(resolve => setTimeout(resolve, 250))
       }
     } catch (err) {
-      console.debug('Failed to extract info for', filename, err.message)
+      log.debug('Failed to extract info for', filename, err.message)
       results.push({ filename, error: err.message })
     }
   }

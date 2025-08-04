@@ -2,7 +2,7 @@ import express from 'express'
 import * as shardModel from './data.js'
 // Removed subtitle-specific imports - now handled via engine abstraction
 import { requireAuth } from '../../utils/auth-middleware.js'
-import { engineProcessCreate, engineProcessUpdate, engineValidateData, getEngineTypes, getDefaultEngineType, engineGetData } from '../../shards/engines.js'
+import { engineProcessCreate, engineProcessUpdate, engineValidateData, getDefaultEngineType, engineGetData } from '../../shards/engines.js'
 import { log } from '../../utils/logger.js'
 
 const router = express.Router()

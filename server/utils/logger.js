@@ -1,6 +1,5 @@
 import pino from 'pino'
 import { AsyncLocalStorage } from 'async_hooks'
-import path from 'path'
 
 // Context storage for request-specific info (user, request ID, etc.)
 export const logContext = new AsyncLocalStorage()
@@ -15,7 +14,7 @@ const getCallerFile = () => {
   for (let i = 3; i < lines.length; i++) {
     const line = lines[i]
     if (line.includes('/server/') && !line.includes('logger.js')) {
-      const match = line.match(/\/([^\/]+\.js)/)
+      const match = line.match(/\/([^/]+\.js)/)
       if (match) return match[1]
     }
   }

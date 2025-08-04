@@ -34,7 +34,7 @@ export const incrementRef = (oss_id) => {
 export const decrementRef = (oss_id) => {
   const now = new Date().toISOString()
   
-  const result = db.prepare(`
+  const _result = db.prepare(`
     UPDATE oss_files 
     SET ref_count = ref_count - 1, updated_at = ?
     WHERE oss_id = ?

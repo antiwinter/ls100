@@ -11,7 +11,10 @@ import { runMigrations } from './utils/dbc.js'
 import { log, loggerMiddleware } from './utils/logger.js'
 import { httpLogger } from './utils/httpLogger.js'
 import { ProxyClient } from '../infra/deploy/proxy-client.js'
-import packageJson from './package.json' with { type: 'json' }
+import { readFileSync } from 'fs'
+import { join } from 'path'
+
+const packageJson = JSON.parse(readFileSync(join(import.meta.dirname, 'package.json'), 'utf8'))
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)

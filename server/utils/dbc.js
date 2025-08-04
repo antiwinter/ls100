@@ -3,6 +3,7 @@ import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
 import { getEngineTypes } from '../shards/engines.js'
+import { log } from './logger.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -28,9 +29,9 @@ export const runMigrations = () => {
       const migrationPath = path.join(__dirname, '../modules', module, 'migration.sql')
       const sql = fs.readFileSync(migrationPath, 'utf8')
       db.exec(sql)
-      console.log(`✅ ${module} module migration completed`)
+      log.info({ module }, 'Module migration completed')
     } catch (error) {
-      console.log(`⚠️ ${module} module migration error:`, error.message)
+      log.error({ module, error: error.message }, 'Module migration error')
     }
   })
   
@@ -42,9 +43,9 @@ export const runMigrations = () => {
       const migrationPath = path.join(__dirname, '../shards', engine, 'migration.sql')
       const sql = fs.readFileSync(migrationPath, 'utf8')
       db.exec(sql)
-      console.log(`✅ ${engine} engine migration completed`)
+      log.info({ engine }, 'Engine migration completed')
     } catch (error) {
-      console.log(`⚠️ ${engine} engine migration error:`, error.message)
+      log.error({ engine, error: error.message }, 'Engine migration error')
     }
   })
 }

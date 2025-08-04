@@ -1,6 +1,5 @@
 import express from 'express'
 import multer from 'multer'
-import chalk from 'chalk'
 import * as subtitleModel from './data.js'
 import { uploadSubtitle, computeHash, getSubtitle } from './storage.js'
 import { requireAuth } from '../../utils/auth-middleware.js'
@@ -70,7 +69,7 @@ router.post('/upload', requireAuth, upload.single('subtitle'), async (req, res) 
       sizeKB: parseFloat(sizeKB),
       hash: hashDigest,
       lightning: result.lightning
-    }, `Subtitle imported: ${metadata.movie_name}`)
+    }, `${emoji} Subtitle imported: ${metadata.movie_name}`)
     
     // Include detection suggestions in response
     result.suggestions = {

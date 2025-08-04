@@ -1,6 +1,7 @@
 // Media API routes
 import express from 'express'
 import { extractMediaInfo, batchExtract } from './data.js'
+import { log } from '../../utils/logger.js'
 
 const router = express.Router()
 
@@ -16,7 +17,7 @@ router.post('/extract', async (req, res) => {
     const info = await extractMediaInfo(filename, apiKey)
     res.json(info)
   } catch (err) {
-    console.error('Media extract error:', err)
+    log.error({ error: err }, 'Media extract error')
     res.status(500).json({ error: err.message })
   }
 })
@@ -33,7 +34,7 @@ router.post('/batch', async (req, res) => {
     const results = await batchExtract(filenames, apiKey)
     res.json({ results })
   } catch (err) {
-    console.error('Media batch error:', err)
+    log.error({ error: err }, 'Media batch error')
     res.status(500).json({ error: err.message })
   }
 })

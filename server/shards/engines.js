@@ -3,7 +3,7 @@ import { log } from '../utils/logger.js'
 
 // Registry of shard engines by type
 const SHARD_ENGINES = {
-  subtitle: subtitleEngine,
+  subtitle: subtitleEngine
   // Future: audio: audioEngine, image: imageEngine, etc.
 }
 
