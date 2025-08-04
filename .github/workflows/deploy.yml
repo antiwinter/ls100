@@ -98,7 +98,7 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
-          source: "deployment.tar.gz,infra/deploy/deploy.sh,infra/deploy/environments.json"
+          source: "deployment.tar.gz,infra/deploy/deploy.sh,infra/deploy/environments.json,infra/deploy/ecosystem.config.js"
           target: "/tmp/ls100-deploy"
       
       - name: Deploy ${{ needs.setup.outputs.environment }}
