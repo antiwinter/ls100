@@ -15,7 +15,7 @@ const theme = extendTheme({
           600: '#0d9488',  // Dark teal
           700: '#0f766e',  // Darker teal
           800: '#115e59',  // Very dark teal
-          900: '#134e4a',  // Darkest teal
+          900: '#134e4a'  // Darkest teal
         },
         
         // SECONDARY PALETTE - Purple (from your image)
@@ -29,7 +29,7 @@ const theme = extendTheme({
           600: '#9333ea',  // Dark purple
           700: '#7c3aed',  // Darker purple
           800: '#6b21b8',  // Very dark purple
-          900: '#581c87',  // Darkest purple
+          900: '#581c87'  // Darkest purple
         },
         
         // WARNING PALETTE - Golden/Orange (from your image)
@@ -43,8 +43,8 @@ const theme = extendTheme({
           600: '#d97706',  // Dark golden
           700: '#b45309',  // Darker orange
           800: '#92400e',  // Dark orange
-          900: '#78350f',  // Darkest orange
-        },
+          900: '#78350f'  // Darkest orange
+        }
       }
     },
     dark: {
@@ -60,7 +60,7 @@ const theme = extendTheme({
           600: '#0d9488',
           700: '#0f766e',
           800: '#115e59',
-          900: '#134e4a',
+          900: '#134e4a'
         },
         secondary: {
           50: '#faf5ff',
@@ -72,7 +72,7 @@ const theme = extendTheme({
           600: '#9333ea',
           700: '#7c3aed',
           800: '#6b21b8',
-          900: '#581c87',
+          900: '#581c87'
         },
         warning: {
           50: '#fffbeb',
@@ -84,8 +84,8 @@ const theme = extendTheme({
           600: '#d97706',
           700: '#b45309',
           800: '#92400e',
-          900: '#78350f',
-        },
+          900: '#78350f'
+        }
       }
     }
   }

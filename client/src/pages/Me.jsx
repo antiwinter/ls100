@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext'
 import { APP } from '../config/constants'
 import { useState, useEffect } from 'react'
 import { apiCall } from '../config/api'
+import { log } from '../utils/logger'
 
 export const Me = () => {
   const { user, logout } = useAuth()
@@ -21,7 +22,7 @@ export const Me = () => {
         const data = await apiCall('/api/version')
         setBackendVersion(data)
       } catch (error) {
-        console.warn('Failed to fetch backend version:', error)
+        log.warn('Failed to fetch backend version:', error)
       } finally {
         setLoading(false)
       }

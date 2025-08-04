@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { 
   Box, 
@@ -27,10 +27,19 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
   const [editing, setEditing] = useState(false)
   const [selected, setSelected] = useState([])
 
+  const loadShards = useCallback(async () => {
+    try {
+      const data = await apiCall(`/api/shards?sort=${sortBy}`)
+      setShards(data.shards || [])
+    } catch (error) {
+      log.error('Failed to load shards:', error)
+    }
+  }, [sortBy])
+
   // Load user's shards on mount and when sort changes
   useEffect(() => {
     loadShards()
-  }, [sortBy]) // Will run on mount (initial sortBy) and when sortBy changes
+  }, [loadShards])
 
   // Notify parent of edit mode changes
   useEffect(() => {
@@ -41,15 +50,6 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
   useEffect(() => {
     onReaderModeChange?.(!!readerShard)
   }, [readerShard, onReaderModeChange])
-
-  const loadShards = async () => {
-    try {
-      const data = await apiCall(`/api/shards?sort=${sortBy}`)
-      setShards(data.shards || [])
-    } catch (error) {
-      log.error('Failed to load shards:', error)
-    }
-  }
 
   const handleSortChange = (newSort) => {
     setSortBy(newSort)
@@ -65,7 +65,7 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
       file: info.file,
       shardType: info.shardType,
       metadata: info.metadata,
-      filename: info.filename,
+      filename: info.filename
       // Don't pass processor (contains functions)
     }
     

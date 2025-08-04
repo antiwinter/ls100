@@ -101,6 +101,7 @@ export const EditShard = () => {
       
       fetchShardDetails()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, shardId])  // Only re-run if mode or shardId changes
 
   const handleSave = async () => {
@@ -132,9 +133,9 @@ export const EditShard = () => {
       
       // Submit shardData directly
       const result = await apiCall(
-        isCreate ? "/api/shards" : `/api/shards/${shardId}`,
+        isCreate ? '/api/shards' : `/api/shards/${shardId}`,
         {
-          method: isCreate ? "POST" : "PUT",
+          method: isCreate ? 'POST' : 'PUT',
           body: JSON.stringify(shardData)
         }
       )

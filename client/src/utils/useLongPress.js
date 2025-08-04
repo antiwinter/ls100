@@ -44,7 +44,7 @@ export const useLongPress = (onLongPress, onClick, { delay = 500, moveThreshold 
     }
   }, [moveThreshold, clear])
 
-  const end = useCallback((e) => {
+  const end = useCallback((_e) => {
     clear()
     
     // Don't call onClick here - let handleClick be the single source of truth

@@ -69,12 +69,12 @@ export const ActionDrawer = ({
   const isBottom = displayPosition === 'bottom'
   const heights = { 
     full: '99vh', 
-    half: `min(60vh, 300px)`, 
+    half: 'min(60vh, 300px)', 
     'fit-content': 'auto' 
   }
   const maxHeights = {
     full: '99vh',
-    half: `min(60vh, 300px)`, 
+    half: 'min(60vh, 300px)', 
     'fit-content': '99vh'
   }
 
@@ -198,13 +198,13 @@ export const ActionDrawer = ({
           overflow: 'hidden'
         }}
       >
-        {isBottom && <Handle onDragStart={handleDragStart} onDragMove={handleDragMove} onDragEnd={handleDragEnd} position="bottom" />}
+        {isBottom && <Handle onDragStart={handleDragStart} onDragMove={handleDragMove} onDragEnd={handleDragEnd} position='bottom' />}
         
         {title && (
-          <Stack direction="row" justifyContent="space-between" alignItems="center" 
+          <Stack direction='row' justifyContent='space-between' alignItems='center' 
                  sx={{ px: 2, py: 1, borderBottom: isBottom ? 1 : 0, borderTop: isBottom ? 0 : 1, borderColor: 'divider' }}>
-            <Typography level="h4">{title}</Typography>
-            <IconButton size="sm" variant="plain" onClick={onClose} sx={{ color: 'neutral.500' }}>
+            <Typography level='h4'>{title}</Typography>
+            <IconButton size='sm' variant='plain' onClick={onClose} sx={{ color: 'neutral.500' }}>
               <Close />
             </IconButton>
           </Stack>
@@ -219,7 +219,7 @@ export const ActionDrawer = ({
           {content || children}
         </Box>
 
-        {!isBottom && <Handle onDragStart={handleDragStart} onDragMove={handleDragMove} onDragEnd={handleDragEnd} position="top" />}
+        {!isBottom && <Handle onDragStart={handleDragStart} onDragMove={handleDragMove} onDragEnd={handleDragEnd} position='top' />}
       </Box>
     </Box>
   )

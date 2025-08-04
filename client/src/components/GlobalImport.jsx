@@ -8,7 +8,7 @@ import {
   Alert
 } from '@mui/joy'
 import { CloudUpload } from '@mui/icons-material'
-import { useAuth } from '../context/AuthContext'
+
 
 
 // Import all shard detectors
@@ -23,8 +23,7 @@ const detectors = [
 ]
 
 export const GlobalImport = ({ onConfigure, onCancel }) => {
-  const { user } = useAuth()
-  const [file, setFile] = useState(null)
+  const [file, setFile] = useState(null) // eslint-disable-line no-unused-vars
   const [error, setError] = useState(null)
   const [processing, setProcessing] = useState(false)
 
@@ -79,7 +78,7 @@ export const GlobalImport = ({ onConfigure, onCancel }) => {
 
       onConfigure?.(detectedInfo)
       
-    } catch (err) {
+    } catch {
       setError('Failed to analyze file')
       setProcessing(false)
     }

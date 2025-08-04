@@ -2,7 +2,7 @@ import * as subtitleEngine from './subtitle/SubtitleShard.js'
 
 // Registry of shard engines by type
 const SHARD_ENGINES = {
-  subtitle: subtitleEngine,
+  subtitle: subtitleEngine
   // Future: audio: audioEngine, image: imageEngine, etc.
 }
 
@@ -18,7 +18,7 @@ export const engineGenCover = (shard) => {
   if (!engine || !engine.generateCover) {
     // Fallback for unknown types or engines without cover generation
     return {
-      type: "text",
+      type: 'text',
       title: shard.name,
       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
       textColor: '#ffffff'

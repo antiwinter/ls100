@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react'
+import { useState, useEffect, useRef, useMemo, memo } from 'react'
 import {
   Box,
   Stack,
@@ -15,7 +15,7 @@ const SubtitleViewerComponent = ({
   selectedWords = new Set(), 
   onWordClick,
   onEmptyClick,
-  onToolbarRequest
+  onToolbarRequest: _onToolbarRequest
 }) => {
   const [lines, setLines] = useState([])
   const [loading, setLoading] = useState(false)
@@ -24,6 +24,7 @@ const SubtitleViewerComponent = ({
   const viewerRef = useRef(null)
 
   // Load when shard changes
+  const subtitleId = shard?.data?.languages?.[0]?.subtitle_id
   useEffect(() => {
     const loadAllLines = async () => {
       if (!shard?.data?.languages?.[0] || loadingRef.current || loadedRef.current) {
@@ -33,7 +34,7 @@ const SubtitleViewerComponent = ({
 
       loadingRef.current = true
       setLoading(true)
-      log.debug(`📥 Loading all lines`)
+      log.debug('📥 Loading all lines')
       
       try {
         const { subtitle_id } = shard.data.languages[0]
@@ -54,10 +55,10 @@ const SubtitleViewerComponent = ({
       setLines([])
       loadingRef.current = false
       loadedRef.current = false
-      log.debug(`📥 Shard changed, resetting and loading`)
+      log.debug('📥 Shard changed, resetting and loading')
       loadAllLines()
     }
-  }, [shard?.data?.languages?.[0]?.subtitle_id])
+  }, [subtitleId, shard?.data?.languages])
 
   // Handle word click via event delegation - no context coupling
   const handleClick = (e) => {
@@ -85,7 +86,7 @@ const SubtitleViewerComponent = ({
       log.debug(`🎯 Word click to drawer: ${(performance.now() - startTime).toFixed(2)}ms`)
     } else {
       // Dismiss dictionary when clicking on non-word area
-      log.debug(`🎯 Empty space click - dismissing dictionary`)
+      log.debug('🎯 Empty space click - dismissing dictionary')
       onEmptyClick?.()
     }
   }

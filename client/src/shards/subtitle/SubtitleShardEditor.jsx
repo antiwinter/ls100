@@ -23,8 +23,8 @@ import { log } from '../../utils/logger'
 const extractLanguage = (detectedInfo) => {
   if (!detectedInfo) return []
   
-  const movieName = detectedInfo.metadata?.movieName || detectedInfo.metadata?.movie_name || "Unknown Movie"
-  const language = detectedInfo.metadata?.language || "en"
+  const movieName = detectedInfo.metadata?.movieName || detectedInfo.metadata?.movie_name || 'Unknown Movie'
+  const language = detectedInfo.metadata?.language || 'en'
   const lang = {
     code: language,
     filename: detectedInfo.filename,
@@ -108,19 +108,14 @@ export const SubtitleShardEditor = ({
       // Edit mode: use shard data
       shardData?.data?.languages ||
       // Create mode: use detected info
-      extractLanguage(detectedInfo);
-    log.debug("🔍 Languages loaded:", langs);
+      extractLanguage(detectedInfo)
+    log.debug('🔍 Languages loaded:', langs)
 
     if (langs && langs.length > 0) {
-      setLanguages(langs);
-      onChange?.({ languages: langs });
+      setLanguages(langs)
+      onChange?.({ languages: langs })
     }
-  }, [
-    mode,
-    detectedInfo,
-    shardData?.data?.languages?.length,
-    shardData?.data?.languages?.[0]?.movie_name,
-  ]);
+  }, [mode, detectedInfo, shardData?.data?.languages, onChange])
 
   const handleTooltipClick = (filename) => {
     if (tooltipTimerRef.current) {
@@ -196,8 +191,8 @@ export const SubtitleShardEditor = ({
       // Create new language entry
       const hasMain = languages.some(lang => lang.isMain)
       const movieName = hasMain 
-        ? languages.find(lang => lang.isMain)?.movie_name || "Unknown Movie"
-        : detection.metadata?.movieName || "Unknown Movie"
+        ? languages.find(lang => lang.isMain)?.movie_name || 'Unknown Movie'
+        : detection.metadata?.movieName || 'Unknown Movie'
 
       const newLang = { 
         code: language, 

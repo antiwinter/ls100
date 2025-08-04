@@ -4,6 +4,7 @@ import { log } from '../utils/logger'
 
 const AuthContext = createContext()
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext)
   if (!context) {
@@ -26,7 +27,7 @@ export const AuthProvider = ({ children }) => {
     }
   }, [])
 
-  const checkAuth = async (token) => {
+  const checkAuth = async (_token) => {
     try {
       const data = await apiCall('/api/auth/me')
       setUser(data.user)

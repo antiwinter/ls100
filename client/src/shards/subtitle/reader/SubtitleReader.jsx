@@ -20,7 +20,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
   const [actionDrawer, setActionDrawer] = useState({ open: false, size: 'half' })
   
   // Word sync worker
-  const { queueAdd, queueRemove } = useWordSync(shardId)
+  const { queueAdd, queueRemove: _queueRemove } = useWordSync(shardId)
 
   // Stable word click handler with smart positioning
   const handleWordClick = useCallback((word, suggestedPosition) => {
@@ -37,13 +37,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
     })
   }, [])
 
-  // Load shard and selected words
-  useEffect(() => {
-    loadShard()
-    loadSelectedWords()
-  }, [shardId])
-
-  const loadShard = async () => {
+  const loadShard = useCallback(async () => {
     try {
       const data = await apiCall(`/api/shards/${shardId}`)
       setShard(data.shard)
@@ -52,16 +46,22 @@ export const SubtitleReader = ({ shardId, onBack }) => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [shardId])
 
-  const loadSelectedWords = async () => {
+  const loadSelectedWords = useCallback(async () => {
     try {
       const data = await apiCall(`/api/subtitle-shards/${shardId}/words`)
       setSelectedWords(new Set(data.words || []))
     } catch (error) {
       log.error('Failed to load selected words:', error)
     }
-  }
+  }, [shardId])
+
+  // Load shard and selected words
+  useEffect(() => {
+    loadShard()
+    loadSelectedWords()
+  }, [loadShard, loadSelectedWords])
 
   // Handle toolbar visibility - stable function
   const handleToolbarRequest = useCallback(() => {
@@ -74,7 +74,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
   }, [])
 
   // Handle toolbar tool selection
-  const handleToolSelect = (tool) => {
+  const handleToolSelect = (_tool) => {
     setActionDrawer({ open: true, size: 'half' })
     setShowToolbar(false)
   }

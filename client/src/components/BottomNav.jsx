@@ -66,8 +66,8 @@ export const BottomNav = ({ activeTab }) => {
               bgcolor: 'transparent',
               opacity: 1,
               fontWeight: 'md'
-            },
-          },
+            }
+          }
         })}
       >
         <TabList

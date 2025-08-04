@@ -62,7 +62,7 @@ const MainApp = () => {
 
 const AuthFlow = () => {
   const [isLogin, setIsLogin] = useState(true)
-  const { user, loading, logout } = useAuth()
+  const { user, loading } = useAuth()
 
 
 

@@ -51,7 +51,7 @@ export const Dict = ({ word, position = 'bottom', visible, onClose, onWordSelect
         
         setDefinition({
           word: word.toLowerCase(),
-          phonetic: `/ˈwɜːrd/`,
+          phonetic: '/ˈwɜːrd/',
           definitions: [
             {
               partOfSpeech: 'noun',
@@ -61,12 +61,12 @@ export const Dict = ({ word, position = 'bottom', visible, onClose, onWordSelect
             {
               partOfSpeech: 'verb',
               definition: 'To express something in particular words; to phrase or articulate in a specific manner.',
-              example: `"She carefully worded her response to avoid any misunderstanding."`
+              example: '"She carefully worded her response to avoid any misunderstanding."'
             },
             {
               partOfSpeech: 'adjective',
               definition: 'Relating to words or the use of words in communication.',
-              example: `"His word choice was very precise and effective."`
+              example: '"His word choice was very precise and effective."'
             }
           ],
           translation: '词汇',

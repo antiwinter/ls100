@@ -8,7 +8,7 @@ import {
 } from '@mui/joy'
 import { AddCircleOutline, Sort, CheckCircleOutline } from '@mui/icons-material'
 
-export const BrowserToolbar = ({ title, onImport, sortBy, onSortChange, onSelect, hasShards }) => {
+export const BrowserToolbar = ({ title: _title, onImport, sortBy, onSortChange, onSelect, hasShards }) => {
   return (
     <Box sx={{
       position: 'sticky',

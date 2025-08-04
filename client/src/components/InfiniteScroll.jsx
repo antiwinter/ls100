@@ -22,7 +22,7 @@ export const InfiniteScroll = ({
     entries.forEach(entry => {
       if (!entry.isIntersecting || loading || !onLoadMore) return
       
-      log.debug(`Intersection detected on element:`, entry.target)
+      log.debug('Intersection detected on element:', entry.target)
       onLoadMore(entry.target)  // Pass back the actual observed element
     })
   }, [loading, onLoadMore])
@@ -62,7 +62,7 @@ export const InfiniteScroll = ({
         })
       }
     }
-  }, [handleIntersection, anchors])
+  }, [handleIntersection, anchors]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <Box 
