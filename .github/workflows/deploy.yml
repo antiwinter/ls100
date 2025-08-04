@@ -64,7 +64,7 @@ jobs:
     needs: [test, setup]
     runs-on: ubuntu-latest
     if: needs.setup.outputs.should-deploy == 'true'
-    environment: ${{ needs.setup.outputs.environment }}
+    environment: ls100
     
     steps:
       - uses: actions/checkout@v4
