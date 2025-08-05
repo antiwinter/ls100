@@ -36,9 +36,8 @@ try {
 }
 
 // CORS only needed in development
-if (isDev) {
+// if (isDev)
   app.use(cors())
-}
 
 // HTTP request logging
 app.use(httpLogger)
