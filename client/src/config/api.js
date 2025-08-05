@@ -1,8 +1,8 @@
 // Centralized API configuration
 const getApiBaseUrl = () => {
   // Environment variable takes precedence (works in both dev and prod)
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL
+  if (window.location.hostname.includes('vercel.app')) {
+    return 'http://8.153.193.204:9666'
   }
   
   // Production: same origin (no CORS needed)
