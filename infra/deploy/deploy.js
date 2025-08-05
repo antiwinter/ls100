@@ -89,7 +89,7 @@ async function deploy() {
     try {
       execSync(`pm2 reload "${appName}"`)
     } catch {
-      execSync(`pm2 start "${ROOT}/infra/deploy/ecosystem.config.js" --only "${appName}"`)
+      execSync(`pm2 start "${ENV_DIR}/current/infra/deploy/ecosystem.config.js" --only "${appName}"`)
     }
 
     // Register with proxy
