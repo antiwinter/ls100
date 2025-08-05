@@ -7,7 +7,7 @@ module.exports = {
       cwd: '/home/ls100/staging/current',
       env: {
         NODE_ENV: 'staging',
-        PORT: 6666,
+        PORT: 9666,
         DOMAIN: 'ls100.flj.icu',
         PROXY_API: 'http://localhost:6000'
       },
@@ -24,7 +24,7 @@ module.exports = {
       cwd: '/home/ls100/production/current',
       env: {
         NODE_ENV: 'production',
-        PORT: 6667,
+        PORT: 9667,
         DOMAIN: 'vm.flj.icu',
         PROXY_API: 'http://localhost:6000'
       },
