@@ -1,16 +1,16 @@
 // Centralized API configuration
 const getApiBaseUrl = () => {
+  // Environment variable takes precedence (works in both dev and prod)
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL
+  }
+  
   // Production: same origin (no CORS needed)
   if (import.meta.env.PROD) {
     return ''
   }
   
-  // Development: use environment variable or auto-detect
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL
-  }
-  
-  // Fallback: auto-detect from current hostname
+  // Development fallback: auto-detect from current hostname
   return `http://${window.location.hostname}:3001`
 }
 
