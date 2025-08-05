@@ -104,3 +104,49 @@ Apps need these env vars for proxy registration:
 - **6000**: Redbird registration API (internal only)
 - **6666**: LS100 staging
 - **6667**: LS100 production
+
+## Deployment Progress Log
+
+### Current Status (Aug 2025)
+
+**Working Setup:**
+- ✅ **Backend Server**: `http://x.x.x.x:9666` (direct IP access)
+- ✅ **Vercel Frontend**: Deployed and accessible via `vercel.app` domain
+- ✅ **Local Development**: Full-stack working on `localhost`
+
+**Current Limitations:**
+
+1. **Domain Access Requires ICP Filing**
+   - `ls100.flj.icu:9666` returns `403 Forbidden`
+   - Domain-based access blocked without proper registration
+   - Affects both HTTP and HTTPS access through domain
+
+2. **Redbird Proxy Dependency on Domain Access**
+   - Redbird proxy designed for domain-based routing
+   - Cannot function properly without domain access
+   - Current proxy setup ineffective
+
+3. **Vercel Frontend HTTPS Requirement**
+   - Vercel frontend works perfectly
+   - External API calls require HTTPS for security
+   - HTTPS certificates need valid domain names (not IP addresses)
+   - Mixed content (HTTPS frontend → HTTP backend) blocked by browsers
+
+4. **IP-Only Access Limitation**
+   - Only `http://x.x.x.x:9666` currently accessible
+   - No SSL/HTTPS support for IP addresses (expensive and problematic)
+   - Users see security warnings with IP-based HTTPS
+
+### Next Steps: Cloud Migration
+
+**Planned Solution:**
+- 🎯 **Migrate to External Cloud Provider** (AWS/DigitalOcean/Linode)
+- 🌐 **Enable Domain-Based Access** without ICP restrictions
+- 🔒 **Implement HTTPS** with Let's Encrypt free certificates
+- 🚀 **Full Frontend-Backend Integration** on Vercel with secure API calls
+
+**Benefits:**
+- Clean domain access: `https://api.yourapp.com`
+- Secure HTTPS communication
+- Proper Redbird proxy functionality
+- Professional deployment setup
