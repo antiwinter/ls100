@@ -41,7 +41,8 @@ jobs:
         run: |
           mkdir -p deploy
           cp -r server deploy/
-          cp -r client/dist deploy/client
+          mkdir -p deploy/client
+          cp -r client/dist deploy/client/
           cp -r infra deploy/
           cp package.json deploy/
           cp yarn.lock deploy/
