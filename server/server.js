@@ -24,7 +24,7 @@ dotenv.config({ path: path.join(__dirname, '.env') })
 
 const app = express()
 const port = process.env.PORT || 3001
-const isDev = process.env.NODE_ENV !== 'production'
+const isDev = process.env.NODE_ENV === 'development'
 
 // Initialize database
 try {
