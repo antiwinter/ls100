@@ -14,7 +14,8 @@ const SubtitleViewerComponent = ({
   currentIndex, 
   selectedWords = new Set(), 
   onWordClick,
-  onEmptyClick
+  onEmptyClick,
+  onScroll
 }) => {
   const [lines, setLines] = useState([])
   const [loading, setLoading] = useState(false)
@@ -153,6 +154,7 @@ const SubtitleViewerComponent = ({
     >
       <InfiniteScroll
         loading={loading}
+        onScroll={onScroll}
       >
         {entries.map(([timestamp, lines]) => {
           const isCurrent = lines.some(line => line.actualIndex === currentIndex)

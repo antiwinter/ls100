@@ -11,7 +11,8 @@ export const InfiniteScroll = ({
   onLoadMore,
   loading = false,
   loader = null,
-  anchors = []  // Array of elements to observe
+  anchors = [],  // Array of elements to observe
+  onScroll
 }) => {
   const containerRef = useRef(null)
   
@@ -68,6 +69,7 @@ export const InfiniteScroll = ({
     <Box 
       ref={containerRef}
       data-scroll-container="true"
+      onScroll={onScroll}
       sx={{ 
         flex: 1,
         maxHeight: '100%',

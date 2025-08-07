@@ -107,6 +107,18 @@ export const SubtitleReader = ({ shardId, onBack }) => {
     // TODO: Implement review feature
   }
 
+  // Handle scroll events - hide toolbar when scrolling (throttled)
+  const lastScrollTime = useRef(0)
+  const handleScroll = useCallback(() => {
+    // Throttle scroll events to max 10 per second
+    const now = Date.now()
+    if (now - lastScrollTime.current < 100) return
+    lastScrollTime.current = now
+
+    // Hide toolbar if currently visible
+    setShowToolbar(false)
+  }, [])
+
 
 
   if (loading) {
@@ -176,6 +188,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
         selectedWords={selectedWords}
         onWordClick={handleWordClick}
         onEmptyClick={handleEmptyClick}
+        onScroll={handleScroll}
       />
 
       {/* Direct drawer components with props */}
