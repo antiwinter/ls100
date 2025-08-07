@@ -166,7 +166,7 @@ export const ActionDrawer = ({
       display: 'flex',
       alignItems: isBottom ? 'flex-end' : 'flex-start',
       justifyContent: 'center',
-      p: 0.5,
+      p: 0,
       pointerEvents: 'none', // Never block background clicks
       zIndex: 1300,
       transition: isPositionChanging 
@@ -179,7 +179,7 @@ export const ActionDrawer = ({
         sx={{
           bgcolor: 'background.body',
           pointerEvents: 'auto',
-          borderRadius: '24px',
+          borderRadius: isBottom ? '24px 24px 0 0' : '0 0 24px 24px',
           width: '100%',
           maxWidth: '500px',
           height: heights[size] || heights.half,
@@ -188,8 +188,8 @@ export const ActionDrawer = ({
           transition: isDragging 
             ? 'none' 
             : !open
-              ? 'transform 0.4s ease-out'  // Smooth exit, no bounce
-              : 'transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)', // Bouncy enter
+              ? 'transform 0.4s ease-out'  // Smooth exit
+              : 'transform 0.3s ease-in', // Smooth enter
           boxShadow: isBottom 
             ? '0 -8px 32px rgba(0, 0, 0, 0.12), 0 -4px 16px rgba(0, 0, 0, 0.08)' // Shadow above for bottom drawer
             : '0 8px 32px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.08)',   // Shadow below for top drawer
