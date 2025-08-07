@@ -17,3 +17,11 @@
 * No manual component labels - browser/server shows file names automatically
 * http is auto logged by morgan, so no need manual logging
 * prefers oneline logging for objects instead of multiline
+
+# React Performance
+* **Minimum dependencies**: Only include what actually changes behavior in useEffect/useCallback deps
+* **useRef for mutable state**: Use refs instead of state when no re-render needed (e.g. selections, DOM refs)
+* **useCallback only when needed**: Only use when passing to memoized components or other hook deps
+* **Stable callbacks**: Use ref pattern `useRef(callback)` + `ref.current = callback` to avoid stale closures
+* **memo with purpose**: Only memo components that receive stable props and have expensive renders
+* **Avoid new objects in render**: Create constants outside component or use refs for stable references
