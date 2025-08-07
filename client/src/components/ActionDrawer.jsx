@@ -190,9 +190,17 @@ export const ActionDrawer = ({
             : !open
               ? 'transform 0.4s ease-out'  // Smooth exit
               : 'transform 0.3s ease-in', // Smooth enter
-          boxShadow: isBottom 
-            ? '0 -8px 32px rgba(0, 0, 0, 0.12), 0 -4px 16px rgba(0, 0, 0, 0.08)' // Shadow above for bottom drawer
-            : '0 8px 32px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.08)',   // Shadow below for top drawer
+          boxShadow: (theme) => {
+            if (theme.palette.mode === 'dark') {
+              // Colored glow effect for dark mode - more visible
+              return '0 0 0 1px rgba(255, 255, 255, 0.2), 0 0 10px rgba(159, 248, 217, 0.7), 0 0 20px rgba(59, 246, 93, 0.15)'
+            } else {
+              // Traditional shadows for light mode
+              return isBottom 
+                ? '0 -8px 32px rgba(0, 0, 0, 0.12), 0 -4px 16px rgba(0, 0, 0, 0.08)'
+                : '0 8px 32px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.08)'
+            }
+          },
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden'
