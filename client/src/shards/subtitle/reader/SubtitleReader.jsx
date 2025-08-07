@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, memo } from 'react'
-import { Box, Typography, LinearProgress, Button, Stack } from '@mui/joy'
-import { RateReview } from '@mui/icons-material'
+import { useState, useEffect, useCallback, useRef, memo } from 'react'
+import { Box, Typography, LinearProgress, Stack, Chip } from '@mui/joy'
+import { Bolt } from '@mui/icons-material'
 import { apiCall } from '../../../config/api'
 import { log } from '../../../utils/logger'
 import { Dict } from './Dict.jsx'
@@ -19,12 +19,24 @@ export const SubtitleReader = ({ shardId, onBack }) => {
   const [dictDrawer, setDictDrawer] = useState({ visible: false, word: '', position: 'bottom' })
   const [actionDrawer, setActionDrawer] = useState({ open: false, size: 'half' })
   
+  // Track dict state with ref for immediate access
+  const dictStateRef = useRef({ visible: false, word: '', position: 'bottom' })
+  
+  // Update ref whenever dict state changes
+  useEffect(() => {
+    dictStateRef.current = dictDrawer
+  }, [dictDrawer])
+  
+  // Function to get current dict state
+  const getDictState = useCallback(() => dictStateRef.current, [])
+  
   // Word sync worker
   const { queueAdd, queueRemove: _queueRemove } = useWordSync(shardId)
 
   // Stable word click handler with smart positioning
   const handleWordClick = useCallback((word, suggestedPosition) => {
     setDictDrawer(prev => {
+      setShowToolbar(false)
       const newPosition = prev.visible ? prev.position : suggestedPosition
       log.debug(`📖 Dict ${prev.visible ? 'open' : 'closed'} → position: ${prev.visible ? 'kept' : 'new'} (${newPosition})`)
       
@@ -63,15 +75,16 @@ export const SubtitleReader = ({ shardId, onBack }) => {
     loadSelectedWords()
   }, [loadShard, loadSelectedWords])
 
-  // Handle toolbar visibility - stable function
-  const handleToolbarRequest = useCallback(() => {
-    setShowToolbar(true)
-  }, [])
-
-  // Handle empty space clicks - dismiss dictionary
-  const handleEmptyClick = useCallback(() => {
-    setDictDrawer(prev => ({ ...prev, visible: false }))
-  }, [])
+  // Handle empty space clicks - dismiss dictionary or toggle toolbar
+  const handleEmptyClick = useCallback(() => {  
+    if (getDictState()?.visible) {
+      // If dict is open, close it
+      setDictDrawer(prev => ({ ...prev, visible: false }))
+    } else {
+      // If dict is closed, toggle toolbar
+      setShowToolbar(current => !current)
+    }
+  }, [getDictState])
 
   // Handle toolbar tool selection
   const handleToolSelect = (_tool) => {
@@ -93,6 +106,8 @@ export const SubtitleReader = ({ shardId, onBack }) => {
     log.debug('Review clicked')
     // TODO: Implement review feature
   }
+
+
 
   if (loading) {
     return (
@@ -137,23 +152,22 @@ export const SubtitleReader = ({ shardId, onBack }) => {
         sx={{ 
           px: 1, 
           py: 0.5,
-          bgcolor: 'background.body',
-          borderBottom: '1px solid',
-          borderColor: 'divider'
+          bgcolor: 'background.body'
         }}
       >
-        <Typography level="body-sm" color="neutral">
+        <Typography level="body-xs" color="neutral" sx={{ opacity: 0.7 }}>
           {movieName}
         </Typography>
-        <Button
-          variant="plain"
+        <Chip
+          variant="solid"
+          color="primary"
           size="sm"
-          startDecorator={<RateReview />}
+          startDecorator={<Bolt />}
           onClick={handleReviewClick}
-          sx={{ minHeight: 'auto', py: 0.5 }}
+          sx={{ cursor: 'pointer' }}
         >
-          Review
-        </Button>
+          25
+        </Chip>
       </Stack>
 
       {/* Main viewer - memoized for stability */}
@@ -162,7 +176,6 @@ export const SubtitleReader = ({ shardId, onBack }) => {
         selectedWords={selectedWords}
         onWordClick={handleWordClick}
         onEmptyClick={handleEmptyClick}
-        onToolbarRequest={handleToolbarRequest}
       />
 
       {/* Direct drawer components with props */}

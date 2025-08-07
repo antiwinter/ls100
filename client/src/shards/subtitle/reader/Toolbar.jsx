@@ -23,28 +23,14 @@ export const Toolbar = ({
   const [isVisible, setIsVisible] = useState(visible)
   const hideTimer = useRef(null)
 
-  // Auto-hide after 3 seconds of inactivity
+  // Sync internal state with visible prop - no auto-hide when controlled by parent
   useEffect(() => {
-    if (visible) {
-      setIsVisible(true)
-      
-      // Clear existing timer
-      if (hideTimer.current) {
-        clearTimeout(hideTimer.current)
-      }
-      
-      // Set new hide timer
-      hideTimer.current = setTimeout(() => {
-        setIsVisible(false)
-      }, 3000)
-    } else {
-      setIsVisible(false)
-    }
-
-    return () => {
-      if (hideTimer.current) {
-        clearTimeout(hideTimer.current)
-      }
+    log.debug(`🔧 Toolbar visibility prop changed: ${visible} -> setting isVisible to ${visible}`)
+    setIsVisible(visible)
+    
+    // Clear any existing timer when visibility changes
+    if (hideTimer.current) {
+      clearTimeout(hideTimer.current)
     }
   }, [visible])
 
@@ -56,17 +42,13 @@ export const Toolbar = ({
     }
   }
 
-  // Keep toolbar visible while interacting
+  // Mouse handlers no longer needed since toolbar is controlled by parent
   const handleMouseEnter = () => {
-    if (hideTimer.current) {
-      clearTimeout(hideTimer.current)
-    }
+    // No auto-hide behavior needed
   }
 
   const handleMouseLeave = () => {
-    hideTimer.current = setTimeout(() => {
-      setIsVisible(false)
-    }, 1000) // Shorter delay when mouse leaves
+    // No auto-hide behavior needed
   }
 
   return (
@@ -80,11 +62,11 @@ export const Toolbar = ({
         bgcolor: 'background.body',
         py: 1,
         px: 2,
-        borderBottom: 1,
+        borderBottom: isVisible ? 1 : 0,
         borderColor: 'divider',
-        transform: isVisible ? 'translateY(0)' : 'translateY(-100%)',
+        transform: isVisible ? 'translateY(0)' : 'translateY(-110%)',
         transition: 'transform 0.3s ease-out',
-        boxShadow: 'sm'
+        boxShadow: isVisible ? 'sm' : 'none'
       }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}

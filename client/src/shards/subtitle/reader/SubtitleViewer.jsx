@@ -14,8 +14,7 @@ const SubtitleViewerComponent = ({
   currentIndex, 
   selectedWords = new Set(), 
   onWordClick,
-  onEmptyClick,
-  onToolbarRequest: _onToolbarRequest
+  onEmptyClick
 }) => {
   const [lines, setLines] = useState([])
   const [loading, setLoading] = useState(false)
