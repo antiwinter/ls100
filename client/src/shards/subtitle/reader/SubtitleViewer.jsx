@@ -68,17 +68,13 @@ const SubtitleViewerComponent = ({
     }
   }, [lines.length, onProgressUpdate])
 
-  // Handle word click via event delegation - no context coupling
+  // Handle word click via event delegation
   const handleClick = (e) => {
     const { word } = e.target.dataset
     if (word?.length > 1) {
       e.stopPropagation()
       
-      // Performance tracking for drawer opening
-      const startTime = performance.now()
-      log.debug(`🎯 Word click start: ${word}`)
-      
-      // Calculate position only for position calculation, let parent decide when to use it
+      // Calculate position for dictionary placement
       const clickY = e.clientY || 
                      (e.touches && e.touches[0]?.clientY) || 
                      (e.changedTouches && e.changedTouches[0]?.clientY) || 
@@ -86,20 +82,14 @@ const SubtitleViewerComponent = ({
       const viewportHeight = window.innerHeight
       const position = clickY < viewportHeight / 2 ? 'bottom' : 'top'
       
-      log.debug(`🎯 Click position: ${clickY}/${viewportHeight} → suggested: ${position}`)
-      
       onWordClick?.(word, position)
-      
-      // Log immediate response time
-      log.debug(`🎯 Word click to drawer: ${(performance.now() - startTime).toFixed(2)}ms`)
     } else {
       // Dismiss dictionary when clicking on non-word area
-      log.debug('🎯 Empty space click - dismissing dictionary')
       onEmptyClick?.()
     }
   }
 
-  // Render clickable text with word selection (optimized)
+  // Render text with pre-rendered overlays (hidden by default)
   const renderText = (text) => {
     if (!text) return null
     
@@ -107,7 +97,6 @@ const SubtitleViewerComponent = ({
       if (/\s/.test(part)) return part
       
       const cleanWord = part.replace(/[^\w]/g, '').toLowerCase()
-      const isSelected = selectedWords.has(cleanWord)
       
       return (
         <span
@@ -115,15 +104,38 @@ const SubtitleViewerComponent = ({
           data-word={cleanWord}
           style={{
             cursor: 'pointer',
-            padding: '2px 1px',
-            borderRadius: '3px',
-            backgroundColor: isSelected ? 'var(--joy-palette-primary-100)' : 'transparent',
-            color: isSelected ? 'var(--joy-palette-primary-700)' : 'inherit',
+            position: 'relative',
             display: 'inline-block',
             lineHeight: 'inherit'
           }}
         >
           {part}
+          {/* Pre-rendered overlay - positioned to not affect layout */}
+          <span
+            className={`word-overlay-${cleanWord}`}
+            style={{
+              position: 'absolute',
+              top: '0',
+              left: '0',
+              width: '100%',
+              height: '100%',
+              padding: '4px 8px',
+              borderRadius: '8px',
+              backgroundColor: 'var(--joy-palette-primary-500)',
+              color: 'white',
+              fontWeight: '500',
+              display: 'none', // Hidden by default
+              pointerEvents: 'none', // Don't interfere with clicks
+              boxSizing: 'border-box',
+              zIndex: 1,
+              // Ensure text stays in same position
+              margin: '-4px -8px',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            {part}
+          </span>
         </span>
       )
     })
@@ -178,7 +190,13 @@ const SubtitleViewerComponent = ({
               }}
             >
               {lines.map((line, idx) => (
-                <Stack key={idx} direction="row" spacing={1} alignItems="flex-start">
+                <Stack 
+                  key={idx} 
+                  direction="row" 
+                  spacing={1} 
+                  alignItems="flex-start"
+                  data-line-index={line.actualIndex || 0}
+                >
                   <Typography 
                     level="body-xs" 
                     color="neutral" 

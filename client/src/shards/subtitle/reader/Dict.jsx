@@ -12,7 +12,7 @@ import { ActionDrawer } from '../../../components/ActionDrawer.jsx'
 import { log } from '../../../utils/logger'
 
 // Dictionary component - simple props interface
-export const Dict = ({ word, position = 'bottom', visible, onClose, onWordSelect }) => {
+export const Dict = ({ word, position = 'bottom', visible, onClose }) => {
   const [definition, setDefinition] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -88,10 +88,8 @@ export const Dict = ({ word, position = 'bottom', visible, onClose, onWordSelect
 
   // Handle adding word to learning list
   const handleAddWord = () => {
-    if (word) {
-      onWordSelect?.(word)
-      log.debug('Added word to selection:', word)
-    }
+    // TODO: Implement add to learning list functionality
+    log.debug('Add to learning list clicked:', word)
   }
 
   // Handle pronunciation playback (placeholder)

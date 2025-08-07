@@ -9,10 +9,13 @@ import { Toolbar } from './Toolbar.jsx'
 import { SubtitleViewer } from './SubtitleViewer.jsx'
 import { useWordSync } from './WordSync.js'
 
+// Stable empty set to prevent re-renders
+const EMPTY_SET = new Set()
+
 export const SubtitleReader = ({ shardId, onBack }) => {
   const [shard, setShard] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [selectedWords, setSelectedWords] = useState(new Set())
+  const selectedWords = useRef(new Set())
   const [showToolbar, setShowToolbar] = useState(false)
   const [currentLine, setCurrentLine] = useState(0)
   const [totalLines, setTotalLines] = useState(0)
@@ -33,7 +36,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
   const getDictState = useCallback(() => dictStateRef.current, [])
   
   // Word sync worker
-  const { queueAdd, queueRemove: _queueRemove } = useWordSync(shardId)
+  const { queueAdd, queueRemove } = useWordSync(shardId)
 
   // Stable word click handler with smart positioning
   const handleWordClick = useCallback((word, suggestedPosition) => {
@@ -65,7 +68,22 @@ export const SubtitleReader = ({ shardId, onBack }) => {
   const loadSelectedWords = useCallback(async () => {
     try {
       const data = await apiCall(`/api/subtitle-shards/${shardId}/words`)
-      setSelectedWords(new Set(data.words || []))
+      const words = data.words || []
+      
+      // Store in ref without triggering React re-render
+      selectedWords.current.clear()
+      words.forEach(word => selectedWords.current.add(word))
+      
+      // Show overlays for pre-loaded words
+      setTimeout(() => {
+        words.forEach(word => {
+          document.querySelectorAll(`.word-overlay-${word}`).forEach(overlay => {
+            overlay.style.display = 'block'
+          })
+        })
+      }, 100)
+      
+      log.debug(`📝 Loaded ${words.length} selected words`)
     } catch (error) {
       log.error('Failed to load selected words:', error)
     }
@@ -94,22 +112,49 @@ export const SubtitleReader = ({ shardId, onBack }) => {
     setShowToolbar(false)
   }
 
-  // Handle word selection from dictionary
-  const handleWordSelect = (word) => {
-    const newWords = new Set(selectedWords)
-    newWords.add(word)
-    setSelectedWords(newWords)
-    queueAdd(word)
-    setDictDrawer({ visible: false, word: '', position: 'bottom' })
-  }
+  // Ultra-fast word click handler - pure DOM manipulation
+  const handleWordClickToggle = useCallback((word, suggestedPosition) => {
+    // Toggle selection with direct DOM manipulation - no React state
+    const currentWords = selectedWords.current
+    const currentlySelected = currentWords.has(word)
+    
+    if (currentlySelected) {
+      // Remove from selection
+      currentWords.delete(word)
+      // Hide overlays for this word
+      document.querySelectorAll(`.word-overlay-${word}`).forEach(overlay => {
+        overlay.style.display = 'none'
+      })
+      queueRemove(word)
+    } else {
+      // Add to selection
+      currentWords.add(word)
+      // Show overlays for this word
+      document.querySelectorAll(`.word-overlay-${word}`).forEach(overlay => {
+        overlay.style.display = 'block'
+      })
+      queueAdd(word)
+    }
+    
+    // Show dictionary
+    setDictDrawer(prev => {
+      setShowToolbar(false)
+      const newPosition = prev.visible ? prev.position : suggestedPosition
+      
+      return {
+        visible: true,
+        word,
+        position: newPosition
+      }
+    })
+  }, [queueAdd, queueRemove]) // Only depend on stable functions
 
   // Handle review click (placeholder)
   const handleReviewClick = () => {
-    log.debug('Review clicked')
     // TODO: Implement review feature
   }
 
-  // Handle scroll events - hide toolbar and line updates
+  // Handle scroll events - hide toolbar and line updates (stable)
   const handleScroll = useCallback((e, currentLine) => {
     // Hide toolbar on scroll
     setShowToolbar(false)
@@ -120,7 +165,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
     }
   }, [])
 
-  // Handle total lines update from SubtitleViewer
+  // Handle total lines update from SubtitleViewer (stable)
   const handleProgressUpdate = useCallback((current, total) => {
     setTotalLines(total)
   }, [])
@@ -217,8 +262,8 @@ export const SubtitleReader = ({ shardId, onBack }) => {
       {/* Main viewer - memoized for stability */}
       <MemoizedSubtitleViewer
         shard={shard}
-        selectedWords={selectedWords}
-        onWordClick={handleWordClick}
+        selectedWords={EMPTY_SET} // Stable empty set to prevent re-renders
+        onWordClick={handleWordClickToggle}
         onEmptyClick={handleEmptyClick}
         onScroll={handleScroll}
         onProgressUpdate={handleProgressUpdate}
@@ -230,7 +275,6 @@ export const SubtitleReader = ({ shardId, onBack }) => {
         position={dictDrawer.position}
         visible={dictDrawer.visible}
         onClose={() => setDictDrawer({ visible: false, word: '', position: 'bottom' })}
-        onWordSelect={handleWordSelect}
       />
 
       <ToolbarFuncs

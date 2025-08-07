@@ -14,20 +14,25 @@ export const InfiniteScroll = ({
   const containerRef = useRef(null)
   const currentIndexRef = useRef(0)
 
-  // Intersection callback for viewport tracking
+  // Store onScroll in ref to avoid dependency issues
+  const onScrollRef = useRef(onScroll)
+  onScrollRef.current = onScroll
+
+  // Intersection callback for viewport tracking (stable)
   const handleIntersection = useCallback((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
         const index = parseInt(entry.target.dataset.index) || 0
         currentIndexRef.current = index
-        onScroll?.(null, index + 1) // Report 1-based index
+        onScrollRef.current?.(null, index + 1) // Report 1-based index
       }
     })
-  }, [onScroll])
+  }, []) // No dependencies - stable callback
 
   // Set up intersection observer on all children
   useEffect(() => {
     const container = containerRef.current
+    console.log(`🔍 IS setup: 111`)
     if (!container) return
 
     const observer = new IntersectionObserver(handleIntersection, {
@@ -43,7 +48,7 @@ export const InfiniteScroll = ({
     })
     
     return () => observer.disconnect()
-  }, [handleIntersection, children])
+  }, [children]) // Only children dependency - handleIntersection is stable!
 
   // Simple scroll handler for toolbar hiding
   const handleScroll = (e) => {
