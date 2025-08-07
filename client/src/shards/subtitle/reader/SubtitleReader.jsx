@@ -14,6 +14,8 @@ export const SubtitleReader = ({ shardId, onBack }) => {
   const [loading, setLoading] = useState(true)
   const [selectedWords, setSelectedWords] = useState(new Set())
   const [showToolbar, setShowToolbar] = useState(false)
+  const [currentLine, setCurrentLine] = useState(0)
+  const [totalLines, setTotalLines] = useState(0)
   
   // Local drawer states - simple and direct
   const [dictDrawer, setDictDrawer] = useState({ visible: false, word: '', position: 'bottom' })
@@ -107,16 +109,20 @@ export const SubtitleReader = ({ shardId, onBack }) => {
     // TODO: Implement review feature
   }
 
-  // Handle scroll events - hide toolbar when scrolling (throttled)
-  const lastScrollTime = useRef(0)
-  const handleScroll = useCallback(() => {
-    // Throttle scroll events to max 10 per second
-    const now = Date.now()
-    if (now - lastScrollTime.current < 100) return
-    lastScrollTime.current = now
-
-    // Hide toolbar if currently visible
+  // Handle scroll events - hide toolbar and line updates
+  const handleScroll = useCallback((e, currentLine) => {
+    // Hide toolbar on scroll
     setShowToolbar(false)
+    
+    // Update current line from intersection
+    if (currentLine) {
+      setCurrentLine(currentLine)
+    }
+  }, [])
+
+  // Handle total lines update from SubtitleViewer
+  const handleProgressUpdate = useCallback((current, total) => {
+    setTotalLines(total)
   }, [])
 
 
@@ -156,7 +162,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
         movieName={movieName}
       />
 
-      {/* Header with Movie Name and Review */}
+      {/* Header with Movie Name, Progress, and Review */}
       <Stack
         direction="row"
         justifyContent="space-between"
@@ -167,19 +173,45 @@ export const SubtitleReader = ({ shardId, onBack }) => {
           bgcolor: 'background.body'
         }}
       >
+        <Stack direction="row" alignItems="center">
+          <Typography
+            level="body-xs"
+            color="neutral"
+            sx={{
+              opacity: 0.7,
+              maxWidth: '110px',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {movieName}
+          </Typography>
+          
+          <Chip
+            size="sm"
+            color="secondary"
+            variant='outlined'
+            onClick={handleReviewClick}
+            startDecorator={<Bolt sx={{ fontSize: '16px', mr: -0.5 }} />}
+            sx={{ 
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: '600 !important',
+              height: '15px',
+              // py: 0.2,
+              px: 1,
+              ml: 1,
+              minHeight: 'auto'
+            }}
+          >
+            25
+          </Chip>
+        </Stack>
+
         <Typography level="body-xs" color="neutral" sx={{ opacity: 0.7 }}>
-          {movieName}
+          {currentLine}/{totalLines}
         </Typography>
-        <Chip
-          variant="solid"
-          color="primary"
-          size="sm"
-          startDecorator={<Bolt />}
-          onClick={handleReviewClick}
-          sx={{ cursor: 'pointer' }}
-        >
-          25
-        </Chip>
       </Stack>
 
       {/* Main viewer - memoized for stability */}
@@ -189,6 +221,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
         onWordClick={handleWordClick}
         onEmptyClick={handleEmptyClick}
         onScroll={handleScroll}
+        onProgressUpdate={handleProgressUpdate}
       />
 
       {/* Direct drawer components with props */}

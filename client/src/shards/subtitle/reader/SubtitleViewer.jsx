@@ -15,7 +15,8 @@ const SubtitleViewerComponent = ({
   selectedWords = new Set(), 
   onWordClick,
   onEmptyClick,
-  onScroll
+  onScroll,
+  onProgressUpdate
 }) => {
   const [lines, setLines] = useState([])
   const [loading, setLoading] = useState(false)
@@ -59,6 +60,13 @@ const SubtitleViewerComponent = ({
       loadAllLines()
     }
   }, [subtitleId, shard?.data?.languages])
+
+  // Update total lines when lines change
+  useEffect(() => {
+    if (lines.length > 0) {
+      onProgressUpdate?.(1, lines.length) // Initialize with first line
+    }
+  }, [lines.length, onProgressUpdate])
 
   // Handle word click via event delegation - no context coupling
   const handleClick = (e) => {

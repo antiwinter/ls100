@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useCallback } from 'react'
-import { Box, CircularProgress, Typography } from '@mui/joy'
-import { log } from '../utils/logger'
+import { Box, CircularProgress } from '@mui/joy'
 
 /**
  * Pure intersection-based infinite scroll detector
@@ -8,68 +7,54 @@ import { log } from '../utils/logger'
  */
 export const InfiniteScroll = ({
   children,
-  onLoadMore,
   loading = false,
   loader = null,
-  anchors = [],  // Array of elements to observe
   onScroll
 }) => {
   const containerRef = useRef(null)
-  
-  const DEBUG_INTERSECTION = true
+  const currentIndexRef = useRef(0)
 
-  // Intersection callback  
+  // Intersection callback for viewport tracking
   const handleIntersection = useCallback((entries) => {
     entries.forEach(entry => {
-      if (!entry.isIntersecting || loading || !onLoadMore) return
-      
-      log.debug('Intersection detected on element:', entry.target)
-      onLoadMore(entry.target)  // Pass back the actual observed element
+      if (entry.isIntersecting) {
+        const index = parseInt(entry.target.dataset.index) || 0
+        currentIndexRef.current = index
+        onScroll?.(null, index + 1) // Report 1-based index
+      }
     })
-  }, [loading, onLoadMore])
+  }, [onScroll])
 
-  // Set up intersection observers on anchor elements
+  // Set up intersection observer on all children
   useEffect(() => {
     const container = containerRef.current
-    log.debug(`🔍 IS setup: container=${!!container}, anchors=${anchors.length}`)
-    
-    if (!container || !anchors.length) return
+    if (!container) return
 
     const observer = new IntersectionObserver(handleIntersection, {
       root: container,
-      threshold: 0.1
+      threshold: 0.5 // Element is "current" when 50% visible
     })
 
-    // Debug styling and observe each anchor
-    anchors.forEach((anchor, idx) => {
-      if (anchor) {
-        log.debug(`🔍 Observing anchor ${idx}:`, anchor.tagName)
-        if (DEBUG_INTERSECTION) {
-          anchor.style.backgroundColor = 'rgba(255, 0, 0, 0.2)'
-        }
-        observer.observe(anchor)
-      }
+    // Observe all direct children
+    const childElements = Array.from(container.children)
+    childElements.forEach((child, idx) => {
+      child.dataset.index = idx.toString()
+      observer.observe(child)
     })
     
-    return () => {
-      observer.disconnect()
-      
-      // Clean up debug styling
-      if (DEBUG_INTERSECTION) {
-        anchors.forEach(anchor => {
-          if (anchor) {
-            anchor.style.backgroundColor = ''
-          }
-        })
-      }
-    }
-  }, [handleIntersection, anchors]) // eslint-disable-line react-hooks/exhaustive-deps
+    return () => observer.disconnect()
+  }, [handleIntersection, children])
+
+  // Simple scroll handler for toolbar hiding
+  const handleScroll = (e) => {
+    onScroll?.(e)
+  }
 
   return (
     <Box 
       ref={containerRef}
       data-scroll-container="true"
-      onScroll={onScroll}
+      onScroll={handleScroll}
       sx={{ 
         flex: 1,
         maxHeight: '100%',
