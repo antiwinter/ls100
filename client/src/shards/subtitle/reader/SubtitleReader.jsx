@@ -7,7 +7,6 @@ import { Dict } from './Dict.jsx'
 import { ToolbarFuncs } from './ToolbarFuncs.jsx'
 import { Toolbar } from './Toolbar.jsx'
 import { SubtitleViewer } from './SubtitleViewer.jsx'
-import { useWordSync } from './WordSync.js'
 
 // Stable empty set to prevent re-renders
 const EMPTY_SET = new Set()
@@ -34,26 +33,6 @@ export const SubtitleReader = ({ shardId, onBack }) => {
   
   // Function to get current dict state
   const getDictState = useCallback(() => dictStateRef.current, [])
-  
-  // Word sync worker
-  const { queueAdd, queueRemove } = useWordSync(shardId)
-
-  // Stable word click handler with smart positioning
-  const handleWordClick = useCallback((word, suggestedPosition) => {
-    setDictDrawer(prev => {
-      setShowToolbar(false)
-      const newPosition = prev.visible ? prev.position : suggestedPosition
-      log.debug(`📖 Dict ${prev.visible ? 'open' : 'closed'} → position: ${prev.visible ? 'kept' : 'new'} (${newPosition})`)
-      
-      return {
-        visible: true,
-        word,
-        // Only update position if dict was closed - keep current position if already open
-        position: newPosition
-      }
-    })
-  }, [])
-
   const loadShard = useCallback(async () => {
     try {
       const data = await apiCall(`/api/shards/${shardId}`)
@@ -73,15 +52,6 @@ export const SubtitleReader = ({ shardId, onBack }) => {
       // Store in ref without triggering React re-render
       selectedWords.current.clear()
       words.forEach(word => selectedWords.current.add(word))
-      
-      // Show overlays for pre-loaded words
-      setTimeout(() => {
-        words.forEach(word => {
-          document.querySelectorAll(`.word-overlay-${word}`).forEach(overlay => {
-            overlay.style.display = 'block'
-          })
-        })
-      }, 100)
       
       log.debug(`📝 Loaded ${words.length} selected words`)
     } catch (error) {
@@ -112,28 +82,15 @@ export const SubtitleReader = ({ shardId, onBack }) => {
     setShowToolbar(false)
   }
 
-  // Ultra-fast word click handler - pure DOM manipulation
+  // Simple word click handler - only manages Set
   const handleWordClickToggle = useCallback((word, suggestedPosition) => {
-    // Toggle selection with direct DOM manipulation - no React state
     const currentWords = selectedWords.current
     const currentlySelected = currentWords.has(word)
     
     if (currentlySelected) {
-      // Remove from selection
       currentWords.delete(word)
-      // Hide overlays for this word
-      document.querySelectorAll(`.word-overlay-${word}`).forEach(overlay => {
-        overlay.style.display = 'none'
-      })
-      queueRemove(word)
     } else {
-      // Add to selection
       currentWords.add(word)
-      // Show overlays for this word
-      document.querySelectorAll(`.word-overlay-${word}`).forEach(overlay => {
-        overlay.style.display = 'block'
-      })
-      queueAdd(word)
     }
     
     // Show dictionary
@@ -147,7 +104,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
         position: newPosition
       }
     })
-  }, [queueAdd, queueRemove]) // Only depend on stable functions
+  }, []) // No dependencies needed
 
   // Handle review click (placeholder)
   const handleReviewClick = () => {
@@ -263,6 +220,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
       <MemoizedSubtitleViewer
         shard={shard}
         selectedWords={EMPTY_SET} // Stable empty set to prevent re-renders
+        selectedWordsRef={selectedWords} // Pass ref for attribute updates
         onWordClick={handleWordClickToggle}
         onEmptyClick={handleEmptyClick}
         onScroll={handleScroll}

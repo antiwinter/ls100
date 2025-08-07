@@ -3,10 +3,11 @@ import { apiCall } from '../../../config/api'
 import { log } from '../../../utils/logger'
 
 // Debounced word selection sync worker
-export const useWordSync = (shardId) => {
+export const useWordSync = (shardId, selectedWordsRef) => {
   const syncQueue = useRef({ additions: [], removals: [] })
   const syncTimer = useRef(null)
   const issyncing = useRef(false)
+  const lastSyncedState = useRef(new Set()) // Track last synced state
 
   // Debounced sync function
   const sync = useCallback(async () => {
@@ -24,6 +25,11 @@ export const useWordSync = (shardId) => {
         body: JSON.stringify({ additions, removals })
       })
       
+      // Update last synced state to current Set state
+      if (selectedWordsRef?.current) {
+        lastSyncedState.current = new Set(selectedWordsRef.current)
+      }
+      
       // Clear queue on success
       syncQueue.current = { additions: [], removals: [] }
       log.debug('Word selection synced:', { additions: additions.length, removals: removals.length })
@@ -35,39 +41,63 @@ export const useWordSync = (shardId) => {
     }
   }, [shardId])
 
-  // Queue word addition
-  const queueAdd = useCallback((word) => {
-    // Remove from removals if it was there
-    syncQueue.current.removals = syncQueue.current.removals.filter(w => w !== word)
+  // Sync current Set state to backend
+  const syncFromSet = useCallback(() => {
+    if (!selectedWordsRef?.current) return
     
-    // Add to additions if not already there
-    if (!syncQueue.current.additions.includes(word)) {
-      syncQueue.current.additions.push(word)
-    }
+    const currentWords = selectedWordsRef.current
+    const lastSynced = lastSyncedState.current
+    
+    // Calculate additions and removals
+    const additions = [...currentWords].filter(word => !lastSynced.has(word))
+    const removals = [...lastSynced].filter(word => !currentWords.has(word))
+    
+    if (additions.length === 0 && removals.length === 0) return
+    
+    // Update sync queue
+    syncQueue.current = { additions, removals }
     
     // Debounce sync
     if (syncTimer.current) {
       clearTimeout(syncTimer.current)
     }
     syncTimer.current = setTimeout(sync, 2000)
-  }, [sync])
+  }, [selectedWordsRef, sync])
 
-  // Queue word removal
-  const queueRemove = useCallback((word) => {
-    // Remove from additions if it was there
-    syncQueue.current.additions = syncQueue.current.additions.filter(w => w !== word)
+  // Compare current Set with last synced state and sync if changed
+  const checkAndSync = useCallback(() => {
+    if (!selectedWordsRef?.current) return
     
-    // Add to removals if not already there
-    if (!syncQueue.current.removals.includes(word)) {
-      syncQueue.current.removals.push(word)
+    const currentWords = selectedWordsRef.current
+    const lastSynced = lastSyncedState.current
+    
+    // Compare sets - check if they're different
+    if (currentWords.size !== lastSynced.size) {
+      syncFromSet()
+      return
     }
     
-    // Debounce sync
-    if (syncTimer.current) {
-      clearTimeout(syncTimer.current)
+    // Same size, check contents
+    for (const word of currentWords) {
+      if (!lastSynced.has(word)) {
+        syncFromSet()
+        return
+      }
     }
-    syncTimer.current = setTimeout(sync, 2000)
-  }, [sync])
+    
+    // Sets are identical, skip sync
+  }, [selectedWordsRef, syncFromSet])
+
+  // Legacy queue methods (for compatibility, but trigger Set-based sync)
+  const queueAdd = useCallback(() => {
+    // Trigger immediate check and sync from Set
+    setTimeout(checkAndSync, 0)
+  }, [checkAndSync])
+
+  const queueRemove = useCallback(() => {
+    // Trigger immediate check and sync from Set
+    setTimeout(checkAndSync, 0)
+  }, [checkAndSync])
 
   // Force immediate sync
   const forcSync = useCallback(() => {
@@ -77,5 +107,5 @@ export const useWordSync = (shardId) => {
     sync()
   }, [sync])
 
-  return { queueAdd, queueRemove, forcSync }
+  return { queueAdd, queueRemove, forcSync, checkAndSync }
 }

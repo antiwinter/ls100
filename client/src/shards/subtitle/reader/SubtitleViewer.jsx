@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, memo } from 'react'
+import { useState, useEffect, useRef, useMemo, memo, useCallback } from 'react'
 import {
   Box,
   Stack,
@@ -12,11 +12,11 @@ import { InfiniteScroll } from '../../../components/InfiniteScroll'
 const SubtitleViewerComponent = ({ 
   shard, 
   currentIndex, 
-  selectedWords = new Set(), 
   onWordClick,
   onEmptyClick,
   onScroll,
-  onProgressUpdate
+  onProgressUpdate,
+  selectedWordsRef // Add selectedWordsRef prop
 }) => {
   const [lines, setLines] = useState([])
   const [loading, setLoading] = useState(false)
@@ -68,6 +68,36 @@ const SubtitleViewerComponent = ({
     }
   }, [lines.length, onProgressUpdate])
 
+  // Update word attributes based on current line and selected words
+  const updateWordAttributes = useCallback((currentLineIndex) => {
+    if (!selectedWordsRef?.current || !viewerRef.current) return
+    
+    const container = viewerRef.current
+    const selectedWords = selectedWordsRef.current
+    
+    // Find all word spans in ±30 line range
+    const startLine = Math.max(0, currentLineIndex - 30)
+    const endLine = Math.min(lines.length - 1, currentLineIndex + 30)
+    
+    // Get all word spans in range
+    const wordSpans = container.querySelectorAll('[data-word]')
+    
+    wordSpans.forEach(span => {
+      const word = span.dataset.word
+      const lineIndex = parseInt(span.closest('[data-line-index]')?.dataset.lineIndex || '0')
+      
+      // Only process spans in the current range
+      if (lineIndex >= startLine && lineIndex <= endLine) {
+        const isSelected = selectedWords.has(word)
+        if (isSelected) {
+          span.setAttribute('data-selected', 'true')
+        } else {
+          span.removeAttribute('data-selected')
+        }
+      }
+    })
+  }, [selectedWordsRef, lines.length])
+
   // Handle word click via event delegation
   const handleClick = (e) => {
     const { word } = e.target.dataset
@@ -83,6 +113,12 @@ const SubtitleViewerComponent = ({
       const position = clickY < viewportHeight / 2 ? 'bottom' : 'top'
       
       onWordClick?.(word, position)
+      
+      // Update word attributes immediately after click
+      // Use current line or find the clicked word's line
+      const clickedSpan = e.target.closest('[data-word]')
+      const lineIndex = parseInt(clickedSpan?.closest('[data-line-index]')?.dataset.lineIndex || '0')
+      updateWordAttributes(lineIndex)
     } else {
       // Dismiss dictionary when clicking on non-word area
       onEmptyClick?.()
@@ -110,32 +146,22 @@ const SubtitleViewerComponent = ({
           }}
         >
           {part}
-          {/* Pre-rendered overlay - positioned to not affect layout */}
+          {/* Pure overlay shade - shown via CSS when parent has data-selected */}
           <span
-            className={`word-overlay-${cleanWord}`}
+            className="word-overlay"
             style={{
               position: 'absolute',
-              top: '0',
-              left: '0',
-              width: '100%',
-              height: '100%',
-              padding: '4px 8px',
-              borderRadius: '8px',
+              top: '-2px',
+              left: '-2px',
+              right: '-2px', 
+              bottom: '-2px',
+              borderRadius: '4px',
               backgroundColor: 'var(--joy-palette-primary-500)',
-              color: 'white',
-              fontWeight: '500',
-              display: 'none', // Hidden by default
+              transition: 'opacity 0.2s ease',
               pointerEvents: 'none', // Don't interfere with clicks
-              boxSizing: 'border-box',
-              zIndex: 1,
-              // Ensure text stays in same position
-              margin: '-4px -8px',
-              alignItems: 'center',
-              justifyContent: 'center'
+              zIndex: 0 // Same level as text to show behind but visible
             }}
-          >
-            {part}
-          </span>
+          />
         </span>
       )
     })
@@ -169,12 +195,25 @@ const SubtitleViewerComponent = ({
         flex: 1,
         display: 'flex',
         flexDirection: 'column',
-        minHeight: 0
+        minHeight: 0,
+        // CSS for word selection overlay
+        '& .word-overlay': {
+          opacity: 0 // Hidden by default
+        },
+        '& span[data-selected="true"] .word-overlay': {
+          opacity: 0.3 // Show when selected
+        }
       }}
     >
       <InfiniteScroll
         loading={loading}
-        onScroll={onScroll}
+        onScroll={(e, currentLine) => {
+          onScroll?.(e, currentLine)
+          // Update word attributes when scrolling
+          if (currentLine) {
+            updateWordAttributes(currentLine - 1) // Convert to 0-based index
+          }
+        }}
       >
         {entries.map(([timestamp, lines]) => {
           const isCurrent = lines.some(line => line.actualIndex === currentIndex)
