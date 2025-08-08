@@ -1,5 +1,5 @@
 *.mp3
 node_modules
 .env
-server/lib/collins/*.mdx
-server/lib/collins/*.mdd
+*.mdx
+*.mdd
