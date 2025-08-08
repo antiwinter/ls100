@@ -39,9 +39,9 @@ export const Dict = ({ word, position = 'bottom', visible, onClose }) => {
 
   // Dictionary content
   const renderContent = () => (
-    <Stack spacing={2}>
+    <Stack spacing={1}>
       {/* Word header with phonetic and audio */}
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
         <Typography level="h4">{word}</Typography>
         <IconButton
           size="sm"

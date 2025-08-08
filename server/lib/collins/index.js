@@ -4,6 +4,8 @@ import { existsSync } from 'fs'
 import { Mdict } from 'js-mdict'
 import sanitizeHtml from 'sanitize-html'
 import { log } from '../../utils/logger.js'
+// Toggle HTML sanitization (temporarily disabled per request)
+const SANITIZE = false
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -18,6 +20,48 @@ let dicts = {
   ece: null,
   ee: null,
   thesaurus: null
+}
+
+const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+export const processCollinsHtml = (word, html) => {
+  if (!html) return html
+  let out = html
+
+  try {
+    // 1) Remove duplicated head word preceding star rating, like "would ★★★★★"
+    const w = escapeRegExp(word)
+    out = out.replace(new RegExp(`(<[^>]*>\n?)*${w}\\s*(?=<[^>]*>\\n?<font[^>]*>\\s*[★☆])`, 'i'), '')
+
+    // 2) Remove "Usage Note" label (handle tags/spaces/nbsp between words)
+    // Simple direct forms
+    out = out.replace(/Usage\s*Note[s]?\s*[:：]?\s*/gi, '')
+    // Forms with inline tags or &nbsp; between words
+    out = out.replace(/Usage(?:\s|&nbsp;|<[^>]{1,80}>)*Note(?:\s*[:：])?/gi, '')
+
+    // 4) Replace full-width brackets with <b>...</b>
+    out = out.replace(/【([^】]+)】/g, '<b>$1</b>')
+
+    // 3) Increase padding for elements with class "caption"
+    // If a style attribute exists, append padding; otherwise add a new style attribute
+    out = out.replace(/<([a-zA-Z]+)([^>]*\bclass=("|')[^>]*?\bcaption\b[^>]*?(\3))([^>]*)>/g, (m, tag, before, q, _q2, after) => {
+      if (/style=("|')/i.test(m)) {
+        return m.replace(/style=("|')(.*?)(\1)/i, (sm, q2, styles, _q3) => {
+          const sep = styles.trim().length && !styles.trim().endsWith(';') ? '; ' : ' '
+          return `style=${q2}${styles}${sep}padding:8px 10px${q2}`
+        })
+      }
+      return `<${tag}${before} style="padding:8px 10px"${after}>`
+    })
+
+    // 5) Remove a dangling colon text node between tags (e.g., "> : <")
+    out = out.replace(new RegExp('>\\s*[:：]\\s*(?=<)', 'g'), '>')
+  } catch (e) {
+    log.warn({ err: e?.message }, 'Collins HTML post-process failed, returning original')
+    return html
+  }
+
+  return out
 }
 
 const loadOne = (label, file) => {
@@ -65,28 +109,24 @@ const lookupThesaurus = (word) => {
 export const lookup = (word) => {
   const def = lookupDefinition(word)
   const thes = lookupThesaurus(word)
-  const sanitizeCfg = {
-    allowedTags: [
-      'a', 'b', 'strong', 'i', 'em', 'u', 'span', 'div', 'p', 'br', 'ul', 'ol', 'li', 'sub', 'sup', 'blockquote', 'code', 'pre'
-    ],
-    allowedAttributes: {
-      a: ['href', 'title'],
-      span: ['class'],
-      div: ['class'],
-      p: ['class']
-    },
-    allowedSchemes: ['http', 'https', 'mailto'],
-    allowProtocolRelative: false
+  if (SANITIZE) {
+    const cfg = {
+      allowedTags: [
+        'a', 'b', 'strong', 'i', 'em', 'u', 'span', 'div', 'p', 'br', 'ul', 'ol', 'li', 'sub', 'sup', 'blockquote', 'code', 'pre'
+      ],
+      allowedAttributes: { a: ['href', 'title'], span: ['class'], div: ['class'], p: ['class'] },
+      allowedSchemes: ['http', 'https', 'mailto'],
+      allowProtocolRelative: false
+    }
+    const merged = [def.html, thes.html].filter(Boolean).map(h => processCollinsHtml(word, h)).join('\n') || null
+    return {
+      source: def.source,
+      definitionHtml: merged ? sanitizeHtml(merged, cfg) : null
+    }
   }
 
-  const safeDef = def.html ? sanitizeHtml(def.html, sanitizeCfg) : null
-  const safeThes = thes.html ? sanitizeHtml(thes.html, sanitizeCfg) : null
-
-  return {
-    source: def.source,
-    definitionHtml: safeDef,
-    thesaurusHtml: safeThes
-  }
+  const merged = [def.html, thes.html].filter(Boolean).map(h => processCollinsHtml(word, h)).join('\n') || null
+  return { source: def.source, definitionHtml: merged }
 }
 
 

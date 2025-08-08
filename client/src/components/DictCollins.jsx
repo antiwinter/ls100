@@ -33,14 +33,18 @@ export const DictCollins = ({ word, visible }) => {
   }, [word, visible])
 
   const collinsSx = {
+    fontFamily: 'var(--joy-fontFamily-body)',
+    lineHeight: 'var(--joy-lineHeight-md)',
+    '& *': { fontFamily: 'inherit', color: 'var(--joy-palette-neutral-600)' },
     '& .caption': {
-      backgroundColor: 'var(--joy-palette-primary-100)',
+      backgroundColor: '#f8f8f8',
       padding: '5px',
       borderRadius: '5px',
       margin: '10px 0 5px 0'
     },
     '& .num, & .st': {
-      fontSize: '11px',
+      color: 'var(--joy-palette-primary-400)',
+      fontSize: '13px',
       fontWeight: 600,
       marginRight: '5px'
     },
@@ -51,7 +55,6 @@ export const DictCollins = ({ word, visible }) => {
     },
     '& ul': {
       marginLeft: '15px',
-      color: 'var(--joy-palette-neutral-600)'
     },
     '& li': {
       margin: '5px 0',
@@ -64,8 +67,7 @@ export const DictCollins = ({ word, visible }) => {
     '& ul.vli': {
       margin: 0,
       padding: 0
-    },
-    '& a': { color: 'var(--joy-palette-primary-600)' }
+    }
   }
 
   if (loading) {

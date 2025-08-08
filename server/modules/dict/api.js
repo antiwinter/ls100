@@ -23,14 +23,13 @@ router.get('/lookup', requireAuth, (req, res) => {
       searchedWord: word,
       source: result.source,
       definitionHtml: result.definitionHtml,
-      thesaurusHtml: result.thesaurusHtml,
-      found: !!(result.definitionHtml || result.thesaurusHtml)
+      found: !!result.definitionHtml
     }
 
     // ETag based on content
     const hash = crypto
       .createHash('sha1')
-      .update(JSON.stringify({ word: body.searchedWord, source: body.source, d: body.definitionHtml, t: body.thesaurusHtml }))
+      .update(JSON.stringify({ word: body.searchedWord, source: body.source, d: body.definitionHtml }))
       .digest('hex')
     const etag = `W/"${hash}"`
     res.setHeader('ETag', etag)
