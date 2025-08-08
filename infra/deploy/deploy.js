@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const { execSync } = require('child_process')
-const { existsSync, mkdirSync } = require('fs')
+const { existsSync, mkdirSync, readdirSync, copyFileSync } = require('fs')
 const path = require('path')
 const ecosystemConfig = require('./ecosystem.config.js')
 const { ProxyClient } = require('./proxy-client.js')
@@ -80,8 +80,13 @@ async function deploy() {
       mkdirSync(COLLINS_DST, { recursive: true })
       if (existsSync(COLLINS_SRC)) {
         // Copy .mdx/.mdd if present; ignore if none
-        execSync(`find "${COLLINS_SRC}" -maxdepth 1 -type f \\\(
-          -name '*.mdx' -o -name '*.mdd' \\\) -exec cp -f {} "${COLLINS_DST}/" \\;`)
+        const files = readdirSync(COLLINS_SRC)
+          .filter(f => /\.(mdx|mdd)$/i.test(f))
+        files.forEach(f => {
+          const src = path.join(COLLINS_SRC, f)
+          const dst = path.join(COLLINS_DST, f)
+          copyFileSync(src, dst)
+        })
       } else {
         console.warn(`⚠️ Collins source not found at ${COLLINS_SRC}`)
       }
