@@ -31,10 +31,63 @@ export const Dict = ({ word, position = 'bottom', visible, onClose }) => {
 
   // Data fetching is handled by DictCollins
 
-  // Handle pronunciation playback (placeholder)
-  const handlePlayAudio = () => {
-    log.debug('Play pronunciation for:', word)
-    // TODO: Implement text-to-speech or audio playback
+  // Speech synthesis (cross-browser)
+  const supportsTTS = typeof window !== 'undefined' && 'speechSynthesis' in window && typeof window.SpeechSynthesisUtterance === 'function'
+  const voiceRef = useRef(null)
+  const loadVoices = () => new Promise((resolve) => {
+    if (!supportsTTS) return resolve([])
+    const synth = window.speechSynthesis
+    const existing = synth.getVoices()
+    if (existing && existing.length) return resolve(existing)
+    const handle = () => {
+      const v = synth.getVoices()
+      synth.removeEventListener?.('voiceschanged', handle)
+      resolve(v || [])
+    }
+    synth.addEventListener?.('voiceschanged', handle)
+    // Safari sometimes needs a tick
+    setTimeout(() => handle(), 250)
+  })
+
+  const pickVoice = (voices) => {
+    const english = voices.filter(v => /^en(-|_|$)/i.test(v.lang || ''))
+    const prefer = [
+      /en[-_]?US/i, // American
+      /en[-_]?GB/i, // British
+      /en/i
+    ]
+    for (const rule of prefer) {
+      const v = english.find(x => rule.test(x.lang))
+      if (v) return v
+    }
+    return english[0] || voices[0] || null
+  }
+
+  const ensureVoice = async () => {
+    if (voiceRef.current || !supportsTTS) return voiceRef.current
+    const voices = await loadVoices()
+    voiceRef.current = pickVoice(voices)
+    return voiceRef.current
+  }
+
+  const handlePlayAudio = async () => {
+    if (!supportsTTS || !word) return
+    try {
+      const synth = window.speechSynthesis
+      await ensureVoice()
+      const u = new window.SpeechSynthesisUtterance(word)
+      if (voiceRef.current) u.voice = voiceRef.current
+      u.lang = voiceRef.current?.lang || 'en-US'
+      u.rate = 0.95
+      u.pitch = 1
+      u.volume = 1
+      // Safari sometimes queues paused; ensure resume
+      synth.cancel()
+      synth.resume?.()
+      synth.speak(u)
+    } catch (e) {
+      log.error('TTS failed', e)
+    }
   }
 
   // Dictionary content
@@ -48,6 +101,7 @@ export const Dict = ({ word, position = 'bottom', visible, onClose }) => {
           variant="plain"
           onClick={handlePlayAudio}
           sx={{ color: 'neutral.500' }}
+          disabled={!supportsTTS}
         >
           <VolumeUp />
         </IconButton>
