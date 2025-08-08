@@ -98,13 +98,6 @@ export const DictCollins = ({ word, visible }) => {
       {data.definitionHtml && (
         <Box sx={collinsSx} dangerouslySetInnerHTML={{ __html: data.definitionHtml }} />
       )}
-
-      {data.thesaurusHtml && (
-        <Box sx={{ mt: 1, pt: 1, borderTop: 1, borderColor: 'divider' }}>
-          <Typography level="title-sm" sx={{ mb: 1 }}>Thesaurus</Typography>
-          <Box sx={collinsSx} dangerouslySetInnerHTML={{ __html: data.thesaurusHtml }} />
-        </Box>
-      )}
     </Stack>
   )}
 
