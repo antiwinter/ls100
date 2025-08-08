@@ -39,8 +39,8 @@ export const apiCall = async (endpoint, options = {}) => {
   }
   
   const config = {
-    headers,
-    ...options
+    ...options,
+    headers
   }
   
   const response = await fetch(url, config)

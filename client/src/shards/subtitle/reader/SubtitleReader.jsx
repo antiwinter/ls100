@@ -4,6 +4,7 @@ import { Bolt } from '@mui/icons-material'
 import { apiCall } from '../../../config/api'
 import { log } from '../../../utils/logger'
 import { Dict } from './Dict.jsx'
+import { useWordSync } from './WordSync.js'
 import { ToolbarFuncs } from './ToolbarFuncs.jsx'
 import { Toolbar } from './Toolbar.jsx'
 import { SubtitleViewer } from './SubtitleViewer.jsx'
@@ -64,6 +65,30 @@ export const SubtitleReader = ({ shardId, onBack }) => {
     loadShard()
     loadSelectedWords()
   }, [loadShard, loadSelectedWords])
+
+  // setup word sync loop (10s)
+  const { ackBaseline, syncNow } = useWordSync(shardId, selectedWords, 10000)
+
+  // ack baseline after initial loadSelectedWords finishes
+  useEffect(() => {
+    let mounted = true
+    const init = async () => {
+      try {
+        // wait a microtask to ensure loadSelectedWords ran in first effect
+        await Promise.resolve()
+        if (mounted) ackBaseline()
+      } catch (e) {}
+    }
+    init()
+    return () => { mounted = false }
+  }, [ackBaseline, shardId])
+
+  // flush on unmount
+  useEffect(() => {
+    return () => {
+      syncNow()
+    }
+  }, [syncNow])
 
   // Handle empty space clicks - dismiss dictionary or toggle toolbar
   const handleEmptyClick = useCallback(() => {  
