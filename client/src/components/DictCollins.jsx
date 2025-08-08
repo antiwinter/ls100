@@ -54,7 +54,7 @@ export const DictCollins = ({ word, visible }) => {
       fontWeight: 600
     },
     '& ul': {
-      marginLeft: '15px',
+      marginLeft: '15px'
     },
     '& li': {
       margin: '5px 0',

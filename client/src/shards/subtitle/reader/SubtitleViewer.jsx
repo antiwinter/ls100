@@ -18,7 +18,6 @@ const SubtitleViewerComponent = ({
   selectedWordsRef // Add selectedWordsRef prop
 }, ref) => {
   const [lines, setLines] = useState([])
-  const [visibleIndex, setVisibleIndex] = useState(null)
   const pendingIndexRef = useRef(null)
   const [loading, setLoading] = useState(false)
   const loadingRef = useRef(false)
@@ -196,7 +195,6 @@ const SubtitleViewerComponent = ({
     if (!target) return false
     target.scrollIntoView({ block: 'start' })
     updateWordAttributes(lineIndex)
-    setVisibleIndex(lineIndex)
     return true
   }, [updateWordAttributes])
 
@@ -245,19 +243,19 @@ const SubtitleViewerComponent = ({
           // Update word attributes when scrolling
           if (currentLine) {
             updateWordAttributes(currentLine - 1) // Convert to 0-based index
-            setVisibleIndex(currentLine - 1)
           }
         }}
       >
         {entries.map(([timestamp, lines]) => {
-          const isCurrent = lines.some(line => line.actualIndex === visibleIndex)
+          // intentionally unused: isCurrent reserved for future highlight
+          // const isCurrent = lines.some(line => line.actualIndex === visibleIndex)
           return (
             <Box
               key={timestamp}
               sx={{
                 py: 0.1,
                 mb: 1,
-                backgroundColor: isCurrent ? 'var(--joy-palette-primary-50)' : 'transparent',
+                backgroundColor: 'transparent',
                 borderRadius: 'sm'
               }}
             >

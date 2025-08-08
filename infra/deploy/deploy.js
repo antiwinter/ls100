@@ -39,6 +39,7 @@ const ROOT = '/home/ls100'
 const ENV_DIR = `${ROOT}/${envName}`
 const BACKUP_DIR = `${ROOT}/backups/${envName}`
 const LOGS_DIR = `${ROOT}/logs`
+const COLLINS_SRC = path.join(ROOT, 'collins')
 
 async function deploy() {
   console.log(`🚀 Deploying LS100 ${envName}...`)
@@ -71,6 +72,22 @@ async function deploy() {
     console.log('📁 Setting up infra directory...')
     execSync(`rm -rf "${ROOT}/infra"`)
     execSync(`cp -r /tmp/ls100-deploy/infra "${ROOT}/"`)
+
+    // Sync Collins dictionary assets from shared location (~/collins)
+    try {
+      console.log('📚 Syncing Collins dictionary assets...')
+      const COLLINS_DST = path.join(ENV_DIR, 'staging', 'server', 'lib', 'collins')
+      mkdirSync(COLLINS_DST, { recursive: true })
+      if (existsSync(COLLINS_SRC)) {
+        // Copy .mdx/.mdd if present; ignore if none
+        execSync(`find "${COLLINS_SRC}" -maxdepth 1 -type f \\\(
+          -name '*.mdx' -o -name '*.mdd' \\\) -exec cp -f {} "${COLLINS_DST}/" \\;`)
+      } else {
+        console.warn(`⚠️ Collins source not found at ${COLLINS_SRC}`)
+      }
+    } catch (e) {
+      console.warn(`⚠️ Failed to sync Collins dictionaries: ${e.message}`)
+    }
 
     // Install dependencies
     console.log('📥 Installing dependencies...')

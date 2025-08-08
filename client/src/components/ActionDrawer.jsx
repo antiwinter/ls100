@@ -180,7 +180,8 @@ export const ActionDrawer = ({
           bgcolor: 'background.body',
           pointerEvents: 'auto',
           borderRadius: isBottom ? '24px 24px 0 0' : '0 0 24px 24px',
-          width: '100%',
+          // Slightly narrower than viewport to reveal side borders
+          width: 'calc(100% - 8px)',
           maxWidth: '500px',
           height: heights[size] || heights.half,
           maxHeight: maxHeights[size] || maxHeights.half,
