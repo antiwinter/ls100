@@ -2,6 +2,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { existsSync } from 'fs'
 import { Mdict } from 'js-mdict'
+import sanitizeHtml from 'sanitize-html'
 import { log } from '../../utils/logger.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -64,10 +65,27 @@ const lookupThesaurus = (word) => {
 export const lookup = (word) => {
   const def = lookupDefinition(word)
   const thes = lookupThesaurus(word)
+  const sanitizeCfg = {
+    allowedTags: [
+      'a', 'b', 'strong', 'i', 'em', 'u', 'span', 'div', 'p', 'br', 'ul', 'ol', 'li', 'sub', 'sup', 'blockquote', 'code', 'pre'
+    ],
+    allowedAttributes: {
+      a: ['href', 'title'],
+      span: ['class'],
+      div: ['class'],
+      p: ['class']
+    },
+    allowedSchemes: ['http', 'https', 'mailto'],
+    allowProtocolRelative: false
+  }
+
+  const safeDef = def.html ? sanitizeHtml(def.html, sanitizeCfg) : null
+  const safeThes = thes.html ? sanitizeHtml(thes.html, sanitizeCfg) : null
+
   return {
     source: def.source,
-    definitionHtml: def.html,
-    thesaurusHtml: thes.html
+    definitionHtml: safeDef,
+    thesaurusHtml: safeThes
   }
 }
 

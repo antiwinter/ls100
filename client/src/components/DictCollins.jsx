@@ -34,7 +34,7 @@ export const DictCollins = ({ word, visible }) => {
 
   const collinsSx = {
     '& .caption': {
-      backgroundColor: '#e0eeff',
+      backgroundColor: 'var(--joy-palette-primary-100)',
       padding: '5px',
       borderRadius: '5px',
       margin: '10px 0 5px 0'
@@ -45,27 +45,27 @@ export const DictCollins = ({ word, visible }) => {
       marginRight: '5px'
     },
     '& .text_blue': {
-      color: '#44a',
+      color: 'var(--joy-palette-primary-600)',
       margin: '3px',
       fontWeight: 600
     },
     '& ul': {
       marginLeft: '15px',
-      color: '#686'
+      color: 'var(--joy-palette-neutral-600)'
     },
     '& li': {
       margin: '5px 0',
       padding: '5px'
     },
     '& li.en_tip': {
-      backgroundColor: '#ffc',
+      backgroundColor: 'var(--joy-palette-warning-100)',
       borderRadius: '5px'
     },
     '& ul.vli': {
       margin: 0,
       padding: 0
     },
-    '& a': { color: 'var(--joy-palette-primary-600, #0b6bcb)' }
+    '& a': { color: 'var(--joy-palette-primary-600)' }
   }
 
   if (loading) {
@@ -87,6 +87,12 @@ export const DictCollins = ({ word, visible }) => {
 
   return (
     <Stack spacing={2}>
+      {data.found === false && (
+        <Typography level="body-sm" color="neutral">
+          No entry found. Try another word.
+        </Typography>
+      )}
+
       {data.definitionHtml && (
         <Box sx={collinsSx} dangerouslySetInnerHTML={{ __html: data.definitionHtml }} />
       )}
