@@ -1,21 +1,17 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { 
   Stack,
   Typography,
-  Button,
   IconButton,
-  CircularProgress,
   Box
 } from '@mui/joy'
-import { Add, VolumeUp } from '@mui/icons-material'
+import { VolumeUp } from '@mui/icons-material'
 import { ActionDrawer } from '../../../components/ActionDrawer.jsx'
 import { log } from '../../../utils/logger'
+import DictCollins from '../../../components/DictCollins.jsx'
 
 // Dictionary component - simple props interface
 export const Dict = ({ word, position = 'bottom', visible, onClose }) => {
-  const [definition, setDefinition] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
   const scrollContainerRef = useRef(null)
 
   // Track drawer visibility changes
@@ -33,64 +29,7 @@ export const Dict = ({ word, position = 'bottom', visible, onClose }) => {
     }
   }, [word, visible])
 
-  // Load dictionary data for word
-  useEffect(() => {
-    if (!visible || !word) {
-      setDefinition(null)
-      setError(null)
-      return
-    }
-
-    const loadDefinition = async () => {
-      setLoading(true)
-      setError(null)
-      
-      try {
-        // TODO: Replace with actual dictionary API call
-        // For now, mock the data structure immediately
-        
-        setDefinition({
-          word: word.toLowerCase(),
-          phonetic: '/ˈwɜːrd/',
-          definitions: [
-            {
-              partOfSpeech: 'noun',
-              definition: 'A single distinct meaningful element of speech or writing used by speakers of a particular language to express their thoughts and communicate with others.',
-              example: `"The word '${word}' is commonly used in everyday conversation."`
-            },
-            {
-              partOfSpeech: 'verb',
-              definition: 'To express something in particular words; to phrase or articulate in a specific manner.',
-              example: '"She carefully worded her response to avoid any misunderstanding."'
-            },
-            {
-              partOfSpeech: 'adjective',
-              definition: 'Relating to words or the use of words in communication.',
-              example: '"His word choice was very precise and effective."'
-            }
-          ],
-          translation: '词汇',
-          etymology: 'From Old English "word", from Proto-Germanic "wurdan", meaning "to speak".',
-          synonyms: ['term', 'expression', 'phrase', 'vocable', 'lexeme'],
-          antonyms: ['silence', 'muteness'],
-          usage: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam.'
-        })
-      } catch (err) {
-        log.error('Failed to load definition:', err)
-        setError('Failed to load definition')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadDefinition()
-  }, [visible, word])
-
-  // Handle adding word to learning list
-  const handleAddWord = () => {
-    // TODO: Implement add to learning list functionality
-    log.debug('Add to learning list clicked:', word)
-  }
+  // Data fetching is handled by DictCollins
 
   // Handle pronunciation playback (placeholder)
   const handlePlayAudio = () => {
@@ -104,11 +43,6 @@ export const Dict = ({ word, position = 'bottom', visible, onClose }) => {
       {/* Word header with phonetic and audio */}
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
         <Typography level="h4">{word}</Typography>
-        {definition?.phonetic && (
-          <Typography level="body-sm" color="neutral">
-            {definition.phonetic}
-          </Typography>
-        )}
         <IconButton
           size="sm"
           variant="plain"
@@ -119,102 +53,7 @@ export const Dict = ({ word, position = 'bottom', visible, onClose }) => {
         </IconButton>
       </Stack>
 
-      {/* Loading state */}
-      {loading && (
-        <Stack alignItems="center" spacing={1} sx={{ py: 3 }}>
-          <CircularProgress size="sm" />
-          <Typography level="body-sm">Loading definition...</Typography>
-        </Stack>
-      )}
-
-      {/* Error state */}
-      {error && (
-        <Typography color="danger" level="body-sm">
-          {error}
-        </Typography>
-      )}
-
-      {/* Definition content */}
-      {definition && !loading && (
-        <Stack spacing={2}>
-          {definition.definitions.map((def, idx) => (
-            <Box key={idx}>
-              <Typography level="title-sm" color="primary">
-                {def.partOfSpeech}
-              </Typography>
-              <Typography level="body-sm" sx={{ mt: 0.5 }}>
-                {def.definition}
-              </Typography>
-              {def.example && (
-                <Typography 
-                  level="body-xs" 
-                  color="neutral" 
-                  sx={{ mt: 0.5, fontStyle: 'italic' }}
-                >
-                  {def.example}
-                </Typography>
-              )}
-            </Box>
-          ))}
-
-          {definition.translation && (
-            <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
-              <Typography level="title-sm">Translation</Typography>
-              <Typography level="body-sm" sx={{ mt: 0.5 }}>
-                {definition.translation}
-              </Typography>
-            </Box>
-          )}
-
-          {definition.etymology && (
-            <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
-              <Typography level="title-sm">Etymology</Typography>
-              <Typography level="body-sm" sx={{ mt: 0.5 }}>
-                {definition.etymology}
-              </Typography>
-            </Box>
-          )}
-
-          {definition.synonyms && (
-            <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
-              <Typography level="title-sm">Synonyms</Typography>
-              <Typography level="body-sm" sx={{ mt: 0.5 }}>
-                {definition.synonyms.join(', ')}
-              </Typography>
-            </Box>
-          )}
-
-          {definition.antonyms && (
-            <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
-              <Typography level="title-sm">Antonyms</Typography>
-              <Typography level="body-sm" sx={{ mt: 0.5 }}>
-                {definition.antonyms.join(', ')}
-              </Typography>
-            </Box>
-          )}
-
-          {definition.usage && (
-            <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
-              <Typography level="title-sm">Usage Notes</Typography>
-              <Typography level="body-sm" sx={{ mt: 0.5 }}>
-                {definition.usage}
-              </Typography>
-            </Box>
-          )}
-
-          {/* Add to learning list button */}
-          <Button
-            fullWidth
-            startDecorator={<Add />}
-            onClick={handleAddWord}
-            variant="solid"
-            color="primary"
-            sx={{ mt: 2 }}
-          >
-            Add to Learning List
-          </Button>
-        </Stack>
-      )}
+      <DictCollins word={word} visible={visible} />
     </Stack>
   )
 
