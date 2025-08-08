@@ -35,16 +35,17 @@ export const DictCollins = ({ word, visible }) => {
   const collinsSx = {
     fontFamily: 'var(--joy-fontFamily-body)',
     lineHeight: 'var(--joy-lineHeight-md)',
-    '& *': { fontFamily: 'inherit', color: 'var(--joy-palette-neutral-600)' },
+    '& *': { fontFamily: 'inherit', color: 'var(--joy-palette-neutral-500)' },
     '& .caption': {
-      // Use Joy channel token for theme-aware alpha without JS color ops
-      backgroundColor: 'var(--joy-palette-primary-50)',
-      padding: '5px',
-      borderRadius: '5px',
-      margin: '10px 0 5px 0'
+      // Use Joy surface token for subtle, theme-aware bg
+      backgroundColor: 'var(--joy-palette-background-level1)',
+      // color: 'var(--joy-palette-neutral-500)',
+      padding: '6px',
+      borderRadius: '6px',
+      margin: '10px 0 6px 0'
     },
     '& .num, & .st': {
-      color: 'var(--joy-palette-primary-400)',
+      color: 'var(--joy-palette-secondary-400)',
       fontSize: '13px',
       fontWeight: 600,
       marginRight: '5px'
