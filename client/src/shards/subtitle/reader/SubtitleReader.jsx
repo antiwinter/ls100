@@ -4,7 +4,7 @@ import { Bolt } from '@mui/icons-material'
 import { apiCall } from '../../../config/api'
 import { log } from '../../../utils/logger'
 import { Dict } from './Dict.jsx'
-import { useWordSync } from './WordSync.js'
+import { useSync } from './sync.js'
 import { ToolbarFuncs } from './ToolbarFuncs.jsx'
 import { Toolbar } from './Toolbar.jsx'
 import { SubtitleViewer } from './SubtitleViewer.jsx'
@@ -18,7 +18,9 @@ export const SubtitleReader = ({ shardId, onBack }) => {
   const selectedWords = useRef(new Set())
   const [showToolbar, setShowToolbar] = useState(false)
   const [currentLine, setCurrentLine] = useState(0)
+  const currentLineRef = useRef(0)
   const [totalLines, setTotalLines] = useState(0)
+  const viewerRef = useRef(null)
   
   // Local drawer states - simple and direct
   const [dictDrawer, setDictDrawer] = useState({ visible: false, word: '', position: 'bottom' })
@@ -66,22 +68,24 @@ export const SubtitleReader = ({ shardId, onBack }) => {
     loadSelectedWords()
   }, [loadShard, loadSelectedWords])
 
-  // setup word sync loop (10s)
-  const { ackBaseline, syncNow } = useWordSync(shardId, selectedWords, 10000)
+  // setup general sync loop (10s)
+  const { ackWords, ackPosition, syncNow } = useSync(shardId, selectedWords, currentLineRef, 10000)
 
-  // ack baseline after initial loadSelectedWords finishes
+  // ack words baseline after initial loadSelectedWords finishes
   useEffect(() => {
     let mounted = true
     const init = async () => {
       try {
         // wait a microtask to ensure loadSelectedWords ran in first effect
         await Promise.resolve()
-        if (mounted) ackBaseline()
-      } catch (e) {}
+        if (mounted) ackWords()
+      } catch {
+        // ignore
+      }
     }
     init()
     return () => { mounted = false }
-  }, [ackBaseline, shardId])
+  }, [ackWords, shardId])
 
   // flush on unmount
   useEffect(() => {
@@ -89,6 +93,32 @@ export const SubtitleReader = ({ shardId, onBack }) => {
       syncNow()
     }
   }, [syncNow])
+
+  // load initial position baseline (single fetch)
+  useEffect(() => {
+    let mounted = true
+    const load = async () => {
+      try {
+        const data = await apiCall(`/api/subtitle-shards/${shardId}/position`)
+        const line = data?.position || 0
+        if (!mounted) return
+        ackPosition(line)
+        if (line > 0) {
+          // Imperatively set viewer position without emitting onScroll
+          if (viewerRef.current?.setPosition) {
+            viewerRef.current.setPosition(line - 1)
+          }
+          setCurrentLine(line)
+          currentLineRef.current = line
+        }
+      } catch {
+        // ignore
+      }
+    }
+    // microtask to avoid double call loops on strict mode or remount
+    Promise.resolve().then(() => mounted && load())
+    return () => { mounted = false }
+  }, [shardId, ackPosition])
 
   // Handle empty space clicks - dismiss dictionary or toggle toolbar
   const handleEmptyClick = useCallback(() => {  
@@ -144,6 +174,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
     // Update current line from intersection
     if (currentLine) {
       setCurrentLine(currentLine)
+      currentLineRef.current = currentLine
     }
   }, [])
 
@@ -244,12 +275,14 @@ export const SubtitleReader = ({ shardId, onBack }) => {
       {/* Main viewer - memoized for stability */}
       <MemoizedSubtitleViewer
         shard={shard}
+        currentIndex={Math.max(0, (currentLine || 1) - 1)}
         selectedWords={EMPTY_SET} // Stable empty set to prevent re-renders
         selectedWordsRef={selectedWords} // Pass ref for attribute updates
         onWordClick={handleWordClickToggle}
         onEmptyClick={handleEmptyClick}
         onScroll={handleScroll}
         onProgressUpdate={handleProgressUpdate}
+        ref={viewerRef}
       />
 
       {/* Direct drawer components with props */}

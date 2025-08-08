@@ -42,6 +42,11 @@ CREATE TABLE IF NOT EXISTS subtitle_progress (
   FOREIGN KEY (shard_id) REFERENCES shards(id) ON DELETE CASCADE
 );
 
+-- Add dedicated current_line column for viewing progress
+-- Note: SQLite doesn't support IF NOT EXISTS for ADD COLUMN.
+-- Our migration runner will ignore duplicate column errors safely.
+ALTER TABLE subtitle_progress ADD COLUMN current_line INTEGER DEFAULT 0;
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_shard_subtitles_shard ON shard_subtitles(shard_id);
 CREATE INDEX IF NOT EXISTS idx_shard_subtitles_subtitle ON shard_subtitles(subtitle_id);

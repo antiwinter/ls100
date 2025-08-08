@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, memo, useCallback } from 'react'
+import { useState, useEffect, useRef, useMemo, memo, useCallback, forwardRef, useImperativeHandle } from 'react'
 import {
   Box,
   Stack,
@@ -11,14 +11,15 @@ import { InfiniteScroll } from '../../../components/InfiniteScroll'
 // Multi-language subtitle display - context-agnostic, stable
 const SubtitleViewerComponent = ({ 
   shard, 
-  currentIndex, 
   onWordClick,
   onEmptyClick,
   onScroll,
   onProgressUpdate,
   selectedWordsRef // Add selectedWordsRef prop
-}) => {
+}, ref) => {
   const [lines, setLines] = useState([])
+  const [visibleIndex, setVisibleIndex] = useState(null)
+  const pendingIndexRef = useRef(null)
   const [loading, setLoading] = useState(false)
   const loadingRef = useRef(false)
   const loadedRef = useRef(false)
@@ -187,6 +188,38 @@ const SubtitleViewerComponent = ({
 
   const entries = Object.entries(groups)
 
+  // Imperative API: setPosition without emitting onScroll
+  const tryScrollToIndex = useCallback((lineIndex) => {
+    if (!viewerRef.current || !Number.isFinite(lineIndex)) return false
+    const container = viewerRef.current
+    const target = container.querySelector(`[data-line-index="${lineIndex}"]`)
+    if (!target) return false
+    target.scrollIntoView({ block: 'center' })
+    updateWordAttributes(lineIndex)
+    setVisibleIndex(lineIndex)
+    return true
+  }, [updateWordAttributes])
+
+  useImperativeHandle(ref, () => ({
+    setPosition: (lineIndex) => {
+      // Try now; if lines not ready, remember to apply later
+      const applied = tryScrollToIndex(lineIndex)
+      if (!applied) {
+        pendingIndexRef.current = lineIndex
+      } else {
+        pendingIndexRef.current = null
+      }
+    }
+  }), [tryScrollToIndex])
+
+  // When lines load or change, apply any pending scroll
+  useEffect(() => {
+    if (pendingIndexRef.current != null) {
+      const applied = tryScrollToIndex(pendingIndexRef.current)
+      if (applied) pendingIndexRef.current = null
+    }
+  }, [lines.length, tryScrollToIndex])
+
   return (
     <Box
       ref={viewerRef}
@@ -212,11 +245,12 @@ const SubtitleViewerComponent = ({
           // Update word attributes when scrolling
           if (currentLine) {
             updateWordAttributes(currentLine - 1) // Convert to 0-based index
+            setVisibleIndex(currentLine - 1)
           }
         }}
       >
         {entries.map(([timestamp, lines]) => {
-          const isCurrent = lines.some(line => line.actualIndex === currentIndex)
+          const isCurrent = lines.some(line => line.actualIndex === visibleIndex)
           
           return (
             <Box
@@ -293,4 +327,4 @@ const formatTime = (ms) => {
 const getLanguageInfo = () => ({ code: 'en' }) // Simplified placeholder
 
 // Memoize the component to prevent re-renders when unrelated state changes
-export const SubtitleViewer = memo(SubtitleViewerComponent)
+export const SubtitleViewer = memo(forwardRef(SubtitleViewerComponent))

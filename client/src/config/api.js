@@ -39,11 +39,21 @@ export const apiCall = async (endpoint, options = {}) => {
   }
   
   const config = {
+    cache: options.cache || 'no-store',
     ...options,
     headers
   }
   
-  const response = await fetch(url, config)
+  let response = await fetch(url, config)
+  
+  // Safari/iOS may return 304 for API GETs due to ETag; refetch with cache-buster
+  const method = (options.method || 'GET').toUpperCase()
+  if (response.status === 304 && method === 'GET') {
+    const ts = Date.now()
+    const sep = url.includes('?') ? '&' : '?'
+    const bustUrl = `${url}${sep}_ts=${ts}`
+    response = await fetch(bustUrl, { ...config, cache: 'no-store' })
+  }
   
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Request failed' }))

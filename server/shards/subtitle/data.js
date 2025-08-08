@@ -90,3 +90,31 @@ export const removeWords = (userId, shardId, wordsToRemove) => {
   updateWords(userId, shardId, filtered)
   return filtered
 } 
+
+// Position helpers
+export const getPosition = (userId, shardId) => {
+  const row = db.prepare(`
+    SELECT current_line FROM subtitle_progress WHERE user_id = ? AND shard_id = ?
+  `).get(userId, shardId)
+  if (!row || typeof row.current_line !== 'number') return 0
+  return row.current_line || 0
+}
+
+export const setPosition = (userId, shardId, line) => {
+  const now = new Date().toISOString()
+  const existing = db.prepare(`
+    SELECT id FROM subtitle_progress WHERE user_id = ? AND shard_id = ?
+  `).get(userId, shardId)
+
+  if (existing) {
+    return db.prepare(`
+      UPDATE subtitle_progress SET current_line = ?, updated_at = ?
+      WHERE user_id = ? AND shard_id = ?
+    `).run(line, now, userId, shardId)
+  } else {
+    return db.prepare(`
+      INSERT INTO subtitle_progress (user_id, shard_id, timestamp, updated_at, current_line)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(userId, shardId, now, now, line)
+  }
+}

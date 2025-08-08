@@ -103,4 +103,28 @@ router.put('/:shardId/words', requireAuth, validateShardAccess, async (req, res)
   }
 })
 
+// GET /api/subtitle-shards/:shardId/position - Get current viewing position
+router.get('/:shardId/position', requireAuth, validateShardAccess, async (req, res) => {
+  try {
+    const position = subtitleData.getPosition(req.userId, req.params.shardId)
+    res.json({ position })
+  } catch (error) {
+    log.error({ error, shardId: req.params.shardId }, 'Failed to get position')
+    res.status(500).json({ error: 'Failed to get position' })
+  }
+})
+
+// PUT /api/subtitle-shards/:shardId/position - Update current viewing position
+router.put('/:shardId/position', requireAuth, validateShardAccess, async (req, res) => {
+  try {
+    const { position } = req.body
+    const line = Number.isFinite(position) ? Math.max(0, Math.floor(position)) : 0
+    subtitleData.setPosition(req.userId, req.params.shardId, line)
+    res.json({ position: line })
+  } catch (error) {
+    log.error({ error, shardId: req.params.shardId }, 'Failed to update position')
+    res.status(500).json({ error: 'Failed to update position' })
+  }
+})
+
 export default router

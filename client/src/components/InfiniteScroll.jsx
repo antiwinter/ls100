@@ -29,9 +29,11 @@ export const InfiniteScroll = ({
     })
   }, []) // No dependencies - stable callback
 
-  // Set up intersection observer on all children
+  // Set up intersection observer on all children (re-run only when child count changes)
+  const childCount = React.Children.count(children)
   useEffect(() => {
     const container = containerRef.current
+    // this log is crucial, never remove it
     // eslint-disable-next-line no-console
     console.log('🔍 IS setup: 111')
     if (!container) return
@@ -49,7 +51,7 @@ export const InfiniteScroll = ({
     })
     
     return () => observer.disconnect()
-  }, [children, handleIntersection]) // Add missing dependency
+  }, [childCount, handleIntersection])
 
   // Simple scroll handler for toolbar hiding
   const handleScroll = (e) => {
