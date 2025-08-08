@@ -194,7 +194,7 @@ const SubtitleViewerComponent = ({
     const container = viewerRef.current
     const target = container.querySelector(`[data-line-index="${lineIndex}"]`)
     if (!target) return false
-    target.scrollIntoView({ block: 'center' })
+    target.scrollIntoView({ block: 'start' })
     updateWordAttributes(lineIndex)
     setVisibleIndex(lineIndex)
     return true
@@ -251,7 +251,6 @@ const SubtitleViewerComponent = ({
       >
         {entries.map(([timestamp, lines]) => {
           const isCurrent = lines.some(line => line.actualIndex === visibleIndex)
-          
           return (
             <Box
               key={timestamp}

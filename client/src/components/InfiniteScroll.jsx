@@ -18,15 +18,16 @@ export const InfiniteScroll = ({
   const onScrollRef = useRef(onScroll)
   onScrollRef.current = onScroll
 
-  // Intersection callback for viewport tracking (stable)
+  // Intersection callback for top-band tracking (stable)
+  // Band is very thin; grab the first intersecting entry and bail
   const handleIntersection = useCallback((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        const index = parseInt(entry.target.dataset.index) || 0
-        currentIndexRef.current = index
-        onScrollRef.current?.(null, index + 1) // Report 1-based index
-      }
-    })
+    const first = entries.find(e => e.isIntersecting)
+    if (!first) return
+    const idx = parseInt(first.target.dataset.index) || 0
+    if (currentIndexRef.current !== idx) {
+      currentIndexRef.current = idx
+      onScrollRef.current?.(null, idx + 1)
+    }
   }, []) // No dependencies - stable callback
 
   // Set up intersection observer on all children (re-run only when child count changes)
@@ -40,7 +41,10 @@ export const InfiniteScroll = ({
 
     const observer = new IntersectionObserver(handleIntersection, {
       root: container,
-      threshold: 0.5 // Element is "current" when 50% visible
+      // Thin band at the very top: any element touching the band becomes current
+      // threshold 0 so any intersection counts; rootMargin shrinks viewport to ~1% height at the top
+      threshold: 0,
+      rootMargin: '0px 0px -99% 0px'
     })
 
     // Observe all direct children
