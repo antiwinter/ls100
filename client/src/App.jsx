@@ -109,8 +109,11 @@ function App() {
   const StatusBarSync = () => {
     const { systemMode, mode } = useColorScheme()
     useEffect(() => {
-      const meta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')
       const current = mode === 'system' ? systemMode : mode
+      const isIOSStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches
+      if (!isIOSStandalone) return
+      // iOS likely applies on launch; set early and avoid flipping at runtime
+      const meta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')
       const value = current === 'dark' ? 'black' : 'default'
       if (meta) meta.setAttribute('content', value)
     }, [mode, systemMode])

@@ -37,7 +37,8 @@ export const DictCollins = ({ word, visible }) => {
     lineHeight: 'var(--joy-lineHeight-md)',
     '& *': { fontFamily: 'inherit', color: 'var(--joy-palette-neutral-600)' },
     '& .caption': {
-      backgroundColor: '#f8f8f8',
+      // Use Joy channel token for theme-aware alpha without JS color ops
+      backgroundColor: 'var(--joy-palette-primary-50)',
       padding: '5px',
       borderRadius: '5px',
       margin: '10px 0 5px 0'
