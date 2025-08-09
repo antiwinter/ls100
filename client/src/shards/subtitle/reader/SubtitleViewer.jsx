@@ -97,16 +97,103 @@ const SubtitleViewerComponent = ({
     if (Number.isFinite(size)) viewerRef.current.style.setProperty('--reader-font-size', `${size}px`)
   }, [])
   
-  // Imperatively toggle ref visibility; called by parent to avoid React re-renders
-  const setRefLangVisibility = useCallback((code, visible) => {
-    if (!viewerRef.current || !code) return
-    const blocks = viewerRef.current.querySelectorAll(`[data-ref-lang="${code}"]`)
-    blocks.forEach(el => {
-      el.style.overflow = 'hidden'
-      el.style.height = visible ? 'auto' : '0px'
-      el.style.margin = visible ? '' : '0'
-      el.style.opacity = visible ? '1' : '0'
+  // Viewport-only font styling - similar to updateWordAttributes
+  const applyFontToViewport = useCallback(({ family, size }, currentLineIndex = 0) => {
+    if (!viewerRef.current) return
+    
+    const container = viewerRef.current
+    
+    // Find all elements in ±30 line range (like word highlighting)
+    const startLine = Math.max(0, currentLineIndex - 30)
+    const endLine = Math.min(lines.length - 1, currentLineIndex + 30)
+    
+    // Apply font changes to viewport elements only
+    const lineElements = container.querySelectorAll('[data-line-index]')
+    lineElements.forEach(element => {
+      const lineIndex = parseInt(element.dataset.lineIndex || '0')
+      if (lineIndex >= startLine && lineIndex <= endLine) {
+        if (family) element.style.setProperty('--reader-font-family', family)
+        if (size) element.style.setProperty('--reader-font-size', `${size}px`)
+      }
     })
+  }, [lines.length])
+  
+  // Viewport-only language visibility - similar to updateWordAttributes  
+  const applyLangVisibilityToViewport = useCallback((code, visible, currentLineIndex = 0) => {
+    console.log(`🌍 applyLangVisibilityToViewport: ${code} -> ${visible}, currentLine: ${currentLineIndex}`)
+    
+    if (!viewerRef.current || !code) {
+      console.log(`❌ No viewerRef or code`)
+      return
+    }
+    
+    const container = viewerRef.current
+    
+    // Find all ref lang elements in ±100 line range (wider viewport)
+    const startLine = Math.max(0, currentLineIndex - 100)
+    const endLine = Math.min(lines.length - 1, currentLineIndex + 100)
+    console.log(`📏 Target range: lines ${startLine}-${endLine} (viewport: ±100)`)
+    
+    const refElements = container.querySelectorAll(`[data-ref-lang="${code}"]`)
+    console.log(`🎯 Found ${refElements.length} elements with data-ref-lang="${code}"`)
+    
+    let appliedCount = 0
+    const elementLines = []
+    
+    refElements.forEach(element => {
+      const lineElement = element.closest('[data-line-index]')
+      const lineIndex = parseInt(lineElement?.dataset.lineIndex || '0')
+      elementLines.push(lineIndex)
+      
+      if (lineIndex >= startLine && lineIndex <= endLine) {
+        appliedCount++
+        console.log(`✅ Applying to line ${lineIndex}:`, element)
+        if (visible) {
+          element.style.height = 'auto'
+          element.style.margin = ''
+          element.style.opacity = '1'
+          element.style.overflow = ''
+        } else {
+          element.style.height = '0px'
+          element.style.margin = '0'
+          element.style.opacity = '0'
+          element.style.overflow = 'hidden'
+        }
+      }
+    })
+    
+    // Debug: show where elements actually are
+    const minLine = Math.min(...elementLines)
+    const maxLine = Math.max(...elementLines)
+    console.log(`📍 Ref elements are on lines ${minLine}-${maxLine} (total: ${elementLines.length})`)
+    console.log(`📊 Applied visibility to ${appliedCount}/${refElements.length} elements`)
+  }, [lines.length])
+  
+  // Get current visible line for viewport targeting
+  const getCurrentVisibleLine = useCallback(() => {
+    if (!viewerRef.current) {
+      console.log(`📍 getCurrentVisibleLine: no viewerRef`)
+      return 0
+    }
+    
+    const container = viewerRef.current
+    const containerRect = container.getBoundingClientRect()
+    const containerTop = containerRect.top
+    
+    // Find the first visible line element
+    const lineElements = container.querySelectorAll('[data-line-index]')
+    console.log(`📍 getCurrentVisibleLine: found ${lineElements.length} line elements`)
+    
+    for (const element of lineElements) {
+      const rect = element.getBoundingClientRect()
+      if (rect.bottom > containerTop + 50) { // 50px buffer
+        const lineIndex = parseInt(element.dataset.lineIndex || '0')
+        console.log(`📍 getCurrentVisibleLine: returning line ${lineIndex}`)
+        return lineIndex
+      }
+    }
+    console.log(`📍 getCurrentVisibleLine: no visible line found, returning 0`)
+    return 0
   }, [])
 
   // Render text with pre-rendered overlays (hidden by default)
@@ -217,16 +304,23 @@ const SubtitleViewerComponent = ({
     },
     setFontStyle,
     setRefLangVisibility: (code, visible) => {
-      if (!viewerRef.current || !code) return
-      const blocks = viewerRef.current.querySelectorAll(`[data-ref-lang="${code}"]`)
-      blocks.forEach(el => {
-        el.style.overflow = 'hidden'
-        el.style.height = visible ? 'auto' : '0px'
-        el.style.margin = visible ? '' : '0'
-        el.style.opacity = visible ? '1' : '0'
-      })
-    }
-  }), [tryScrollToIndex, updateWordAttributes, setFontStyle])
+      // No operations here - handled by parent to prevent performance issues
+      return
+    },
+    // Viewport-only styling methods
+    applyFontToViewport: (fontOptions) => {
+      // Get current visible line for viewport targeting
+      const currentLineIndex = getCurrentVisibleLine()
+      applyFontToViewport(fontOptions, currentLineIndex)
+    },
+    applyLangVisibilityToViewport: (code, visible) => {
+      // Get current visible line for viewport targeting
+      const currentLineIndex = getCurrentVisibleLine()
+      applyLangVisibilityToViewport(code, visible, currentLineIndex)
+    },
+    // Expose DOM element for direct manipulation
+    getDOMElement: () => viewerRef.current
+  }), [tryScrollToIndex, updateWordAttributes, setFontStyle, applyFontToViewport, applyLangVisibilityToViewport, getCurrentVisibleLine])
 
   // When lines load or change, apply any pending scroll
   useEffect(() => {
@@ -237,23 +331,41 @@ const SubtitleViewerComponent = ({
   }, [lines.length, tryScrollToIndex])
 
   return (
-    <Box
-      ref={viewerRef}
-      {...handlers}
-      sx={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        minHeight: 0,
-        userSelect: 'none',
-        WebkitUserSelect: 'none',
-        msUserSelect: 'none',
-        WebkitTouchCallout: 'none',
-        WebkitTapHighlightColor: 'transparent',
-        touchAction: 'pan-y',
-        // CSS vars for dynamic font without re-render
-        '--reader-font-family': 'system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Noto Sans, PingFang SC, Hiragino Sans GB, Microsoft YaHei, Heiti SC, sans-serif',
-        '--reader-font-size': '16px',
+    <>
+      {/* Dynamic CSS for ref language visibility - memoized */}
+      <style>
+        {useMemo(() => 
+          languages
+            .filter(lang => lang.code !== mainLanguageCode)
+            .map(lang => `
+              .ref-lang-${lang.code}-hidden [data-ref-lang="${lang.code}"] {
+                height: 0px !important;
+                margin: 0 !important;
+                opacity: 0 !important;
+                overflow: hidden !important;
+              }
+            `).join('\n')
+        , [languages, mainLanguageCode])}
+      </style>
+      
+      <Box
+        ref={viewerRef}
+        {...handlers}
+        className="subtitle-viewer"
+        sx={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          msUserSelect: 'none',
+          WebkitTouchCallout: 'none',
+          WebkitTapHighlightColor: 'transparent',
+          touchAction: 'pan-y',
+          // CSS vars for dynamic font without re-render
+          '--reader-font-family': 'system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Noto Sans, PingFang SC, Hiragino Sans GB, Microsoft YaHei, Heiti SC, sans-serif',
+          '--reader-font-size': '16px',
         '& *, & *::before, & *::after': {
           userSelect: 'none',
           WebkitUserSelect: 'none',
@@ -354,6 +466,7 @@ const SubtitleViewerComponent = ({
         })}
       </InfiniteScroll>
     </Box>
+    </>
   )
 }
 

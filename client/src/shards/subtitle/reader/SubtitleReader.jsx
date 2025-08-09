@@ -42,6 +42,13 @@ export const SubtitleReader = ({ shardId, onBack }) => {
   const [fontSize, setFontSize] = useState(16)
   const [langSet, setLangSet] = useState(new Set())
   
+  // Track langSet with ref to avoid SubtitleViewer re-renders
+  const langSetRef = useRef(new Set())
+  
+  useEffect(() => {
+    langSetRef.current = langSet
+  }, [langSet])
+  
   // Track dict state with ref for immediate access
   const dictStateRef = useRef({ visible: false, word: '', position: 'bottom' })
   
@@ -83,6 +90,57 @@ export const SubtitleReader = ({ shardId, onBack }) => {
   }, [])
   
   const isToolbarVisible = useCallback(() => toolbarVisibleRef.current, [])
+  
+  // Viewport-only styling - like word highlighting
+  const handleChangeFontMode = useCallback((mode) => {
+    console.log(`🎯 handleChangeFontMode: ${mode} - VIEWPORT ONLY`)
+    
+    // Mark font operation in progress to prevent scroll-close
+    fontOperationRef.current = true
+    console.log(`🔒 Font operation started - preventing scroll close`)
+    
+    setFontMode(mode)
+    // Apply font to current viewport only via imperative call
+    viewerRef.current?.applyFontToViewport?.({ family: fontStack(mode) })
+    
+    // Clear the flag after layout has stabilized
+    setTimeout(() => {
+      fontOperationRef.current = false
+      console.log(`🔓 Font operation completed - allowing scroll close`)
+    }, 500) // 500ms should be enough for layout to stabilize
+  }, [])
+  
+  const handleChangeFontSize = useCallback((size) => {
+    console.log(`🎯 handleChangeFontSize: ${size} - VIEWPORT ONLY`)
+    
+    // Mark font operation in progress to prevent scroll-close
+    fontOperationRef.current = true
+    console.log(`🔒 Font operation started - preventing scroll close`)
+    
+    setFontSize(size)
+    // Apply font to current viewport only via imperative call
+    viewerRef.current?.applyFontToViewport?.({ size })
+    
+    // Clear the flag after layout has stabilized
+    setTimeout(() => {
+      fontOperationRef.current = false
+      console.log(`🔓 Font operation completed - allowing scroll close`)
+    }, 500) // 500ms should be enough for layout to stabilize
+  }, [])
+  
+  const handleToggleLang = useCallback((code) => {
+    console.log(`🎯 handleToggleLang: ${code} - VIEWPORT ONLY`)
+    setLangSet(prev => {
+      const next = new Set(prev)
+      if (next.has(code)) next.delete(code); else next.add(code)
+      
+      // Apply visibility to current viewport only
+      const visible = next.has(code)
+      viewerRef.current?.applyLangVisibilityToViewport?.(code, visible)
+      console.log(`✅ Language ${code} visibility applied to viewport: ${visible}`)
+      return next
+    })
+  }, [])
   const loadShard = useCallback(async () => {
     try {
       const data = await apiCall(`/api/shards/${shardId}`)
@@ -224,8 +282,28 @@ export const SubtitleReader = ({ shardId, onBack }) => {
     // TODO: Implement review feature
   }
 
+  // Track if we're in the middle of font operations to prevent scroll-close
+  const fontOperationRef = useRef(false)
+  
   // Handle scroll events - hide action drawers + toolbar, preserve dict
   const handleScroll = useCallback((e, currentLine) => {
+    console.log(`📜 SCROLL EVENT TRIGGERED - currentLine: ${currentLine}`)
+    console.log(`📜 Event target:`, e?.target?.tagName, e?.target?.className)
+    console.log(`📜 Event type:`, e?.type)
+    console.log(`📜 Font operation in progress:`, fontOperationRef.current)
+    
+    // Don't close font drawer if font operation is in progress
+    const currentActionState = getActionDrawerState()
+    if (fontOperationRef.current && currentActionState.tool === 'font') {
+      console.log(`🚫 Ignoring scroll during font operation`)
+      // Still update current line but don't close drawers
+      if (currentLine) {
+        setCurrentLine(currentLine)
+        currentLineRef.current = currentLine
+      }
+      return
+    }
+    
     // Hide action drawers and toolbar on scroll (preserve dict)
     setActionDrawer({ open: false, size: 'half', tool: null })
     setShowToolbar(false)
@@ -235,7 +313,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
       setCurrentLine(currentLine)
       currentLineRef.current = currentLine
     }
-  }, [])
+  }, [getActionDrawerState])
 
   // Handle total lines update from SubtitleViewer (stable)
   const handleProgressUpdate = useCallback((current, total) => {
@@ -249,7 +327,9 @@ export const SubtitleReader = ({ shardId, onBack }) => {
   // init langSet once when shard loads
   useEffect(() => {
     if (languages.length) {
-      setLangSet(new Set(languages.map(l => l.code)))
+      const newLangSet = new Set(languages.map(l => l.code))
+      setLangSet(newLangSet)
+      langSetRef.current = newLangSet
     }
   }, [languages])
 
@@ -343,7 +423,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
         lines={lines}
         loading={linesLoading}
         selectedWordsRef={selectedWords}
-        langSet={langSet}
+        langSetRef={langSetRef}
         mainLanguageCode={languages?.[0]?.code}
         languages={languages}
         onWordShort={explainWord}
@@ -367,28 +447,13 @@ export const SubtitleReader = ({ shardId, onBack }) => {
         open={actionDrawer.open && actionDrawer.tool === 'font'}
         onClose={() => setActionDrawer({ open: false, size: 'half', tool: null })}
         fontMode={fontMode}
-        onChangeFontMode={(mode) => {
-          setFontMode(mode)
-          // apply immediately via CSS vars
-          viewerRef.current?.setFontStyle?.({ family: fontStack(mode) })
-        }}
+        onChangeFontMode={handleChangeFontMode}
         fontSize={fontSize}
-        onChangeFontSize={(size) => {
-          setFontSize(size)
-          // apply immediately via CSS vars
-          viewerRef.current?.setFontStyle?.({ size })
-        }}
+        onChangeFontSize={handleChangeFontSize}
         languages={languages}
         langSet={langSet}
         mainLanguageCode={languages?.[0]?.code}
-        onToggleLang={(code) => setLangSet(prev => {
-          const next = new Set(prev)
-          if (next.has(code)) next.delete(code); else next.add(code)
-          // Imperatively toggle ref visibility for better performance
-          const visible = next.has(code)
-          viewerRef.current?.setRefLangVisibility?.(code, visible)
-          return next
-        })}
+        onToggleLang={handleToggleLang}
       />
       
       {/* Always render ToolbarFuncs - just control open state */}
@@ -410,6 +475,7 @@ const MemoizedSubtitleViewer = memo((props) => {
     
     useEffect(() => {
       if (renderCountRef.current > 1) {
+        // this is crucial, never remove
         log.warn(`🔄 SubtitleViewer re-render #${renderCountRef.current}`)
       }
     })
