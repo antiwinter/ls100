@@ -283,6 +283,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
         onScroll={handleScroll}
         onProgressUpdate={handleProgressUpdate}
         ref={viewerRef}
+        sx={{ touchAction: 'pan-y' }}
       />
 
       {/* Direct drawer components with props */}

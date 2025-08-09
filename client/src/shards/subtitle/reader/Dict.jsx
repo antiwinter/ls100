@@ -117,57 +117,79 @@ export const Dict = ({ word, position = 'bottom', visible, onClose }) => {
       onClose={onClose}
       position={position}
       size="half"
-    >
-      <Box 
-        ref={scrollContainerRef}
-        sx={{
-          height: '100%',
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          // Prevent scroll events from bubbling to parent
-          touchAction: 'pan-y',
-          // Enable elastic/bounce scrolling on iOS
-          WebkitOverflowScrolling: 'touch',
-          // Custom scrollbar styling
-          scrollbarWidth: 'thin', // Firefox
-          '&::-webkit-scrollbar': {
-            width: '6px'
-          },
-          '&::-webkit-scrollbar-track': {
-            background: 'transparent'
-          },
-          '&::-webkit-scrollbar-thumb': {
-            background: 'var(--joy-palette-neutral-300)',
-            borderRadius: '3px'
-          },
-          '&::-webkit-scrollbar-thumb:hover': {
-            background: 'var(--joy-palette-neutral-400)'
-          }
-        }}
-        onTouchStart={(e) => e.stopPropagation()}
-        onTouchMove={(e) => {
-          // Only stop propagation if we're actually scrolling within bounds
-          const element = e.currentTarget
-          const atTop = element.scrollTop === 0
-          const atBottom = element.scrollTop >= element.scrollHeight - element.clientHeight
-          
-          // Get touch delta
-          const touch = e.touches[0]
-          const deltaY = touch.clientY - (element._lastTouchY || touch.clientY)
-          element._lastTouchY = touch.clientY
-          
-          // Stop propagation if we're scrolling within the content bounds
-          if ((!atTop && deltaY > 0) || (!atBottom && deltaY < 0)) {
-            e.stopPropagation()
-          }
-        }}
-        onTouchEnd={(e) => {
-          e.stopPropagation()
-          delete e.currentTarget._lastTouchY
-        }}
-      >
-        {renderContent()}
-      </Box>
-    </ActionDrawer>
+      pages={[{
+        content: (
+          <Box 
+            ref={scrollContainerRef}
+            sx={{
+              height: '100%',
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              touchAction: 'pan-y',
+              WebkitOverflowScrolling: 'touch',
+              scrollbarWidth: 'thin',
+              '&::-webkit-scrollbar': { width: '6px' },
+              '&::-webkit-scrollbar-track': { background: 'transparent' },
+              '&::-webkit-scrollbar-thumb': { background: 'var(--joy-palette-neutral-300)', borderRadius: '3px' },
+              '&::-webkit-scrollbar-thumb:hover': { background: 'var(--joy-palette-neutral-400)' }
+            }}
+            onTouchMove={(e) => {
+              const element = e.currentTarget
+              const atTop = element.scrollTop === 0
+              const atBottom = element.scrollTop >= element.scrollHeight - element.clientHeight
+              const touch = e.touches[0]
+              const deltaY = touch.clientY - (element._lastTouchY || touch.clientY)
+              element._lastTouchY = touch.clientY
+              if ((!atTop && deltaY > 0) || (!atBottom && deltaY < 0)) {
+                e.stopPropagation()
+              }
+            }}
+            onTouchEnd={(e) => {
+              delete e.currentTarget._lastTouchY
+            }}
+          >
+            {renderContent()}
+          </Box>
+        )
+      }, {
+        title: 'Notes',
+        content: (
+          <Box sx={{
+            height: '100%',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            touchAction: 'pan-y',
+            WebkitOverflowScrolling: 'touch',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            p: 2
+          }}>
+            <Typography level="body-md" sx={{ color: 'neutral.500' }}>
+              Notes are coming soon
+            </Typography>
+          </Box>
+        )
+      }, {
+        title: 'More',
+        content: (
+          <Box sx={{
+            height: '100%',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            touchAction: 'pan-y',
+            WebkitOverflowScrolling: 'touch',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            p: 2
+          }}>
+            <Typography level="body-md" sx={{ color: 'neutral.500' }}>
+              Third page placeholder
+            </Typography>
+          </Box>
+        )
+      }]} 
+    />
   )
 }

@@ -8,8 +8,7 @@ export const ToolbarFuncs = ({ open, size = 'half', onClose }) => {
       open={open}
       onClose={onClose}
       size={size}
-    >
-      <Typography>Word Tools Coming Soon</Typography>
-    </ActionDrawer>
+      pages={[{ content: <Typography>Word Tools Coming Soon</Typography> }]}
+    />
   )
 }

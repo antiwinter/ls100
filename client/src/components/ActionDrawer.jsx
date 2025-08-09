@@ -1,17 +1,27 @@
 import { useState, useRef, useEffect } from 'react'
 import { Box, Stack, Typography, IconButton } from '@mui/joy'
 import { Close } from '@mui/icons-material'
+import { log } from '../utils/logger'
 
-// iOS-style drag handle with rounded rectangle bars - drag events only on handle
-const Handle = ({ onDragStart, onDragMove, onDragEnd, position = 'bottom' }) => (
+// Handle area doubles as page indicator; still captures vertical drag to close
+const Handle = ({ 
+  onDragStart, 
+  onDragMove, 
+  onDragEnd, 
+  position = 'bottom',
+  pageCount = 0,
+  activePage = 0
+}) => (
   <Box sx={{ 
     display: 'flex', 
     justifyContent: 'center', 
+    alignItems: 'center',
+    gap: 0.75,
     // Remove padding on side adjacent to content
-    pb: position === 'bottom' ? 0 : 1.5, // Bottom drawer: handle at top, remove top padding (adjacent to content)
-    pt: position === 'top' ? 0 : 1.5,    // Top drawer: handle at bottom, remove bottom padding (adjacent to content)
+    pb: position === 'bottom' ? 0 : 1.5,
+    pt: position === 'top' ? 0 : 1.5,
     cursor: 'grab',
-    touchAction: 'none', // Prevent browser gestures on handle
+    touchAction: 'none',
     '&:active': { cursor: 'grabbing' }
   }}
     onTouchStart={(e) => {
@@ -39,12 +49,19 @@ const Handle = ({ onDragStart, onDragMove, onDragEnd, position = 'bottom' }) => 
       onDragEnd(e)
     }}
   >
-    <Box sx={{
-      width: '36px',
-      height: '5px',
-      bgcolor: 'neutral.300',
-      borderRadius: '3px'
-    }} />
+    <Stack direction='row' spacing={0.75} alignItems='center' onClick={(e) => e.stopPropagation()}>
+      {Array.from({ length: Math.max(pageCount, 1) }).map((_, idx) => (
+        <Box key={idx}
+          sx={{
+            height: '6px',
+            width: idx === activePage ? '20px' : '6px',
+            borderRadius: '999px',
+            bgcolor: idx === activePage ? 'neutral.400' : 'neutral.300',
+            transition: 'all 0.2s ease'
+          }}
+        />
+      ))}
+    </Stack>
   </Box>
 )
 
@@ -54,8 +71,9 @@ export const ActionDrawer = ({
   size = 'half', 
   position = 'bottom',
   title,
-  content,
-  children 
+  pages,
+  initialPage = 0,
+  onPageChange
 }) => {
   const [dragY, setDragY] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
@@ -65,6 +83,33 @@ export const ActionDrawer = ({
   const [isPositionChanging, setIsPositionChanging] = useState(false)
   const drawerRef = useRef(null)
   const startY = useRef(0)
+  const contentRef = useRef(null)
+
+  // Horizontal paging state
+  const normalizedPages = Array.isArray(pages) ? pages.map(p => {
+    if (p && typeof p === 'object' && 'content' in p) return p
+    return { content: p }
+  }) : []
+  const pageCount = normalizedPages.length
+  const [activePage, setActivePage] = useState(() => {
+    const idx = Math.max(0, Math.min(initialPage, Math.max(0, pageCount - 1)))
+    return idx
+  })
+  const [isHDragging, setIsHDragging] = useState(false)
+  const startX = useRef(0)
+  const startYH = useRef(0)
+  const hLockRef = useRef(null) // null=undecided, 'h'=horizontal, 'v'=vertical
+  const isPagingEnabled = pageCount > 0
+  const wheelCooldownRef = useRef(0)
+  const sliderRef = useRef(null)
+  const widthRef = useRef(0)
+  const basePxRef = useRef(0)
+  const dragXRef = useRef(0)
+
+  const getPoint = (e) => ({
+    x: e.touches?.[0]?.clientX ?? e.clientX,
+    y: e.touches?.[0]?.clientY ?? e.clientY
+  })
 
   const isBottom = displayPosition === 'bottom'
   const heights = { 
@@ -100,6 +145,124 @@ export const ActionDrawer = ({
     if (dragY > 100) onClose()
     setDragY(0)
   }
+
+  // Horizontal swipe handlers (content area)
+  const handleHDragStartCapture = (e) => {
+    if (!isPagingEnabled) return
+    const { x, y } = getPoint(e)
+    startX.current = x
+    startYH.current = y
+    hLockRef.current = null
+    dragXRef.current = 0
+    widthRef.current = contentRef.current?.clientWidth || 1
+    basePxRef.current = -activePage * widthRef.current
+    if (sliderRef.current) {
+      sliderRef.current.style.transition = 'none'
+    }
+    // Do not stop here; decide on move
+  }
+
+  const handleHDragMoveCapture = (e) => {
+    if (!isPagingEnabled) return
+    const { x, y } = getPoint(e)
+    const dx = x - startX.current
+    const dy = y - startYH.current
+
+    if (hLockRef.current == null) {
+      const ax = Math.abs(dx)
+      const ay = Math.abs(dy)
+      if (ax > 10 || ay > 10) {
+        if (ax > ay * 1.2) {
+          hLockRef.current = 'h'
+          setIsHDragging(true)
+          log.debug(`[ActionDrawer] lock horizontal dx=${dx} dy=${dy}`)
+        } else {
+          hLockRef.current = 'v'
+          log.debug(`[ActionDrawer] lock vertical dx=${dx} dy=${dy}`)
+        }
+      }
+    }
+
+    if (hLockRef.current === 'h') {
+      e.preventDefault?.()
+      e.stopPropagation?.()
+      dragXRef.current = dx
+      if (sliderRef.current) {
+        const px = basePxRef.current + dx
+        sliderRef.current.style.transform = `translateX(${px}px)`
+      }
+    }
+  }
+
+  const handleHDragEndCapture = (e) => {
+    if (!isPagingEnabled) return
+    if (hLockRef.current === 'h') {
+      e.preventDefault?.()
+      e.stopPropagation?.()
+      const threshold = 60
+      const dx = dragXRef.current
+      let next = activePage
+      if (dx > threshold && activePage > 0) {
+        const next = activePage - 1
+        setActivePage(next)
+        onPageChange?.(next)
+      } else if (dx < -threshold && activePage < pageCount - 1) {
+        const next = activePage + 1
+        setActivePage(next)
+        onPageChange?.(next)
+      }
+    }
+    setIsHDragging(false)
+    dragXRef.current = 0
+    hLockRef.current = null
+    // snap to active page
+    const w = widthRef.current || contentRef.current?.clientWidth || 1
+    if (sliderRef.current) {
+      sliderRef.current.style.transition = 'transform 0.25s ease'
+      sliderRef.current.style.transform = `translateX(${-activePage * w}px)`
+    }
+  }
+
+  // Wheel-based navigation (trackpads)
+  const handleWheelCapture = (e) => {
+    if (!isPagingEnabled) return
+    const now = Date.now()
+    if (now - wheelCooldownRef.current < 400) return
+    const ax = Math.abs(e.deltaX)
+    const ay = Math.abs(e.deltaY)
+    if (ax > ay + 5 && ax > 20) {
+      e.stopPropagation()
+      let next = activePage
+      if (e.deltaX > 0 && activePage < pageCount - 1) next = activePage + 1
+      if (e.deltaX < 0 && activePage > 0) next = activePage - 1
+      if (next !== activePage) {
+        wheelCooldownRef.current = now
+        setActivePage(next)
+        onPageChange?.(next)
+        const w = contentRef.current?.clientWidth || 1
+        if (sliderRef.current) {
+          sliderRef.current.style.transition = 'transform 0.25s ease'
+          sliderRef.current.style.transform = `translateX(${-next * w}px)`
+        }
+      }
+    }
+  }
+
+  // Snap to active page whenever size changes or page changes (e.g., after open)
+  useEffect(() => {
+    if (!isPagingEnabled) return
+    const snap = () => {
+      const w = contentRef.current?.clientWidth || 1
+      widthRef.current = w
+      if (sliderRef.current) {
+        sliderRef.current.style.transition = isHDragging ? 'none' : 'transform 0.25s ease'
+        sliderRef.current.style.transform = `translateX(${-activePage * w}px)`
+      }
+    }
+    snap()
+    window.addEventListener('resize', snap)
+    return () => window.removeEventListener('resize', snap)
+  }, [activePage, isPagingEnabled, isHDragging, open])
 
   // Manage rendering state
   useEffect(() => {
@@ -207,7 +370,16 @@ export const ActionDrawer = ({
           overflow: 'hidden'
         }}
       >
-        {isBottom && <Handle onDragStart={handleDragStart} onDragMove={handleDragMove} onDragEnd={handleDragEnd} position='bottom' />}
+        {isBottom && (
+          <Handle 
+            onDragStart={handleDragStart} 
+            onDragMove={handleDragMove} 
+            onDragEnd={handleDragEnd} 
+            position='bottom' 
+            pageCount={pageCount}
+            activePage={activePage}
+          />
+        )}
         
         {title && (
           <Stack direction='row' justifyContent='space-between' alignItems='center' 
@@ -219,16 +391,79 @@ export const ActionDrawer = ({
           </Stack>
         )}
 
-        <Box sx={{ 
+        <Box ref={contentRef} sx={{ 
           flex: 1, 
-          p: 2,
-          // Content provider handles overflow - this is just a container
-          overflow: 'hidden'
-        }}>
-          {content || children}
+          p: 0,
+          overflow: 'hidden',
+          position: 'relative'
+        }}
+          onTouchStartCapture={handleHDragStartCapture}
+          onTouchMoveCapture={handleHDragMoveCapture}
+          onTouchEndCapture={handleHDragEndCapture}
+          onWheelCapture={handleWheelCapture}
+          onMouseDownCapture={(e) => {
+            // Only start mouse-based swipe on primary button
+            if (e.button !== 0) return
+            handleHDragStartCapture(e)
+          }}
+          onMouseMoveCapture={handleHDragMoveCapture}
+          onMouseUpCapture={handleHDragEndCapture}
+        >
+          {pageCount > 0 ? (
+            <Box
+              sx={{
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'row',
+                width: '100%',
+                transform: (() => {
+                  const width = contentRef.current?.clientWidth || 1
+                  const basePx = -activePage * width
+                  const dragPx = isHDragging ? dragX : 0
+                  return `translateX(${basePx + dragPx}px)`
+                })(),
+                transition: isHDragging ? 'none' : 'transform 0.25s ease',
+                // Create own stacking/graphics layer so underlying content won't visually bleed
+                willChange: 'transform',
+                // Prevent contents from shrinking when text wraps
+                minWidth: '100%'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {normalizedPages.map((p, idx) => (
+                <Box key={p.key ?? idx}
+                  sx={{
+                    flex: '0 0 100%',
+                    height: '100%',
+                    overflowY: 'auto',
+                    overflowX: 'hidden',
+                    touchAction: 'pan-y', // allow vertical scrolling inside page
+                    pr: 0.5 // minimal spacing to avoid scrollbar overlay
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Box sx={{ p: 2, boxSizing: 'border-box', minHeight: '100%' }}>
+                    {p.title ? (
+                      <Typography level='title-sm' sx={{ mb: 1, color: 'neutral.500' }}>{p.title}</Typography>
+                    ) : null}
+                    {p.content ?? p}
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          ) : null}
         </Box>
 
-        {!isBottom && <Handle onDragStart={handleDragStart} onDragMove={handleDragMove} onDragEnd={handleDragEnd} position='top' />}
+        {!isBottom && (
+          <Handle 
+            onDragStart={handleDragStart} 
+            onDragMove={handleDragMove} 
+            onDragEnd={handleDragEnd} 
+            position='top' 
+            pageCount={pageCount}
+            activePage={activePage}
+          />
+        )}
       </Box>
     </Box>
   )
