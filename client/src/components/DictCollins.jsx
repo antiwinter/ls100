@@ -39,7 +39,6 @@ export const DictCollins = ({ word, visible }) => {
     '& .caption': {
       // Use Joy surface token for subtle, theme-aware bg
       backgroundColor: 'var(--joy-palette-background-level1)',
-      // color: 'var(--joy-palette-neutral-500)',
       padding: '6px',
       borderRadius: '6px',
       margin: '10px 0 6px 0'
@@ -65,7 +64,7 @@ export const DictCollins = ({ word, visible }) => {
       position: 'relative'
     },
     '& li.en_tip': {
-      backgroundColor: 'var(--joy-palette-warning-softBg)',
+      backgroundColor: 'var(--joy-palette-background-level1)',
       borderRadius: '5px',
       padding: '6px 10px'
     },

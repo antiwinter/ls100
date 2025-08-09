@@ -21,6 +21,8 @@ export default defineConfig({
         scope: APP.pwa.scope,
         start_url: APP.pwa.start,
         categories: APP.pwa.categories,
+        theme_color: '#ffffff',
+        background_color: '#ffffff',
         icons: [
           {
             src: 'pwa-192x192.svg',

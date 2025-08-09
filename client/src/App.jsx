@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom'
-import { CssVarsProvider, Box, Typography, Button, Card, Tabs, TabPanel, useColorScheme } from '@mui/joy'
+import { CssVarsProvider, Box, Typography, Button, Card, Tabs, TabPanel } from '@mui/joy'
 import theme from './theme'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Login from './components/auth/Login'
@@ -105,20 +105,7 @@ function App() {
     }
   }, [])
 
-  // Sync iOS status bar with Joy color scheme
-  const StatusBarSync = () => {
-    const { systemMode, mode } = useColorScheme()
-    useEffect(() => {
-      const current = mode === 'system' ? systemMode : mode
-      const isIOSStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches
-      if (!isIOSStandalone) return
-      // iOS likely applies on launch; set early and avoid flipping at runtime
-      const meta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')
-      const value = current === 'dark' ? 'black' : 'default'
-      if (meta) meta.setAttribute('content', value)
-    }, [mode, systemMode])
-    return null
-  }
+  // iOS applies status bar style only at launch; we set it early in index.html.
 
   return (
     <CssVarsProvider 
@@ -129,7 +116,6 @@ function App() {
     >
       <Router>
         <AuthProvider>
-          <StatusBarSync />
           <AuthFlow />
         </AuthProvider>
       </Router>

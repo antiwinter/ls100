@@ -17,12 +17,38 @@
     
     <!-- iOS PWA Configuration -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="LS100" />
     
     <!-- Additional PWA Meta -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="application-name" content="LS100" />
+
+    <!-- System-aware colors for browser UI (Safari/Chrome). iOS Safari honors theme-color in-browser, not in standalone mode. -->
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000" />
+
+    <!-- Ensure iOS standalone status bar style matches system at launch -->
+    <script>
+      ;(function () {
+        try {
+          var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
+          var isStandalone = window.navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+          if (!isIOS || !isStandalone) return
+          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+          var meta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')
+          if (!meta) {
+            meta = document.createElement('meta')
+            meta.setAttribute('name', 'apple-mobile-web-app-status-bar-style')
+            document.head.appendChild(meta)
+          }
+          meta.setAttribute('content', prefersDark ? 'black' : 'default')
+        } catch (e) {
+          // no-op
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>
