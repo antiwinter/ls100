@@ -65,7 +65,7 @@ export const DictCollins = ({ word, visible }) => {
       position: 'relative'
     },
     '& li.en_tip': {
-      backgroundColor: 'var(--joy-palette-warning-100)',
+      backgroundColor: 'var(--joy-palette-warning-softBg)',
       borderRadius: '5px',
       padding: '6px 10px'
     },
