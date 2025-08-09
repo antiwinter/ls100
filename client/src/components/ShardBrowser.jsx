@@ -61,25 +61,22 @@ const EmptyState = ({ onImport }) => (
 // Individual shard item component
 const ShardItem = ({ shard, index, isSelected, editing, onToggleSelect, onOpenShard, onStartEdit }) => {
   // Long press handlers for this shard
-  const longPressHandlers = useLongPress(
-    () => {
-      // Long press: start editing and select shard
+  const handlePress = (e, type) => {
+    const select = () => onToggleSelect(shard.id)
+    if (type === 'long') {
       if (!editing) {
         onStartEdit?.()
-        setTimeout(() => onToggleSelect(shard.id), 0)
+        setTimeout(select, 0)
       } else {
-        onToggleSelect(shard.id)
+        select()
       }
-    },
-    () => {
-      // Short press: normal click behavior  
-      if (editing) {
-        onToggleSelect(shard.id)
-      } else {
-        onOpenShard(shard.id)
-      }
+      return
     }
-  )
+    if (editing) select()
+    else onOpenShard(shard.id)
+  }
+
+  const longPressHandlers = useLongPress(handlePress)
 
   return (
     <Grid 

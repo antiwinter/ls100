@@ -9,7 +9,9 @@ const getPos = (e) => ({
 // Calculate distance between two points
 const getDist = (a, b) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y))
 
-export const useLongPress = (onLongPress, onClick, { delay = 500, moveThreshold = 10 } = {}) => {
+// Unified long/short press hook
+// handler(e, type) where type is 'long' | 'short'
+export const useLongPress = (handler, { delay = 500, moveThreshold = 10 } = {}) => {
   const timer = useRef(null)
   const resetTimer = useRef(null) 
   const isLong = useRef(false)
@@ -31,9 +33,9 @@ export const useLongPress = (onLongPress, onClick, { delay = 500, moveThreshold 
     
     timer.current = setTimeout(() => {
       isLong.current = true
-      onLongPress?.(e)
+      handler?.(e, 'long')
     }, delay)
-  }, [onLongPress, delay, clear])
+  }, [handler, delay, clear])
 
   const move = useCallback((e) => {
     if (!timer.current) return
@@ -62,8 +64,8 @@ export const useLongPress = (onLongPress, onClick, { delay = 500, moveThreshold 
   }, [clear])
 
   const handleClick = useCallback((e) => {
-    if (shouldClick()) onClick?.(e)
-  }, [onClick])
+    if (shouldClick()) handler?.(e, 'short')
+  }, [handler])
 
   return {
     handlers: {

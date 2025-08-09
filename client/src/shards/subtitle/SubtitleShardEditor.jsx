@@ -65,7 +65,11 @@ const TruncatedFilename = ({ filename, isMain, showTooltip, onTooltipClose }) =>
 )
 
 const LanguageBox = ({ children, isMain, isAddButton, onClick, onLongPress }) => {
-  const longPressHandlers = useLongPress(onLongPress, onClick, { delay: 500 })
+  const handlePress = (e, type) => {
+    if (type === 'long') onLongPress?.(e)
+    else onClick?.(e)
+  }
+  const longPressHandlers = useLongPress(handlePress, { delay: 500 })
 
   return (
     <Box

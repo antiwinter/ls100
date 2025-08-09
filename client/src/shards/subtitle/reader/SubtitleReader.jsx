@@ -143,29 +143,24 @@ export const SubtitleReader = ({ shardId, onBack }) => {
     setShowToolbar(false)
   }
 
-  // Simple word click handler - only manages Set
-  const handleWordClickToggle = useCallback((word, suggestedPosition) => {
-    const currentWords = selectedWords.current
-    const currentlySelected = currentWords.has(word)
-    
-    if (currentlySelected) {
-      currentWords.delete(word)
+  // (deprecated) legacy word click handler removed
+
+  // Toggle and ensure-select helpers
+  const toggleWord = useCallback((w, f) => {
+    const s = selectedWords.current
+    if (!f && s.has(w)) {
+      s.delete(w)
     } else {
-      currentWords.add(word)
+      s.add(w)
     }
-    
-    // Show dictionary
-    setDictDrawer(prev => {
-      setShowToolbar(false)
-      const newPosition = prev.visible ? prev.position : suggestedPosition
-      
-      return {
-        visible: true,
-        word,
-        position: newPosition
-      }
-    })
-  }, []) // No dependencies needed
+  }, [])
+
+  // Short press: ensure selected and open dict
+  const explainWord = useCallback((word, pos) => {
+    toggleWord(word, 1)
+    setShowToolbar(false)
+    setDictDrawer({ visible: true, word, position: pos })
+  }, [toggleWord])
 
   // Handle review click (placeholder)
   const handleReviewClick = () => {
@@ -283,7 +278,8 @@ export const SubtitleReader = ({ shardId, onBack }) => {
         lines={lines}
         loading={linesLoading}
         selectedWordsRef={selectedWords}
-        onWordClick={handleWordClickToggle}
+        onWordShort={explainWord}
+        onWordLong={toggleWord}
         onEmptyClick={handleEmptyClick}
         onScroll={handleScroll}
         onProgressUpdate={handleProgressUpdate}

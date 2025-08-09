@@ -6,12 +6,14 @@ import {
 } from '@mui/joy'
 import { log } from '../../../utils/logger'
 import { InfiniteScroll } from '../../../components/InfiniteScroll'
+import { useLongPress } from '../../../utils/useLongPress'
 
 // Multi-language subtitle display - context-agnostic, stable
 const SubtitleViewerComponent = ({ 
   lines,
   loading,
-  onWordClick,
+  onWordShort, // short press → container handles ensure-select + dict
+  onWordLong,  // long press → container handles toggle only
   onEmptyClick,
   onScroll,
   onProgressUpdate,
@@ -57,32 +59,34 @@ const SubtitleViewerComponent = ({
     })
   }, [selectedWordsRef, lines.length])
 
-  // Handle word click via event delegation
-  const handleClick = (e) => {
-    const { word } = e.target.dataset
-    if (word?.length > 1) {
-      e.stopPropagation()
-      
-      // Calculate position for dictionary placement
-      const clickY = e.clientY || 
-                     (e.touches && e.touches[0]?.clientY) || 
-                     (e.changedTouches && e.changedTouches[0]?.clientY) || 
-                     window.innerHeight / 2
-      const viewportHeight = window.innerHeight
-      const position = clickY < viewportHeight / 2 ? 'bottom' : 'top'
-      
-      onWordClick?.(word, position)
-      
-      // Update word attributes immediately after click
-      // Use current line or find the clicked word's line
-      const clickedSpan = e.target.closest('[data-word]')
-      const lineIndex = parseInt(clickedSpan?.closest('[data-line-index]')?.dataset.lineIndex || '0')
-      updateWordAttributes(lineIndex)
-    } else {
-      // Dismiss dictionary when clicking on non-word area
-      onEmptyClick?.()
-    }
+  // Short/Long press helpers
+  const getPressData = useCallback((e) => {
+    const { word } = e.target?.dataset || {}
+    if (!word || word.length <= 1) return null
+    const span = e.target.closest('[data-word]')
+    const lineIndex = parseInt(span?.closest('[data-line-index]')?.dataset.lineIndex || '0')
+    return { word, lineIndex }
+  }, [])
+
+  const getDictPos = (e) => {
+    const y = e.clientY || (e.touches && e.touches[0]?.clientY) || (e.changedTouches && e.changedTouches[0]?.clientY) || window.innerHeight / 2
+    return y < window.innerHeight / 2 ? 'bottom' : 'top'
   }
+
+  // Unified press handler
+  const handlePress = useCallback((e, type) => {
+    const data = getPressData(e)
+    if (!data) { onEmptyClick?.(); return }
+    e.stopPropagation()
+    if (type === 'long') {
+      onWordLong?.(data.word)
+    } else {
+      onWordShort?.(data.word, getDictPos(e))
+    }
+    updateWordAttributes(data.lineIndex)
+  }, [getPressData, onEmptyClick, onWordLong, onWordShort, updateWordAttributes])
+
+  const { handlers } = useLongPress(handlePress, { delay: 450 })
 
   // Render text with pre-rendered overlays (hidden by default)
   const renderText = (text) => {
@@ -183,12 +187,23 @@ const SubtitleViewerComponent = ({
   return (
     <Box
       ref={viewerRef}
-      onClick={handleClick}
+      {...handlers}
       sx={{
         flex: 1,
         display: 'flex',
         flexDirection: 'column',
         minHeight: 0,
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        msUserSelect: 'none',
+        WebkitTouchCallout: 'none',
+        WebkitTapHighlightColor: 'transparent',
+        touchAction: 'pan-y',
+        '& *, & *::before, & *::after': {
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          msUserSelect: 'none'
+        },
         // CSS for word selection overlay
         '& .word-overlay': {
           opacity: 0 // Hidden by default
