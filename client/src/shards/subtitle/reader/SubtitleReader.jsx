@@ -62,6 +62,27 @@ export const SubtitleReader = ({ shardId, onBack }) => {
   
   // Function to get current action drawer state
   const getActionDrawerState = useCallback(() => actionDrawerRef.current, [])
+  
+  // Track toolbar state with ref for immediate access
+  const toolbarVisibleRef = useRef(false)
+  
+  useEffect(() => {
+    toolbarVisibleRef.current = showToolbar
+  }, [showToolbar])
+  
+  // Unified drawer state helpers - stable functions using refs
+  const hasAnyDrawerOpen = useCallback(() => {
+    const dictState = getDictState()
+    const actionState = getActionDrawerState()
+    return dictState?.visible || actionState.open
+  }, [getDictState, getActionDrawerState])
+  
+  const closeAllDrawers = useCallback(() => {
+    setDictDrawer({ visible: false, word: '', position: 'bottom' })
+    setActionDrawer({ open: false, size: 'half', tool: null })
+  }, [])
+  
+  const isToolbarVisible = useCallback(() => toolbarVisibleRef.current, [])
   const loadShard = useCallback(async () => {
     try {
       const data = await apiCall(`/api/shards/${shardId}`)
@@ -150,26 +171,29 @@ export const SubtitleReader = ({ shardId, onBack }) => {
     return () => { mounted = false }
   }, [shardId, ackPosition])
 
-  // Handle empty space clicks - dismiss dictionary, font drawer, or toggle toolbar
+  // Handle empty space clicks - unified behavior
   const handleEmptyClick = useCallback(() => {  
-    const dictState = getDictState()
-    const actionState = getActionDrawerState()
-    
-    if (dictState?.visible) {
-      // If dict is open, close it
-      setDictDrawer(prev => ({ ...prev, visible: false }))
-    } else if (actionState.open && actionState.tool === 'font') {
-      // If font drawer is open, close it
-      setActionDrawer({ open: false, size: 'half', tool: null })
+    if (hasAnyDrawerOpen() || isToolbarVisible()) {
+      // If anything is open, close all drawers and toolbar
+      closeAllDrawers()
+      setShowToolbar(false)
     } else {
-      // If both are closed, toggle toolbar
-      setShowToolbar(current => !current)
+      // If nothing is open, show toolbar
+      setShowToolbar(true)
     }
-  }, [getDictState, getActionDrawerState]) // Stable functions, won't cause re-renders
+  }, [hasAnyDrawerOpen, isToolbarVisible, closeAllDrawers])
 
   // Handle toolbar tool selection
   const handleToolSelect = (tool) => {
-    setActionDrawer({ open: true, size: 'half', tool })
+    const currentActionState = getActionDrawerState()
+    
+    // Toggle behavior: if same tool is open, close it; otherwise open the new tool
+    if (currentActionState.open && currentActionState.tool === tool) {
+      setActionDrawer({ open: false, size: 'half', tool: null })
+    } else {
+      setActionDrawer({ open: true, size: 'half', tool })
+    }
+    
     // Only hide toolbar for non-font tools
     if (tool !== 'font') {
       setShowToolbar(false)
@@ -200,9 +224,10 @@ export const SubtitleReader = ({ shardId, onBack }) => {
     // TODO: Implement review feature
   }
 
-  // Handle scroll events - hide toolbar and line updates (stable)
+  // Handle scroll events - hide action drawers + toolbar, preserve dict
   const handleScroll = useCallback((e, currentLine) => {
-    // Hide toolbar on scroll
+    // Hide action drawers and toolbar on scroll (preserve dict)
+    setActionDrawer({ open: false, size: 'half', tool: null })
     setShowToolbar(false)
     
     // Update current line from intersection
@@ -376,5 +401,19 @@ export const SubtitleReader = ({ shardId, onBack }) => {
   )
 }
 
-// Memoize SubtitleViewer to prevent unnecessary re-renders
-const MemoizedSubtitleViewer = memo(SubtitleViewer)
+// Memoized SubtitleViewer with development re-render monitoring
+const MemoizedSubtitleViewer = memo((props) => {
+  // Monitor re-renders in development
+  if (import.meta.env.DEV) {
+    const renderCountRef = useRef(0)
+    renderCountRef.current++
+    
+    useEffect(() => {
+      if (renderCountRef.current > 1) {
+        log.warn(`🔄 SubtitleViewer re-render #${renderCountRef.current}`)
+      }
+    })
+  }
+  
+  return <SubtitleViewer {...props} />
+})
