@@ -17,7 +17,9 @@ const SubtitleViewerComponent = ({
   onEmptyClick,
   onScroll,
   onProgressUpdate,
-  selectedWordsRef // Add selectedWordsRef prop
+  selectedWordsRef, // Add selectedWordsRef prop
+  mainLanguageCode,
+  languages
 }, ref) => {
   const pendingIndexRef = useRef(null)
   const viewerRef = useRef(null)
@@ -88,6 +90,25 @@ const SubtitleViewerComponent = ({
 
   const { handlers } = useLongPress(handlePress, { delay: 450 })
 
+  // Imperative font style setter via CSS variables to avoid re-render
+  const setFontStyle = useCallback(({ family, size }) => {
+    if (!viewerRef.current) return
+    if (family) viewerRef.current.style.setProperty('--reader-font-family', family)
+    if (Number.isFinite(size)) viewerRef.current.style.setProperty('--reader-font-size', `${size}px`)
+  }, [])
+  
+  // Imperatively toggle ref visibility; called by parent to avoid React re-renders
+  const setRefLangVisibility = useCallback((code, visible) => {
+    if (!viewerRef.current || !code) return
+    const blocks = viewerRef.current.querySelectorAll(`[data-ref-lang="${code}"]`)
+    blocks.forEach(el => {
+      el.style.overflow = 'hidden'
+      el.style.height = visible ? 'auto' : '0px'
+      el.style.margin = visible ? '' : '0'
+      el.style.opacity = visible ? '1' : '0'
+    })
+  }, [])
+
   // Render text with pre-rendered overlays (hidden by default)
   const renderText = (text) => {
     if (!text) return null
@@ -130,25 +151,45 @@ const SubtitleViewerComponent = ({
     })
   }
 
-  // Memoize expensive grouping computation
-  const groups = useMemo(() => {
-    const result = lines.reduce((acc, line, idx) => {
-      const { start: timestamp } = line.data || {}
-      const key = timestamp || 0
-      if (!acc[key]) acc[key] = []
-      acc[key].push({ ...line, actualIndex: idx })
-      return acc
-    }, {})
-    
-    // Only log when we have data to avoid spam
-    if (lines.length > 0) {
-      log.debug(`📊 ${lines.length} lines → ${Object.keys(result).length} groups`)
+  // Build groups from main language timeline and attach refs with ts <= main
+  const entries = useMemo(() => {
+    const main = []
+    const refs = []
+    lines.forEach((line, idx) => {
+      const code = line.language || line.data?.language || line.data?.lang
+      const startMs = (line.data && line.data.start) || 0
+      const item = { ...line, actualIndex: idx, startMs }
+      if (code && mainLanguageCode && code === mainLanguageCode) main.push(item)
+      else refs.push(item)
+    })
+    main.sort((a, b) => a.startMs - b.startMs)
+    refs.sort((a, b) => a.startMs - b.startMs)
+    const result = []
+    let r = 0
+    for (let i = 0; i < main.length; i++) {
+      const m = main[i]
+      const sec = Math.floor(m.startMs / 1000)
+      // main lines in same second
+      const mainLines = [m]
+      // collect subsequent mains in same second
+      let j = i + 1
+      while (j < main.length && Math.floor(main[j].startMs / 1000) === sec) {
+        mainLines.push(main[j])
+        j++
+      }
+      i = j - 1
+      // collect refs with ts <= current main startMs
+      const refMap = new Map()
+      while (r < refs.length && refs[r].startMs <= m.startMs) {
+        const code = refs[r].language || refs[r].data?.language || refs[r].data?.lang || 'ref'
+        if (!refMap.has(code)) refMap.set(code, [])
+        refMap.get(code).push(refs[r])
+        r++
+      }
+      result.push([sec, { main: mainLines, refs: refMap }])
     }
-    
     return result
-  }, [lines])
-
-  const entries = Object.entries(groups)
+  }, [lines, mainLanguageCode])
 
   // Imperative API: setPosition without emitting onScroll
   const tryScrollToIndex = useCallback((lineIndex) => {
@@ -173,8 +214,19 @@ const SubtitleViewerComponent = ({
     },
     refreshSelection: (lineIndex = 0) => {
       updateWordAttributes(lineIndex)
+    },
+    setFontStyle,
+    setRefLangVisibility: (code, visible) => {
+      if (!viewerRef.current || !code) return
+      const blocks = viewerRef.current.querySelectorAll(`[data-ref-lang="${code}"]`)
+      blocks.forEach(el => {
+        el.style.overflow = 'hidden'
+        el.style.height = visible ? 'auto' : '0px'
+        el.style.margin = visible ? '' : '0'
+        el.style.opacity = visible ? '1' : '0'
+      })
     }
-  }), [tryScrollToIndex, updateWordAttributes])
+  }), [tryScrollToIndex, updateWordAttributes, setFontStyle])
 
   // When lines load or change, apply any pending scroll
   useEffect(() => {
@@ -199,6 +251,9 @@ const SubtitleViewerComponent = ({
         WebkitTouchCallout: 'none',
         WebkitTapHighlightColor: 'transparent',
         touchAction: 'pan-y',
+        // CSS vars for dynamic font without re-render
+        '--reader-font-family': 'system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Noto Sans, PingFang SC, Hiragino Sans GB, Microsoft YaHei, Heiti SC, sans-serif',
+        '--reader-font-size': '16px',
         '& *, & *::before, & *::after': {
           userSelect: 'none',
           WebkitUserSelect: 'none',
@@ -223,12 +278,12 @@ const SubtitleViewerComponent = ({
           }
         }}
       >
-        {entries.map(([timestamp, lines]) => {
+        {entries.map(([sec, group]) => {
           // intentionally unused: isCurrent reserved for future highlight
           // const isCurrent = lines.some(line => line.actualIndex === visibleIndex)
           return (
             <Box
-              key={timestamp}
+              key={sec}
               sx={{
                 py: 0.1,
                 mb: 1,
@@ -236,40 +291,64 @@ const SubtitleViewerComponent = ({
                 borderRadius: 'sm'
               }}
             >
-              {lines.map((line, idx) => (
-                <Stack 
-                  key={idx} 
-                  direction="row" 
-                  spacing={1} 
-                  alignItems="flex-start"
-                  data-line-index={line.actualIndex || 0}
-                >
-                  <Typography 
-                    level="body-xs" 
-                    color="neutral" 
-                    sx={{ 
-                      minWidth: '40px',
-                      fontSize: '10px',
-                      lineHeight: 1.2,
-                      pt: 0.5,
-                      flexShrink: 0
-                    }}
-                  >
-                    {formatTime(parseInt(timestamp))}
-                  </Typography>
-                  
-                  <Typography
-                    level="body-sm"
-                    sx={{
-                      lineHeight: 1.3,
-                      fontSize: getLanguageInfo().code === 'zh' ? 'md' : 'sm',
-                      flex: 1
-                    }}
-                  >
-                    {renderText(cleanSrtText(line.data?.text))}
-                  </Typography>
-                </Stack>
-              ))}
+              {(() => {
+                const mainBucket = group.main
+                const refMap = group.refs || new Map()
+                const otherCodes = (languages || []).map(l => l.code).filter(c => c && c !== mainLanguageCode)
+                return (
+                  <Stack direction="row" spacing={1} alignItems="flex-start">
+                    <Typography 
+                      level="body-xs" 
+                      color="neutral" 
+                      sx={{ 
+                        minWidth: '40px',
+                        fontSize: '10px',
+                        lineHeight: 1.2,
+                        pt: 0.5,
+                        flexShrink: 0
+                      }}
+                    >
+                      {formatTime(parseInt(sec) * 1000)}
+                    </Typography>
+                    <Stack spacing={0.25} sx={{ flex: 1 }}>
+                      {/* main language lines with tokenization */}
+                      {mainBucket && mainBucket.length > 0 && (
+                        <Box data-lang={mainLanguageCode}>
+                          {mainBucket.map((line, i) => (
+                            <Box key={`m-${i}`} data-line-index={line.actualIndex || 0}>
+                              <Typography
+                                level="body-sm"
+                                sx={{
+                                  lineHeight: 1.3,
+                                  fontSize: 'var(--reader-font-size)',
+                                  fontFamily: 'var(--reader-font-family)'
+                                }}
+                              >
+                                {renderText(cleanSrtText(line.data?.text))}
+                              </Typography>
+                            </Box>
+                          ))}
+                        </Box>
+                      )}
+
+                      {/* reference language blocks: unified style; visibility controlled via imperative API */}
+                      {otherCodes.map(code => {
+                        const refLines = refMap.get(code) || []
+                        if (!refLines.length) return null
+                        return (
+                          <Box key={code} data-ref-lang={code}>
+                            {refLines.map((line, i) => (
+                              <Typography key={`r-${code}-${i}`} level="body-sm" sx={{ lineHeight: 1.3, color: 'neutral.700' }}>
+                                {cleanSrtText(line.data?.text)}
+                              </Typography>
+                            ))}
+                          </Box>
+                        )
+                      })}
+                    </Stack>
+                  </Stack>
+                )
+              })()}
             </Box>
           )
         })}

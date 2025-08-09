@@ -29,15 +29,14 @@ const BUTTONS = [
   { key: 'wordlist', title: 'Word list', Icon: ListAltOutlined },
   { key: 'bookmark', title: 'Bookmark', Icon: BookmarkBorder },
   { key: 'search', title: 'Search', Icon: Search },
-  { key: 'font', title: 'Font settings', Icon: TextFields },
+  { key: 'font', title: 'Font settings', Icon: TextFields }
 ]
 
 // Top slide-down toolbar with auto-hide and tool buttons
 export const Toolbar = ({ 
   visible, 
   onBack, 
-  onToolSelect, 
-  movieName 
+  onToolSelect
 }) => {
   const [isVisible, setIsVisible] = useState(visible)
   const hideTimer = useRef(null)
@@ -111,16 +110,16 @@ export const Toolbar = ({
         
         {/* Right side: Tool buttons */}
         <Stack direction="row" spacing={1} alignItems="center">
-          {BUTTONS.map(({ key, title, Icon }) => (
+          {BUTTONS.map((button) => (
             <IconButton
-              key={key}
-              onClick={() => handleToolClick(key)}
+              key={button.key}
+              onClick={() => handleToolClick(button.key)}
               variant="plain"
               size="sm"
               sx={btnSx}
-              title={title}
+              title={button.title}
             >
-              <Icon />
+              <button.Icon />
             </IconButton>
           ))}
         </Stack>

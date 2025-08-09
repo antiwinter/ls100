@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, memo } from 'react'
+import { useState, useEffect, useCallback, useRef, memo, useMemo } from 'react'
 import { Box, Typography, LinearProgress, Stack, Chip } from '@mui/joy'
 import { Bolt } from '@mui/icons-material'
 import { apiCall } from '../../../config/api'
@@ -9,6 +9,8 @@ import { ToolbarFuncs } from './ToolbarFuncs.jsx'
 import { Toolbar } from './Toolbar.jsx'
 import { SubtitleViewer } from './SubtitleViewer.jsx'
 import { useSubtitleLines } from './hooks/useSubtitleLines.js'
+import { FontDrawer } from './FontDrawer.jsx'
+import { fontStack } from '../../../utils/font'
 
 export const SubtitleReader = ({ shardId, onBack }) => {
   const [shard, setShard] = useState(null)
@@ -20,13 +22,25 @@ export const SubtitleReader = ({ shardId, onBack }) => {
   const [totalLines, setTotalLines] = useState(0)
   const viewerRef = useRef(null)
   
-  // Prepare lines hook early to keep hook order stable
-  const subtitleId = shard?.data?.languages?.[0]?.subtitle_id
-  const { lines, loading: linesLoading } = useSubtitleLines(subtitleId)
+  // Prepare languages and fetch all lines (main + refs) once
+  const languages = useMemo(() => 
+    shard?.data?.languages?.map(l => ({ 
+      code: l.language_code || l.code || 'en',
+      filename: l.filename || l.file || '',
+      subtitle_id: l.subtitle_id
+    })) || [],
+    [shard?.data?.languages]
+  )
+  const { lines, loading: linesLoading } = useSubtitleLines(languages)
   
   // Local drawer states - simple and direct
   const [dictDrawer, setDictDrawer] = useState({ visible: false, word: '', position: 'bottom' })
-  const [actionDrawer, setActionDrawer] = useState({ open: false, size: 'half' })
+  const [actionDrawer, setActionDrawer] = useState({ open: false, size: 'half', tool: null })
+
+  // Font settings
+  const [fontMode, setFontMode] = useState('sans')
+  const [fontSize, setFontSize] = useState(16)
+  const [langSet, setLangSet] = useState(new Set())
   
   // Track dict state with ref for immediate access
   const dictStateRef = useRef({ visible: false, word: '', position: 'bottom' })
@@ -138,8 +152,8 @@ export const SubtitleReader = ({ shardId, onBack }) => {
   }, [getDictState])
 
   // Handle toolbar tool selection
-  const handleToolSelect = (_tool) => {
-    setActionDrawer({ open: true, size: 'half' })
+  const handleToolSelect = (tool) => {
+    setActionDrawer({ open: true, size: 'half', tool })
     setShowToolbar(false)
   }
 
@@ -186,6 +200,15 @@ export const SubtitleReader = ({ shardId, onBack }) => {
 
 
 
+  const movieName = shard?.data?.languages?.[0]?.movie_name || shard?.name || ''
+  
+  // init langSet once when shard loads
+  useEffect(() => {
+    if (languages.length) {
+      setLangSet(new Set(languages.map(l => l.code)))
+    }
+  }, [languages])
+
   if (loading) {
     return (
       <Box sx={{ p: 3 }}>
@@ -203,8 +226,6 @@ export const SubtitleReader = ({ shardId, onBack }) => {
       </Box>
     )
   }
-
-  const movieName = shard.data?.languages?.[0]?.movie_name || shard.name
 
   return (
     <Box sx={{ 
@@ -278,6 +299,9 @@ export const SubtitleReader = ({ shardId, onBack }) => {
         lines={lines}
         loading={linesLoading}
         selectedWordsRef={selectedWords}
+        langSet={langSet}
+        mainLanguageCode={languages?.[0]?.code}
+        languages={languages}
         onWordShort={explainWord}
         onWordLong={toggleWord}
         onEmptyClick={handleEmptyClick}
@@ -294,11 +318,41 @@ export const SubtitleReader = ({ shardId, onBack }) => {
         onClose={() => setDictDrawer({ visible: false, word: '', position: 'bottom' })}
       />
 
-      <ToolbarFuncs
-        open={actionDrawer.open}
-        size={actionDrawer.size}
-        onClose={() => setActionDrawer({ open: false, size: 'half' })}
-      />
+      {actionDrawer.tool === 'font' ? (
+        <FontDrawer
+          open={actionDrawer.open}
+          onClose={() => setActionDrawer({ open: false, size: 'half', tool: null })}
+          fontMode={fontMode}
+          onChangeFontMode={(mode) => {
+            setFontMode(mode)
+            // apply immediately via CSS vars
+            viewerRef.current?.setFontStyle?.({ family: fontStack(mode) })
+          }}
+          fontSize={fontSize}
+          onChangeFontSize={(size) => {
+            setFontSize(size)
+            // apply immediately via CSS vars
+            viewerRef.current?.setFontStyle?.({ size })
+          }}
+          languages={languages}
+          langSet={langSet}
+          mainLanguageCode={languages?.[0]?.code}
+          onToggleLang={(code) => setLangSet(prev => {
+            const next = new Set(prev)
+            if (next.has(code)) next.delete(code); else next.add(code)
+            // Imperatively toggle ref visibility for better performance
+            const visible = next.has(code)
+            viewerRef.current?.setRefLangVisibility?.(code, visible)
+            return next
+          })}
+        />
+      ) : (
+        <ToolbarFuncs
+          open={actionDrawer.open}
+          size={actionDrawer.size}
+          onClose={() => setActionDrawer({ open: false, size: 'half', tool: null })}
+        />
+      )}
     </Box>
   )
 }
