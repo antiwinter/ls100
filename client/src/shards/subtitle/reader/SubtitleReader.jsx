@@ -45,13 +45,23 @@ export const SubtitleReader = ({ shardId, onBack }) => {
   // Track dict state with ref for immediate access
   const dictStateRef = useRef({ visible: false, word: '', position: 'bottom' })
   
-  // Update ref whenever dict state changes
+  // Track action drawer state with ref for immediate access
+  const actionDrawerRef = useRef({ open: false, size: 'half', tool: null })
+  
+  // Update refs whenever states change
   useEffect(() => {
     dictStateRef.current = dictDrawer
   }, [dictDrawer])
   
+  useEffect(() => {
+    actionDrawerRef.current = actionDrawer
+  }, [actionDrawer])
+  
   // Function to get current dict state
   const getDictState = useCallback(() => dictStateRef.current, [])
+  
+  // Function to get current action drawer state
+  const getActionDrawerState = useCallback(() => actionDrawerRef.current, [])
   const loadShard = useCallback(async () => {
     try {
       const data = await apiCall(`/api/shards/${shardId}`)
@@ -140,21 +150,30 @@ export const SubtitleReader = ({ shardId, onBack }) => {
     return () => { mounted = false }
   }, [shardId, ackPosition])
 
-  // Handle empty space clicks - dismiss dictionary or toggle toolbar
+  // Handle empty space clicks - dismiss dictionary, font drawer, or toggle toolbar
   const handleEmptyClick = useCallback(() => {  
-    if (getDictState()?.visible) {
+    const dictState = getDictState()
+    const actionState = getActionDrawerState()
+    
+    if (dictState?.visible) {
       // If dict is open, close it
       setDictDrawer(prev => ({ ...prev, visible: false }))
+    } else if (actionState.open && actionState.tool === 'font') {
+      // If font drawer is open, close it
+      setActionDrawer({ open: false, size: 'half', tool: null })
     } else {
-      // If dict is closed, toggle toolbar
+      // If both are closed, toggle toolbar
       setShowToolbar(current => !current)
     }
-  }, [getDictState])
+  }, [getDictState, getActionDrawerState]) // Stable functions, won't cause re-renders
 
   // Handle toolbar tool selection
   const handleToolSelect = (tool) => {
     setActionDrawer({ open: true, size: 'half', tool })
-    setShowToolbar(false)
+    // Only hide toolbar for non-font tools
+    if (tool !== 'font') {
+      setShowToolbar(false)
+    }
   }
 
   // (deprecated) legacy word click handler removed
@@ -318,41 +337,41 @@ export const SubtitleReader = ({ shardId, onBack }) => {
         onClose={() => setDictDrawer({ visible: false, word: '', position: 'bottom' })}
       />
 
-      {actionDrawer.tool === 'font' ? (
-        <FontDrawer
-          open={actionDrawer.open}
-          onClose={() => setActionDrawer({ open: false, size: 'half', tool: null })}
-          fontMode={fontMode}
-          onChangeFontMode={(mode) => {
-            setFontMode(mode)
-            // apply immediately via CSS vars
-            viewerRef.current?.setFontStyle?.({ family: fontStack(mode) })
-          }}
-          fontSize={fontSize}
-          onChangeFontSize={(size) => {
-            setFontSize(size)
-            // apply immediately via CSS vars
-            viewerRef.current?.setFontStyle?.({ size })
-          }}
-          languages={languages}
-          langSet={langSet}
-          mainLanguageCode={languages?.[0]?.code}
-          onToggleLang={(code) => setLangSet(prev => {
-            const next = new Set(prev)
-            if (next.has(code)) next.delete(code); else next.add(code)
-            // Imperatively toggle ref visibility for better performance
-            const visible = next.has(code)
-            viewerRef.current?.setRefLangVisibility?.(code, visible)
-            return next
-          })}
-        />
-      ) : (
-        <ToolbarFuncs
-          open={actionDrawer.open}
-          size={actionDrawer.size}
-          onClose={() => setActionDrawer({ open: false, size: 'half', tool: null })}
-        />
-      )}
+      {/* Always render FontDrawer - just control open state */}
+      <FontDrawer
+        open={actionDrawer.open && actionDrawer.tool === 'font'}
+        onClose={() => setActionDrawer({ open: false, size: 'half', tool: null })}
+        fontMode={fontMode}
+        onChangeFontMode={(mode) => {
+          setFontMode(mode)
+          // apply immediately via CSS vars
+          viewerRef.current?.setFontStyle?.({ family: fontStack(mode) })
+        }}
+        fontSize={fontSize}
+        onChangeFontSize={(size) => {
+          setFontSize(size)
+          // apply immediately via CSS vars
+          viewerRef.current?.setFontStyle?.({ size })
+        }}
+        languages={languages}
+        langSet={langSet}
+        mainLanguageCode={languages?.[0]?.code}
+        onToggleLang={(code) => setLangSet(prev => {
+          const next = new Set(prev)
+          if (next.has(code)) next.delete(code); else next.add(code)
+          // Imperatively toggle ref visibility for better performance
+          const visible = next.has(code)
+          viewerRef.current?.setRefLangVisibility?.(code, visible)
+          return next
+        })}
+      />
+      
+      {/* Always render ToolbarFuncs - just control open state */}
+      <ToolbarFuncs
+        open={actionDrawer.open && actionDrawer.tool !== 'font'}
+        size={actionDrawer.size}
+        onClose={() => setActionDrawer({ open: false, size: 'half', tool: null })}
+      />
     </Box>
   )
 }

@@ -9,6 +9,12 @@ export const FontDrawer = ({ open, onClose, fontMode, onChangeFontMode, fontSize
     { value: 20, label: '20' },
     { value: 24, label: '24' }
   ]), [])
+  
+  // Memoize filtered languages to avoid recalculation on every render
+  const filteredLanguages = useMemo(() => 
+    languages.filter((l) => l.code !== mainLanguageCode),
+    [languages, mainLanguageCode]
+  )
 
   return (
     <ActionDrawer open={open} onClose={onClose} position="bottom" size="half">
@@ -33,27 +39,25 @@ export const FontDrawer = ({ open, onClose, fontMode, onChangeFontMode, fontSize
           onChange={(_, v) => onChangeFontSize?.(v)}
         />
 
-        {languages?.length > 0 && (
+        {filteredLanguages?.length > 0 && (
           <>
             <Typography level="title-sm">Languages</Typography>
             <Sheet variant="soft" sx={{ p: 1, borderRadius: 'sm' }}>
               <Stack spacing={1}>
-                {languages
-                  .filter((l) => l.code !== mainLanguageCode)
-                  .map((lang) => {
-                    const active = langSet?.has?.(lang.code)
-                    return (
-                      <Stack key={lang.code} direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-                        <Stack direction="row" spacing={1} sx={{ minWidth: 0 }}>
-                          <Typography level="body-sm" sx={{ maxWidth: 220, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-                            {lang.filename || 'Untitled subtitle'}
-                          </Typography>
-                          <Chip variant="outlined" size="sm">{lang.code.toUpperCase()}</Chip>
-                        </Stack>
-                        <Switch checked={!!active} onChange={() => onToggleLang?.(lang.code)} />
+                {filteredLanguages.map((lang) => {
+                  const active = langSet?.has?.(lang.code)
+                  return (
+                    <Stack key={lang.code} direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+                      <Stack direction="row" spacing={1} sx={{ minWidth: 0 }}>
+                        <Typography level="body-sm" sx={{ maxWidth: 220, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                          {lang.filename || 'Untitled subtitle'}
+                        </Typography>
+                        <Chip variant="outlined" size="sm">{lang.code.toUpperCase()}</Chip>
                       </Stack>
-                    )
-                  })}
+                      <Switch checked={!!active} onChange={() => onToggleLang?.(lang.code)} />
+                    </Stack>
+                  )
+                })}
               </Stack>
             </Sheet>
           </>
