@@ -56,18 +56,21 @@ export const DictCollins = ({ word, visible }) => {
       fontWeight: 600
     },
     '& ul': {
-      marginLeft: '15px'
+      marginLeft: '25px',
+      paddingLeft: '0'
     },
     '& li': {
       margin: '5px 0',
-      padding: '5px'
+      padding: '5px',
+      position: 'relative'
     },
     '& li.en_tip': {
       backgroundColor: 'var(--joy-palette-warning-100)',
-      borderRadius: '5px'
+      borderRadius: '5px',
+      padding: '6px 10px'
     },
-    '& ul.vli': {
-      margin: 0,
+    '& li.en_tip ul, & ul.vli': {
+      margin: '8px 0 0 20px',
       padding: 0
     }
   }
