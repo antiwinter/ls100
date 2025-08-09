@@ -8,9 +8,7 @@ import { useSync } from './sync.js'
 import { ToolbarFuncs } from './ToolbarFuncs.jsx'
 import { Toolbar } from './Toolbar.jsx'
 import { SubtitleViewer } from './SubtitleViewer.jsx'
-
-// Stable empty set to prevent re-renders
-const EMPTY_SET = new Set()
+import { useSubtitleLines } from './hooks/useSubtitleLines.js'
 
 export const SubtitleReader = ({ shardId, onBack }) => {
   const [shard, setShard] = useState(null)
@@ -21,6 +19,10 @@ export const SubtitleReader = ({ shardId, onBack }) => {
   const currentLineRef = useRef(0)
   const [totalLines, setTotalLines] = useState(0)
   const viewerRef = useRef(null)
+  
+  // Prepare lines hook early to keep hook order stable
+  const subtitleId = shard?.data?.languages?.[0]?.subtitle_id
+  const { lines, loading: linesLoading } = useSubtitleLines(subtitleId)
   
   // Local drawer states - simple and direct
   const [dictDrawer, setDictDrawer] = useState({ visible: false, word: '', position: 'bottom' })
@@ -57,6 +59,8 @@ export const SubtitleReader = ({ shardId, onBack }) => {
       words.forEach(word => selectedWords.current.add(word))
       
       log.debug(`📝 Loaded ${words.length} selected words`)
+      // refresh selection for current viewport without re-render
+      viewerRef.current?.refreshSelection?.(Math.max(0, (currentLineRef.current || 1) - 1))
     } catch (error) {
       log.error('Failed to load selected words:', error)
     }
@@ -110,6 +114,8 @@ export const SubtitleReader = ({ shardId, onBack }) => {
           }
           setCurrentLine(line)
           currentLineRef.current = line
+          // ensure selection overlays reflect baseline right away
+          viewerRef.current?.refreshSelection?.(Math.max(0, line - 1))
         }
       } catch {
         // ignore
@@ -274,10 +280,9 @@ export const SubtitleReader = ({ shardId, onBack }) => {
 
       {/* Main viewer - memoized for stability */}
       <MemoizedSubtitleViewer
-        shard={shard}
-        currentIndex={Math.max(0, (currentLine || 1) - 1)}
-        selectedWords={EMPTY_SET} // Stable empty set to prevent re-renders
-        selectedWordsRef={selectedWords} // Pass ref for attribute updates
+        lines={lines}
+        loading={linesLoading}
+        selectedWordsRef={selectedWords}
         onWordClick={handleWordClickToggle}
         onEmptyClick={handleEmptyClick}
         onScroll={handleScroll}

@@ -1,65 +1,24 @@
-import { useState, useEffect, useRef, useMemo, memo, useCallback, forwardRef, useImperativeHandle } from 'react'
+import { useEffect, useRef, useMemo, memo, useCallback, forwardRef, useImperativeHandle } from 'react'
 import {
   Box,
   Stack,
   Typography
 } from '@mui/joy'
-import { apiCall } from '../../../config/api'
 import { log } from '../../../utils/logger'
 import { InfiniteScroll } from '../../../components/InfiniteScroll'
 
 // Multi-language subtitle display - context-agnostic, stable
 const SubtitleViewerComponent = ({ 
-  shard, 
+  lines,
+  loading,
   onWordClick,
   onEmptyClick,
   onScroll,
   onProgressUpdate,
   selectedWordsRef // Add selectedWordsRef prop
 }, ref) => {
-  const [lines, setLines] = useState([])
   const pendingIndexRef = useRef(null)
-  const [loading, setLoading] = useState(false)
-  const loadingRef = useRef(false)
-  const loadedRef = useRef(false)
   const viewerRef = useRef(null)
-
-  // Load when shard changes
-  const subtitleId = shard?.data?.languages?.[0]?.subtitle_id
-  useEffect(() => {
-    const loadAllLines = async () => {
-      if (!shard?.data?.languages?.[0] || loadingRef.current || loadedRef.current) {
-        log.debug(`📥 Skip loading: loading=${loadingRef.current}, loaded=${loadedRef.current}`)
-        return
-      }
-
-      loadingRef.current = true
-      setLoading(true)
-      log.debug('📥 Loading all lines')
-      
-      try {
-        const { subtitle_id } = shard.data.languages[0]
-        const data = await apiCall(`/api/subtitles/${subtitle_id}/lines?start=0&count=-1`)
-        const lines = data.lines || []
-        log.debug(`📥 Loaded ${lines.length} total lines`)
-        setLines(lines)
-        loadedRef.current = true
-      } catch (error) {
-        log.error('Load all lines failed:', error)
-      } finally {
-        loadingRef.current = false
-        setLoading(false)
-      }
-    }
-
-    if (shard?.data?.languages?.[0]) {
-      setLines([])
-      loadingRef.current = false
-      loadedRef.current = false
-      log.debug('📥 Shard changed, resetting and loading')
-      loadAllLines()
-    }
-  }, [subtitleId, shard?.data?.languages])
 
   // Update total lines when lines change
   useEffect(() => {
@@ -207,8 +166,11 @@ const SubtitleViewerComponent = ({
       } else {
         pendingIndexRef.current = null
       }
+    },
+    refreshSelection: (lineIndex = 0) => {
+      updateWordAttributes(lineIndex)
     }
-  }), [tryScrollToIndex])
+  }), [tryScrollToIndex, updateWordAttributes])
 
   // When lines load or change, apply any pending scroll
   useEffect(() => {
