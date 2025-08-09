@@ -2,16 +2,35 @@ import { useState, useEffect, useRef } from 'react'
 import {
   Box,
   Stack,
-  IconButton,
-  Typography
+  IconButton
 } from '@mui/joy'
 import { 
-  ArrowBack, 
-  Edit,
+  ArrowBack,
+  ListAltOutlined,
+  BookmarkBorder,
+  IosShare,
   TextFields,
   Search
 } from '@mui/icons-material'
 import { log } from '../../../utils/logger'
+
+// shared button styles to avoid inline object duplication
+const btnSx = {
+  minHeight: 'auto',
+  p: 0.5,
+  '&:hover': {
+    bgcolor: 'neutral.100'
+  }
+}
+
+// right-side toolbar buttons in order
+const BUTTONS = [
+  { key: 'export', title: 'Export', Icon: IosShare },
+  { key: 'wordlist', title: 'Word list', Icon: ListAltOutlined },
+  { key: 'bookmark', title: 'Bookmark', Icon: BookmarkBorder },
+  { key: 'search', title: 'Search', Icon: Search },
+  { key: 'font', title: 'Font settings', Icon: TextFields },
+]
 
 // Top slide-down toolbar with auto-hide and tool buttons
 export const Toolbar = ({ 
@@ -88,69 +107,22 @@ export const Toolbar = ({
           >
             <ArrowBack />
           </IconButton>
-          
-          <Typography 
-            level="title-sm" 
-            sx={{ 
-              maxWidth: '200px',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            {movieName || 'Reader'}
-          </Typography>
         </Stack>
         
         {/* Right side: Tool buttons */}
         <Stack direction="row" spacing={1} alignItems="center">
-          <IconButton
-            onClick={() => handleToolClick('word')}
-            variant="plain"
-            size="sm"
-            sx={{ 
-              minHeight: 'auto',
-              p: 0.5,
-              '&:hover': {
-                bgcolor: 'neutral.100'
-              }
-            }}
-            title="Word tools"
-          >
-            <Edit />
-          </IconButton>
-          
-          <IconButton
-            onClick={() => handleToolClick('font')}
-            variant="plain"
-            size="sm"
-            sx={{ 
-              minHeight: 'auto',
-              p: 0.5,
-              '&:hover': {
-                bgcolor: 'neutral.100'
-              }
-            }}
-            title="Font settings"
-          >
-            <TextFields />
-          </IconButton>
-          
-          <IconButton
-            onClick={() => handleToolClick('seeker')}
-            variant="plain"
-            size="sm"
-            sx={{ 
-              minHeight: 'auto',
-              p: 0.5,
-              '&:hover': {
-                bgcolor: 'neutral.100'
-              }
-            }}
-            title="Seek tools"
-          >
-            <Search />
-          </IconButton>
+          {BUTTONS.map(({ key, title, Icon }) => (
+            <IconButton
+              key={key}
+              onClick={() => handleToolClick(key)}
+              variant="plain"
+              size="sm"
+              sx={btnSx}
+              title={title}
+            >
+              <Icon />
+            </IconButton>
+          ))}
         </Stack>
       </Stack>
     </Box>
