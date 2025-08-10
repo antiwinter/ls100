@@ -4,7 +4,7 @@ import {
   Stack,
   Typography
 } from '@mui/joy'
-import { log } from '../../../utils/logger'
+
 import { InfiniteScroll } from '../../../components/InfiniteScroll'
 import { useLongPress } from '../../../utils/useLongPress'
 
@@ -18,18 +18,14 @@ const SubtitleViewerComponent = ({
   onScroll,
   onProgressUpdate,
   selectedWordsRef, // Add selectedWordsRef prop
+  langSetRef, // Add langSetRef prop
   mainLanguageCode,
   languages
 }, ref) => {
   const pendingIndexRef = useRef(null)
   const viewerRef = useRef(null)
 
-  // Update total lines when lines change
-  useEffect(() => {
-    if (lines.length > 0) {
-      onProgressUpdate?.(1, lines.length) // Initialize with first line
-    }
-  }, [lines.length, onProgressUpdate])
+
 
   // Update word attributes based on current line and selected words
   const updateWordAttributes = useCallback((currentLineIndex) => {
@@ -97,104 +93,7 @@ const SubtitleViewerComponent = ({
     if (Number.isFinite(size)) viewerRef.current.style.setProperty('--reader-font-size', `${size}px`)
   }, [])
   
-  // Viewport-only font styling - similar to updateWordAttributes
-  const applyFontToViewport = useCallback(({ family, size }, currentLineIndex = 0) => {
-    if (!viewerRef.current) return
-    
-    const container = viewerRef.current
-    
-    // Find all elements in ±30 line range (like word highlighting)
-    const startLine = Math.max(0, currentLineIndex - 30)
-    const endLine = Math.min(lines.length - 1, currentLineIndex + 30)
-    
-    // Apply font changes to viewport elements only
-    const lineElements = container.querySelectorAll('[data-line-index]')
-    lineElements.forEach(element => {
-      const lineIndex = parseInt(element.dataset.lineIndex || '0')
-      if (lineIndex >= startLine && lineIndex <= endLine) {
-        if (family) element.style.setProperty('--reader-font-family', family)
-        if (size) element.style.setProperty('--reader-font-size', `${size}px`)
-      }
-    })
-  }, [lines.length])
-  
-  // Viewport-only language visibility - similar to updateWordAttributes  
-  const applyLangVisibilityToViewport = useCallback((code, visible, currentLineIndex = 0) => {
-    console.log(`🌍 applyLangVisibilityToViewport: ${code} -> ${visible}, currentLine: ${currentLineIndex}`)
-    
-    if (!viewerRef.current || !code) {
-      console.log(`❌ No viewerRef or code`)
-      return
-    }
-    
-    const container = viewerRef.current
-    
-    // Find all ref lang elements in ±100 line range (wider viewport)
-    const startLine = Math.max(0, currentLineIndex - 100)
-    const endLine = Math.min(lines.length - 1, currentLineIndex + 100)
-    console.log(`📏 Target range: lines ${startLine}-${endLine} (viewport: ±100)`)
-    
-    const refElements = container.querySelectorAll(`[data-ref-lang="${code}"]`)
-    console.log(`🎯 Found ${refElements.length} elements with data-ref-lang="${code}"`)
-    
-    let appliedCount = 0
-    const elementLines = []
-    
-    refElements.forEach(element => {
-      const lineElement = element.closest('[data-line-index]')
-      const lineIndex = parseInt(lineElement?.dataset.lineIndex || '0')
-      elementLines.push(lineIndex)
-      
-      if (lineIndex >= startLine && lineIndex <= endLine) {
-        appliedCount++
-        console.log(`✅ Applying to line ${lineIndex}:`, element)
-        if (visible) {
-          element.style.height = 'auto'
-          element.style.margin = ''
-          element.style.opacity = '1'
-          element.style.overflow = ''
-        } else {
-          element.style.height = '0px'
-          element.style.margin = '0'
-          element.style.opacity = '0'
-          element.style.overflow = 'hidden'
-        }
-      }
-    })
-    
-    // Debug: show where elements actually are
-    const minLine = Math.min(...elementLines)
-    const maxLine = Math.max(...elementLines)
-    console.log(`📍 Ref elements are on lines ${minLine}-${maxLine} (total: ${elementLines.length})`)
-    console.log(`📊 Applied visibility to ${appliedCount}/${refElements.length} elements`)
-  }, [lines.length])
-  
-  // Get current visible line for viewport targeting
-  const getCurrentVisibleLine = useCallback(() => {
-    if (!viewerRef.current) {
-      console.log(`📍 getCurrentVisibleLine: no viewerRef`)
-      return 0
-    }
-    
-    const container = viewerRef.current
-    const containerRect = container.getBoundingClientRect()
-    const containerTop = containerRect.top
-    
-    // Find the first visible line element
-    const lineElements = container.querySelectorAll('[data-line-index]')
-    console.log(`📍 getCurrentVisibleLine: found ${lineElements.length} line elements`)
-    
-    for (const element of lineElements) {
-      const rect = element.getBoundingClientRect()
-      if (rect.bottom > containerTop + 50) { // 50px buffer
-        const lineIndex = parseInt(element.dataset.lineIndex || '0')
-        console.log(`📍 getCurrentVisibleLine: returning line ${lineIndex}`)
-        return lineIndex
-      }
-    }
-    console.log(`📍 getCurrentVisibleLine: no visible line found, returning 0`)
-    return 0
-  }, [])
+
 
   // Render text with pre-rendered overlays (hidden by default)
   const renderText = (text) => {
@@ -278,6 +177,138 @@ const SubtitleViewerComponent = ({
     return result
   }, [lines, mainLanguageCode])
 
+  // Update total groups when entries change
+  useEffect(() => {
+    if (entries.length > 0) {
+      onProgressUpdate?.(1, entries.length) // Initialize with first group
+    }
+  }, [entries.length, onProgressUpdate])
+
+  // 🎯 VIEWPORT CLIPPING: Master function that shows/hides groups and applies ALL styling
+  const updateViewportGroups = useCallback((currentGroupIndex = 0, options = {}) => {
+    if (!viewerRef.current || !entries || entries.length === 0) return
+    
+    const container = viewerRef.current
+    const { font, langSet, selectedWords } = options
+    
+    // Define viewport range: ±30 groups around current
+    const startGroup = Math.max(0, currentGroupIndex - 30)
+    const endGroup = Math.min(entries.length - 1, currentGroupIndex + 30)
+    
+    // Debug: showing groups ${startGroup}-${endGroup} (${endGroup - startGroup + 1}/${entries.length})
+    
+    // Get all group elements
+    const allGroups = container.querySelectorAll('[data-group-index]')
+    let _visibleCount = 0
+    let _hiddenCount = 0
+    
+    allGroups.forEach(element => {
+      const groupIndex = parseInt(element.dataset.groupIndex || '0')
+      const isInViewport = groupIndex >= startGroup && groupIndex <= endGroup
+      
+      if (isInViewport) {
+        // SHOW group and apply ALL styling
+        element.style.display = 'block'
+        _visibleCount++
+        
+        // Apply font settings to this group
+        if (font?.family) element.style.setProperty('--reader-font-family', font.family)
+        if (font?.size) element.style.setProperty('--reader-font-size', `${font.size}px`)
+        
+        // Apply language visibility to ref elements in this group
+        if (langSet) {
+          const refElements = element.querySelectorAll('[data-ref-lang]')
+          refElements.forEach(refEl => {
+            const code = refEl.dataset.refLang
+            if (code) {
+              const visible = langSet.has(code)
+              if (visible) {
+                refEl.style.height = 'auto'
+                refEl.style.margin = ''
+                refEl.style.opacity = '1'
+                refEl.style.overflow = ''
+              } else {
+                refEl.style.height = '0px'
+                refEl.style.margin = '0'
+                refEl.style.opacity = '0'
+                refEl.style.overflow = 'hidden'
+              }
+            }
+          })
+        }
+        
+        // Apply word highlighting to this group
+        if (selectedWords && selectedWords.size > 0) {
+          const wordSpans = element.querySelectorAll('[data-word]')
+          wordSpans.forEach(span => {
+            const word = span.dataset.word
+            if (word && selectedWords.has(word)) {
+              span.classList.add('selected')
+            } else {
+              span.classList.remove('selected')
+            }
+          })
+        }
+        
+      } else {
+        // HIDE group completely
+        element.style.display = 'none'
+        _hiddenCount++
+      }
+    })
+    
+    // Debug: ${_visibleCount} visible, ${_hiddenCount} hidden groups
+  }, [entries])
+
+  // 🎯 INITIAL VIEWPORT CLIPPING: Show initial groups when entries are ready (after updateViewportGroups is defined)
+  useEffect(() => {
+    if (entries.length > 0) {
+      updateViewportGroups(0, {
+        selectedWords: selectedWordsRef?.current,
+        langSet: langSetRef?.current 
+      })
+    }
+  }, [entries.length, updateViewportGroups, selectedWordsRef, langSetRef])
+
+  // Simplified font function - just triggers viewport update
+  const applyFontToViewport = useCallback((fontOptions, currentGroupIndex = 0) => {
+    updateViewportGroups(currentGroupIndex, { font: fontOptions })
+  }, [updateViewportGroups])
+  
+  // Simplified language function - just triggers viewport update with updated langSet
+  const applyLangVisibilityToViewport = useCallback((code, visible, currentGroupIndex = 0) => {
+    // Create updated langSet for this change
+    const updatedLangSet = new Set(langSetRef?.current || [])
+    if (visible) {
+      updatedLangSet.add(code)
+    } else {
+      updatedLangSet.delete(code)
+    }
+    
+    updateViewportGroups(currentGroupIndex, { langSet: updatedLangSet })
+  }, [updateViewportGroups, langSetRef])
+  
+  // Get current visible group for viewport targeting
+  const getCurrentVisibleGroup = useCallback(() => {
+    if (!viewerRef.current) return 0
+    
+    const container = viewerRef.current
+    const containerRect = container.getBoundingClientRect()
+    const containerTop = containerRect.top
+    
+    // Find the first visible group element (data-group-index)
+    const groupElements = container.querySelectorAll('[data-group-index]')
+    
+    for (const element of groupElements) {
+      const rect = element.getBoundingClientRect()
+      if (rect.bottom > containerTop + 50) { // 50px buffer
+        const groupIndex = parseInt(element.dataset.groupIndex || '0')
+        return groupIndex
+      }
+    }
+    return 0
+  }, [])
+
   // Imperative API: setPosition without emitting onScroll
   const tryScrollToIndex = useCallback((lineIndex) => {
     if (!viewerRef.current || !Number.isFinite(lineIndex)) return false
@@ -303,24 +334,29 @@ const SubtitleViewerComponent = ({
       updateWordAttributes(lineIndex)
     },
     setFontStyle,
-    setRefLangVisibility: (code, visible) => {
+    setRefLangVisibility: (_code, _visible) => {
       // No operations here - handled by parent to prevent performance issues
       return
     },
-    // Viewport-only styling methods
+    // 🎯 VIEWPORT CLIPPING: All-in-one styling methods
     applyFontToViewport: (fontOptions) => {
-      // Get current visible line for viewport targeting
-      const currentLineIndex = getCurrentVisibleLine()
-      applyFontToViewport(fontOptions, currentLineIndex)
+      // Get current visible group for viewport targeting
+      const currentGroupIndex = getCurrentVisibleGroup()
+      applyFontToViewport(fontOptions, currentGroupIndex)
     },
     applyLangVisibilityToViewport: (code, visible) => {
-      // Get current visible line for viewport targeting
-      const currentLineIndex = getCurrentVisibleLine()
-      applyLangVisibilityToViewport(code, visible, currentLineIndex)
+      // Get current visible group for viewport targeting
+      const currentGroupIndex = getCurrentVisibleGroup()
+      applyLangVisibilityToViewport(code, visible, currentGroupIndex)
+    },
+    // Direct access to master viewport function
+    updateViewportGroups: (options) => {
+      const currentGroupIndex = getCurrentVisibleGroup()
+      updateViewportGroups(currentGroupIndex, options)
     },
     // Expose DOM element for direct manipulation
     getDOMElement: () => viewerRef.current
-  }), [tryScrollToIndex, updateWordAttributes, setFontStyle, applyFontToViewport, applyLangVisibilityToViewport, getCurrentVisibleLine])
+  }), [tryScrollToIndex, updateWordAttributes, setFontStyle, applyFontToViewport, applyLangVisibilityToViewport, updateViewportGroups, getCurrentVisibleGroup])
 
   // When lines load or change, apply any pending scroll
   useEffect(() => {
@@ -383,24 +419,37 @@ const SubtitleViewerComponent = ({
       <InfiniteScroll
         loading={loading}
         onScroll={(e, currentLine) => {
+          // Convert line to group index for proper progress tracking
+          const currentGroupIndex = getCurrentVisibleGroup()
+          
           onScroll?.(e, currentLine)
-          // Update word attributes when scrolling
+          onProgressUpdate?.(currentGroupIndex + 1, entries.length) // Update progress with group info
+          
+          // 🎯 VIEWPORT CLIPPING: Update visible groups on scroll
+          updateViewportGroups(currentGroupIndex, { 
+            selectedWords: selectedWordsRef?.current,
+            langSet: langSetRef?.current 
+          })
+          
+          // Update word attributes when scrolling (now handled by viewport clipping)
           if (currentLine) {
             updateWordAttributes(currentLine - 1) // Convert to 0-based index
           }
         }}
       >
-        {entries.map(([sec, group]) => {
+        {entries.map(([sec, group], groupIndex) => {
           // intentionally unused: isCurrent reserved for future highlight
           // const isCurrent = lines.some(line => line.actualIndex === visibleIndex)
           return (
             <Box
               key={sec}
+              data-group-index={groupIndex}
               sx={{
                 py: 0.1,
                 mb: 1,
                 backgroundColor: 'transparent',
-                borderRadius: 'sm'
+                borderRadius: 'sm',
+                display: 'none' // 🎯 VIEWPORT CLIPPING: Start hidden, viewport function will show/hide
               }}
             >
               {(() => {
@@ -490,7 +539,7 @@ const formatTime = (ms) => {
 }
 
 // Get language info for display
-const getLanguageInfo = () => ({ code: 'en' }) // Simplified placeholder
+// const getLanguageInfo = () => ({ code: 'en' }) // Simplified placeholder
 
 // Memoize the component to prevent re-renders when unrelated state changes
 export const SubtitleViewer = memo(forwardRef(SubtitleViewerComponent))

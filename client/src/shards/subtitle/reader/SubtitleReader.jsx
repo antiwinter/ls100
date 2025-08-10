@@ -93,43 +93,36 @@ export const SubtitleReader = ({ shardId, onBack }) => {
   
   // Viewport-only styling - like word highlighting
   const handleChangeFontMode = useCallback((mode) => {
-    console.log(`🎯 handleChangeFontMode: ${mode} - VIEWPORT ONLY`)
+    log.debug(`🎯 handleChangeFontMode: ${mode} - VIEWPORT ONLY`)
     
-    // Mark font operation in progress to prevent scroll-close
-    fontOperationRef.current = true
-    console.log(`🔒 Font operation started - preventing scroll close`)
+    // Mark to skip the next scroll event
+    skipNextScrollRef.current = true
+    log.debug('🔒 Will skip next scroll event due to font change')
     
     setFontMode(mode)
     // Apply font to current viewport only via imperative call
     viewerRef.current?.applyFontToViewport?.({ family: fontStack(mode) })
-    
-    // Clear the flag after layout has stabilized
-    setTimeout(() => {
-      fontOperationRef.current = false
-      console.log(`🔓 Font operation completed - allowing scroll close`)
-    }, 500) // 500ms should be enough for layout to stabilize
   }, [])
   
   const handleChangeFontSize = useCallback((size) => {
-    console.log(`🎯 handleChangeFontSize: ${size} - VIEWPORT ONLY`)
+    log.debug(`🎯 handleChangeFontSize: ${size} - VIEWPORT ONLY`)
     
-    // Mark font operation in progress to prevent scroll-close
-    fontOperationRef.current = true
-    console.log(`🔒 Font operation started - preventing scroll close`)
+    // Mark to skip the next scroll event
+    skipNextScrollRef.current = true
+    log.debug('🔒 Will skip next scroll event due to font change')
     
     setFontSize(size)
     // Apply font to current viewport only via imperative call
     viewerRef.current?.applyFontToViewport?.({ size })
-    
-    // Clear the flag after layout has stabilized
-    setTimeout(() => {
-      fontOperationRef.current = false
-      console.log(`🔓 Font operation completed - allowing scroll close`)
-    }, 500) // 500ms should be enough for layout to stabilize
   }, [])
   
   const handleToggleLang = useCallback((code) => {
-    console.log(`🎯 handleToggleLang: ${code} - VIEWPORT ONLY`)
+    log.debug(`🎯 handleToggleLang: ${code} - VIEWPORT ONLY`)
+    
+    // Mark to skip the next scroll event
+    skipNextScrollRef.current = true
+    log.debug('🔒 Will skip next scroll event due to language toggle')
+    
     setLangSet(prev => {
       const next = new Set(prev)
       if (next.has(code)) next.delete(code); else next.add(code)
@@ -137,7 +130,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
       // Apply visibility to current viewport only
       const visible = next.has(code)
       viewerRef.current?.applyLangVisibilityToViewport?.(code, visible)
-      console.log(`✅ Language ${code} visibility applied to viewport: ${visible}`)
+      log.debug(`✅ Language ${code} visibility applied to viewport: ${visible}`)
       return next
     })
   }, [])
@@ -282,20 +275,20 @@ export const SubtitleReader = ({ shardId, onBack }) => {
     // TODO: Implement review feature
   }
 
-  // Track if we're in the middle of font operations to prevent scroll-close
-  const fontOperationRef = useRef(false)
+  // Track if we need to skip the next scroll event due to font operations
+  const skipNextScrollRef = useRef(false)
   
   // Handle scroll events - hide action drawers + toolbar, preserve dict
   const handleScroll = useCallback((e, currentLine) => {
-    console.log(`📜 SCROLL EVENT TRIGGERED - currentLine: ${currentLine}`)
-    console.log(`📜 Event target:`, e?.target?.tagName, e?.target?.className)
-    console.log(`📜 Event type:`, e?.type)
-    console.log(`📜 Font operation in progress:`, fontOperationRef.current)
+    log.debug(`📜 SCROLL EVENT TRIGGERED - currentLine: ${currentLine}`)
+    log.debug('📜 Event target:', e?.target?.tagName, e?.target?.className)
+    log.debug('📜 Event type:', e?.type)
+    log.debug('📜 Skip next scroll:', skipNextScrollRef.current)
     
-    // Don't close font drawer if font operation is in progress
-    const currentActionState = getActionDrawerState()
-    if (fontOperationRef.current && currentActionState.tool === 'font') {
-      console.log(`🚫 Ignoring scroll during font operation`)
+    // Skip this scroll event if it's caused by font/language changes
+    if (skipNextScrollRef.current) {
+      skipNextScrollRef.current = false
+      log.debug('🚫 Skipping scroll event caused by font/language change')
       // Still update current line but don't close drawers
       if (currentLine) {
         setCurrentLine(currentLine)
@@ -313,7 +306,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
       setCurrentLine(currentLine)
       currentLineRef.current = currentLine
     }
-  }, [getActionDrawerState])
+  }, [])
 
   // Handle total lines update from SubtitleViewer (stable)
   const handleProgressUpdate = useCallback((current, total) => {
@@ -468,18 +461,16 @@ export const SubtitleReader = ({ shardId, onBack }) => {
 
 // Memoized SubtitleViewer with development re-render monitoring
 const MemoizedSubtitleViewer = memo((props) => {
-  // Monitor re-renders in development
-  if (import.meta.env.DEV) {
-    const renderCountRef = useRef(0)
-    renderCountRef.current++
-    
-    useEffect(() => {
-      if (renderCountRef.current > 1) {
-        // this is crucial, never remove
-        log.warn(`🔄 SubtitleViewer re-render #${renderCountRef.current}`)
-      }
-    })
-  }
+  // Monitor re-renders in development - hooks must always be called
+  const renderCountRef = useRef(0)
+  renderCountRef.current++
+  
+  useEffect(() => {
+    if (import.meta.env.DEV && renderCountRef.current > 1) {
+      // this is crucial, never remove
+      log.warn(`🔄 SubtitleViewer re-render #${renderCountRef.current}`)
+    }
+  })
   
   return <SubtitleViewer {...props} />
 })
