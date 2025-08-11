@@ -118,3 +118,50 @@ export const setPosition = (userId, shardId, line) => {
     `).run(userId, shardId, now, now, line)
   }
 }
+
+// Bookmark helpers
+export const getBookmarks = (userId, shardId) => {
+  const result = db.prepare(`
+    SELECT bookmarks FROM subtitle_progress WHERE user_id = ? AND shard_id = ?
+  `).get(userId, shardId)
+  
+  if (!result) return []
+  
+  try {
+    return JSON.parse(result.bookmarks || '[]')
+  } catch {
+    return []
+  }
+}
+
+export const addBookmark = (userId, shardId, bookmark) => {
+  const bookmarks = getBookmarks(userId, shardId)
+  const now = new Date().toISOString()
+  
+  // Create bookmark with timestamp
+  const newBookmark = {
+    position: bookmark.position || 0,
+    note: bookmark.note || '',
+    created_at: now,
+    ...bookmark
+  }
+  
+  bookmarks.push(newBookmark)
+  const bookmarksJson = JSON.stringify(bookmarks)
+  
+  const existing = db.prepare(`
+    SELECT id FROM subtitle_progress WHERE user_id = ? AND shard_id = ?
+  `).get(userId, shardId)
+  
+  if (existing) {
+    return db.prepare(`
+      UPDATE subtitle_progress SET bookmarks = ?, updated_at = ?
+      WHERE user_id = ? AND shard_id = ?
+    `).run(bookmarksJson, now, userId, shardId)
+  } else {
+    return db.prepare(`
+      INSERT INTO subtitle_progress (user_id, shard_id, bookmarks, timestamp, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(userId, shardId, bookmarksJson, now, now)
+  }
+}

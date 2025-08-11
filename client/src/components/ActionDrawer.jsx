@@ -55,7 +55,8 @@ export const ActionDrawer = ({
   position = 'bottom',
   title,
   content,
-  children 
+  children,
+  background = 'background.body'
 }) => {
   const [dragY, setDragY] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
@@ -177,7 +178,7 @@ export const ActionDrawer = ({
         ref={drawerRef}
         onClick={(e) => e.stopPropagation()} // Block clicks from passing through
         sx={{
-          bgcolor: 'background.body',
+          bgcolor: background,
           pointerEvents: 'auto',
           borderRadius: isBottom ? '24px 24px 0 0' : '0 0 24px 24px',
           // Slightly narrower than viewport to reveal side borders
@@ -212,7 +213,11 @@ export const ActionDrawer = ({
         {title && (
           <Stack direction='row' justifyContent='space-between' alignItems='center' 
                  sx={{ px: 2, py: 1, borderBottom: isBottom ? 1 : 0, borderTop: isBottom ? 0 : 1, borderColor: 'divider' }}>
-            <Typography level='h4'>{title}</Typography>
+            {typeof title === 'string' ? (
+              <Typography level='h4'>{title}</Typography>
+            ) : (
+              title
+            )}
             <IconButton size='sm' variant='plain' onClick={onClose} sx={{ color: 'neutral.500' }}>
               <Close />
             </IconButton>

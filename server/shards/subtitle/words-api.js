@@ -127,4 +127,32 @@ router.put('/:shardId/position', requireAuth, validateShardAccess, async (req, r
   }
 })
 
+// GET /api/subtitle-shards/:shardId/bookmarks - Get bookmarks
+router.get('/:shardId/bookmarks', requireAuth, validateShardAccess, async (req, res) => {
+  try {
+    const bookmarks = subtitleData.getBookmarks(req.userId, req.params.shardId)
+    res.json({ bookmarks })
+  } catch (error) {
+    log.error('Failed to get bookmarks:', error)
+    res.status(500).json({ error: 'Failed to get bookmarks' })
+  }
+})
+
+// POST /api/subtitle-shards/:shardId/bookmarks - Add bookmark
+router.post('/:shardId/bookmarks', requireAuth, validateShardAccess, async (req, res) => {
+  try {
+    const bookmark = req.body
+    
+    if (!bookmark || typeof bookmark !== 'object') {
+      return res.status(400).json({ error: 'Invalid bookmark data' })
+    }
+    
+    subtitleData.addBookmark(req.userId, req.params.shardId, bookmark)
+    res.json({ success: true })
+  } catch (error) {
+    log.error('Failed to add bookmark:', error)
+    res.status(500).json({ error: 'Failed to add bookmark' })
+  }
+})
+
 export default router

@@ -10,6 +10,7 @@ import { Toolbar } from './Toolbar.jsx'
 import { SubtitleViewer } from './SubtitleViewer.jsx'
 import { useSubtitleLines } from './hooks/useSubtitleLines.js'
 import { FontDrawer } from './FontDrawer.jsx'
+import { ExportDrawer } from './ExportDrawer.jsx'
 import { fontStack } from '../../../utils/font'
 
 export const SubtitleReader = ({ shardId, onBack }) => {
@@ -449,9 +450,20 @@ export const SubtitleReader = ({ shardId, onBack }) => {
         onToggleLang={handleToggleLang}
       />
       
+      {/* Always render ExportDrawer - just control open state */}
+      <ExportDrawer
+        open={actionDrawer.open && actionDrawer.tool === 'export'}
+        onClose={() => setActionDrawer({ open: false, size: 'half', tool: null })}
+        selectedWords={Array.from(selectedWords.current)}
+        movieName={movieName}
+        shardId={shardId}
+        currentLine={currentLine}
+        lines={lines}
+      />
+      
       {/* Always render ToolbarFuncs - just control open state */}
       <ToolbarFuncs
-        open={actionDrawer.open && actionDrawer.tool !== 'font'}
+        open={actionDrawer.open && actionDrawer.tool !== 'font' && actionDrawer.tool !== 'export'}
         size={actionDrawer.size}
         onClose={() => setActionDrawer({ open: false, size: 'half', tool: null })}
       />
