@@ -10,6 +10,7 @@ import { Toolbar } from './Toolbar.jsx'
 import { SubtitleViewer } from './SubtitleViewer.jsx'
 import { useSubtitleLines } from './hooks/useSubtitleLines.js'
 import { FontDrawer } from './FontDrawer.jsx'
+import { WordListDrawer } from './WordListDrawer.jsx'
 import { fontStack } from '../../../utils/font'
 
 export const SubtitleReader = ({ shardId, onBack }) => {
@@ -36,6 +37,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
   // Local drawer states - simple and direct
   const [dictDrawer, setDictDrawer] = useState({ visible: false, word: '', position: 'bottom' })
   const [actionDrawer, setActionDrawer] = useState({ open: false, size: 'half', tool: null })
+  const [selectedWordsForUI, setSelectedWordsForUI] = useState(new Set())
 
   // Font settings
   const [fontMode, setFontMode] = useState('sans')
@@ -154,6 +156,9 @@ export const SubtitleReader = ({ shardId, onBack }) => {
       selectedWords.current.clear()
       words.forEach(word => selectedWords.current.add(word))
       
+      // Update UI state for WordListDrawer
+      setSelectedWordsForUI(new Set(words))
+      
       log.debug(`📝 Loaded ${words.length} selected words`)
       // refresh selection for current viewport without re-render
       viewerRef.current?.refreshSelection?.(Math.max(0, (currentLineRef.current || 1) - 1))
@@ -261,6 +266,9 @@ export const SubtitleReader = ({ shardId, onBack }) => {
     } else {
       s.add(w)
     }
+    
+    // Update UI state for WordListDrawer
+    setSelectedWordsForUI(new Set(s))
   }, [])
 
   // Short press: ensure selected and open dict
@@ -449,9 +457,17 @@ export const SubtitleReader = ({ shardId, onBack }) => {
         onToggleLang={handleToggleLang}
       />
       
-      {/* Always render ToolbarFuncs - just control open state */}
+      {/* Always render WordListDrawer - just control open state */}
+      <WordListDrawer
+        open={actionDrawer.open && actionDrawer.tool === 'wordlist'}
+        onClose={() => setActionDrawer({ open: false, size: 'half', tool: null })}
+        selectedWords={selectedWordsForUI}
+        onWordDelete={toggleWord}
+      />
+      
+      {/* Always render ToolbarFuncs for other tools - just control open state */}
       <ToolbarFuncs
-        open={actionDrawer.open && actionDrawer.tool !== 'font'}
+        open={actionDrawer.open && actionDrawer.tool !== 'font' && actionDrawer.tool !== 'wordlist'}
         size={actionDrawer.size}
         onClose={() => setActionDrawer({ open: false, size: 'half', tool: null })}
       />
