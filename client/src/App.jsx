@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom'
-import { CssVarsProvider, Box, Typography, Button, Card, Tabs, TabPanel } from '@mui/joy'
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
+import { CssVarsProvider, Box, Typography } from '@mui/joy'
 import theme from './theme'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Login from './components/auth/Login'
 import Register from './components/auth/Register'
-import { Home, EditShard, Explore, Friends, Me } from './pages'
+import { Home, EditShard, Explore, Friends, Me, Hint } from './pages'
 import { BottomNav } from './components/BottomNav'
+import { detectPlatform } from './utils/useDetectPlatform'
 import { APP } from './config/constants'
 
 const MainApp = () => {
@@ -25,8 +26,10 @@ const MainApp = () => {
     }
   }
 
-  // Check if we should hide bottom nav (edit mode, reader mode, or on EditShard page)
-  const shouldHideBottomNav = homeEditMode || homeReaderMode || location.pathname === '/edit-shard'
+  // Check if we should hide bottom nav (edit mode, reader mode, EditShard page, or Hint page)
+  const shouldHideBottomNav = homeEditMode || homeReaderMode || 
+                               location.pathname === '/edit-shard' || 
+                               location.pathname === '/hint'
 
   return (
     <Box sx={{ 
@@ -47,6 +50,7 @@ const MainApp = () => {
           <Route path="/explore" element={<Box sx={{ p: 2 }}><Explore /></Box>} />
           <Route path="/friends" element={<Box sx={{ p: 2 }}><Friends /></Box>} />
           <Route path="/me" element={<Box sx={{ p: 2 }}><Me /></Box>} />
+          <Route path="/hint" element={<Hint />} />
         </Routes>
       </Box>
 
@@ -60,11 +64,33 @@ const MainApp = () => {
   )
 }
 
+// Component to handle mobile browser redirect to hint
+const MobileHintRedirect = ({ children }) => {
+  const navigate = useNavigate()
+  const location = useLocation()
+  
+  useEffect(() => {
+    const { isMobileBrowser } = detectPlatform()
+    
+    if (location.pathname === '/hint') {
+      // If on hint page but shouldn't be there, redirect away
+      if (!isMobileBrowser) {
+        navigate('/', { replace: true })
+      }
+    } else {
+      // If not on hint page but should be there, redirect to hint
+      if (isMobileBrowser) {
+        navigate('/hint', { replace: true })
+      }
+    }
+  }, [navigate, location.pathname])
+  
+  return children
+}
+
 const AuthFlow = () => {
   const [isLogin, setIsLogin] = useState(true)
   const { user, loading } = useAuth()
-
-
 
   if (loading) {
     return (
@@ -105,8 +131,6 @@ function App() {
     }
   }, [])
 
-  // iOS applies status bar style only at launch; we set it early in index.html.
-
   return (
     <CssVarsProvider 
       theme={theme}
@@ -116,7 +140,9 @@ function App() {
     >
       <Router>
         <AuthProvider>
-          <AuthFlow />
+          <MobileHintRedirect>
+            <AuthFlow />
+          </MobileHintRedirect>
         </AuthProvider>
       </Router>
     </CssVarsProvider>
