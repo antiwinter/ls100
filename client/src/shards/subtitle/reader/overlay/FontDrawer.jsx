@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Box, Stack, Typography, RadioGroup, Radio, Slider, Chip, Sheet, Switch } from '@mui/joy'
-import { ActionDrawer } from '../../../components/ActionDrawer.jsx'
+import { ActionDrawer } from '../../../../components/ActionDrawer.jsx'
 
 export const FontDrawer = ({ open, onClose, fontMode, onChangeFontMode, fontSize, onChangeFontSize, languages = [], langSet, onToggleLang, mainLanguageCode }) => {
   const marks = useMemo(() => ([

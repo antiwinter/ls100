@@ -2,14 +2,34 @@ import { useRef, useCallback, useEffect } from 'react'
 import { apiCall } from '../../../config/api'
 import { log } from '../../../utils/logger'
 
-// General reader sync: words + position in one 10s loop
-export const useSync = (shardId, wordsRef, lineRef, intervalMs = 10000) => {
+// General reader sync: words + index in one 10s loop (auto-baseline)
+// index is 0-based current group index
+export const useSync = (shardId, words, index, intervalMs = 10000) => {
+  const wordsRef = useRef(new Set())
   const lastWordsRef = useRef(new Set())
   const syncingRef = useRef(false)
   const timerRef = useRef(null)
   const wordsReadyRef = useRef(false)
-  const lastLineRef = useRef(0)
-  const lineReadyRef = useRef(false)
+  const lastIndexRef = useRef(0)
+  const indexReadyRef = useRef(false)
+
+  // keep internal ref updated without forcing re-subscriptions
+  useEffect(() => {
+    if (words instanceof Set) {
+      wordsRef.current = words
+    } else {
+      wordsRef.current = new Set(words || [])
+    }
+  }, [words])
+
+  // keep index current; baseline on first observe
+  useEffect(() => {
+    const normalized = Number.isFinite(index) ? index : 0
+    if (!indexReadyRef.current) {
+      lastIndexRef.current = normalized
+      indexReadyRef.current = true
+    }
+  }, [index])
 
   const diff = useCallback((current, last) => {
     const adds = []
@@ -21,12 +41,12 @@ export const useSync = (shardId, wordsRef, lineRef, intervalMs = 10000) => {
 
   const doSync = useCallback(async () => {
     if (!shardId || syncingRef.current) return
-    const curWords = wordsRef?.current
-    const curLine = lineRef?.current || 0
+    const curWords = wordsRef.current
+    const curIndex = Number.isFinite(index) ? index : 0
     const { adds, rems } = curWords ? diff(curWords, lastWordsRef.current) : { adds: [], rems: [] }
-    const lineChanged = lineReadyRef.current && curLine !== lastLineRef.current
+    const indexChanged = indexReadyRef.current && curIndex !== lastIndexRef.current
     const needWords = wordsReadyRef.current && (adds.length || rems.length)
-    if (!needWords && !lineChanged) return
+    if (!needWords && !indexChanged) return
 
     syncingRef.current = true
     try {
@@ -38,26 +58,26 @@ export const useSync = (shardId, wordsRef, lineRef, intervalMs = 10000) => {
         })
         lastWordsRef.current = new Set(curWords)
       }
-      if (lineChanged) {
-        log.debug('sync position payload', { shardId, position: curLine })
+      if (indexChanged) {
+        log.debug('sync position payload', { shardId, position: curIndex })
         await apiCall(`/api/subtitle-shards/${shardId}/position`, {
           method: 'PUT',
-          body: JSON.stringify({ position: curLine })
+          body: JSON.stringify({ position: curIndex })
         })
-        lastLineRef.current = curLine
+        lastIndexRef.current = curIndex
       }
     } catch (e) {
       log.error('sync failed', e)
     } finally {
       syncingRef.current = false
     }
-  }, [shardId, wordsRef, lineRef, diff])
+  }, [shardId, index, diff])
 
   useEffect(() => {
     wordsReadyRef.current = false
     lastWordsRef.current = new Set()
-    lineReadyRef.current = false
-    lastLineRef.current = 0
+    indexReadyRef.current = false
+    lastIndexRef.current = 0
   }, [shardId])
 
   useEffect(() => {
@@ -65,22 +85,18 @@ export const useSync = (shardId, wordsRef, lineRef, intervalMs = 10000) => {
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [doSync, intervalMs])
 
-  const ackWords = useCallback(() => {
-    if (!wordsRef?.current) return
-    lastWordsRef.current = new Set(wordsRef.current)
-    wordsReadyRef.current = true
-    log.debug('words baseline ack', { count: lastWordsRef.current.size, shardId })
-  }, [wordsRef, shardId])
-
-  const ackPosition = useCallback((line) => {
-    const normalized = Number.isFinite(line) ? line : 0
-    lastLineRef.current = normalized
-    lineReadyRef.current = true
-  }, [])
+  // Auto-baseline words on first observe
+  useEffect(() => {
+    if (!wordsReadyRef.current) {
+      lastWordsRef.current = new Set(wordsRef.current)
+      wordsReadyRef.current = true
+      log.debug('words baseline auto-ack', { count: lastWordsRef.current.size, shardId })
+    }
+  }, [shardId, words])
 
   const syncNow = useCallback(() => { doSync() }, [doSync])
 
-  return { ackWords, ackPosition, syncNow }
+  return { syncNow }
 }
 
 

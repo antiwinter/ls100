@@ -12,7 +12,7 @@ import {
   TextFields,
   Search
 } from '@mui/icons-material'
-import { log } from '../../../utils/logger'
+import { log } from '../../../../utils/logger'
 
 // shared button styles to avoid inline object duplication
 const btnSx = {
