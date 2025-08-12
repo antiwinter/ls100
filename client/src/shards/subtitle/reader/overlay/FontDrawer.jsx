@@ -1,20 +1,45 @@
-import { useMemo } from 'react'
-import { Box, Stack, Typography, RadioGroup, Radio, Slider, Chip, Sheet, Switch } from '@mui/joy'
-import { ActionDrawer } from '../../../../components/ActionDrawer.jsx'
+import { useMemo } from "react";
+import {
+  Box,
+  Stack,
+  Typography,
+  RadioGroup,
+  Radio,
+  Slider,
+  Chip,
+  Sheet,
+  Switch,
+} from "@mui/joy";
+import { ActionDrawer } from "../../../../components/ActionDrawer.jsx";
+import { fontStack } from "../../../../utils/font";
 
-export const FontDrawer = ({ open, onClose, fontMode, onChangeFontMode, fontSize, onChangeFontSize, languages = [], langSet, onToggleLang, mainLanguageCode }) => {
-  const marks = useMemo(() => ([
-    { value: 12, label: '12' },
-    { value: 16, label: '16' },
-    { value: 20, label: '20' },
-    { value: 24, label: '24' }
-  ]), [])
-  
-  // Memoize filtered languages to avoid recalculation on every render
-  const filteredLanguages = useMemo(() => 
-    languages.filter((l) => l.code !== mainLanguageCode),
-    [languages, mainLanguageCode]
-  )
+export const FontDrawer = ({
+  open,
+  onClose,
+  fontSetting,
+  onChangeFont,
+  langMap,
+  onToggleLang,
+}) => {
+  const marks = useMemo(
+    () => [
+      { value: 12, label: "12" },
+      { value: 16, label: "16" },
+      { value: 20, label: "20" },
+      { value: 24, label: "24" },
+    ],
+    []
+  );
+
+  // Get ref languages from langMap
+  const refLanguages = useMemo(
+    () =>
+      Array.from(langMap?.entries() || []).map(([code, data]) => ({
+        code,
+        ...data,
+      })),
+    [langMap]
+  );
 
   return (
     <ActionDrawer open={open} onClose={onClose} position="bottom" size="half">
@@ -22,8 +47,12 @@ export const FontDrawer = ({ open, onClose, fontMode, onChangeFontMode, fontSize
         <Typography level="title-sm">Font</Typography>
         <RadioGroup
           orientation="horizontal"
-          value={fontMode}
-          onChange={(e) => onChangeFontMode?.(e.target.value)}
+          value={fontSetting?.mode || "sans"}
+          onChange={(e) => {
+            const mode = e.target.value;
+            const family = fontStack(mode);
+            onChangeFont?.({ mode, family, size: fontSetting?.size });
+          }}
         >
           <Radio value="sans" label="Sans" />
           <Radio value="serif" label="Serif" />
@@ -31,32 +60,53 @@ export const FontDrawer = ({ open, onClose, fontMode, onChangeFontMode, fontSize
 
         <Typography level="title-sm">Size</Typography>
         <Slider
-          value={fontSize}
+          value={fontSetting?.size || 16}
           min={14}
           max={20}
           step={1}
           marks={marks}
-          onChange={(_, v) => onChangeFontSize?.(v)}
+          onChange={(_, v) => {
+            const family = fontStack(fontSetting?.mode || "sans");
+            onChangeFont?.({ mode: fontSetting?.mode, family, size: v });
+          }}
         />
 
-        {filteredLanguages?.length > 0 && (
+        {refLanguages?.length > 0 && (
           <>
             <Typography level="title-sm">Languages</Typography>
-            <Sheet variant="soft" sx={{ p: 1, borderRadius: 'sm' }}>
+            <Sheet variant="soft" sx={{ p: 1, borderRadius: "sm" }}>
               <Stack spacing={1}>
-                {filteredLanguages.map((lang) => {
-                  const active = langSet?.has?.(lang.code)
+                {refLanguages.map((lang) => {
                   return (
-                    <Stack key={lang.code} direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+                    <Stack
+                      key={lang.code}
+                      direction="row"
+                      alignItems="center"
+                      justifyContent="space-between"
+                      spacing={1}
+                    >
                       <Stack direction="row" spacing={1} sx={{ minWidth: 0 }}>
-                        <Typography level="body-sm" sx={{ maxWidth: 220, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-                          {lang.filename || 'Untitled subtitle'}
+                        <Typography
+                          level="body-sm"
+                          sx={{
+                            maxWidth: 220,
+                            overflow: "hidden",
+                            whiteSpace: "nowrap",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {lang.filename || "Untitled subtitle"}
                         </Typography>
-                        <Chip variant="outlined" size="sm">{lang.code.toUpperCase()}</Chip>
+                        <Chip variant="outlined" size="sm">
+                          {lang.code.toUpperCase()}
+                        </Chip>
                       </Stack>
-                      <Switch checked={!!active} onChange={() => onToggleLang?.(lang.code)} />
+                      <Switch
+                        checked={!!lang.visible}
+                        onChange={() => onToggleLang?.(lang.code)}
+                      />
                     </Stack>
-                  )
+                  );
                 })}
               </Stack>
             </Sheet>
@@ -64,7 +114,5 @@ export const FontDrawer = ({ open, onClose, fontMode, onChangeFontMode, fontSize
         )}
       </Stack>
     </ActionDrawer>
-  )
-}
-
-
+  );
+};

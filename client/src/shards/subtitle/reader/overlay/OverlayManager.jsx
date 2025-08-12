@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect, useReducer, useMemo, forwardRef, useImperativeHandle } from 'react'
+import { useRef, useCallback, useEffect, useReducer } from 'react'
 import { Box } from '@mui/joy'
 import { Toolbar } from '../Toolbar.jsx'
 import { Dict } from '../Dict.jsx'
@@ -6,21 +6,14 @@ import { FontDrawer } from '../FontDrawer.jsx'
 import { SubtitleViewer } from '../SubtitleViewer.jsx'
 import { fontStack } from '../../../utils/font'
 
-export const OverlayManager = forwardRef(({
+export const OverlayManager = ({
   title,
   languages,
   onSettingsChange,
   toolbar,
   explain,
   onBack
-}, ref) => {
-  const initialState = useMemo(() => ({
-    dict: { visible: false, word: '', position: 'bottom' },
-    action: { open: false, size: 'half', tool: null },
-    toolbar: false,
-    langSet: new Set(),
-    font: { mode: 'sans', size: 16 }
-  }), [])
+}) => {
   function reducer(state, action) {
     switch (action.type) {
       case 'TOGGLE_TOOL': {
@@ -40,12 +33,15 @@ export const OverlayManager = forwardRef(({
       case 'CLOSE_ALL':
         return { ...state, dict: { visible: false, word: '', position: 'bottom' }, action: { open: false, size: 'half', tool: null }, toolbar: false }
       case 'TOGGLE_LANG': {
-        const next = new Set(state.langSet)
-        next.has(action.code) ? next.delete(action.code) : next.add(action.code)
-        return { ...state, langSet: next }
+        const next = new Map(state.langMap)
+        const current = next.get(action.code)
+        if (current) {
+          next.set(action.code, { ...current, visible: !current.visible })
+        }
+        return { ...state, langMap: next }
       }
-      case 'SET_LANGSET':
-        return { ...state, langSet: new Set(action.codes || []) }
+      case 'SET_LANGMAP':
+        return { ...state, langMap: action.langMap || new Map() }
       case 'SET_FONT_MODE':
         return { ...state, font: { ...state.font, mode: action.mode } }
       case 'SET_FONT_SIZE':
@@ -54,62 +50,56 @@ export const OverlayManager = forwardRef(({
         return state
     }
   }
-  const [ui, dispatch] = useReducer(reducer, undefined, () => initialState)
-  const actions = useMemo(() => ({
-    toggleTool: (tool) => dispatch({ type: 'TOGGLE_TOOL', tool }),
-    closeAction: () => dispatch({ type: 'CLOSE_ACTION' }),
-    showToolbar: () => dispatch({ type: 'SHOW_TOOLBAR' }),
-    hideToolbar: () => dispatch({ type: 'HIDE_TOOLBAR' }),
-    openDict: (word, position) => dispatch({ type: 'OPEN_DICT', word, position }),
-    closeDict: () => dispatch({ type: 'CLOSE_DICT' }),
-    closeAll: () => dispatch({ type: 'CLOSE_ALL' }),
-    toggleLangLocal: (code) => dispatch({ type: 'TOGGLE_LANG', code }),
-    setLangSet: (codes) => dispatch({ type: 'SET_LANGSET', codes })
-  }), [])
-  const viewerRef = useRef(null)
   
+  const [ui, dispatch] = useReducer(reducer, {
+    dict: { visible: false, word: '', position: 'bottom' },
+    action: { open: false, size: 'half', tool: null },
+    toolbar: false,
+    langMap: new Map(),
+    font: { mode: 'sans', size: 16 }
+  })
+
   useEffect(() => {
     if (Array.isArray(languages) && languages.length) {
-      actions.setLangSet(languages.map(l => l.code))
+      // Create langMap for ref languages (non-main)
+      const langMap = new Map()
+      languages.filter(l => !l.isMain).forEach(l => {
+        langMap.set(l.code, { filename: l.filename, visible: true })
+      })
+      dispatch({ type: 'SET_LANGMAP', langMap })
+      
+      // Emit initial settings to parent
+      onSettingsChange?.({
+        fontSize: ui.font.size,
+        fontFamily: fontStack(ui.font.mode),
+        langMap
+      })
     }
-  }, [languages])
-
-  // Expose imperative actions to reader (open dict, close all)
-  useImperativeHandle(ref, () => ({
-    openDict: (word, position) => actions.openDict(word, position),
-    closeAll: () => actions.closeAll()
-  }), [])
-
-  const handleEmptyClick = useCallback(() => {
-    if (ui.dict.visible || ui.action.open || ui.toolbar) {
-      actions.closeAll()
-      actions.hideToolbar()
-    } else {
-      actions.showToolbar()
-    }
-  }, [ui.dict.visible, ui.action.open, ui.toolbar, actions])
+  }, [languages, onSettingsChange])
 
   // external control: toolbar and explain
   useEffect(() => {
     if (typeof toolbar === 'boolean') {
-      toolbar ? actions.showToolbar() : actions.hideToolbar()
+      toolbar ? dispatch({ type: 'SHOW_TOOLBAR' }) : dispatch({ type: 'HIDE_TOOLBAR' })
     }
   }, [toolbar])
+
   useEffect(() => {
-    if (explain && typeof explain === 'string') {
-      actions.openDict(explain, 'bottom')
+    if (explain && explain.word) {
+      // Calculate dict position based on y coordinate
+      const position = explain.pos < window.innerHeight / 2 ? 'bottom' : 'top'
+      dispatch({ type: 'OPEN_DICT', word: explain.word, position })
     } else {
-      actions.closeDict()
+      dispatch({ type: 'CLOSE_DICT' })
     }
   }, [explain])
 
   const handleToolSelect = (tool) => {
-    actions.toggleTool(tool)
-    if (tool !== 'font') actions.hideToolbar()
+    dispatch({ type: 'TOGGLE_TOOL', tool })
+    if (tool !== 'font') dispatch({ type: 'HIDE_TOOLBAR' })
   }
 
   // These handlers are now only UI-level; word actions handled in reader
-
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Toolbar
@@ -119,30 +109,38 @@ export const OverlayManager = forwardRef(({
         movieName={title}
       />
 
-      {/* Viewer is rendered by reader; overlay only manages UI/drawers */}
-
       <Dict
         word={ui.dict.word}
         position={ui.dict.position}
         visible={ui.dict.visible}
-        onClose={() => actions.closeDict()}
+        onClose={() => dispatch({ type: 'CLOSE_DICT' })}
       />
 
       <FontDrawer
         open={ui.action.open && ui.action.tool === 'font'}
-        onClose={() => actions.closeAction()}
-        fontMode={ui.font.mode}
-        onChangeFontMode={(mode) => { actions.setFontMode(mode); onSettingsChange?.({ fontMode: mode }) }}
-        fontSize={ui.font.size}
-        onChangeFontSize={(size) => { actions.setFontSize(size); onSettingsChange?.({ fontSize: size }) }}
-        languages={languages}
-        langSet={ui.langSet}
-        mainLanguageCode={languages?.[0]?.code}
-        onToggleLang={(code) => { actions.toggleLangLocal(code); onSettingsChange?.({ langSet: new Set(ui.langSet.has(code) ? [...ui.langSet].filter(c => c !== code) : [...ui.langSet, code]) }) }}
+        onClose={() => dispatch({ type: 'CLOSE_ACTION' })}
+        settings={{ mode: ui.font.mode, size: ui.font.size }}
+        onChangeFont={(s) => { 
+          dispatch({ type: 'SET_FONT_MODE', mode: s.mode })
+          dispatch({ type: 'SET_FONT_SIZE', size: s.size })
+          onSettingsChange?.({ fontSize: s.size, fontFamily: s.family })
+        }}
+        langMap={ui.langMap}
+        onToggleLang={(code) => { 
+          dispatch({ type: 'TOGGLE_LANG', code })
+          // Get updated langMap after toggle
+          const nextLangMap = new Map(ui.langMap)
+          const current = nextLangMap.get(code)
+          if (current) {
+            nextLangMap.set(code, { ...current, visible: !current.visible })
+          }
+          // Only send langMap change
+          onSettingsChange?.({ langMap: nextLangMap })
+        }}
       />
     </Box>
   )
-})
+}
 
 export default OverlayManager
 

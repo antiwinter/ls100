@@ -1,26 +1,63 @@
-import { useState, useEffect, useCallback, useMemo, useReducer } from 'react'
-import { Box, Typography, LinearProgress, Stack, Chip } from '@mui/joy'
+import { useEffect, useCallback, useMemo, useReducer } from 'react'
+import { Box, Typography, Stack, Chip, Button } from '@mui/joy'
 import { Bolt } from '@mui/icons-material'
 import { apiCall } from '../../../config/api'
 import { log } from '../../../utils/logger'
 import { useSync } from './sync.js'
 import { OverlayManager } from './overlay/OverlayManager.jsx'
-import { useSubtitleLines } from './hooks/useSubtitleLines.js'
 import { useSubtitleGroups } from './hooks/useSubtitleGroups.js'
 // UI managed inside OverlayManager; no useReaderUI here
 
+const reducer = (state, action) => {
+  switch (action.type) {
+    case 'LOAD_SHARD':
+      return { ...state, shard: action.shard }
+    case 'LOAD_WORDS':
+      return { ...state, selectedWords: action.words || [] }
+    case 'SET_POSITION':
+      return { ...state, position: { ...state.position, current: action.position } }
+    case 'SET_SEEK':
+      return { ...state, position: { ...state.position, seek: action.seek } }
+    case 'SET_TOTAL':
+      return { ...state, position: { ...state.position, total: action.total } }
+    case 'SET_EXPLAIN':
+      // Set explain word with position and fall through to auto-select it
+      state = { ...state, ui: { ...state.ui, toExplain: action.data } }
+      action.word = action.data?.word
+      action.forceSelect = true
+      // fall through to TOGGLE_WORD
+    case 'TOGGLE_WORD': {
+      const words = state.selectedWords
+      const exists = words.includes(action.word)
+      return {
+        ...state,
+        selectedWords: exists && !action.forceSelect
+          ? words.filter(w => w !== action.word)
+          : exists ? words : [...words, action.word]
+      }
+    }
+    case 'UPDATE_SETTINGS':
+      return { ...state, settings: { ...state.settings, ...action.settings } }
+    case 'TOGGLE_TOOLBAR':
+      return { ...state, ui: { ...state.ui, showToolbar: !state.ui.showToolbar } }
+    case 'SET_TOOLBAR':
+      return { ...state, ui: { ...state.ui, showToolbar: action.show } }
+    default:
+      return state
+  }
+}
+
 export const SubtitleReader = ({ shardId, onBack }) => {
-  const [shard, setShard] = useState(null)
-  const [currentGroup, setCurrentGroup] = useState(0)
-  const [initialGroup, setInitialGroup] = useState(null)
-  const [totalGroups, setTotalGroups] = useState(0)
-  const [selectedWords, setSelectedWords] = useState(new Set())
-  const [uiSettings, setSettings] = useState({ fontMode: 'sans', fontSize: 16, langSet: new Set() })
-  const [showToolbar, setUiToolbar] = useState(false)
-  const [toExplain, setExplainWordState] = useState(null)
+  const [state, dispatch] = useReducer(reducer, {
+    shard: null,
+    position: { current: 0, seek: null, total: 0 },
+    selectedWords: [],
+    settings: {},
+    ui: { showToolbar: false, toExplain: null }
+  })
 
   // setup general sync loop (10s)
-  const { syncNow } = useSync(shardId, selectedWords, currentGroup, 10000)
+  const { syncNow } = useSync(shardId, new Set(state.selectedWords), state.position.current, 10000)
   
   // Load shard and selected words (mount + shard change)
   useEffect(() => {
@@ -29,11 +66,9 @@ export const SubtitleReader = ({ shardId, onBack }) => {
       try {
         const data = await apiCall(`/api/shards/${shardId}`)
         if (!alive) return
-        setShard(data.shard)
+        dispatch({ type: 'LOAD_SHARD', shard: data.shard })
       } catch (error) {
         log.error('Failed to load shard:', error)
-      } finally {
-        if (alive) setLoading(false)
       }
     })()
 
@@ -42,8 +77,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
         const data = await apiCall(`/api/subtitle-shards/${shardId}/words`)
         const words = data.words || []
         if (!alive) return
-        const next = new Set(words)
-        setSelectedWords(next)
+        dispatch({ type: 'LOAD_WORDS', words })
         log.debug(`📝 Loaded ${words.length} selected words`)
         // baseline handled automatically in useSync
       } catch (error) {
@@ -51,40 +85,27 @@ export const SubtitleReader = ({ shardId, onBack }) => {
       }
     })()
 
-    const load = async () => {
+    ;(async () => {
       try {
         const data = await apiCall(`/api/subtitle-shards/${shardId}/position`)
-         const position = data?.position || 0
+        const position = data?.position || 0
         if (!alive) return
-         // position baseline handled by useSync via index watcher
-         if (position > 0) {
-           setInitialGroup(position)
-           setCurrentGroup(position)
-         }
-      } catch {
-        // ignore
+        // Only set seek position - viewer will emit range change after successful scroll
+        dispatch({ type: 'SET_SEEK', seek: position })
+      } catch (error) {
+        log.error('Failed to load position:', error)
       }
-    }
-    // microtask to avoid double call loops on strict mode or remount
-    Promise.resolve().then(() => alive && load())
+    })()
 
     return () => { alive = false }
   }, [shardId])
 
-  // Prepare languages and fetch all lines (main + refs) once
-  const languages = useMemo(() => 
-    shard?.data?.languages?.map(l => ({ 
-      code: l.language_code || l.code || 'en',
-      filename: l.filename || l.file || '',
-      subtitle_id: l.subtitle_id
-    })) || [],
-    [shard?.data?.languages]
-  )
+  // Use languages directly from shard data - only when shard is loaded
+  const languages = state.shard?.data?.languages || []
 
-  // load lines
-  const { lines } = useSubtitleLines(languages)
-  const { groups, total } = useSubtitleGroups(lines, languages?.[0]?.code, languages)
-  useEffect(() => { setTotalGroups(total) }, [total])
+  // load lines and groups - will handle empty languages gracefully
+  const { groups, total, loading } = useSubtitleGroups(languages)
+  useEffect(() => { dispatch({ type: 'SET_TOTAL', total }) }, [total])
 
   // flush on unmount
   useEffect(() => {
@@ -93,39 +114,13 @@ export const SubtitleReader = ({ shardId, onBack }) => {
     }
   }, [syncNow])
 
-  // Toggle and ensure-select helpers
-  const toggleWord = useCallback((word, forceSelect) => {
-    setSelectedWords(prev => {
-      const next = new Set(prev)
-      if (!forceSelect && next.has(word)) next.delete(word)
-      else next.add(word)
-      return next
-    })
-  }, [])
-
-  // Short press delegates overlay opening to OverlayManager
-  // (duplicated state removed)
-  const explainWord = useCallback((word, pos) => {
-    toggleWord(word, 1)
-    setUiToolbar(false)
-    setExplainWordState(word)
-  }, [toggleWord])
-
   // Handle review click (placeholder)
   const handleReviewClick = () => {
     // TODO: Implement review feature
   }
 
-  // Scroll handling is minimal; OverlayManager handles drawers/toolbar
-  const handleScroll = useCallback((e, currentPos) => {
-    if (Number.isFinite(currentPos)) setCurrentGroup(currentPos)
-  }, [])
-
-  const movieName = shard?.data?.languages?.[0]?.movie_name || shard?.name || ''
-  
-  // langSet initialized inside OverlayManager
-
-  if (!shard) {
+  const shardName = state.shard?.name || ''  
+  if (!state.shard) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
         <Typography color="danger">Shard not found</Typography>
@@ -166,7 +161,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
               whiteSpace: 'nowrap'
             }}
           >
-            {movieName}
+            {shardName}
           </Typography>
           
           <Chip
@@ -191,30 +186,44 @@ export const SubtitleReader = ({ shardId, onBack }) => {
         </Stack>
 
         <Typography level="body-xs" color="neutral" sx={{ opacity: 0.7 }}>
-          {currentGroup}/{totalGroups}
+          {state.position.current}/{state.position.total}
         </Typography>
       </Stack>
 
       <OverlayManager
-        title={movieName}
+        title={shardName}
         languages={languages}
-        onSettingsChange={setSettings}
-        toolbar={showToolbar}
-        explain={toExplain}
+        onSettingsChange={(settings) => dispatch({ type: 'UPDATE_SETTINGS', settings })}
+        toolbar={state.ui.showToolbar}
+        explain={state.ui.toExplain}
         onBack={onBack}
       />
 
       <SubtitleViewer
         groups={groups}
-        selectedWords={selectedWords}
-        settings={uiSettings}
-        languages={languages}
-        position={initialGroup}
-        onWord={(word, type, pos) => { type === 'long' ? toggleWord(word, false) : explainWord(word, pos) }}
-        onEmptyClick={() => { setExplainWordState(null); setUiToolbar((v) => !v) }}
-        onScroll={(e, idx) => Number.isFinite(idx) && setCurrentGroup(idx)}
+        selectedWords={new Set(state.selectedWords)}
+        settings={state.settings}
+        position={state.position.seek}
+        onWord={(word, type, pos) => {
+          if (type === 'long') {
+            dispatch({ type: 'TOGGLE_WORD', word })
+          } else {
+            dispatch({ type: 'SET_TOOLBAR', show: false })
+            dispatch({ type: 'SET_EXPLAIN', data: { word, pos } })
+          }
+        }}
+        onEmptyClick={() => { 
+          dispatch({ type: 'SET_EXPLAIN', data: null })
+          dispatch({ type: 'TOGGLE_TOOLBAR' })
+        }}
+        onScroll={(e) => {
+          // Hide toolbar on scroll, don't update position
+          if (state.ui.showToolbar) {
+            dispatch({ type: 'SET_TOOLBAR', show: false })
+          }
+        }}
         onCurrentGroupChange={(idx) => {
-          setCurrentGroup(idx)
+          dispatch({ type: 'SET_POSITION', position: idx })
         }}
       />
     </Box>
