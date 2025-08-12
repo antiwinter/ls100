@@ -71,21 +71,16 @@ const MobileHintRedirect = ({ children }) => {
   
   useEffect(() => {
     const { isMobileBrowser } = detectPlatform()
-    
-    if (location.pathname === '/hint') {
-      // If on hint page but shouldn't be there, redirect away
-      if (!isMobileBrowser) {
-        navigate('/', { replace: true })
-      }
-    } else {
-      // If not on hint page but should be there, redirect to hint
-      if (isMobileBrowser) {
-        navigate('/hint', { replace: true })
-      }
+
+    if (isMobileBrowser) {
+      navigate('/hint', { replace: true })
+    } else if (location.pathname === '/hint') {
+      navigate('/', { replace: true })
     }
   }, [navigate, location.pathname])
   
-  return children
+  // If we're on the hint page, show it directly (bypass auth)
+  return location.pathname === '/hint'? <Hint />: children
 }
 
 const AuthFlow = () => {
@@ -139,11 +134,11 @@ function App() {
         colorSchemeStorageKey={APP.storage.colors}
     >
       <Router>
-        <AuthProvider>
-          <MobileHintRedirect>
+        <MobileHintRedirect>
+          <AuthProvider>
             <AuthFlow />
-          </MobileHintRedirect>
-        </AuthProvider>
+          </AuthProvider>
+        </MobileHintRedirect>
       </Router>
     </CssVarsProvider>
   )
