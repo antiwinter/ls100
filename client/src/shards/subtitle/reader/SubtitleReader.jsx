@@ -5,6 +5,7 @@ import { apiCall } from '../../../config/api'
 import { log } from '../../../utils/logger'
 import { useSync } from './sync.js'
 import { OverlayManager } from './overlay/OverlayManager.jsx'
+import { SubtitleViewer } from './SubtitleViewer.jsx'
 import { useSubtitleGroups } from './hooks/useSubtitleGroups.js'
 // UI managed inside OverlayManager; no useReaderUI here
 

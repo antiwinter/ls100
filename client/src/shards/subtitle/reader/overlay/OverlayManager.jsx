@@ -1,9 +1,8 @@
 import { useRef, useCallback, useEffect, useReducer } from 'react'
 import { Box } from '@mui/joy'
-import { Toolbar } from '../Toolbar.jsx'
-import { Dict } from '../Dict.jsx'
-import { FontDrawer } from '../FontDrawer.jsx'
-import { SubtitleViewer } from '../SubtitleViewer.jsx'
+import { Toolbar } from './Toolbar.jsx'
+import { Dict } from './Dict.jsx'
+import { FontDrawer } from './FontDrawer.jsx'
 import { fontStack } from '../../../utils/font'
 
 export const OverlayManager = ({
@@ -42,10 +41,15 @@ export const OverlayManager = ({
       }
       case 'SET_LANGMAP':
         return { ...state, langMap: action.langMap || new Map() }
-      case 'SET_FONT_MODE':
-        return { ...state, font: { ...state.font, mode: action.mode } }
-      case 'SET_FONT_SIZE':
-        return { ...state, font: { ...state.font, size: action.size } }
+      case 'SET_FONT':
+        return { 
+          ...state, 
+          font: { 
+            ...state.font,
+            mode: action.mode ?? state.font.mode,
+            size: action.size ?? state.font.size
+          } 
+        }
       default:
         return state
     }
@@ -106,7 +110,6 @@ export const OverlayManager = ({
         visible={ui.toolbar}
         onBack={onBack}
         onToolSelect={handleToolSelect}
-        movieName={title}
       />
 
       <Dict
@@ -119,11 +122,14 @@ export const OverlayManager = ({
       <FontDrawer
         open={ui.action.open && ui.action.tool === 'font'}
         onClose={() => dispatch({ type: 'CLOSE_ACTION' })}
-        fontSetting={{ mode: ui.font.mode, size: ui.font.size }}
-        onChangeFont={(s) => { 
-          dispatch({ type: 'SET_FONT_MODE', mode: s.mode })
-          dispatch({ type: 'SET_FONT_SIZE', size: s.size })
-          onSettingsChange?.({ fontSize: s.size, fontFamily: s.family })
+        settings={{ mode: ui.font.mode, size: ui.font.size }}
+        onChangeFont={(font) => { 
+          dispatch({ type: 'SET_FONT', ...font })
+          const newFont = { ...ui.font, ...font }
+          onSettingsChange?.({ 
+            fontSize: newFont.size, 
+            fontFamily: fontStack(newFont.mode) 
+          })
         }}
         langMap={ui.langMap}
         onToggleLang={(code) => { 

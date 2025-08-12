@@ -55,8 +55,8 @@ export const SubtitleViewer = ({
     if (Number.isFinite(fontSize)) viewerRef.current.style.setProperty('--reader-font-size', `${fontSize}px`)
   }, [settings])
   
-  // Clean SRT formatting tags like {\an1}, {\pos(30,230)}, etc.
-  const cleanSrtText = (text) => {
+  // Clean SRT formatting tags - memoized for performance
+  const cleanSrtText = useCallback((text) => {
     if (!text) return ''
     
     // Remove ASS/SSA formatting tags like {\an1}, {\pos(30,230)}, {\1c&Hffffff&}, etc.
@@ -64,10 +64,10 @@ export const SubtitleViewer = ({
       .replace(/\{\\[^}]*\}/g, '') // Remove {\tag} patterns
       .replace(/\{[^}]*\}/g, '')   // Remove other {tag} patterns
       .trim()
-  }
+  }, [])
 
-  // Render main language text with word overlays
-  const renderMain = (text) => {
+  // Render main language text with word overlays - memoized for performance
+  const renderMain = useCallback((text) => {
     if (!text) return null
     
     return text.split(/(\s+)/).map((part, idx) => {
@@ -107,7 +107,7 @@ export const SubtitleViewer = ({
         </span>
       )
     })
-  }
+  }, [selectedWords])
 
   // Render complete entry with timestamp and all languages
   const renderEntry = (group) => {

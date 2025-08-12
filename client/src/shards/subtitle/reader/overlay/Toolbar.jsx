@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import {
   Box,
   Stack,
@@ -38,18 +38,9 @@ export const Toolbar = ({
   onBack, 
   onToolSelect
 }) => {
-  const [isVisible, setIsVisible] = useState(visible)
-  const hideTimer = useRef(null)
-
-  // Sync internal state with visible prop - no auto-hide when controlled by parent
+  // Log visibility changes for debugging
   useEffect(() => {
-    log.debug(`🔧 Toolbar visibility prop changed: ${visible} -> setting isVisible to ${visible}`)
-    setIsVisible(visible)
-    
-    // Clear any existing timer when visibility changes
-    if (hideTimer.current) {
-      clearTimeout(hideTimer.current)
-    }
+    log.debug(`🔧 Toolbar visibility: ${visible}`)
   }, [visible])
 
   // Handle tool selection
@@ -60,14 +51,7 @@ export const Toolbar = ({
     }
   }
 
-  // Mouse handlers no longer needed since toolbar is controlled by parent
-  const handleMouseEnter = () => {
-    // No auto-hide behavior needed
-  }
 
-  const handleMouseLeave = () => {
-    // No auto-hide behavior needed
-  }
 
   return (
     <Box
@@ -80,14 +64,12 @@ export const Toolbar = ({
         bgcolor: 'background.body',
         py: 1,
         px: 2,
-        borderBottom: isVisible ? 1 : 0,
+        borderBottom: visible ? 1 : 0,
         borderColor: 'divider',
-        transform: isVisible ? 'translateY(0)' : 'translateY(-110%)',
+        transform: visible ? 'translateY(0)' : 'translateY(-110%)',
         transition: 'transform 0.3s ease-out',
-        boxShadow: isVisible ? 'sm' : 'none'
+        boxShadow: visible ? 'sm' : 'none'
       }}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
     >
       <Stack direction="row" justifyContent="space-between" alignItems="center">
         {/* Left side: Back button + movie name */}

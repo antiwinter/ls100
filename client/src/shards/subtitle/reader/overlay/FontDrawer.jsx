@@ -16,7 +16,7 @@ import { fontStack } from "../../../../utils/font";
 export const FontDrawer = ({
   open,
   onClose,
-  fontSetting,
+  settings,
   onChangeFont,
   langMap,
   onToggleLang,
@@ -47,11 +47,11 @@ export const FontDrawer = ({
         <Typography level="title-sm">Font</Typography>
         <RadioGroup
           orientation="horizontal"
-          value={fontSetting?.mode || "sans"}
+          value={settings?.mode || "sans"}
           onChange={(e) => {
             const mode = e.target.value;
             const family = fontStack(mode);
-            onChangeFont?.({ mode, family, size: fontSetting?.size });
+            onChangeFont?.({ mode, family });
           }}
         >
           <Radio value="sans" label="Sans" />
@@ -60,14 +60,13 @@ export const FontDrawer = ({
 
         <Typography level="title-sm">Size</Typography>
         <Slider
-          value={fontSetting?.size || 16}
+          value={settings?.size || 16}
           min={14}
           max={20}
           step={1}
           marks={marks}
           onChange={(_, v) => {
-            const family = fontStack(fontSetting?.mode || "sans");
-            onChangeFont?.({ mode: fontSetting?.mode, family, size: v });
+            onChangeFont?.({ size: v });
           }}
         />
 

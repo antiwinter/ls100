@@ -54,8 +54,8 @@ export function useSubtitleGroups(languages) {
     const main = []
     const refs = []
     lines.forEach((line, idx) => {
-      const code = line.language || line.data?.language || line.data?.lang
-      const startMs = (line.data && line.data.start) || 0
+      const code = line.language || line.data?.language || line.data?.lang || ''
+      const startMs = line.data?.start || 0
       const item = { ...line, actualIndex: idx, startMs }
       if (code && mainLanguageCode && code === mainLanguageCode) main.push(item)
       else refs.push(item)
