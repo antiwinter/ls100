@@ -119,7 +119,7 @@ export const OverlayManager = ({
       <FontDrawer
         open={ui.action.open && ui.action.tool === 'font'}
         onClose={() => dispatch({ type: 'CLOSE_ACTION' })}
-        settings={{ mode: ui.font.mode, size: ui.font.size }}
+        fontSetting={{ mode: ui.font.mode, size: ui.font.size }}
         onChangeFont={(s) => { 
           dispatch({ type: 'SET_FONT_MODE', mode: s.mode })
           dispatch({ type: 'SET_FONT_SIZE', size: s.size })

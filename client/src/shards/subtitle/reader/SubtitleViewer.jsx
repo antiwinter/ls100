@@ -177,9 +177,7 @@ export const SubtitleViewer = ({
   }, [position])
 
   return (
-    <>
-      {}
-      <Box
+    <Box
         ref={viewerRef}
         {...handlers}
         className="subtitle-viewer"
@@ -227,7 +225,6 @@ export const SubtitleViewer = ({
           }}
         />
       </Box>
-    </>
   )
 }
 
