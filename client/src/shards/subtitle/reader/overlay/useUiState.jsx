@@ -2,17 +2,17 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { fontStack } from '../../../../utils/font'
 
-const OverlayContext = createContext()
+const OverlayUIContext = createContext()
 
-const useOverlay = () => {
-  const context = useContext(OverlayContext)
+const useOverlayUI = () => {
+  const context = useContext(OverlayUIContext)
   if (!context) {
-    throw new Error('useOverlay must be used within OverlayProvider')
+    throw new Error('useOverlayUI must be used within OverlayUIProvider')
   }
   return context
 }
 
-export const OverlayProvider = ({ languages, children }) => {
+export const OverlayUIProvider = ({ languages, children }) => {
   // UI State
   const [toolbar, setToolbar] = useState(false)
   const [dict, setDict] = useState({ 
@@ -47,7 +47,7 @@ export const OverlayProvider = ({ languages, children }) => {
     langMap
   }
 
-  // Direct Actions (stable identities)
+  // UI Actions (stable identities)
   const openTool = useCallback((tool) => {
     setActionDrawer({ open: true, tool })
     if (tool !== 'font') setToolbar(false)
@@ -82,16 +82,11 @@ export const OverlayProvider = ({ languages, children }) => {
     })
   }, [])
 
-  // Event Handlers (pre-wired with state, stable identities)
+  // UI Event Handlers (stable identities)
   const handleWordShort = useCallback((word, pos) => {
     const position = pos < window.innerHeight / 2 ? 'bottom' : 'top'
     setDict({ visible: true, word, position })
     setToolbar(false)
-  }, [])
-
-  const handleWordLong = useCallback((_word) => {
-    // This will be wired to word selection logic in Reader
-    // For now, just a placeholder that Reader can override
   }, [])
 
   const handleEmptyClick = useCallback(() => {
@@ -115,7 +110,7 @@ export const OverlayProvider = ({ languages, children }) => {
   }, [])
 
   const value = {
-    // State
+    // UI State
     toolbar,
     dict,
     actionDrawer,
@@ -123,7 +118,7 @@ export const OverlayProvider = ({ languages, children }) => {
     langMap,
     settings,
     
-    // Direct Actions
+    // UI Actions
     setToolbar,
     openTool,
     closeTool,
@@ -132,18 +127,17 @@ export const OverlayProvider = ({ languages, children }) => {
     updateFont,
     toggleLang,
     
-    // Event Handlers
+    // UI Event Handlers
     handleWordShort,
-    handleWordLong,
     handleEmptyClick,
     handleScroll
   }
 
   return (
-    <OverlayContext.Provider value={value}>
+    <OverlayUIContext.Provider value={value}>
       {children}
-    </OverlayContext.Provider>
+    </OverlayUIContext.Provider>
   )
 }
 
-export { useOverlay }
+export { useOverlayUI }

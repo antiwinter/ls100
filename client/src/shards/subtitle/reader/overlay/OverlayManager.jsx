@@ -2,7 +2,7 @@ import { Box } from '@mui/joy'
 import { Toolbar } from './Toolbar.jsx'
 import { Dict } from './Dict.jsx'
 import { FontDrawer } from './FontDrawer.jsx'
-import { useOverlay } from '../hooks/useOverlayContext.jsx'
+import { useOverlayUI } from './useUiState.jsx'
 
 export const OverlayManager = ({ onBack }) => {
   const { 
@@ -12,7 +12,7 @@ export const OverlayManager = ({ onBack }) => {
     openTool,
     closeDict,
     closeTool
-  } = useOverlay()
+  } = useOverlayUI()
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>

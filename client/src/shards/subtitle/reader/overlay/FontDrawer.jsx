@@ -11,13 +11,13 @@ import {
   Switch
 } from '@mui/joy'
 import { ActionDrawer } from '../../../../components/ActionDrawer.jsx'
-import { useOverlay } from '../hooks/useOverlayContext.jsx'
+import { useOverlayUI } from './useUiState.jsx'
 
 export const FontDrawer = ({
   open,
   onClose
 }) => {
-  const { font, langMap, updateFont, toggleLang } = useOverlay()
+  const { font, langMap, updateFont, toggleLang } = useOverlayUI()
   const marks = useMemo(
     () => [
       { value: 12, label: '12' },

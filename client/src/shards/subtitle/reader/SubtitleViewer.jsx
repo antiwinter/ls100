@@ -10,20 +10,21 @@ import {
 
 import VirtualScroller from '../../../components/VirtualScroller'
 import { useLongPress } from '../../../utils/useLongPress'
-import { useOverlay } from './hooks/useOverlayContext.jsx'
+import { useReaderState } from './overlay/useTraceState.jsx'
+import { useOverlayUI } from './overlay/useUiState.jsx'
 
 
-// Multi-language subtitle display - gets settings from context
+// Multi-language subtitle display - gets state from split contexts
 export const SubtitleViewer = ({ 
   groups,
-  selectedWords,
   position,
   onWord,
   onEmptyClick,
   onScroll,
   onCurrentGroupChange
 }) => {
-  const { settings } = useOverlay()
+  const { selectedWords } = useReaderState()
+  const { settings } = useOverlayUI()
   const viewerRef = useRef(null)
   const scrollerRef = useRef(null)
 
@@ -86,7 +87,7 @@ export const SubtitleViewer = ({
             display: 'inline-block',
             lineHeight: 'inherit'
           }}
-          data-selected={selectedWords?.has?.(cleanWord) ? 'true' : undefined}
+          data-selected={selectedWords.has(cleanWord) ? 'true' : undefined}
         >
           {part}
           {/* Pure overlay shade - shown via CSS when parent has data-selected */}

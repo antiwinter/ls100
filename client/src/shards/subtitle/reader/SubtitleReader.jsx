@@ -7,34 +7,25 @@ import { useSync } from './sync.js'
 import { OverlayManager } from './overlay/OverlayManager.jsx'
 import { SubtitleViewer } from './SubtitleViewer.jsx'
 import { useSubtitleGroups } from './hooks/useSubtitleGroups.js'
-import { OverlayProvider, useOverlay } from './hooks/useOverlayContext.jsx'
+import { ReaderStateProvider, useReaderState } from './overlay/useTraceState.jsx'
+import { OverlayUIProvider, useOverlayUI } from './overlay/useUiState.jsx'
 
 const SubtitleReaderContent = ({ shardId, onBack }) => {
-  // Core data state
+  // Core shard data
   const [shard, setShard] = useState(null)
-  const [position, setPosition] = useState({ current: 0, seek: null, total: 0 })
-  const [selectedWords, setSelectedWords] = useState([])
 
-  // All overlay logic from context
+  // Content state from ReaderStateContext
   const { 
-    handleWordShort, handleEmptyClick, handleScroll
-  } = useOverlay()
+    position, selectedWords,
+    setPositionCurrent, setSeek, setTotal, setSelectedWordsFromArray,
+    handleWordLong
+  } = useReaderState()
 
-  // Word selection helper
-  const toggleSelectedWord = useCallback((word) => {
-    setSelectedWords(prev => {
-      const exists = prev.includes(word)
-      return exists ? prev.filter(w => w !== word) : [...prev, word]
-    })
-  }, [])
+  // UI events from OverlayUIContext
+  const { handleWordShort, handleEmptyClick, handleScroll } = useOverlayUI()
 
-  // Override handleWordLong to include selection logic
-  const handleWordLongWithSelection = useCallback((word) => {
-    toggleSelectedWord(word)
-  }, [toggleSelectedWord])
-
-  // Setup sync loop (10s)
-  const { syncNow } = useSync(shardId, new Set(selectedWords), position.current, 10000)
+  // Setup sync loop with context state (Option A - safer)
+  const { syncNow } = useSync(shardId, selectedWords, position.current, 10000)
   
   // Load shard and selected words (mount + shard change)
   useEffect(() => {
@@ -54,7 +45,7 @@ const SubtitleReaderContent = ({ shardId, onBack }) => {
         const data = await apiCall(`/api/subtitle-shards/${shardId}/words`)
         const words = data.words || []
         if (!alive) return
-        setSelectedWords(words)
+        setSelectedWordsFromArray(words) // Context action
         log.debug(`📝 Loaded ${words.length} selected words`)
       } catch (error) {
         log.error('Failed to load selected words:', error)
@@ -66,14 +57,14 @@ const SubtitleReaderContent = ({ shardId, onBack }) => {
         const data = await apiCall(`/api/subtitle-shards/${shardId}/position`)
         const pos = data?.position || 0
         if (!alive) return
-        setPosition(prev => ({ ...prev, seek: pos }))
+        setSeek(pos) // Context action
       } catch (error) {
         log.error('Failed to load position:', error)
       }
     })()
 
     return () => { alive = false }
-  }, [shardId])
+  }, [shardId, setSelectedWordsFromArray, setSeek])
 
   // Use languages directly from shard data
   const languages = shard?.data?.languages || []
@@ -81,22 +72,22 @@ const SubtitleReaderContent = ({ shardId, onBack }) => {
   // Load lines and groups
   const { groups, total } = useSubtitleGroups(languages)
   useEffect(() => { 
-    setPosition(prev => ({ ...prev, total })) 
-  }, [total])
+    setTotal(total) // Context action
+  }, [total, setTotal])
 
   // Flush on unmount
   useEffect(() => {
     return () => { syncNow() }
   }, [syncNow])
 
-  // Handle word events with selection logic
+  // Handle word events with context handlers
   const handleWordEvent = useCallback((word, type, pos) => {
     if (type === 'long') {
-      handleWordLongWithSelection(word)
+      handleWordLong(word) // From ReaderStateContext
     } else {
-      handleWordShort(word, pos)
+      handleWordShort(word, pos) // From OverlayUIContext
     }
-  }, [handleWordLongWithSelection, handleWordShort])
+  }, [handleWordLong, handleWordShort])
 
   // Handle review click (placeholder)
   const handleReviewClick = () => {
@@ -171,20 +162,17 @@ const SubtitleReaderContent = ({ shardId, onBack }) => {
         </Typography>
       </Stack>
 
-      {/* OverlayManager - no props needed, consumes context directly */}
+      {/* OverlayManager - consumes OverlayUIContext */}
       <OverlayManager onBack={onBack} />
 
-      {/* SubtitleViewer - no settings prop needed, consumes context directly */}
+      {/* SubtitleViewer - consumes both contexts */}
       <SubtitleViewer
         groups={groups}
-        selectedWords={new Set(selectedWords)}
         position={position.seek}
         onWord={handleWordEvent}
         onEmptyClick={handleEmptyClick}
         onScroll={handleScroll}
-        onCurrentGroupChange={(idx) => {
-          setPosition(prev => ({ ...prev, current: idx }))
-        }}
+        onCurrentGroupChange={setPositionCurrent} // Context action
       />
     </Box>
   )
@@ -193,7 +181,7 @@ const SubtitleReaderContent = ({ shardId, onBack }) => {
 export const SubtitleReader = ({ shardId, onBack }) => {
   const [shard, setShard] = useState(null)
 
-  // Load shard first to get languages for provider
+  // Load shard first to get languages for UI provider
   useEffect(() => {
     let alive = true
     ;(async () => {
@@ -211,8 +199,10 @@ export const SubtitleReader = ({ shardId, onBack }) => {
   const languages = shard?.data?.languages || []
 
   return (
-    <OverlayProvider languages={languages}>
-      <SubtitleReaderContent shardId={shardId} onBack={onBack} />
-    </OverlayProvider>
+    <ReaderStateProvider>
+      <OverlayUIProvider languages={languages}>
+        <SubtitleReaderContent shardId={shardId} onBack={onBack} />
+      </OverlayUIProvider>
+    </ReaderStateProvider>
   )
 }
