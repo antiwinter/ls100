@@ -15,7 +15,7 @@ export const OverlayManager = ({ onBack }) => {
   } = useOverlayUI()
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Box>
       <Toolbar
         visible={toolbar}
         onBack={onBack}
