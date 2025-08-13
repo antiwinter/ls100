@@ -17,7 +17,7 @@
     "start": "yarn workspace client build && NODE_ENV=production yarn workspace server start",
     "lint": "yarn workspace client lint && yarn workspace server lint",
     "lint:fix": "yarn workspace client lint:fix && yarn workspace server lint:fix",
-    "manage": "node prompt/manage.js"
+    "rev": "node infra/rev.js"
   },
   "devDependencies": {
     "commander": "^11.1.0",

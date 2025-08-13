@@ -29,5 +29,23 @@ export default defineConfig([
       'quotes': ['error', 'single'],
       'comma-dangle': ['error', 'never']
     }
+  },
+  {
+    files: ['vite.config.js'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node
+      }
+    }
+  },
+  {
+    files: ['src/config/constants.js'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        process: 'readonly'
+      }
+    }
   }
 ])

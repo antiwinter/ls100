@@ -38,7 +38,7 @@ jobs:
         run: |
           yarn install --frozen-lockfile
           yarn lint
-          yarn workspace client build
+          cd client && yarn build && cd -
       
       - name: Create deployment package
         run: |

@@ -4,8 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "BUILD_ID=$(git describe --tags --always --dirty 2>/dev/null || echo) vite",
+    "build": "BUILD_ID=$(git describe --tags --always --dirty 2>/dev/null || echo) vite build",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "preview": "vite preview"

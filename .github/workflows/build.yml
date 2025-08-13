@@ -1,0 +1,31 @@
+name: build
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  client-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'yarn'
+
+      - name: Install deps
+        run: yarn --frozen-lockfile
+
+      - name: Build client with BUILD_ID
+        working-directory: client
+        env:
+          BUILD_ID: ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
+        run: yarn build
+
+

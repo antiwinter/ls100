@@ -5,6 +5,10 @@ import { APP } from './src/config/constants.js'
 
 // https://vite.dev/config/
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(process.env.npm_package_version),
+    __BUILD_ID__: JSON.stringify(process.env.BUILD_ID || process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || process.env.CI_COMMIT_SHA || '')
+  },
   plugins: [
     react(),
     VitePWA({
