@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo, useCallback } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
 dayjs.extend(utc)
@@ -10,19 +10,20 @@ import {
 
 import VirtualScroller from '../../../components/VirtualScroller'
 import { useLongPress } from '../../../utils/useLongPress'
+import { useOverlay } from './hooks/useOverlayContext.jsx'
 
 
-// Multi-language subtitle display - context-agnostic, stable  
+// Multi-language subtitle display - gets settings from context
 export const SubtitleViewer = ({ 
   groups,
   selectedWords,
-  settings,
   position,
   onWord,
   onEmptyClick,
   onScroll,
   onCurrentGroupChange
 }) => {
+  const { settings } = useOverlay()
   const viewerRef = useRef(null)
   const scrollerRef = useRef(null)
 
@@ -47,7 +48,7 @@ export const SubtitleViewer = ({
 
   const { handlers } = useLongPress(handlePress, { delay: 450 })
 
-  // Apply font style via CSS variables when props change
+  // Apply font style via CSS variables when settings change
   useEffect(() => {
     if (!viewerRef.current || !settings) return
     const { fontFamily, fontSize } = settings

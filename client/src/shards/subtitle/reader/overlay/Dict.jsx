@@ -7,7 +7,7 @@ import {
 } from '@mui/joy'
 import { VolumeUp } from '@mui/icons-material'
 import { ActionDrawer } from '../../../../components/ActionDrawer.jsx'
-import { log } from '../../../../utils/logger.js'
+import { log } from '../../../../utils/logger'
 import DictCollins from '../../../../components/DictCollins.jsx'
 
 // Dictionary component - simple props interface

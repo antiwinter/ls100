@@ -72,7 +72,7 @@ export const Toolbar = ({
       }}
     >
       <Stack direction="row" justifyContent="space-between" alignItems="center">
-        {/* Left side: Back button + movie name */}
+        {/* Left side: Back button */}
         <Stack direction="row" spacing={1} alignItems="center">
           <IconButton
             onClick={onBack}
