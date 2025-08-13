@@ -12,7 +12,7 @@ const useOverlayUI = () => {
   return context
 }
 
-export const OverlayUIProvider = ({ languages, children }) => {
+export const OverlayUIProvider = ({ langMap: _langMap, children }) => {
   // UI State
   const [toolbar, setToolbar] = useState(false)
   const [dict, setDict] = useState({ 
@@ -29,16 +29,25 @@ export const OverlayUIProvider = ({ languages, children }) => {
   const [font, setFont] = useState({ mode: 'sans', size: 16 })
   const [langMap, setLangMap] = useState(new Map())
 
-  // Initialize langMap when languages change
+  // Initialize/update langMap when _langMap changes (preserve visibility)
   useEffect(() => {
-    if (Array.isArray(languages) && languages.length) {
-      const newLangMap = new Map()
-      languages.filter(l => !l.isMain).forEach(l => {
-        newLangMap.set(l.code, { filename: l.filename, visible: true })
+    if (_langMap && _langMap.size > 0) {
+      setLangMap(prevLangMap => {
+        const newLangMap = new Map()
+        
+        // Copy from _langMap, preserving visibility from previous state
+        for (const [code, data] of _langMap.entries()) {
+          const prevEntry = prevLangMap.get(code)
+          newLangMap.set(code, {
+            ...data,
+            visible: prevEntry?.visible ?? true // Preserve previous visibility or default to true
+          })
+        }
+        
+        return newLangMap
       })
-      setLangMap(newLangMap)
     }
-  }, [languages])
+  }, [_langMap])
 
   // Computed settings
   const settings = {

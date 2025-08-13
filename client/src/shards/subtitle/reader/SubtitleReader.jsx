@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from 'react'
+import { useEffect, useCallback, useState, useMemo } from 'react'
 import { Box, Typography, Stack, Chip, Button } from '@mui/joy'
 import { Bolt } from '@mui/icons-material'
 import { apiCall } from '../../../config/api'
@@ -10,10 +10,7 @@ import { useSubtitleGroups } from './hooks/useSubtitleGroups.js'
 import { ReaderStateProvider, useReaderState } from './overlay/useTraceState.jsx'
 import { OverlayUIProvider, useOverlayUI } from './overlay/useUiState.jsx'
 
-const SubtitleReaderContent = ({ shardId, onBack }) => {
-  // Core shard data
-  const [shard, setShard] = useState(null)
-
+const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
   // Content state from ReaderStateContext
   const { 
     position, selectedWords,
@@ -27,18 +24,9 @@ const SubtitleReaderContent = ({ shardId, onBack }) => {
   // Setup sync loop with context state (Option A - safer)
   const { syncNow } = useSync(shardId, selectedWords, position.current, 10000)
   
-  // Load shard and selected words (mount + shard change)
+  // Load selected words and position (mount + shard change)
   useEffect(() => {
     let alive = true
-    ;(async () => {
-      try {
-        const data = await apiCall(`/api/shards/${shardId}`)
-        if (!alive) return
-        setShard(data.shard)
-      } catch (error) {
-        log.error('Failed to load shard:', error)
-      }
-    })()
 
     ;(async () => {
       try {
@@ -196,12 +184,20 @@ export const SubtitleReader = ({ shardId, onBack }) => {
     return () => { alive = false }
   }, [shardId])
 
-  const languages = shard?.data?.languages || []
+  // Convert languages to langMap (shard-specific to our standard)
+  const langMap = useMemo(() => {
+    const languages = shard?.data?.languages || []
+    const map = new Map()
+    languages.filter(l => !l.isMain).forEach(l => {
+      map.set(l.code, { filename: l.filename, visible: true })
+    })
+    return map
+  }, [shard?.data?.languages])
 
   return (
     <ReaderStateProvider>
-      <OverlayUIProvider languages={languages}>
-        <SubtitleReaderContent shardId={shardId} onBack={onBack} />
+      <OverlayUIProvider langMap={langMap}>
+        <SubtitleReaderContent shard={shard} shardId={shardId} onBack={onBack} />
       </OverlayUIProvider>
     </ReaderStateProvider>
   )
