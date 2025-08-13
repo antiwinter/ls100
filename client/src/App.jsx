@@ -10,6 +10,8 @@ import { BottomNav } from './components/BottomNav'
 import { detectPlatform } from './utils/useDetectPlatform'
 import { APP } from './config/constants'
 
+const isDev = window?.location?.hostname?.match(/localhost|127\.0\.0\.1/)
+
 const MainApp = () => {
   const [homeEditMode, setHomeEditMode] = useState(false)
   const [homeReaderMode, setHomeReaderMode] = useState(false)
@@ -72,7 +74,7 @@ const MobileHintRedirect = ({ children }) => {
   useEffect(() => {
     const { isMobileBrowser } = detectPlatform()
 
-    if (isMobileBrowser) {
+    if (isMobileBrowser && !isDev) {
       navigate('/hint', { replace: true })
     } else if (location.pathname === '/hint') {
       navigate('/', { replace: true })
@@ -86,6 +88,11 @@ const MobileHintRedirect = ({ children }) => {
 const AuthFlow = () => {
   const [isLogin, setIsLogin] = useState(true)
   const { user, loading } = useAuth()
+
+  // In dev mode, bypass authentication
+  if (isDev) {
+    return <MainApp />
+  }
 
   if (loading) {
     return (
