@@ -12,7 +12,7 @@ import VirtualScroller from '../../../components/VirtualScroller'
 import { useLongPress } from '../../../utils/useLongPress'
 import { useReaderState } from './overlay/useTraceState.jsx'
 import { useOverlayUI } from './overlay/useUiState.jsx'
-
+import { log } from '../../../utils/logger.js'
 
 // Multi-language subtitle display - gets state from split contexts
 export const SubtitleViewer = ({ 
@@ -28,6 +28,8 @@ export const SubtitleViewer = ({
   const viewerRef = useRef(null)
   const scrollerRef = useRef(null)
 
+  log.warn('VIEWER re-render', {entries:groups.length, entry0: groups[0], settings, selectedWords})
+  
   // Short/Long press helpers
   const getPressData = useCallback((e) => {
     const { word } = e.target?.dataset || {}

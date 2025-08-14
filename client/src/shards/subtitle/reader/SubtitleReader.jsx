@@ -24,6 +24,8 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
   // Setup sync loop with context state (Option A - safer)
   const { syncNow } = useSync(shardId, selectedWords, position.current, 10000)
   
+  log.warn('READER re-render', {position})
+
   // Load selected words and position (mount + shard change)
   useEffect(() => {
     let alive = true

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { usePageTitle } from '../utils/usePageTitle'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { 
@@ -177,6 +177,14 @@ export const EditShard = () => {
     _setShardData(prev => ({ ...prev, cover: null, coverFile: null }))
     setShowCoverDialog(false)
   }
+
+  // Memoized onChange handler to prevent unnecessary re-renders
+  const handleEngineDataChange = useCallback((engineData) => {
+    _setShardData(prev => ({
+      ...prev,
+      data: { ...prev.data, ...engineData }
+    }))
+  }, [])
 
   const getShardTypeDisplayInfo = () => {
     // Get type info from current shardData
@@ -389,10 +397,7 @@ export const EditShard = () => {
                   mode={mode}
                   shardData={shardData}
                   detectedInfo={detectedInfo}
-                  onChange={(engineData) => _setShardData(prev => ({
-                    ...prev,
-                    data: { ...prev.data, ...engineData }
-                  }))}
+                  onChange={handleEngineDataChange}
                 />
               )
             })()}
