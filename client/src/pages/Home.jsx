@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { 
-  Box, 
+import {
+  Box,
   Stack,
   Button,
   Typography
@@ -59,7 +59,7 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
   const handleImportConfigure = (info) => {
 
     setShowImport(false)
-    
+
     // Create a clean version of detectedInfo without functions
     const cleanDetectedInfo = {
       file: info.file,
@@ -68,7 +68,7 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
       filename: info.filename
       // Don't pass processor (contains functions)
     }
-    
+
     navigate('/edit-shard', {
       state: {
         mode: 'create',
@@ -100,8 +100,8 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
   }
 
   const handleToggleSelect = (shardId) => {
-    setSelected(prev => 
-      prev.includes(shardId) 
+    setSelected(prev =>
+      prev.includes(shardId)
         ? prev.filter(id => id !== shardId)
         : [...prev, shardId]
     )
@@ -114,19 +114,19 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
 
   const handleDelete = async () => {
     if (selected.length === 0) return
-    
+
     try {
       await Promise.all(selected.map(id => apiCall(`/api/shards/${id}`, { method: 'DELETE' })))
       const data = await apiCall(`/api/shards?sort=${sortBy}`)
       const updatedShards = data.shards || []
       setShards(updatedShards)
-      
+
       // Check if all shards were deleted
       if (updatedShards.length === 0) {
         // Last shard deleted - exit edit mode and return to home
         setEditing(false)
       }
-      
+
       setSelected([])
     } catch (error) {
       log.error('Failed to delete shards:', error)
@@ -135,10 +135,10 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
 
   const handleMakePublic = async () => {
     if (selected.length === 0) return
-    
+
     try {
-      await Promise.all(selected.map(id => 
-        apiCall(`/api/shards/${id}`, { 
+      await Promise.all(selected.map(id =>
+        apiCall(`/api/shards/${id}`, {
           method: 'PUT',
           body: JSON.stringify({ public: true })
         })
@@ -151,10 +151,10 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
 
   const handleMakePrivate = async () => {
     if (selected.length === 0) return
-    
+
     try {
-      await Promise.all(selected.map(id => 
-        apiCall(`/api/shards/${id}`, { 
+      await Promise.all(selected.map(id =>
+        apiCall(`/api/shards/${id}`, {
           method: 'PUT',
           body: JSON.stringify({ public: false })
         })
@@ -167,12 +167,12 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
 
   const handleEdit = () => {
     if (selected.length !== 1) return
-    
+
     const shardId = selected[0]
     const shard = shards.find(s => s.id === shardId)
-    
+
     if (!shard) return
-    
+
     navigate('/edit-shard', {
       state: {
         mode: 'edit',
@@ -183,8 +183,8 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
 
   // Show reader if shard selected
   if (readerShard) {
-            const ReaderComponent = engineGetReader(readerShard.type)
-    
+    const ReaderComponent = engineGetReader(readerShard.type)
+
     if (!ReaderComponent) {
       return (
         <Box sx={{ p: 4, textAlign: 'center' }}>
@@ -197,10 +197,10 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
         </Box>
       )
     }
-    
+
     return (
-      <ReaderComponent 
-        shardId={readerShard.id} 
+      <ReaderComponent
+        shardId={readerShard.id}
         onBack={handleCloseReader}
       />
     )
@@ -211,8 +211,8 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
   return (
     <>
       {/* Import Dialog */}
-      <AppDialog 
-        open={showImport} 
+      <AppDialog
+        open={showImport}
         onClose={() => setShowImport(false)}
         title="Select Learning Content"
         maxWidth={500}
@@ -226,7 +226,7 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
       {/* Home Tab Content */}
       <Stack spacing={0}>
         {editing ? (
-          <BrowserEditBar 
+          <BrowserEditBar
             selectedCount={selected.length}
             totalCount={shards.length}
             selectedShards={shards.filter(s => selected.includes(s.id))}
@@ -239,7 +239,7 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
           />
         ) : (
           <>
-            <BrowserToolbar 
+            <BrowserToolbar
               title="Home"
               onImport={() => setShowImport(true)}
               sortBy={sortBy}
@@ -250,8 +250,8 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
           </>
         )}
         <Box sx={{ p: 2 }}>
-          <ShardBrowser 
-            shards={shards} 
+          <ShardBrowser
+            shards={shards}
             onOpenShard={handleOpenReader}
             editing={editing}
             selected={selected}
@@ -265,4 +265,3 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
   )
 }
 
- 

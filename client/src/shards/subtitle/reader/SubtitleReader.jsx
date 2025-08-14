@@ -12,7 +12,7 @@ import { OverlayUIProvider, useOverlayUI } from './overlay/useUiState.jsx'
 
 const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
   // Content state from ReaderStateContext
-  const { 
+  const {
     position, selectedWords,
     setPositionCurrent, setSeek, setTotal, setSelectedWordsFromArray,
     handleWordLong
@@ -23,8 +23,8 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
 
   // Setup sync loop with context state (Option A - safer)
   const { syncNow } = useSync(shardId, selectedWords, position.current, 10000)
-  
-  log.warn('READER re-render', {position})
+
+  log.warn('READER re-render', { position })
 
   // Load selected words and position (mount + shard change)
   useEffect(() => {
@@ -61,7 +61,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
 
   // Load lines and groups
   const { groups, total } = useSubtitleGroups(languages)
-  useEffect(() => { 
+  useEffect(() => {
     setTotal(total) // Context action
   }, [total, setTotal])
 
@@ -84,7 +84,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
     // TODO: Implement review feature
   }
 
-  const shardName = shard?.name || ''  
+  const shardName = shard?.name || ''
   if (!shard) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
@@ -95,9 +95,9 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
   }
 
   return (
-    <Box sx={{ 
-      height: '100vh', 
-      display: 'flex', 
+    <Box sx={{
+      height: '100vh',
+      display: 'flex',
       flexDirection: 'column',
       overflow: 'hidden'
     }}>
@@ -106,8 +106,8 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
         direction="row"
         justifyContent="space-between"
         alignItems="center"
-        sx={{ 
-          px: 1, 
+        sx={{
+          px: 1,
           py: 0.5,
           bgcolor: 'background.body'
         }}
@@ -126,14 +126,14 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
           >
             {shardName}
           </Typography>
-          
+
           <Chip
             size="sm"
             color="secondary"
             variant='outlined'
             onClick={handleReviewClick}
             startDecorator={<Bolt sx={{ fontSize: '16px', mr: -0.5 }} />}
-            sx={{ 
+            sx={{
               cursor: 'pointer',
               fontSize: '12px',
               fontWeight: '600 !important',
@@ -158,8 +158,8 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
       {/* SubtitleViewer - consumes both contexts */}
       <SubtitleViewer
         groups={groups}
-        position={position.seek}
         onWord={handleWordEvent}
+        position={position.seek}
         onEmptyClick={handleEmptyClick}
         onScroll={handleScroll}
         onCurrentGroupChange={setPositionCurrent} // Context action

@@ -11,8 +11,8 @@ import { useState } from 'react'
 
 export const Me = () => {
   const { user, logout } = useAuth()
-  const [/*noop*/, /*setNoop*/] = useState(null)
-  
+  const [/*noop*/,] = useState(null)
+
   return (
     <Stack spacing={3}>
       <Card sx={{ p: 3 }}>
@@ -24,7 +24,7 @@ export const Me = () => {
           Member since: {new Date(user.created_at).toLocaleDateString()}
         </Typography>
       </Card>
-      
+
       <Card sx={{ p: 3 }}>
         <Typography level="h3" mb={2}>⚙️ Settings</Typography>
         <Stack spacing={2}>
@@ -49,8 +49,8 @@ export const Me = () => {
           <Typography level="body-sm" color="neutral">
             {APP.desc}
           </Typography>
-          
-            <Stack direction="row" spacing={2} flexWrap="wrap">
+
+          <Stack direction="row" spacing={2} flexWrap="wrap">
             <Stack direction="row" spacing={1} alignItems="center">
               <Typography level="body-sm" color="neutral">Frontend:</Typography>
               <Chip size="sm" variant="soft" color="primary">
@@ -69,4 +69,4 @@ export const Me = () => {
       </Card>
     </Stack>
   )
-} 
+}

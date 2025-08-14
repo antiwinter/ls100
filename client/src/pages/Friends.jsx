@@ -17,4 +17,4 @@ export const Friends = () => (
       </Button>
     </Card>
   </Stack>
-) 
+)

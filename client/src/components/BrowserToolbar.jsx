@@ -26,7 +26,7 @@ export const BrowserToolbar = ({ title: _title, onImport, sortBy, onSortChange, 
             disabled={!hasShards}
             variant="plain"
             size="sm"
-            sx={{ 
+            sx={{
               fontSize: 'sm',
               fontWeight: 'normal',
               minHeight: 'auto',
@@ -46,7 +46,7 @@ export const BrowserToolbar = ({ title: _title, onImport, sortBy, onSortChange, 
             onClick={onImport}
             variant="plain"
             size="sm"
-            sx={{ 
+            sx={{
               fontSize: 'sm',
               fontWeight: 'normal',
               minHeight: 'auto',
@@ -62,14 +62,14 @@ export const BrowserToolbar = ({ title: _title, onImport, sortBy, onSortChange, 
             Import
           </Button>
         </Stack>
-        
+
         <Select
           value={sortBy}
           onChange={(e, value) => onSortChange(value)}
           variant="plain"
           size="sm"
           startDecorator={<Sort />}
-          sx={{ 
+          sx={{
             minWidth: 90,
             fontSize: 'xs',
             fontWeight: 'normal',

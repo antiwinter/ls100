@@ -27,7 +27,15 @@ export default defineConfig([
       'no-console': 'error',
       'semi': ['error', 'never'],
       'quotes': ['error', 'single'],
-      'comma-dangle': ['error', 'never']
+      'comma-dangle': ['error', 'never'],
+      'indent': ['error', 2],
+      'object-curly-spacing': ['error', 'always'],
+      'array-bracket-spacing': ['error', 'never'],
+      'space-before-blocks': ['error', 'always'],
+      'keyword-spacing': ['error', { 'before': true, 'after': true }],
+      'space-infix-ops': 'error',
+      'eol-last': ['error', 'always'],
+      'no-trailing-spaces': 'error'
     }
   },
   {

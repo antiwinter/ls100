@@ -14,7 +14,7 @@ export const getEngine = (shardType) => {
 // Generic cover generation
 export const engineGenCover = (shard) => {
   const engine = getEngine(shard.type)
-  
+
   if (!engine || !engine.generateCover) {
     // Fallback for unknown types or engines without cover generation
     return {
@@ -24,14 +24,14 @@ export const engineGenCover = (shard) => {
       textColor: '#ffffff'
     }
   }
-  
+
   return engine.generateCover(shard)
 }
 
 // Get shard type info/tags
 export const engineGetTag = (shardType) => {
   const engine = getEngine(shardType)
-  
+
   if (!engine || !engine.shardTypeInfo) {
     return {
       name: shardType,
@@ -39,7 +39,7 @@ export const engineGetTag = (shardType) => {
       color: '#667eea'
     }
   }
-  
+
   return engine.shardTypeInfo
 }
 
@@ -62,4 +62,4 @@ export const engineSaveData = async (shard, apiCall) => {
     return
   }
   await engine.processData(shard, apiCall)
-} 
+}

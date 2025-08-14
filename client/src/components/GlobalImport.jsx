@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { 
-  Box, 
-  Button, 
-  Typography, 
+import {
+  Box,
+  Button,
+  Typography,
   Card,
   LinearProgress,
   Alert
@@ -49,23 +49,23 @@ export const GlobalImport = ({ onConfigure, onCancel }) => {
   const detectType = async (file) => {
     try {
       const buffer = await file.arrayBuffer()
-      
+
       // Run all detectors
       const results = detectors.map(d => ({
         name: d.name,
         processor: d,
         ...d.detect(file.name, buffer)
       }))
-      
+
       // Pick highest confidence match
       const winner = results.sort((a, b) => b.confidence - a.confidence)[0]
-      
+
       if (!winner?.match || winner.confidence < 0.5) {
         setError('Unsupported file type')
         setProcessing(false)
         return
       }
-      
+
       // Automatically proceed to configuration
       const detectedInfo = {
         file,
@@ -74,10 +74,10 @@ export const GlobalImport = ({ onConfigure, onCancel }) => {
         processor: winner.processor,
         filename: file.name
       }
-      
+
 
       onConfigure?.(detectedInfo)
-      
+
     } catch {
       setError('Failed to analyze file')
       setProcessing(false)
@@ -117,7 +117,7 @@ export const GlobalImport = ({ onConfigure, onCancel }) => {
           <Typography color="neutral">
             Supports: SRT, VTT subtitle files
           </Typography>
-          
+
           <input
             id="file-input"
             type="file"
@@ -151,4 +151,4 @@ export const GlobalImport = ({ onConfigure, onCancel }) => {
       )}
     </Box>
   )
-} 
+}

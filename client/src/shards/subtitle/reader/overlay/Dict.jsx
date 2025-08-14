@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { 
+import {
   Stack,
   Typography,
   IconButton,
@@ -118,7 +118,7 @@ export const Dict = ({ word, position = 'bottom', visible, onClose }) => {
       position={position}
       size="half"
     >
-      <Box 
+      <Box
         ref={scrollContainerRef}
         sx={{
           height: '100%',
@@ -150,12 +150,12 @@ export const Dict = ({ word, position = 'bottom', visible, onClose }) => {
           const element = e.currentTarget
           const atTop = element.scrollTop === 0
           const atBottom = element.scrollTop >= element.scrollHeight - element.clientHeight
-          
+
           // Get touch delta
           const touch = e.touches[0]
           const deltaY = touch.clientY - (element._lastTouchY || touch.clientY)
           element._lastTouchY = touch.clientY
-          
+
           // Stop propagation if we're scrolling within the content bounds
           if ((!atTop && deltaY > 0) || (!atBottom && deltaY < 0)) {
             e.stopPropagation()

@@ -102,7 +102,7 @@ export const BrowserEditBar = ({ selectedCount, totalCount, selectedShards = [],
             onClick={onCancel}
             variant="plain"
             size="sm"
-            sx={{ 
+            sx={{
               fontSize: 'sm',
               fontWeight: 'normal',
               minHeight: 'auto',
@@ -116,13 +116,13 @@ export const BrowserEditBar = ({ selectedCount, totalCount, selectedShards = [],
             }}
           >
           </Button>
-          
+
           <Button
             startDecorator={allSelected ? <CheckCircle /> : <CheckCircleOutline />}
             onClick={onSelectAll}
             variant="plain"
             size="sm"
-            sx={{ 
+            sx={{
               fontSize: 'sm',
               fontWeight: 'normal',
               minHeight: 'auto',
@@ -141,7 +141,7 @@ export const BrowserEditBar = ({ selectedCount, totalCount, selectedShards = [],
       </Box>
 
       {/* Bottom Action Bar */}
-      <Box sx={{ 
+      <Box sx={{
         position: 'fixed',
         bottom: 0,
         left: 0,
@@ -153,9 +153,9 @@ export const BrowserEditBar = ({ selectedCount, totalCount, selectedShards = [],
         zIndex: 1000
       }}>
         <Stack direction="column" spacing={1} alignItems="stretch">
-          <Typography 
-            level="body-sm" 
-            sx={{ 
+          <Typography
+            level="body-sm"
+            sx={{
               fontWeight: 'bold',
               color: 'primary.500',
               textAlign: 'center',
@@ -164,7 +164,7 @@ export const BrowserEditBar = ({ selectedCount, totalCount, selectedShards = [],
           >
             {selectedCount} selected
           </Typography>
-          
+
           <Stack direction="row" spacing={3} justifyContent="center">
             <ActionButton
               icon={<Delete sx={{ fontSize: 20, color: disabled ? 'inherit' : '#FD7A7A' }} />}
@@ -175,7 +175,7 @@ export const BrowserEditBar = ({ selectedCount, totalCount, selectedShards = [],
               bgColor="#FEE2E2"
               textColor="#FD7A7A"
             />
-            
+
             <ActionButton
               icon={<Edit sx={{ fontSize: 20 }} />}
               text="Edit"
@@ -184,7 +184,7 @@ export const BrowserEditBar = ({ selectedCount, totalCount, selectedShards = [],
               color="primary"
               bgColor="#E0F2FE"
             />
-            
+
             <ActionButton
               icon={<MaskIcon withSlash={!hasPublicShard} />}
               text={hasPublicShard ? 'Make private' : 'Make public'}

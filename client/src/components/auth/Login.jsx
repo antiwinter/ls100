@@ -8,7 +8,7 @@ const Login = ({ onSwitchToRegister }) => {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  
+
   const { login } = useAuth()
 
   const handleSubmit = async (e) => {
@@ -42,7 +42,7 @@ const Login = ({ onSwitchToRegister }) => {
         <Typography level="body-md" textAlign="center" mb={3} color="neutral">
           {APP.tagline}
         </Typography>
-        
+
         <form onSubmit={handleSubmit}>
           <Stack spacing={2}>
             {error && (
@@ -50,7 +50,7 @@ const Login = ({ onSwitchToRegister }) => {
                 {error}
               </Alert>
             )}
-            
+
             <Input
               type="email"
               placeholder="Email address"
@@ -59,7 +59,7 @@ const Login = ({ onSwitchToRegister }) => {
               autoComplete="email"
               required
             />
-            
+
             <Input
               type="password"
               placeholder="Password"
@@ -91,4 +91,4 @@ const Login = ({ onSwitchToRegister }) => {
   )
 }
 
-export default Login 
+export default Login

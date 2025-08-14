@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, memo } from 'react'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
 dayjs.extend(utc)
@@ -15,7 +15,8 @@ import { useOverlayUI } from './overlay/useUiState.jsx'
 import { log } from '../../../utils/logger.js'
 
 // Multi-language subtitle display - gets state from split contexts
-export const SubtitleViewer = ({ 
+
+const SubtitleViewer_ = ({
   groups,
   position,
   onWord,
@@ -28,8 +29,8 @@ export const SubtitleViewer = ({
   const viewerRef = useRef(null)
   const scrollerRef = useRef(null)
 
-  log.warn('VIEWER re-render', {entries:groups.length, entry0: groups[0], settings, selectedWords})
-  
+  log.warn('VIEWER re-render', { entries:groups.length, entry0: groups[0], settings, selectedWords })
+
   // Short/Long press helpers
   const getPressData = useCallback((e) => {
     const { word } = e.target?.dataset || {}
@@ -58,11 +59,11 @@ export const SubtitleViewer = ({
     if (fontFamily) viewerRef.current.style.setProperty('--reader-font-family', fontFamily)
     if (Number.isFinite(fontSize)) viewerRef.current.style.setProperty('--reader-font-size', `${fontSize}px`)
   }, [settings])
-  
+
   // Clean SRT formatting tags - memoized for performance
   const cleanSrtText = useCallback((text) => {
     if (!text) return ''
-    
+
     // Remove ASS/SSA formatting tags like {\an1}, {\pos(30,230)}, {\1c&Hffffff&}, etc.
     return text
       .replace(/\{\\[^}]*\}/g, '') // Remove {\tag} patterns
@@ -73,12 +74,12 @@ export const SubtitleViewer = ({
   // Render main language text with word overlays - memoized for performance
   const renderMain = useCallback((text) => {
     if (!text) return null
-    
+
     return text.split(/(\s+)/).map((part, idx) => {
       if (/\s/.test(part)) return part
-      
+
       const cleanWord = part.replace(/[^\w]/g, '').toLowerCase()
-      
+
       return (
         <span
           key={idx}
@@ -99,7 +100,7 @@ export const SubtitleViewer = ({
               position: 'absolute',
               top: '-2px',
               left: '-2px',
-              right: '-2px', 
+              right: '-2px',
               bottom: '-2px',
               borderRadius: '4px',
               backgroundColor: 'var(--joy-palette-primary-500)',
@@ -117,7 +118,7 @@ export const SubtitleViewer = ({
   const renderEntry = (group) => {
     const mainBucket = group.main
     const refMap = group.refs || new Map()
-    
+
     return (
       <Box sx={{ py: 0.1, mb: 1, backgroundColor: 'transparent', borderRadius: 'sm' }}>
         <Stack direction="row" spacing={1} alignItems="flex-start">
@@ -182,53 +183,56 @@ export const SubtitleViewer = ({
 
   return (
     <Box
-        ref={viewerRef}
-        {...handlers}
-        className="subtitle-viewer"
-        sx={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          minHeight: 0,
+      ref={viewerRef}
+      {...handlers}
+      className="subtitle-viewer"
+      sx={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: 0,
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        msUserSelect: 'none',
+        WebkitTouchCallout: 'none',
+        WebkitTapHighlightColor: 'transparent',
+        touchAction: 'pan-y',
+        '--reader-font-family': 'system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Noto Sans, PingFang SC, Hiragino Sans GB, Microsoft YaHei, Heiti SC, sans-serif',
+        '--reader-font-size': '16px',
+        '& *, & *::before, & *::after': {
           userSelect: 'none',
           WebkitUserSelect: 'none',
-          msUserSelect: 'none',
-          WebkitTouchCallout: 'none',
-          WebkitTapHighlightColor: 'transparent',
-          touchAction: 'pan-y',
-          '--reader-font-family': 'system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Noto Sans, PingFang SC, Hiragino Sans GB, Microsoft YaHei, Heiti SC, sans-serif',
-          '--reader-font-size': '16px',
-          '& *, & *::before, & *::after': {
-            userSelect: 'none',
-            WebkitUserSelect: 'none',
-            msUserSelect: 'none'
-          },
-          '& .word-overlay': { opacity: 0 },
-          '& span[data-selected="true"] .word-overlay': { opacity: 0.3 }
+          msUserSelect: 'none'
+        },
+        '& .word-overlay': { opacity: 0 },
+        '& span[data-selected="true"] .word-overlay': { opacity: 0.3 }
+      }}
+    >
+      <VirtualScroller
+        ref={scrollerRef}
+        totalCount={groups?.length || 0}
+        itemKey={(index) => `group${index}`}
+        increaseViewportBy={{ top: 600, bottom: 1000 }}
+        onRangeChange={({ startIndex }) => {
+          onCurrentGroupChange?.(startIndex || 0)
         }}
-      >
-        <VirtualScroller
-          ref={scrollerRef}
-          totalCount={groups?.length || 0}
-          itemKey={(index) => `group${index}`}
-          increaseViewportBy={{ top: 600, bottom: 1000 }}
-          onRangeChange={({ startIndex }) => {
-            onCurrentGroupChange?.(startIndex || 0)
-          }}
-          onScroll={(e) => {
-            onScroll?.(e)
-          }}
-          itemContent={({ index }) => {
-            const group = groups?.[index]
-            if (!group) return null
-            return (
-              <Box data-group-index={index}>
-                {renderEntry(group)}
-              </Box>
-            )
-          }}
-        />
-      </Box>
+        onScroll={(e) => {
+          onScroll?.(e)
+        }}
+        itemContent={({ index }) => {
+          const group = groups?.[index]
+          if (!group) return null
+          return (
+            <Box data-group-index={index}>
+              {renderEntry(group)}
+            </Box>
+          )
+        }}
+      />
+    </Box>
   )
 }
+
+export const SubtitleViewer = memo(SubtitleViewer_)
+
 

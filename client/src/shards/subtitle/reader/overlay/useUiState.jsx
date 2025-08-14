@@ -15,17 +15,17 @@ const useOverlayUI = () => {
 export const OverlayUIProvider = ({ langMap: _langMap, children }) => {
   // UI State
   const [toolbar, setToolbar] = useState(false)
-  const [dict, setDict] = useState({ 
-    visible: false, 
-    word: '', 
-    position: 'bottom' 
+  const [dict, setDict] = useState({
+    visible: false,
+    word: '',
+    position: 'bottom'
   })
-  const [actionDrawer, setActionDrawer] = useState({ 
-    open: false, 
-    tool: null 
+  const [actionDrawer, setActionDrawer] = useState({
+    open: false,
+    tool: null
   })
-  
-  // Settings State  
+
+  // Settings State
   const [font, setFont] = useState({ mode: 'sans', size: 16 })
   const [langMap, setLangMap] = useState(new Map())
 
@@ -34,7 +34,7 @@ export const OverlayUIProvider = ({ langMap: _langMap, children }) => {
     if (_langMap && _langMap.size > 0) {
       setLangMap(prevLangMap => {
         const newLangMap = new Map()
-        
+
         // Copy from _langMap, preserving visibility from previous state
         for (const [code, data] of _langMap.entries()) {
           const prevEntry = prevLangMap.get(code)
@@ -43,7 +43,7 @@ export const OverlayUIProvider = ({ langMap: _langMap, children }) => {
             visible: prevEntry?.visible ?? true // Preserve previous visibility or default to true
           })
         }
-        
+
         return newLangMap
       })
     }
@@ -101,7 +101,7 @@ export const OverlayUIProvider = ({ langMap: _langMap, children }) => {
   const handleEmptyClick = useCallback(() => {
     // If any overlay is open, close them all; otherwise show toolbar
     const hasAnyOverlay = toolbar || dict.visible || actionDrawer.open
-    
+
     if (hasAnyOverlay) {
       // Close all overlays
       setDict({ visible: false, word: '', position: 'bottom' })
@@ -126,7 +126,7 @@ export const OverlayUIProvider = ({ langMap: _langMap, children }) => {
     font,
     langMap,
     settings,
-    
+
     // UI Actions
     setToolbar,
     openTool,
@@ -135,7 +135,7 @@ export const OverlayUIProvider = ({ langMap: _langMap, children }) => {
     closeAll,
     updateFont,
     toggleLang,
-    
+
     // UI Event Handlers
     handleWordShort,
     handleEmptyClick,

@@ -59,17 +59,17 @@ export const ReaderStateProvider = ({ children }) => {
     // State
     position,
     selectedWords,
-    
+
     // Position Actions
     setPositionCurrent,
     setSeek,
     setTotal,
-    
+
     // Selected Words Actions
     setSelectedWordsFromArray,
     toggleWord,
     clearSelectedWords,
-    
+
     // Event Handlers
     handleWordLong
   }

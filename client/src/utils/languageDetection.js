@@ -36,18 +36,18 @@ const LANGUAGE_PATTERNS = {
 // Simple frequency-based language detection
 export const detectLanguageFromContent = (content) => {
   const lines = content.split('\n')
-  const textLines = lines.filter(line => 
+  const textLines = lines.filter(line =>
     !line.match(/^\d+$/) &&                    // Not subtitle number
     !line.match(/\d{2}:\d{2}:\d{2}/) &&       // Not timestamp
     !line.match(/^-->\s*$/) &&                // Not arrow
     line.trim().length > 3                    // Has meaningful content
   )
-  
+
   if (textLines.length === 0) return 'en'
-  
+
   const langScores = {}
   const combinedText = textLines.join(' ').toLowerCase()
-  
+
   // Score each language based on pattern matches
   for (const [lang, patterns] of Object.entries(LANGUAGE_PATTERNS)) {
     let score = 0
@@ -59,60 +59,60 @@ export const detectLanguageFromContent = (content) => {
         matchDetails.push({ pattern: pattern.toString(), matches: matches.length })
       }
     }
-    
+
     // Normalize by text length
     langScores[lang] = score / combinedText.length * 1000
-    
+
     if (score > 0) {
       log.debug(`🔍 ${lang.toUpperCase()} score: ${langScores[lang].toFixed(2)} (${score} matches)`, matchDetails.slice(0, 2))
     }
   }
-  
+
   // Return language with highest score, fallback to English
   const sortedLangs = Object.entries(langScores)
     .sort(([,a], [,b]) => b - a)
-  
+
   log.debug('🔍 Language scores:', sortedLangs.slice(0, 3))
-  
+
   const topLang = sortedLangs[0]?.[0]
-  const result = topLang && langScores> 1 ? topLang : 'en'
-  
+  const result = topLang && langScores > 1 ? topLang : 'en'
+
   log.debug('🔍 Selected language:', result, `(top score: ${langScores[topLang]?.toFixed(2) || 'N/A'})`)
-  
+
   return result
 }
 
 // Enhanced detection with confidence scoring
 export const detectLanguageWithConfidence = (content) => {
   log.debug('🔍 Starting language detection for content length:', content.length)
-  
+
   const detected = detectLanguageFromContent(content)
-  
+
   // Simple confidence calculation based on detection
   const lines = content.split('\n')
-  const textLines = lines.filter(line => 
-    !line.match(/^\d+$/) && 
-    !line.match(/\d{2}:\d{2}:\d{2}/) && 
+  const textLines = lines.filter(line =>
+    !line.match(/^\d+$/) &&
+    !line.match(/\d{2}:\d{2}:\d{2}/) &&
     line.trim().length > 3
   )
-  
+
   log.debug('🔍 Text analysis:', {
     totalLines: lines.length,
     textLines: textLines.length,
     detectedLanguage: detected,
     firstFewTextLines: textLines.slice(0, 3)
   })
-  
+
   // Higher confidence for more text content
   const confidence = Math.min(0.9, Math.max(0.3, textLines.length / 100))
-  
+
   const result = {
     language: detected,
     confidence,
     textLinesCount: textLines.length
   }
-  
+
   log.debug('🔍 Final result:', result)
-  
+
   return result
-} 
+}

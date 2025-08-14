@@ -1,24 +1,24 @@
-import { 
-  Modal, 
-  ModalDialog, 
-  Typography, 
-  Box, 
-  IconButton 
+import {
+  Modal,
+  ModalDialog,
+  Typography,
+  Box,
+  IconButton
 } from '@mui/joy'
 import { Close } from '@mui/icons-material'
 
-export const AppDialog = ({ 
-  open, 
-  onClose, 
-  title, 
-  children, 
+export const AppDialog = ({
+  open,
+  onClose,
+  title,
+  children,
   maxWidth = 600,
   showCloseButton = true,
   sx = {}
 }) => {
   return (
-    <Modal 
-      open={open} 
+    <Modal
+      open={open}
       onClose={onClose}
       sx={{
         display: 'flex',
@@ -26,9 +26,9 @@ export const AppDialog = ({
         justifyContent: 'center'
       }}
     >
-      <ModalDialog 
-        sx={{ 
-          width: '90vw', 
+      <ModalDialog
+        sx={{
+          width: '90vw',
           maxWidth,
           maxHeight: '90vh',
           overflowY: 'auto',
@@ -37,23 +37,23 @@ export const AppDialog = ({
           border: 'none',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
           pt: 2,
-          ...sx 
+          ...sx
         }}
       >
         {/* Header */}
         {(title || showCloseButton) && (
-          <Box 
-            sx={{ 
-              display: 'flex', 
-              alignItems: 'center', 
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
               justifyContent: 'space-between',
               mb: title ? 2 : 1
             }}
           >
             {title && (
-              <Typography 
-                level="h4" 
-                sx={{ 
+              <Typography
+                level="h4"
+                sx={{
                   fontWeight: 'bold',
                   fontSize: '1.25rem',
                   color: 'text.primary'
@@ -86,4 +86,4 @@ export const AppDialog = ({
       </ModalDialog>
     </Modal>
   )
-} 
+}

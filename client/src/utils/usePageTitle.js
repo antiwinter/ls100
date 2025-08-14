@@ -9,10 +9,10 @@ import { APP } from '../config/constants'
 export const usePageTitle = (pageTitle = '', description = '') => {
   useEffect(() => {
     // Set title with inline helper logic
-    document.title = pageTitle 
+    document.title = pageTitle
       ? `${pageTitle} | ${APP.short}`
       : APP.name
-    
+
     // Update meta description if provided
     if (description) {
       const metaDescription = document.querySelector('meta[name="description"]')
@@ -20,7 +20,7 @@ export const usePageTitle = (pageTitle = '', description = '') => {
         metaDescription.setAttribute('content', description)
       }
     }
-    
+
     // Cleanup: reset to default when component unmounts
     return () => {
       if (pageTitle) {

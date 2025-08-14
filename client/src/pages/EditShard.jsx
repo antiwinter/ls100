@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { usePageTitle } from '../utils/usePageTitle'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { 
-  Box, 
-  Typography, 
-  Stack, 
-  Input, 
-  Textarea, 
+import {
+  Box,
+  Typography,
+  Stack,
+  Input,
+  Textarea,
   Button,
   Chip,
   IconButton,
@@ -16,8 +16,8 @@ import { ArrowBack, Upload, Link as LinkIcon } from '@mui/icons-material'
 import { AppDialog } from '../components/AppDialog'
 import { log } from '../utils/logger'
 import { apiCall } from '../config/api'
-import { 
-  engineGetTag, 
+import {
+  engineGetTag,
   engineGetEditor,
   engineSaveData,
   engineGenCover
@@ -28,18 +28,18 @@ export const EditShard = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const fileInputRef = useRef(null)
-  
+
   // Get data passed from navigation state
   const { mode = 'create', detectedInfo = null } = location.state || {}
-  
+
   // Set dynamic page title based on mode
   usePageTitle(
     mode === 'create' ? 'Create Shard' : 'Edit Shard',
-    mode === 'create' 
+    mode === 'create'
       ? 'Create a new learning shard from your content'
       : 'Edit your learning shard settings and content'
   )
-  
+
   // Unified shard data structure for both create and edit modes
   const [shardData, _setShardData] = useState({
     name: '',
@@ -71,10 +71,10 @@ export const EditShard = () => {
   useEffect(() => {
     if (mode === 'create' && detectedInfo) {
       // Create mode: initialize with detected info (engine will process)
-      const defaultName = detectedInfo?.metadata?.suggestedName || 
-                         detectedInfo?.filename?.replace(/\.[^/.]+$/, '') || 
+      const defaultName = detectedInfo?.metadata?.suggestedName ||
+                         detectedInfo?.filename?.replace(/\.[^/.]+$/, '') ||
                          'New Shard'
-      
+
       setShardData({
         name: defaultName,
         description: '',
@@ -87,18 +87,18 @@ export const EditShard = () => {
         try {
           log.info('📝 Edit mode - loading shard details for ID:', shardId)
           const response = await apiCall(`/api/shards/${shardId}`)
-        
-        // Backend now returns unified format directly
-        const shard = response.shard
+
+          // Backend now returns unified format directly
+          const shard = response.shard
           log.info('🔍 Processed shard data:', shard)
-            
+
           setShardData(shard)
         } catch (error) {
           log.error('❌ Failed to fetch shard details:', error)
           setShardData(navigationShardData)
         }
       }
-      
+
       fetchShardDetails()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -108,29 +108,29 @@ export const EditShard = () => {
     setSaving(true)
     try {
       log.info('💾 Saving shard data:', shardData)
-      
+
       const isCreate = mode === 'create'
-      
+
       log.info(`📝 ${isCreate ? 'Creating' : 'Updating'} shard:`, shardData.type)
-      
+
       // Handle cover file upload if needed
       if (shardData.coverFile) {
         const formData = new FormData()
         formData.append('cover', shardData.coverFile)
-        
+
         const uploadResult = await apiCall('/api/files/upload', {
           method: 'POST',
           body: formData
         })
-        
+
         // Replace file with URL
         shardData.cover = uploadResult.url
         delete shardData.coverFile
       }
-      
+
       // Process uploads and prepare shardData for backend
       await engineSaveData(shardData, apiCall)
-      
+
       // Submit shardData directly
       const result = await apiCall(
         isCreate ? '/api/shards' : `/api/shards/${shardId}`,
@@ -139,10 +139,10 @@ export const EditShard = () => {
           body: JSON.stringify(shardData)
         }
       )
-      
-      log.info(`✅ Shard ${isCreate ? 'created' : 'updated'}:`, 
+
+      log.info(`✅ Shard ${isCreate ? 'created' : 'updated'}:`,
         isCreate ? result.shard.id : shardId)
-      
+
       // Navigate back to home
       navigate('/')
     } catch (error) {
@@ -196,10 +196,10 @@ export const EditShard = () => {
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.body' }}>
       {/* Header */}
-      <Box sx={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        gap: 2, 
+      <Box sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 2,
         p: 2,
         borderBottom: '1px solid',
         borderColor: 'divider',
@@ -220,9 +220,9 @@ export const EditShard = () => {
       </Box>
 
       {/* Content */}
-      <Box sx={{ 
-        maxWidth: 600, 
-        mx: 'auto', 
+      <Box sx={{
+        maxWidth: 600,
+        mx: 'auto',
         p: 3,
         pb: 8,  // Extra bottom padding for mobile
         overflowX: 'hidden'  // Hide horizontal scroll
@@ -236,10 +236,10 @@ export const EditShard = () => {
                 <Typography level="body-sm" sx={{ fontWeight: 'bold', color: 'text.secondary' }}>
                   Name
                 </Typography>
-                <Chip 
+                <Chip
                   variant="soft"
                   size="sm"
-                  sx={{ 
+                  sx={{
                     bgcolor: `${shardTypeInfo.color}15`,
                     color: shardTypeInfo.color,
                     fontWeight: 'medium'
@@ -259,18 +259,18 @@ export const EditShard = () => {
               {shardData.description ? (
                 <Typography level="body-sm" component="div">
                   {shardData.description}{' '}
-                  <Link 
+                  <Link
                     component="button"
-                    level="body-sm" 
+                    level="body-sm"
                     onClick={() => setShowDescriptionDialog(true)}
                   >
                     edit
                   </Link>
                 </Typography>
               ) : (
-                <Link 
+                <Link
                   component="button"
-                  level="body-sm" 
+                  level="body-sm"
                   onClick={() => setShowDescriptionDialog(true)}
                 >
                   Add description
@@ -314,8 +314,8 @@ export const EditShard = () => {
                 (() => {
                   if (!shardData.type) {
                     return (
-                      <Box sx={{ 
-                        fontSize: '11px', 
+                      <Box sx={{
+                        fontSize: '11px',
                         color: 'text.tertiary',
                         textAlign: 'center'
                       }}>
@@ -323,9 +323,9 @@ export const EditShard = () => {
                       </Box>
                     )
                   }
-                  
+
                   const cover = engineGenCover(shardData)
-                  
+
                   return (
                     <Box
                       sx={{
@@ -343,7 +343,7 @@ export const EditShard = () => {
                         lineHeight: 1
                       }}
                     >
-                      {cover.formattedText?.lines ? 
+                      {cover.formattedText?.lines ?
                         cover.formattedText.lines.map((line, index) => (
                           <Box
                             key={index}
@@ -361,8 +361,8 @@ export const EditShard = () => {
                             {line.text}
                           </Box>
                         )) :
-                        <Box sx={{ 
-                          fontSize: '11px', 
+                        <Box sx={{
+                          fontSize: '11px',
                           fontWeight: 900,
                           fontFamily: '"Inter", "Roboto", "Arial Black", sans-serif',
                           color: cover.textColor,
@@ -383,7 +383,7 @@ export const EditShard = () => {
           <Box>
             {(() => {
               const EditorComponent = engineGetEditor(shardData.type)
-              
+
               if (!EditorComponent) {
                 return (
                   <Typography level="body-sm" color="warning">
@@ -391,7 +391,7 @@ export const EditShard = () => {
                   </Typography>
                 )
               }
-              
+
               return (
                 <EditorComponent
                   mode={mode}
@@ -406,7 +406,7 @@ export const EditShard = () => {
       </Box>
 
       {/* Fixed Action Bar */}
-      <Box sx={{ 
+      <Box sx={{
         position: 'fixed',
         bottom: 0,
         left: 0,
@@ -419,15 +419,15 @@ export const EditShard = () => {
         justifyContent: 'flex-end',
         gap: 2
       }}>
-        <Button 
-          variant="outlined" 
-          size="sm" 
+        <Button
+          variant="outlined"
+          size="sm"
           onClick={handleBack}
           disabled={saving}
         >
           Cancel
         </Button>
-        <Button 
+        <Button
           size="sm"
           onClick={handleSave}
           loading={saving}
@@ -454,24 +454,24 @@ export const EditShard = () => {
             size="sm"
           />
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-            <Button 
-              variant="outlined" 
-              size="sm" 
+            <Button
+              variant="outlined"
+              size="sm"
               onClick={() => setShowDescriptionDialog(false)}
             >
               Cancel
             </Button>
-            <Button 
-              size="sm" 
+            <Button
+              size="sm"
               onClick={() => setShowDescriptionDialog(false)}
             >
               Save
             </Button>
           </Box>
         </Stack>
-              </AppDialog>
-  
-        {/* Cover Dialog */}
+      </AppDialog>
+
+      {/* Cover Dialog */}
       <AppDialog
         open={showCoverDialog}
         onClose={() => setShowCoverDialog(false)}
@@ -482,7 +482,7 @@ export const EditShard = () => {
           <Typography level="body-sm">
             Upload an image or paste a URL for your shard cover
           </Typography>
-          
+
           <Stack spacing={1}>
             <Button
               startDecorator={<Upload />}
@@ -491,7 +491,7 @@ export const EditShard = () => {
             >
               Upload Image
             </Button>
-            
+
             <Stack direction="row" spacing={1}>
               <Input
                 placeholder="Or paste image URL..."
@@ -509,7 +509,7 @@ export const EditShard = () => {
                 Set
               </Button>
             </Stack>
-            
+
             {shardData.cover && (
               <Button
                 variant="outlined"
@@ -522,7 +522,7 @@ export const EditShard = () => {
             )}
           </Stack>
         </Stack>
-        
+
         <input
           ref={fileInputRef}
           type="file"
@@ -533,4 +533,4 @@ export const EditShard = () => {
       </AppDialog>
     </Box>
   )
-} 
+}

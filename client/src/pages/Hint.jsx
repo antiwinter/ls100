@@ -69,26 +69,26 @@ const MenuItem = ({ icon, title, isFirst = false, isLast = false }) => {
 // Fake menu group with gradient overlay
 const MenuGroup = () => {
   return (
-    <Box sx={{ position: 'relative', width: '100%', bgColor: 'white'}}> {/* Increased width */}
+    <Box sx={{ position: 'relative', width: '100%', bgColor: 'white' }}> {/* Increased width */}
       <Box sx={{ width: '100%' }}>
-        <MenuItem 
-          title="Add to Home Screen" 
+        <MenuItem
+          title="Add to Home Screen"
           icon={<Add sx={{ fontSize: '20px' }} />}
           isFirst={true}
         />
         <Divider sx={{ m: 0 }} />
-        <MenuItem 
-          title="Find on Page" 
+        <MenuItem
+          title="Find on Page"
           icon={<Search sx={{ fontSize: '20px' }} />}
         />
         <Divider sx={{ m: 0 }} />
-        <MenuItem 
-          title="Add to Quick Note" 
+        <MenuItem
+          title="Add to Quick Note"
           icon={<Edit sx={{ fontSize: '20px' }} />}
           isLast={true}
         />
       </Box>
-      
+
       {/* Gradient overlay */}
       <Box
         sx={{

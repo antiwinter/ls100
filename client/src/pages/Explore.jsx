@@ -26,4 +26,4 @@ export const Explore = () => (
       </Button>
     </Card>
   </Stack>
-) 
+)

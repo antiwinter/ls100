@@ -8,13 +8,15 @@ export function useSubtitleGroups(languages) {
   const loadedRef = useRef(false)
 
   // Find main language internally
-  const mainLanguage = languages?.find(l => l.isMain) || languages?.[0]
+  const mainLanguage = languages?.find((l) => l.isMain) || languages?.[0]
   const mainLanguageCode = mainLanguage?.code
 
   // stable key to determine when to reload
   const key = useMemo(() => {
     if (!languages || !Array.isArray(languages)) return ''
-    return languages.map(l => `${l.subtitle_id || ''}:${l.code || ''}`).join('|')
+    return languages
+      .map((l) => `${l.subtitle_id || ''}:${l.code || ''}`)
+      .join('|')
   }, [languages])
 
   useEffect(() => {
@@ -31,14 +33,20 @@ export function useSubtitleGroups(languages) {
         const [main, ...refs] = languages
         const fetchOne = async ({ subtitle_id, code }) => {
           if (!subtitle_id) return []
-          const data = await apiCall(`/api/subtitles/${subtitle_id}/lines?start=0&count=-1`)
+          const data = await apiCall(
+            `/api/subtitles/${subtitle_id}/lines?start=0&count=-1`
+          )
           const ls = data.lines || []
-          return ls.map(line => ({ ...line, language: code }))
+          return ls.map((line) => ({ ...line, language: code }))
         }
         const mainLines = await fetchOne(main)
         const refResults = await Promise.all(refs.map(fetchOne))
         const merged = mainLines.concat(...refResults)
-        log.debug(`📥 lines(main+refs): ${merged.length} (main ${mainLines.length}, refs ${refResults.reduce((a, b) => a + b.length, 0)})`)
+        log.debug(
+          `📥 lines(main+refs): ${merged.length} (main ${
+            mainLines.length
+          }, refs ${refResults.reduce((a, b) => a + b.length, 0)})`
+        )
         setLines(merged)
         loadedRef.current = true
       } catch (e) {
@@ -54,10 +62,12 @@ export function useSubtitleGroups(languages) {
     const main = []
     const refs = []
     lines.forEach((line, idx) => {
-      const code = line.language || line.data?.language || line.data?.lang || ''
+      const code =
+        line.language || line.data?.language || line.data?.lang || ''
       const startMs = line.data?.start || 0
       const item = { ...line, actualIndex: idx, startMs }
-      if (code && mainLanguageCode && code === mainLanguageCode) main.push(item)
+      if (code && mainLanguageCode && code === mainLanguageCode)
+        main.push(item)
       else refs.push(item)
     })
     main.sort((a, b) => a.startMs - b.startMs)
@@ -76,7 +86,11 @@ export function useSubtitleGroups(languages) {
       i = j - 1
       const refMap = new Map()
       while (r < refs.length && refs[r].startMs <= m.startMs) {
-        const code = refs[r].language || refs[r].data?.language || refs[r].data?.lang || 'ref'
+        const code =
+          refs[r].language ||
+          refs[r].data?.language ||
+          refs[r].data?.lang ||
+          'ref'
         if (!refMap.has(code)) refMap.set(code, [])
         refMap.get(code).push(refs[r])
         r++
@@ -92,5 +106,3 @@ export function useSubtitleGroups(languages) {
 }
 
 export default useSubtitleGroups
-
-

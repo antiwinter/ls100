@@ -53,7 +53,7 @@ export const InfiniteScroll = ({
       child.dataset.index = idx.toString()
       observer.observe(child)
     })
-    
+
     return () => observer.disconnect()
   }, [childCount, handleIntersection])
 
@@ -63,11 +63,11 @@ export const InfiniteScroll = ({
   }
 
   return (
-    <Box 
+    <Box
       ref={containerRef}
       data-scroll-container="true"
       onScroll={handleScroll}
-      sx={{ 
+      sx={{
         flex: 1,
         maxHeight: '100%',
         overflow: 'auto',
@@ -83,7 +83,7 @@ export const InfiniteScroll = ({
       }}
     >
       {children}
-      
+
       {/* Loading indicator */}
       {loading && (
         loader || (

@@ -10,7 +10,7 @@ const Register = ({ onSwitchToLogin }) => {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
-  
+
   const { register } = useAuth()
 
   const handleSubmit = async (e) => {
@@ -74,7 +74,7 @@ const Register = ({ onSwitchToLogin }) => {
         <Typography level="body-md" textAlign="center" mb={3} color="neutral">
           Join {APP.short} and start learning
         </Typography>
-        
+
         <form onSubmit={handleSubmit}>
           <Stack spacing={2}>
             {error && (
@@ -82,7 +82,7 @@ const Register = ({ onSwitchToLogin }) => {
                 {error}
               </Alert>
             )}
-            
+
             <Input
               type="text"
               placeholder="Full name"
@@ -100,7 +100,7 @@ const Register = ({ onSwitchToLogin }) => {
               autoComplete="email"
               required
             />
-            
+
             <Input
               type="password"
               placeholder="Password (min 6 characters)"
@@ -132,4 +132,4 @@ const Register = ({ onSwitchToLogin }) => {
   )
 }
 
-export default Register 
+export default Register

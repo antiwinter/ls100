@@ -4,9 +4,9 @@ import { Close } from '@mui/icons-material'
 
 // iOS-style drag handle with rounded rectangle bars - drag events only on handle
 const Handle = ({ onDragStart, onDragMove, onDragEnd, position = 'bottom' }) => (
-  <Box sx={{ 
-    display: 'flex', 
-    justifyContent: 'center', 
+  <Box sx={{
+    display: 'flex',
+    justifyContent: 'center',
     // Remove padding on side adjacent to content
     pb: position === 'bottom' ? 0 : 1.5, // Bottom drawer: handle at top, remove top padding (adjacent to content)
     pt: position === 'top' ? 0 : 1.5,    // Top drawer: handle at bottom, remove bottom padding (adjacent to content)
@@ -14,30 +14,30 @@ const Handle = ({ onDragStart, onDragMove, onDragEnd, position = 'bottom' }) => 
     touchAction: 'none', // Prevent browser gestures on handle
     '&:active': { cursor: 'grabbing' }
   }}
-    onTouchStart={(e) => {
-      e.stopPropagation()
-      onDragStart(e)
-    }}
-    onTouchMove={(e) => {
-      e.stopPropagation()
-      onDragMove(e)
-    }}
-    onTouchEnd={(e) => {
-      e.stopPropagation()
-      onDragEnd(e)
-    }}
-    onMouseDown={(e) => {
-      e.stopPropagation()
-      onDragStart(e)
-    }}
-    onMouseMove={(e) => {
-      e.stopPropagation()
-      onDragMove(e)
-    }}
-    onMouseUp={(e) => {
-      e.stopPropagation()
-      onDragEnd(e)
-    }}
+  onTouchStart={(e) => {
+    e.stopPropagation()
+    onDragStart(e)
+  }}
+  onTouchMove={(e) => {
+    e.stopPropagation()
+    onDragMove(e)
+  }}
+  onTouchEnd={(e) => {
+    e.stopPropagation()
+    onDragEnd(e)
+  }}
+  onMouseDown={(e) => {
+    e.stopPropagation()
+    onDragStart(e)
+  }}
+  onMouseMove={(e) => {
+    e.stopPropagation()
+    onDragMove(e)
+  }}
+  onMouseUp={(e) => {
+    e.stopPropagation()
+    onDragEnd(e)
+  }}
   >
     <Box sx={{
       width: '36px',
@@ -48,14 +48,14 @@ const Handle = ({ onDragStart, onDragMove, onDragEnd, position = 'bottom' }) => 
   </Box>
 )
 
-export const ActionDrawer = ({ 
-  open, 
-  onClose, 
-  size = 'half', 
+export const ActionDrawer = ({
+  open,
+  onClose,
+  size = 'half',
   position = 'bottom',
   title,
   content,
-  children 
+  children
 }) => {
   const [dragY, setDragY] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
@@ -67,14 +67,14 @@ export const ActionDrawer = ({
   const startY = useRef(0)
 
   const isBottom = displayPosition === 'bottom'
-  const heights = { 
-    full: '99vh', 
-    half: 'min(60vh, 300px)', 
-    'fit-content': 'auto' 
+  const heights = {
+    full: '99vh',
+    half: 'min(60vh, 300px)',
+    'fit-content': 'auto'
   }
   const maxHeights = {
     full: '99vh',
-    half: 'min(60vh, 300px)', 
+    half: 'min(60vh, 300px)',
     'fit-content': '99vh'
   }
 
@@ -88,7 +88,7 @@ export const ActionDrawer = ({
     if (!isDragging) return
     const y = e.touches?.[0]?.clientY ?? e.clientY
     const delta = y - startY.current
-    
+
     if ((isBottom && delta > 0) || (!isBottom && delta < 0)) {
       setDragY(Math.abs(delta))
     }
@@ -144,17 +144,17 @@ export const ActionDrawer = ({
     if (isDragging) {
       return `translateY(${isBottom ? dragY : -dragY}px)`
     }
-    
+
     if (isEntering) {
       // Start off-screen for enter animation
       return `translateY(${isBottom ? '100%' : '-100%'})`
     }
-    
+
     if (!open) {
       // Exit to off-screen - CSS transition will handle smooth movement
       return `translateY(${isBottom ? '100%' : '-100%'})`
     }
-    
+
     // Open and stable - normal position with any drag offset
     return `translateY(${isBottom ? dragY : -dragY}px)`
   }
@@ -169,8 +169,8 @@ export const ActionDrawer = ({
       p: 0,
       pointerEvents: 'none', // Never block background clicks
       zIndex: 1300,
-      transition: isPositionChanging 
-        ? 'align-items 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)' 
+      transition: isPositionChanging
+        ? 'align-items 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
         : 'none'
     }}>
       <Box
@@ -186,8 +186,8 @@ export const ActionDrawer = ({
           height: heights[size] || heights.half,
           maxHeight: maxHeights[size] || maxHeights.half,
           transform: getTransform(),
-          transition: isDragging 
-            ? 'none' 
+          transition: isDragging
+            ? 'none'
             : !open
               ? 'transform 0.4s ease-out'  // Smooth exit
               : 'transform 0.3s ease-in', // Smooth enter
@@ -197,7 +197,7 @@ export const ActionDrawer = ({
               return '0 0 0 1px rgba(255, 255, 255, 0.2), 0 0 10px rgba(159, 248, 217, 0.7), 0 0 20px rgba(59, 246, 93, 0.15)'
             } else {
               // Traditional shadows for light mode
-              return isBottom 
+              return isBottom
                 ? '0 -8px 32px rgba(0, 0, 0, 0.12), 0 -4px 16px rgba(0, 0, 0, 0.08)'
                 : '0 8px 32px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.08)'
             }
@@ -208,10 +208,10 @@ export const ActionDrawer = ({
         }}
       >
         {isBottom && <Handle onDragStart={handleDragStart} onDragMove={handleDragMove} onDragEnd={handleDragEnd} position='bottom' />}
-        
+
         {title && (
-          <Stack direction='row' justifyContent='space-between' alignItems='center' 
-                 sx={{ px: 2, py: 1, borderBottom: isBottom ? 1 : 0, borderTop: isBottom ? 0 : 1, borderColor: 'divider' }}>
+          <Stack direction='row' justifyContent='space-between' alignItems='center'
+            sx={{ px: 2, py: 1, borderBottom: isBottom ? 1 : 0, borderTop: isBottom ? 0 : 1, borderColor: 'divider' }}>
             <Typography level='h4'>{title}</Typography>
             <IconButton size='sm' variant='plain' onClick={onClose} sx={{ color: 'neutral.500' }}>
               <Close />
@@ -219,8 +219,8 @@ export const ActionDrawer = ({
           </Stack>
         )}
 
-        <Box sx={{ 
-          flex: 1, 
+        <Box sx={{
+          flex: 1,
           p: 2,
           // Content provider handles overflow - this is just a container
           overflow: 'hidden'

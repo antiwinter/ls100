@@ -17,7 +17,7 @@ const theme = extendTheme({
           800: '#115e59',  // Very dark teal
           900: '#134e4a'  // Darkest teal
         },
-        
+
         // SECONDARY PALETTE - Purple (from your image)
         secondary: {
           50: '#faf5ff',   // Very light lavender
@@ -31,7 +31,7 @@ const theme = extendTheme({
           800: '#6b21b8',  // Very dark purple
           900: '#581c87'  // Darkest purple
         },
-        
+
         // WARNING PALETTE - Golden/Orange (from your image)
         warning: {
           50: '#fffbeb',   // Very light cream
@@ -91,4 +91,4 @@ const theme = extendTheme({
   }
 })
 
-export default theme 
+export default theme

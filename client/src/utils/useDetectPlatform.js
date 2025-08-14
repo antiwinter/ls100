@@ -15,12 +15,12 @@ export const useDetectPlatform = () => {
   useEffect(() => {
     const detectPlatform = () => {
       const userAgent = navigator.userAgent.toLowerCase()
-      
+
       // OS Detection
       let os = 'unknown'
       let isIOS = false
       let isAndroid = false
-      
+
       if (/ipad|iphone|ipod/.test(userAgent)) {
         os = 'ios'
         isIOS = true
@@ -53,7 +53,7 @@ export const useDetectPlatform = () => {
       const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/.test(userAgent)
 
       // Standalone (PWA) Detection
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
                           window.navigator.standalone === true
 
       // Should show PWA hint logic
@@ -79,12 +79,12 @@ export const useDetectPlatform = () => {
 // Static utility functions for non-hook contexts
 export const detectPlatform = () => {
   const userAgent = navigator.userAgent.toLowerCase()
-  
+
   // OS Detection
   let os = 'unknown'
   let isIOS = false
   let isAndroid = false
-  
+
   if (/ipad|iphone|ipod/.test(userAgent)) {
     os = 'ios'
     isIOS = true
@@ -117,7 +117,7 @@ export const detectPlatform = () => {
   const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/.test(userAgent)
 
   // Standalone (PWA) Detection
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
                       window.navigator.standalone === true
 
   return {

@@ -19,10 +19,10 @@ export const BottomNav = ({ activeTab }) => {
 
   const handleTabChange = (event, value) => {
     switch (value) {
-      case 0: navigate('/'); break
-      case 1: navigate('/explore'); break
-      case 2: navigate('/friends'); break
-      case 3: navigate('/me'); break
+    case 0: navigate('/'); break
+    case 1: navigate('/explore'); break
+    case 2: navigate('/friends'); break
+    case 3: navigate('/me'); break
     }
   }
   return (
@@ -116,4 +116,4 @@ export const BottomNav = ({ activeTab }) => {
       </Tabs>
     </Box>
   )
-} 
+}

@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
-import { 
-  Box, 
-  Typography, 
-  Stack, 
-  Chip, 
+import {
+  Box,
+  Typography,
+  Stack,
+  Chip,
   IconButton,
   Modal,
   ModalDialog,
@@ -22,7 +22,7 @@ import { log } from '../../utils/logger'
 // Extract language data from detectedInfo
 const extractLanguage = (detectedInfo) => {
   if (!detectedInfo) return []
-  
+
   const movieName = detectedInfo.metadata?.movieName || detectedInfo.metadata?.movie_name || 'Unknown Movie'
   const language = detectedInfo.metadata?.language || 'en'
   const lang = {
@@ -48,9 +48,9 @@ const TruncatedFilename = ({ filename, isMain, showTooltip, onTooltipClose }) =>
     arrow
     onClose={onTooltipClose}
   >
-    <Typography 
-      level="body-sm" 
-      sx={{ 
+    <Typography
+      level="body-sm"
+      sx={{
         flex: 1,
         color: isMain ? 'primary.700' : 'primary.500',
         overflow: 'hidden',
@@ -94,8 +94,8 @@ const LanguageBox = ({ children, isMain, isAddButton, onClick, onLongPress }) =>
   )
 }
 
-export const SubtitleShardEditor = ({ 
-  mode = 'create', 
+export const SubtitleShardEditor = ({
+  mode = 'create',
   shardData = null,
   detectedInfo = null,
   onChange
@@ -168,53 +168,53 @@ export const SubtitleShardEditor = ({
   const handleLanguageFileSelect = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
-    
+
     try {
       const buffer = await file.arrayBuffer()
       const detection = detect(file.name, buffer)
-      
+
       if (!detection.match || detection.confidence < 0.5) {
-        setErrorDialog({ 
-          open: true, 
-          message: 'The selected file is not a valid subtitle file. Please select a subtitle file (.srt, .vtt, .ass, etc.)' 
+        setErrorDialog({
+          open: true,
+          message: 'The selected file is not a valid subtitle file. Please select a subtitle file (.srt, .vtt, .ass, etc.)'
         })
         return
       }
 
       const language = detection.metadata.language
-      
+
       // Check for duplicate language
       if (languages.find(lang => lang.code === language)) {
-        setErrorDialog({ 
-          open: true, 
-          message: `${language.toUpperCase()} language is already added to this shard.` 
+        setErrorDialog({
+          open: true,
+          message: `${language.toUpperCase()} language is already added to this shard.`
         })
         return
       }
-      
+
       // Create new language entry
       const hasMain = languages.some(lang => lang.isMain)
-      const movieName = hasMain 
+      const movieName = hasMain
         ? languages.find(lang => lang.isMain)?.movie_name || 'Unknown Movie'
         : detection.metadata?.movieName || 'Unknown Movie'
 
-      const newLang = { 
-        code: language, 
+      const newLang = {
+        code: language,
         isMain: !hasMain,
         filename: file.name,
         movie_name: movieName,
         file
       }
-      
+
       const langs = [...languages, newLang]
       setLanguages(langs)
       onChange?.({ languages: langs })
-      
+
     } catch (error) {
       log.error('❌ Failed to process language file:', error)
-      setErrorDialog({ 
-        open: true, 
-        message: 'Failed to process the selected file. Please try again.' 
+      setErrorDialog({
+        open: true,
+        message: 'Failed to process the selected file. Please try again.'
       })
     } finally {
       if (e.target) e.target.value = ''
@@ -230,7 +230,7 @@ export const SubtitleShardEditor = ({
         <Stack spacing={1}>
           {languages.map((lang, index) => {
             const filename = lang.filename || `${lang.code.toUpperCase()} subtitle file`
-            
+
             return (
               <LanguageBox
                 key={index}
@@ -242,7 +242,7 @@ export const SubtitleShardEditor = ({
                   variant={lang.isMain ? 'solid' : 'outlined'}
                   color="primary"
                   size="sm"
-                  sx={{ 
+                  sx={{
                     minWidth: 40,
                     textAlign: 'center',
                     display: 'flex',
@@ -252,14 +252,14 @@ export const SubtitleShardEditor = ({
                 >
                   {lang.code.toUpperCase()}
                 </Chip>
-                
-                <TruncatedFilename 
+
+                <TruncatedFilename
                   filename={filename}
                   isMain={lang.isMain}
                   showTooltip={activeTooltip === filename}
                   onTooltipClose={() => setActiveTooltip(null)}
                 />
-                
+
                 <IconButton
                   size="sm"
                   variant="plain"
@@ -279,7 +279,7 @@ export const SubtitleShardEditor = ({
               </LanguageBox>
             )
           })}
-          
+
           <LanguageBox isAddButton onClick={handleAddLanguage}>
             <Typography level="body-sm" color="neutral">
               + Add a subtitle
@@ -289,7 +289,7 @@ export const SubtitleShardEditor = ({
         <Typography level="body-xs" sx={{ mt: 1, color: 'text.tertiary' }}>
           Solid = Main language, Outlined = Reference. Press to select main, long press to view filename.
         </Typography>
-        
+
         <input
           ref={fileInputRef}
           type="file"
@@ -320,9 +320,9 @@ export const SubtitleShardEditor = ({
           <DialogTitle>Error</DialogTitle>
           <DialogContent>{errorDialog.message}</DialogContent>
           <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', pt: 2 }}>
-            <Button 
-              variant="solid" 
-              color="primary" 
+            <Button
+              variant="solid"
+              color="primary"
               onClick={() => setErrorDialog({ open: false, message: '' })}
             >
               OK
@@ -332,4 +332,4 @@ export const SubtitleShardEditor = ({
       </Modal>
     </Stack>
   )
-} 
+}

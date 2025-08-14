@@ -4,7 +4,7 @@ import {
   Stack,
   IconButton
 } from '@mui/joy'
-import { 
+import {
   ArrowBack,
   ListAltOutlined,
   BookmarkBorder,
@@ -33,9 +33,9 @@ const BUTTONS = [
 ]
 
 // Top slide-down toolbar with auto-hide and tool buttons
-export const Toolbar = ({ 
-  visible, 
-  onBack, 
+export const Toolbar = ({
+  visible,
+  onBack,
   onToolSelect
 }) => {
   // Log visibility changes for debugging
@@ -78,7 +78,7 @@ export const Toolbar = ({
             onClick={onBack}
             variant="plain"
             size="sm"
-            sx={{ 
+            sx={{
               minHeight: 'auto',
               p: 0.5,
               '&:hover': {
@@ -89,7 +89,7 @@ export const Toolbar = ({
             <ArrowBack />
           </IconButton>
         </Stack>
-        
+
         {/* Right side: Tool buttons */}
         <Stack direction="row" spacing={1} alignItems="center">
           {BUTTONS.map((button) => (

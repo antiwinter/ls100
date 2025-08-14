@@ -13,7 +13,7 @@ export const APP = {
   tagline: 'Learn English with movie subtitles',
   version: VERSION,
   build: BUILD_ID,
-  
+
   pwa: {
     display: 'standalone',
     orientation: 'portrait-primary',
@@ -21,10 +21,10 @@ export const APP = {
     start: '/',
     categories: ['education', 'entertainment']
   },
-  
+
   storage: {
     auth: 'ls100-auth',
-    theme: 'ls100-mode', 
+    theme: 'ls100-mode',
     colors: 'ls100-color-scheme',
     sort: 'ls100-shard-sort',
     prefs: 'ls100-prefs'

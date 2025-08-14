@@ -11,4 +11,4 @@ if (import.meta.env.DEV) {
 export const log = loglevel
 
 // Export the raw loglevel for edge cases
-export default log 
+export default log

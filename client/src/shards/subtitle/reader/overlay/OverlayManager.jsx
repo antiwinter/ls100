@@ -5,9 +5,9 @@ import { FontDrawer } from './FontDrawer.jsx'
 import { useOverlayUI } from './useUiState.jsx'
 
 export const OverlayManager = ({ onBack }) => {
-  const { 
-    toolbar, 
-    dict, 
+  const {
+    toolbar,
+    dict,
     actionDrawer,
     openTool,
     closeDict,

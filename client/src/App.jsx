@@ -16,33 +16,33 @@ const MainApp = () => {
   const [homeEditMode, setHomeEditMode] = useState(false)
   const [homeReaderMode, setHomeReaderMode] = useState(false)
   const location = useLocation()
-  
+
   // Determine active tab based on current route
   const getActiveTab = () => {
     switch (location.pathname) {
-      case '/': return 0
-      case '/explore': return 1
-      case '/friends': return 2
-      case '/me': return 3
-      default: return 0
+    case '/': return 0
+    case '/explore': return 1
+    case '/friends': return 2
+    case '/me': return 3
+    default: return 0
     }
   }
 
   // Check if we should hide bottom nav (edit mode, reader mode, EditShard page, or Hint page)
-  const shouldHideBottomNav = homeEditMode || homeReaderMode || 
-                               location.pathname === '/edit-shard' || 
+  const shouldHideBottomNav = homeEditMode || homeReaderMode ||
+                               location.pathname === '/edit-shard' ||
                                location.pathname === '/hint'
 
   return (
-    <Box sx={{ 
+    <Box sx={{
       minHeight: '100vh',
       display: 'flex',
       flexDirection: 'column',
       bgcolor: 'background.body'
     }}>
       {/* Main content area */}
-      <Box sx={{ 
-        flex: 1, 
+      <Box sx={{
+        flex: 1,
         overflow: 'auto',
         pb: shouldHideBottomNav ? 0 : 10 // Space for bottom navigation when visible
       }}>
@@ -58,7 +58,7 @@ const MainApp = () => {
 
       {/* Bottom Navigation - hide when in edit mode or on EditShard page */}
       {!shouldHideBottomNav && (
-        <BottomNav 
+        <BottomNav
           activeTab={getActiveTab()}
         />
       )}
@@ -70,7 +70,7 @@ const MainApp = () => {
 const MobileHintRedirect = ({ children }) => {
   const navigate = useNavigate()
   const location = useLocation()
-  
+
   useEffect(() => {
     const { isMobileBrowser } = detectPlatform()
 
@@ -80,9 +80,9 @@ const MobileHintRedirect = ({ children }) => {
       navigate('/', { replace: true })
     }
   }, [navigate, location.pathname])
-  
+
   // If we're on the hint page, show it directly (bypass auth)
-  return location.pathname === '/hint'? <Hint />: children
+  return location.pathname === '/hint' ? <Hint /> : children
 }
 
 const AuthFlow = () => {
@@ -125,7 +125,7 @@ function App() {
   // Set dynamic title from centralized config
   useEffect(() => {
     document.title = APP.name
-    
+
     // Also update meta description
     const metaDescription = document.querySelector('meta[name="description"]')
     if (metaDescription) {
@@ -134,11 +134,11 @@ function App() {
   }, [])
 
   return (
-    <CssVarsProvider 
+    <CssVarsProvider
       theme={theme}
       defaultMode="system"
-              modeStorageKey={APP.storage.theme}
-        colorSchemeStorageKey={APP.storage.colors}
+      modeStorageKey={APP.storage.theme}
+      colorSchemeStorageKey={APP.storage.colors}
     >
       <Router>
         <MobileHintRedirect>

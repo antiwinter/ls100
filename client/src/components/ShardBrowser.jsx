@@ -13,12 +13,12 @@ import { useLongPress } from '../utils/useLongPress.js'
 
 // Empty state component
 const EmptyState = ({ onImport }) => (
-  <Box sx={{ 
-    textAlign: 'center', 
+  <Box sx={{
+    textAlign: 'center',
     py: 12,
     px: 4
   }}>
-    <Box 
+    <Box
       onClick={onImport}
       sx={{
         width: 80,
@@ -38,14 +38,14 @@ const EmptyState = ({ onImport }) => (
         }
       }}
     >
-      <Add sx={{ 
-        fontSize: 32, 
-        color: '#D1D5DB' 
+      <Add sx={{
+        fontSize: 32,
+        color: '#D1D5DB'
       }} />
     </Box>
-    <Typography 
+    <Typography
       level="body-md"
-      sx={{ 
+      sx={{
         color: '#9CA3AF',
         fontSize: '0.95rem',
         lineHeight: 1.6,
@@ -79,21 +79,21 @@ const ShardItem = ({ shard, index, isSelected, editing, onToggleSelect, onOpenSh
   const longPressHandlers = useLongPress(handlePress)
 
   return (
-    <Grid 
-      key={shard.id || `shard-${index}`} 
-      xs={4} 
-      sm={3} 
-      md={2.4} 
-      lg={2} 
+    <Grid
+      key={shard.id || `shard-${index}`}
+      xs={4}
+      sm={3}
+      md={2.4}
+      lg={2}
       xl={1.7}
       sx={{
         display: 'flex',
         justifyContent: 'center'
       }}
     >
-      <Card 
-        sx={{ 
-          p: 0, 
+      <Card
+        sx={{
+          p: 0,
           cursor: 'pointer',
           transition: 'all 0.2s',
           position: 'relative',
@@ -106,18 +106,18 @@ const ShardItem = ({ shard, index, isSelected, editing, onToggleSelect, onOpenSh
           flexDirection: 'column',
           gap: 1,
           ...(!editing && {
-            '&:hover': { 
+            '&:hover': {
               transform: 'translateY(-2px)'
             }
           })
         }}
       >
         {/* Cover */}
-        <Box 
+        <Box
           {...longPressHandlers.handlers}
-          sx={{ 
-            width: '100%', 
-            height: 100, 
+          sx={{
+            width: '100%',
+            height: 100,
             borderRadius: 8,
             background: (() => {
               // If custom cover exists, use solid color background (image will overlay)
@@ -150,7 +150,7 @@ const ShardItem = ({ shard, index, isSelected, editing, onToggleSelect, onOpenSh
               )}
             </Box>
           )}
-          
+
           {/* Private indicator */}
           {!shard.public && (
             <Box
@@ -165,7 +165,7 @@ const ShardItem = ({ shard, index, isSelected, editing, onToggleSelect, onOpenSh
               <FontAwesomeIcon icon={faMask} style={{ fontSize: 14 }} />
             </Box>
           )}
-          
+
           <Box
             sx={{
               position: 'absolute',
@@ -204,10 +204,10 @@ const ShardItem = ({ shard, index, isSelected, editing, onToggleSelect, onOpenSh
                   />
                 )
               }
-              
+
               // Use dynamic generation via shard engine
               const dynamicCover = engineGenCover(shard)
-              
+
               if (dynamicCover.formattedText && dynamicCover.formattedText.lines) {
                 return dynamicCover.formattedText.lines.map((line, index) => (
                   <Box
@@ -230,11 +230,11 @@ const ShardItem = ({ shard, index, isSelected, editing, onToggleSelect, onOpenSh
                   </Box>
                 ))
               }
-              
+
               // Fallback
               return (
-                <Box sx={{ 
-                  fontSize: '14px', 
+                <Box sx={{
+                  fontSize: '14px',
                   fontWeight: 900,
                   fontFamily: '"Inter", "Roboto", "Arial Black", sans-serif',
                   color: dynamicCover.textColor || '#ffffff',
@@ -250,9 +250,9 @@ const ShardItem = ({ shard, index, isSelected, editing, onToggleSelect, onOpenSh
         </Box>
 
         {/* Info */}
-        <Typography 
-          level="body-sm" 
-          sx={{ 
+        <Typography
+          level="body-sm"
+          sx={{
             fontWeight: 'md',
             fontSize: '0.65rem',
             lineHeight: 1.2,
@@ -278,8 +278,8 @@ export const ShardBrowser = ({ shards, onOpenShard, editing, selected = [], onTo
   }
 
   return (
-    <Box sx={{ 
-      maxWidth: 800, 
+    <Box sx={{
+      maxWidth: 800,
       mx: 'auto',
       px: 2,
       pt: 1.5
@@ -287,7 +287,7 @@ export const ShardBrowser = ({ shards, onOpenShard, editing, selected = [], onTo
       <Grid container rowSpacing={3.5} columnSpacing={1.5}>
         {shards.map((shard, index) => {
           const isSelected = selected.includes(shard.id)
-          
+
           return (
             <ShardItem
               key={shard.id || `shard-${index}`}

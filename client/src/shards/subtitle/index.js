@@ -1,6 +1,6 @@
 // Export all subtitle shard functionality
-export { 
-  detect, 
+export {
+  detect,
   generateCover,
   shardTypeInfo,
   EditorComponent,
@@ -8,4 +8,4 @@ export {
   processData
 } from './SubtitleShard.js'
 export { SubtitleReader } from './reader/SubtitleReader.jsx'
-export { SubtitleShardEditor } from './SubtitleShardEditor.jsx' 
+export { SubtitleShardEditor } from './SubtitleShardEditor.jsx'

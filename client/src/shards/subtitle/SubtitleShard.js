@@ -8,7 +8,7 @@ import { log } from '../../utils/logger'
 // Content detector with confidence scoring
 export const detect = (filename, buffer) => {
   log.debug('Detecting subtitle file:', filename, 'size:', buffer.byteLength || buffer.length)
-  
+
   // Handle both ArrayBuffer (browser) and Buffer (Node.js)
   let content
   if (buffer instanceof ArrayBuffer) {
@@ -16,7 +16,7 @@ export const detect = (filename, buffer) => {
   } else {
     content = buffer.toString('utf8')
   }
-  
+
   log.debug('🔍 Content preview (first 200 chars):', content.substring(0, 200))
 
   // Check file extension
@@ -24,7 +24,7 @@ export const detect = (filename, buffer) => {
 
   // Check content pattern (timestamps + text)
   const hasPattern = /\d{2}:\d{2}:\d{2}[,.]\d{3}/.test(content)
-  
+
   log.debug('🔍 File validation:', { hasExt, hasPattern })
 
   // Extract movie info for metadata
@@ -36,12 +36,12 @@ export const detect = (filename, buffer) => {
     try {
       const langDetection = detectLanguageWithConfidence(content)
       log.debug('🔍 Language detection result:', langDetection)
-      
+
       // Enhance metadata with detected language (overrides filename-based detection)
       metadata.language = langDetection.language
       metadata.languageConfidence = langDetection.confidence
       metadata.textLinesCount = langDetection.textLinesCount
-      
+
       log.debug('🔍 Final metadata after language detection:', metadata)
     } catch (langError) {
       log.warn('❌ Language detection failed:', langError)
@@ -59,9 +59,9 @@ export const detect = (filename, buffer) => {
       suggestedName: metadata?.movieName || null
     }
   }
-  
+
   log.debug('🔍 Final detection result:', result)
-  
+
   return result
 }
 
@@ -100,7 +100,7 @@ const parseMovieInfo = (filename) => {
 
   // Smart movie title extraction
   let movieTitle = cleanName
-  
+
   // If we found a year, take everything before it as the movie title
   if (yearMatch) {
     const yearIndex = cleanName.indexOf(yearMatch[0])
@@ -149,17 +149,17 @@ const COVER_GRADIENTS = [
 // Smart text formatting for cover titles
 const formatCoverText = (title) => {
   if (!title) return ''
-  
+
   const words = title.toUpperCase().split(' ').filter(word => word.length > 0)
   if (words.length === 0) return ''
-  
+
   // For single word, return as is
   if (words.length === 1) {
     return {
       lines: [{ text: words[0], size: 'large' }]
     }
   }
-  
+
   // For two words, put each on separate line
   if (words.length === 2) {
     return {
@@ -169,11 +169,11 @@ const formatCoverText = (title) => {
       ]
     }
   }
-  
+
   // For 3+ words, group intelligently
   const lines = []
   let currentLine = []
-  
+
   for (const word of words) {
     // If word is very long, put it on its own line with smaller size
     if (word.length > 8) {
@@ -191,19 +191,19 @@ const formatCoverText = (title) => {
       }
     }
   }
-  
+
   // Add remaining words
   if (currentLine.length > 0) {
     lines.push({ text: currentLine.join(' '), size: 'medium' })
   }
-  
+
   return { lines }
 }
 
 // Generate text-based cover with improved styling
 export const generateCover = (shard) => {
   const title = shard.data?.languages?.[0]?.movie_name || shard.name
-  
+
   // Create a simple hash from the identifier for better distribution
   let hash = 0
   const str = title || 'default'
@@ -213,32 +213,32 @@ export const generateCover = (shard) => {
   }
   const gradientIndex = Math.abs(hash) % COVER_GRADIENTS.length
   const gradient = COVER_GRADIENTS[gradientIndex]
-  
+
   // Calculate text color based on background brightness
   const getTextColor = (background) => {
     const colorMatch = background.match(/#([a-f\d]{6})/gi)
     if (!colorMatch) return '#ffffff'
-    
+
     const hex = colorMatch[0].replace('#', '')
     const r = parseInt(hex.substr(0, 2), 16)
     const g = parseInt(hex.substr(2, 2), 16)
     const b = parseInt(hex.substr(4, 2), 16)
-    
+
     const brightness = (r * 299 + g * 587 + b * 114) / 1000
     return brightness > 140 ? '#000000' : '#ffffff'
   }
-  
+
   const textColor = getTextColor(gradient)
   const formattedText = formatCoverText(title)
-  
+
   // Add complete styling to each line for consistent rendering across browser and preview
   const styledFormattedText = {
     ...formattedText,
     lines: formattedText.lines.map((line, index) => ({
       ...line,
       styles: {
-        fontSize: line.size === 'large' ? '16px' : 
-                line.size === 'medium' ? '13px' : '11px',
+        fontSize: line.size === 'large' ? '16px' :
+          line.size === 'medium' ? '13px' : '11px',
         fontWeight: 900,
         fontFamily: '"Inter", "Roboto", "Arial Black", sans-serif',
         lineHeight: 0.9,
@@ -249,7 +249,7 @@ export const generateCover = (shard) => {
       }
     }))
   }
-  
+
   return {
     type: 'text',
     title,
@@ -280,7 +280,7 @@ export const processData = async (shard, apiCall) => {
       if (language.file) {
         // Upload new file
         log.info('📤 Uploading file:', language.filename)
-        
+
         const formData = new FormData()
         formData.append('subtitle', language.file)
         formData.append('movie_name', language.movie_name || 'Unknown Movie')
@@ -290,15 +290,15 @@ export const processData = async (shard, apiCall) => {
           method: 'POST',
           body: formData
         })
-        
+
         log.info('✅ File uploaded, subtitle_id:', uploadResult.subtitle_id)
-        
+
         // Replace file with subtitle_id
         delete language.file
         language.subtitle_id = uploadResult.subtitle_id
       }
     }
   }
-  
+
   // No conversion needed - keep { languages: [...] } format
 }
