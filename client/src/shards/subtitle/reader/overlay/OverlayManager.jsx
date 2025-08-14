@@ -6,31 +6,29 @@ import { useOverlayUI } from './useUiState.jsx'
 
 export const OverlayManager = ({ onBack }) => {
   const {
-    toolbar,
-    dict,
-    actionDrawer,
+    xState,
     openTool,
-    closeDict,
+    closeAll,
     closeTool
   } = useOverlayUI()
 
   return (
     <Box>
       <Toolbar
-        visible={toolbar}
+        visible={xState.toolbar}
         onBack={onBack}
         onToolSelect={openTool}
       />
 
       <Dict
-        word={dict.word}
-        position={dict.position}
-        visible={dict.visible}
-        onClose={closeDict}
+        word={xState.word}
+        position={xState.position}
+        visible={xState.tool == 'dict'}
+        onClose={closeAll}
       />
 
       <FontDrawer
-        open={actionDrawer.open && actionDrawer.tool === 'font'}
+        open={xState.tool === 'font'}
         onClose={closeTool}
       />
     </Box>

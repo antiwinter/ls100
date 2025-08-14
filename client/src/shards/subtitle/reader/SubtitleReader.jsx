@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState, useMemo } from 'react'
+import { useEffect, useCallback, useState, useMemo, useRef } from 'react'
 import { Box, Typography, Stack, Chip, Button } from '@mui/joy'
 import { Bolt } from '@mui/icons-material'
 import { apiCall } from '../../../config/api'
@@ -17,7 +17,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
     setPositionCurrent, setSeek, setTotal, setSelectedWordsFromArray,
     handleWordLong
   } = useReaderState()
-
+  const viewerRef = useRef(null)
   // UI events from OverlayUIContext
   const { handleWordShort, handleEmptyClick, handleScroll } = useOverlayUI()
 
@@ -79,6 +79,11 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
     }
   }, [handleWordLong, handleWordShort])
 
+  useEffect(() => {
+    log.warn('READER useEffect', { selectedWords })
+    viewerRef.current?.setWordlist(selectedWords)
+  }, [selectedWords])
+
   // Handle review click (placeholder)
   const handleReviewClick = () => {
     // TODO: Implement review feature
@@ -132,7 +137,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
             color="secondary"
             variant='outlined'
             onClick={handleReviewClick}
-            startDecorator={<Bolt sx={{ fontSize: '16px', mr: -0.5 }} />}
+            // startDecorator={<Bolt sx={{ fontSize: '16px', mr: -0.5 }} />}
             sx={{
               cursor: 'pointer',
               fontSize: '12px',
@@ -156,10 +161,10 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
       <OverlayManager onBack={onBack} />
 
       {/* SubtitleViewer - consumes both contexts */}
-      <SubtitleViewer
+      <SubtitleViewer ref={viewerRef}
         groups={groups}
         onWord={handleWordEvent}
-        position={position.seek}
+        // position={position.seek}
         onEmptyClick={handleEmptyClick}
         onScroll={handleScroll}
         onCurrentGroupChange={setPositionCurrent} // Context action

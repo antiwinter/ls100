@@ -59,6 +59,7 @@ export function useSubtitleGroups(languages) {
   }, [languages, key])
   // Group lines by timestamp
   const groups = useMemo(() => {
+    log.warn('groups re-gen111', { lines, mainLanguageCode })
     const main = []
     const refs = []
     lines.forEach((line, idx) => {
@@ -102,6 +103,7 @@ export function useSubtitleGroups(languages) {
 
   const total = groups.length
 
+  log.warn('groups re-gen', { groups, total, loading })
   return { groups, total, loading }
 }
 

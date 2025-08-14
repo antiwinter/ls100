@@ -287,7 +287,7 @@ export const SubtitleShardEditor = ({
           </LanguageBox>
         </Stack>
         <Typography level="body-xs" sx={{ mt: 1, color: 'text.tertiary' }}>
-          Solid = Main language, Outlined = Reference. Press to select main, long press to view filename.
+          Tap to select main language, long press to view filename.
         </Typography>
 
         <input

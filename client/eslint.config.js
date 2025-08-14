@@ -35,7 +35,17 @@ export default defineConfig([
       'keyword-spacing': ['error', { 'before': true, 'after': true }],
       'space-infix-ops': 'error',
       'eol-last': ['error', 'always'],
-      'no-trailing-spaces': 'error'
+      'no-trailing-spaces': 'error',
+      'max-len': ['error', {
+        'code': 100,           // Max characters per line
+        'tabWidth': 2,         // Tab width for calculation
+        'ignoreUrls': true,    // Ignore lines with URLs
+        'ignoreStrings': true, // Ignore long strings
+        'ignoreComments': false,// Ignore long comments
+        'ignoreRegExpLiterals': true,
+        'ignoreTemplateLiterals': true,
+        'ignorePattern': '^\\s*<.*>.*</.*>\\s*$|^\\s*.*>$'  // Ignore JSX/HTML lines
+      }]
     }
   },
   {

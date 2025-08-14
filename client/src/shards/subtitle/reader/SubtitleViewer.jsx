@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, memo } from 'react'
+import { useEffect, useRef, useCallback, memo, useImperativeHandle, forwardRef } from 'react'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
 dayjs.extend(utc)
@@ -10,26 +10,87 @@ import {
 
 import VirtualScroller from '../../../components/VirtualScroller'
 import { useLongPress } from '../../../utils/useLongPress'
-import { useReaderState } from './overlay/useTraceState.jsx'
-import { useOverlayUI } from './overlay/useUiState.jsx'
 import { log } from '../../../utils/logger.js'
 
 // Multi-language subtitle display - gets state from split contexts
 
-const SubtitleViewer_ = ({
+const SubtitleViewer_ = forwardRef(({
   groups,
   position,
   onWord,
   onEmptyClick,
   onScroll,
   onCurrentGroupChange
-}) => {
-  const { selectedWords } = useReaderState()
-  const { settings } = useOverlayUI()
+}, ref) => {
   const viewerRef = useRef(null)
   const scrollerRef = useRef(null)
 
-  log.warn('VIEWER re-render', { entries:groups.length, entry0: groups[0], settings, selectedWords })
+  // caches to re-apply on viewport changes
+  const wordlistRef = useRef(new Set())
+  const langMapRef = useRef(null)
+
+  // DOM applicators
+  const applyWordlist = useCallback(() => {
+    const root = viewerRef.current
+    if (!root) return
+    const set = wordlistRef.current
+    const nodes = root.querySelectorAll('span[data-word]')
+    log.warn('viewer applyWordlist', { nodes }, set, wordlistRef.current)
+    nodes.forEach(el => {
+      const w = el.getAttribute('data-word')
+      if (!w) return
+      if (set.has(w)) {
+        // log.warn('viewer applyWordlist to w', { w })
+        el.setAttribute('data-selected', 'true')
+      }
+      else el.removeAttribute('data-selected')
+    })
+  }, [])
+
+  const applyLangMap = useCallback(() => {
+    const root = viewerRef.current
+    const lm = langMapRef.current
+    if (!root || !lm) return
+    const getVisible = (code) => {
+      if (lm instanceof Map) return !!lm.get(code)?.visible
+      const entry = lm[code]
+      return !!(entry && entry.visible)
+    }
+    const blocks = root.querySelectorAll('[data-ref-lang]')
+    blocks.forEach(el => {
+      const code = el.getAttribute('data-ref-lang') || ''
+      el.style.display = getVisible(code) ? '' : 'none'
+    })
+  }, [])
+
+  useImperativeHandle(ref, () => ({
+    setWordlist: (words) => {
+      log.warn('viewer setWordlist', { words })
+      const set = words instanceof Set ? words : new Set(words || [])
+      wordlistRef.current = set
+      applyWordlist()
+    },
+    setLangMap: (langMap) => {
+      langMapRef.current = langMap || null
+      applyLangMap()
+    },
+    setFont: (font) => {
+      if (!viewerRef.current || !font) return
+      const { fontFamily, fontSize } = font
+      if (fontFamily) viewerRef.current.style.setProperty('--reader-font-family', fontFamily)
+      if (Number.isFinite(fontSize)) viewerRef.current.style.setProperty('--reader-font-size', `${fontSize}px`)
+    }
+  }))
+
+  // re-apply when the viewport changes (virtualized list)
+  const onRangeChangeInternal = useCallback(({ startIndex }) => {
+    applyWordlist()
+    applyLangMap()
+    onCurrentGroupChange?.(startIndex || 0)
+  }, [applyWordlist, applyLangMap, onCurrentGroupChange])
+
+  log.warn('VIEWER re-render', { entries:groups?.length,
+    entry0: groups?.[0] })
 
   // Short/Long press helpers
   const getPressData = useCallback((e) => {
@@ -39,7 +100,8 @@ const SubtitleViewer_ = ({
   }, [])
 
   const getClickY = (e) => {
-    return e.clientY || (e.touches && e.touches[0]?.clientY) || (e.changedTouches && e.changedTouches[0]?.clientY) || window.innerHeight / 2
+    return e.clientY || (e.touches && e.touches[0]?.clientY)
+    || (e.changedTouches && e.changedTouches[0]?.clientY) || window.innerHeight / 2
   }
 
   // Unified press handler
@@ -51,14 +113,6 @@ const SubtitleViewer_ = ({
   }, [getPressData, onEmptyClick, onWord])
 
   const { handlers } = useLongPress(handlePress, { delay: 450 })
-
-  // Apply font style via CSS variables when settings change
-  useEffect(() => {
-    if (!viewerRef.current || !settings) return
-    const { fontFamily, fontSize } = settings
-    if (fontFamily) viewerRef.current.style.setProperty('--reader-font-family', fontFamily)
-    if (Number.isFinite(fontSize)) viewerRef.current.style.setProperty('--reader-font-size', `${fontSize}px`)
-  }, [settings])
 
   // Clean SRT formatting tags - memoized for performance
   const cleanSrtText = useCallback((text) => {
@@ -90,7 +144,6 @@ const SubtitleViewer_ = ({
             display: 'inline-block',
             lineHeight: 'inherit'
           }}
-          data-selected={selectedWords.has(cleanWord) ? 'true' : undefined}
         >
           {part}
           {/* Pure overlay shade - shown via CSS when parent has data-selected */}
@@ -112,7 +165,7 @@ const SubtitleViewer_ = ({
         </span>
       )
     })
-  }, [selectedWords])
+  }, [])
 
   // Render complete entry with timestamp and all languages
   const renderEntry = (group) => {
@@ -155,9 +208,9 @@ const SubtitleViewer_ = ({
                 ))}
               </Box>
             )}
-            {/* Reference languages - show only if visible in langMap */}
+            {/* Reference languages - visibility controlled by imperative API */}
             {refMap && Array.from(refMap.entries()).map(([code, refEntries]) => {
-              if (!settings?.langMap?.get?.(code)?.visible || !refEntries.length) return null
+              if (!refEntries.length) return null
               return (
                 <Box key={code} data-ref-lang={code}>
                   {refEntries.map((entry, i) => (
@@ -213,9 +266,7 @@ const SubtitleViewer_ = ({
         totalCount={groups?.length || 0}
         itemKey={(index) => `group${index}`}
         increaseViewportBy={{ top: 600, bottom: 1000 }}
-        onRangeChange={({ startIndex }) => {
-          onCurrentGroupChange?.(startIndex || 0)
-        }}
+        onRangeChange={onRangeChangeInternal}
         onScroll={(e) => {
           onScroll?.(e)
         }}
@@ -231,7 +282,7 @@ const SubtitleViewer_ = ({
       />
     </Box>
   )
-}
+})
 
 export const SubtitleViewer = memo(SubtitleViewer_)
 

@@ -14,15 +14,11 @@ const useOverlayUI = () => {
 
 export const OverlayUIProvider = ({ langMap: _langMap, children }) => {
   // UI State
-  const [toolbar, setToolbar] = useState(false)
-  const [dict, setDict] = useState({
-    visible: false,
+  const [xState, setXState] = useState({
+    toolbar: false,
+    tool: null,
     word: '',
     position: 'bottom'
-  })
-  const [actionDrawer, setActionDrawer] = useState({
-    open: false,
-    tool: null
   })
 
   // Settings State
@@ -57,23 +53,21 @@ export const OverlayUIProvider = ({ langMap: _langMap, children }) => {
   }
 
   // UI Actions (stable identities)
+  const openDict = useCallback((word, position) => {
+    setXState(x => ({ ...x, tool:'dict', toolbar: false, word, position }))
+  }, [])
+
   const openTool = useCallback((tool) => {
-    setActionDrawer({ open: true, tool })
-    if (tool !== 'font') setToolbar(false)
+    setXState(x => ({ ...x, tool, toolbar: true }))
   }, [])
 
+  // don't close dict, don't close toolbar
   const closeTool = useCallback(() => {
-    setActionDrawer({ open: false, tool: null })
-  }, [])
-
-  const closeDict = useCallback(() => {
-    setDict({ visible: false, word: '', position: 'bottom' })
+    setXState(x => ({ ...x, tool: x.tool === 'dict' ? 'dict' : null }))
   }, [])
 
   const closeAll = useCallback(() => {
-    setToolbar(false)
-    setDict({ visible: false, word: '', position: 'bottom' })
-    setActionDrawer({ open: false, tool: null })
+    setXState(x => ({ ...x, tool:null, toolbar: false }))
   }, [])
 
   const updateFont = useCallback((updates) => {
@@ -94,44 +88,40 @@ export const OverlayUIProvider = ({ langMap: _langMap, children }) => {
   // UI Event Handlers (stable identities)
   const handleWordShort = useCallback((word, pos) => {
     const position = pos < window.innerHeight / 2 ? 'bottom' : 'top'
-    setDict({ visible: true, word, position })
-    setToolbar(false)
-  }, [])
+    openDict(word, position)
+  }, [openDict])
 
   const handleEmptyClick = useCallback(() => {
     // If any overlay is open, close them all; otherwise show toolbar
-    const hasAnyOverlay = toolbar || dict.visible || actionDrawer.open
-
-    if (hasAnyOverlay) {
-      // Close all overlays
-      setDict({ visible: false, word: '', position: 'bottom' })
-      setActionDrawer({ open: false, tool: null })
-      setToolbar(false)
-    } else {
-      // No overlays open, show toolbar
-      setToolbar(true)
-    }
-  }, [toolbar, dict.visible, actionDrawer.open])
+    setXState(x => {
+      if (x.toolbar || x.tool) {
+        return { ...x, tool:null, toolbar: false }
+      }
+      return { ...x, toolbar: true }
+    })
+  }, [])
 
   const handleScroll = useCallback(() => {
-    setToolbar(false)
-    setActionDrawer({ open: false, tool: null })
+    setXState(x => {
+      if (x.toolbar || x.tool) {
+        return { ...x, tool:null, toolbar: false }
+      }
+      return x
+    })
   }, [])
 
   const value = {
     // UI State
-    toolbar,
-    dict,
-    actionDrawer,
+    xState,
     font,
     langMap,
     settings,
 
     // UI Actions
-    setToolbar,
+    setXState,
+    openDict,
     openTool,
     closeTool,
-    closeDict,
     closeAll,
     updateFont,
     toggleLang,
