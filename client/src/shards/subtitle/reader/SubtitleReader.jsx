@@ -100,10 +100,6 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
     overlayRef.current?.toggleToolbar()
   }, [])
 
-  const handleScroll = useCallback(() => {
-    overlayRef.current?.closeTool(1)
-  }, [])
-
   // Load selected words and position (mount + shard change)
   useEffect(() => {
     let alive = true
@@ -159,7 +155,6 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
   // Update viewer when state changes
   useEffect(() => {
     if (!ready || !viewerReady) return
-    log.warn('READER useEffect', { wordlist })
     viewerRef.current?.setWordlist(wordlist)
   }, [wordlist, ready, viewerReady])
 
@@ -180,8 +175,8 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
   const handleGroupChange = useCallback((idx) => {
     setViewerReady(true)
     setPosition(idx)
+    overlayRef.current?.closeTool(1)
   }, [setPosition])
-
 
   const shardName = shard?.name || ''
   if (!shard) {
@@ -216,9 +211,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
         <SubtitleViewer ref={viewerRef}
           groups={groups}
           onWord={handleWordEvent}
-          // position={position.seek}
           onEmptyClick={handleEmptyClick}
-          onScroll={handleScroll}
           onGroupChange={handleGroupChange}
         />
       )}

@@ -1,7 +1,8 @@
-import { useEffect, useRef, useCallback, memo, useImperativeHandle, forwardRef } from 'react'
+import { useEffect, useRef, useCallback, memo,
+  useImperativeHandle, forwardRef } from 'react'
 import dayjs from 'dayjs'
-import utc from 'dayjs/plugin/utc'
-dayjs.extend(utc)
+import duration from 'dayjs/plugin/duration'
+dayjs.extend(duration)
 import {
   Box,
   Stack,
@@ -14,16 +15,86 @@ import { log } from '../../../utils/logger.js'
 
 // Multi-language subtitle display - gets state from split contexts
 
+const formatSec = s => {
+  const d = dayjs.duration(s, 'seconds')
+  return [d.hours(), d.minutes(), d.seconds()]
+    .filter((v, i) => v !== 0 || i > 0)       // drop leading zero hours
+    .map((v, i) => !i ? v : String(v).padStart(2, '0'))
+    .join(':')
+}
+
+const SubtitleRow = memo(({ group, clean, renderMain }) => {
+  const mainBucket = group.main
+  const refMap = group.refs || new Map()
+  // log.debug('VIEWER renderEntry', { sec: group.sec })
+  return (
+    <Box sx={{ py: 0.1, mb: 1, backgroundColor: 'transparent', borderRadius: 'sm' }}>
+      <Stack direction="row" spacing={1} alignItems="flex-start">
+        <Typography
+          level="body-xs"
+          color="neutral"
+          sx={{
+            minWidth: '40px',
+            fontSize: '10px',
+            lineHeight: 1.2,
+            pt: 0.5,
+            flexShrink: 0,
+            textAlign: 'right'
+          }}
+        >
+          {formatSec(group.sec)}
+        </Typography>
+        <Stack spacing={0.25} sx={{ flex: 1 }}>
+          {mainBucket && mainBucket.length > 0 && (
+            <Box data-lang="main">
+              {mainBucket.map((entry, i) => (
+                <Box key={`m-${i}`}>
+                  <Typography
+                    level="body-sm"
+                    sx={{
+                      lineHeight: 1.3,
+                      fontSize: 'var(--reader-font-size)',
+                      fontFamily: 'var(--reader-font-family)'
+                    }}
+                  >
+                    {renderMain(clean(entry.data?.text))}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          )}
+          {refMap && Array.from(refMap.entries()).map(([code, refEntries]) => {
+            if (!refEntries.length) return null
+            return (
+              <Box key={code} data-ref-lang={code}>
+                {refEntries.map((entry, i) => (
+                  <Typography key={`r-${code}-${i}`} level="body-sm" sx={{ lineHeight: 1.3, color: 'neutral.700' }}>
+                    {clean(entry.data?.text)}
+                  </Typography>
+                ))}
+              </Box>
+            )
+          })}
+        </Stack>
+      </Stack>
+    </Box>
+  )
+}, (prev, next) => (
+  prev.group === next.group &&
+  prev.clean === next.clean &&
+  prev.renderMain === next.renderMain
+))
+
 const SubtitleViewer_ = forwardRef(({
   groups,
   position,
   onWord,
   onEmptyClick,
-  onScroll,
   onGroupChange
 }, ref) => {
   const viewerRef = useRef(null)
   const scrollerRef = useRef(null)
+  const viewportSize = useRef({ top: 600, bottom: 1000 })
 
   // caches to re-apply on viewport changes
   const wordlistRef = useRef(new Set())
@@ -68,7 +139,7 @@ const SubtitleViewer_ = forwardRef(({
 
   useImperativeHandle(ref, () => ({
     setWordlist: (words) => {
-      log.warn('viewer setWordlist', { words })
+      log.debug('viewer setWordlist', { words })
       const set = words instanceof Set ? words : new Set(words || [])
       wordlistRef.current = set
       applyWordlist()
@@ -168,65 +239,20 @@ const SubtitleViewer_ = forwardRef(({
     })
   }, [])
 
-  // Render complete entry with timestamp and all languages
-  const renderEntry = (group) => {
-    const mainBucket = group.main
-    const refMap = group.refs || new Map()
+  // Row is rendered via memoized SubtitleRow
 
+  // Memoized functions for VirtualScroller props
+  const itemKeyMemo = useCallback((i) => groups?.[i]?.sec ?? i, [groups])
+
+  const itemContentMemo = useCallback(({ index }) => {
+    const group = groups?.[index]
+    if (!group) return null
     return (
-      <Box sx={{ py: 0.1, mb: 1, backgroundColor: 'transparent', borderRadius: 'sm' }}>
-        <Stack direction="row" spacing={1} alignItems="flex-start">
-          <Typography
-            level="body-xs"
-            color="neutral"
-            sx={{
-              minWidth: '40px',
-              fontSize: '10px',
-              lineHeight: 1.2,
-              pt: 0.5,
-              flexShrink: 0
-            }}
-          >
-            {dayjs(parseInt(group.sec) * 1000).utc().format('m:ss')}
-          </Typography>
-          <Stack spacing={0.25} sx={{ flex: 1 }}>
-            {/* Main language - always show */}
-            {mainBucket && mainBucket.length > 0 && (
-              <Box data-lang="main">
-                {mainBucket.map((entry, i) => (
-                  <Box key={`m-${i}`}>
-                    <Typography
-                      level="body-sm"
-                      sx={{
-                        lineHeight: 1.3,
-                        fontSize: 'var(--reader-font-size)',
-                        fontFamily: 'var(--reader-font-family)'
-                      }}
-                    >
-                      {renderMain(cleanSrtText(entry.data?.text))}
-                    </Typography>
-                  </Box>
-                ))}
-              </Box>
-            )}
-            {/* Reference languages - visibility controlled by imperative API */}
-            {refMap && Array.from(refMap.entries()).map(([code, refEntries]) => {
-              if (!refEntries.length) return null
-              return (
-                <Box key={code} data-ref-lang={code}>
-                  {refEntries.map((entry, i) => (
-                    <Typography key={`r-${code}-${i}`} level="body-sm" sx={{ lineHeight: 1.3, color: 'neutral.700' }}>
-                      {cleanSrtText(entry.data?.text)}
-                    </Typography>
-                  ))}
-                </Box>
-              )
-            })}
-          </Stack>
-        </Stack>
+      <Box data-group-index={index}>
+        <SubtitleRow group={group} clean={cleanSrtText} renderMain={renderMain} />
       </Box>
     )
-  }
+  }, [groups, cleanSrtText, renderMain])
 
   // Monitor position prop changes and scroll to index
   useEffect(() => {
@@ -265,21 +291,10 @@ const SubtitleViewer_ = forwardRef(({
       <VirtualScroller
         ref={scrollerRef}
         totalCount={groups?.length || 0}
-        itemKey={(index) => `group${index}`}
-        increaseViewportBy={{ top: 600, bottom: 1000 }}
+        itemKey={itemKeyMemo}
+        increaseViewportBy={viewportSize.current}
         onRangeChange={onRangeChangeInternal}
-        onScroll={(e) => {
-          onScroll?.(e)
-        }}
-        itemContent={({ index }) => {
-          const group = groups?.[index]
-          if (!group) return null
-          return (
-            <Box data-group-index={index}>
-              {renderEntry(group)}
-            </Box>
-          )
-        }}
+        itemContent={itemContentMemo}
       />
     </Box>
   )

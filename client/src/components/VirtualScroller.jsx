@@ -1,4 +1,4 @@
-import React, { forwardRef, useImperativeHandle, useRef, useMemo } from 'react'
+import React, { forwardRef, useImperativeHandle, useRef, useMemo, useCallback } from 'react'
 import { Virtuoso } from 'react-virtuoso'
 
 // Generic virtual scroller built on react-virtuoso
@@ -53,12 +53,15 @@ export const VirtualScroller = forwardRef(({
     return Comp
   }, [onScroll, className, style])
 
+  // Memoized item content to prevent recreating the function on every render
+  const itemContentMemo = useCallback((index) => itemContent?.({ index }), [itemContent])
+
   return (
     <Virtuoso
       ref={vRef}
       totalCount={totalCount}
       computeItemKey={computeKey}
-      itemContent={(index) => itemContent?.({ index })}
+      itemContent={itemContentMemo}
       rangeChanged={onRangeChange}
       startReached={onStartReached}
       endReached={onEndReached}
