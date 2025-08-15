@@ -38,9 +38,9 @@ export const useSessionStore = (shardId) => {
         initWordlist: (words) => set((state) => {
           state.wordlist = words instanceof Set ? Array.from(words) : (words || [])
         }),
-        toggleWord: (word) => set((state) => {
+        toggleWord: (word, check = 0) => set((state) => {
           const idx = state.wordlist.indexOf(word)
-          if (idx >= 0) {
+          if (idx >= 0 && !check) {
             state.wordlist.splice(idx, 1)
           } else {
             state.wordlist.push(word)

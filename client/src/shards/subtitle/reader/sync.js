@@ -10,6 +10,7 @@ export const useSync = (shardId, words, index, intervalMs = 10000) => {
   const syncingRef = useRef(false)
   const timerRef = useRef(null)
   const wordsReadyRef = useRef(false)
+  const indexRef = useRef(0)
   const lastIndexRef = useRef(0)
   const indexReadyRef = useRef(false)
 
@@ -25,6 +26,8 @@ export const useSync = (shardId, words, index, intervalMs = 10000) => {
   // keep index current; baseline on first observe
   useEffect(() => {
     const normalized = Number.isFinite(index) ? index : 0
+    // Always keep latest index in a ref so interval doesn't need to be recreated
+    indexRef.current = normalized
     if (!indexReadyRef.current) {
       lastIndexRef.current = normalized
       indexReadyRef.current = true
@@ -42,7 +45,7 @@ export const useSync = (shardId, words, index, intervalMs = 10000) => {
   const doSync = useCallback(async () => {
     if (!shardId || syncingRef.current) return
     const curWords = wordsRef.current
-    const curIndex = Number.isFinite(index) ? index : 0
+    const curIndex = Number.isFinite(indexRef.current) ? indexRef.current : 0
     const { adds, rems } = curWords ? diff(curWords, lastWordsRef.current) : { adds: [], rems: [] }
     const indexChanged = indexReadyRef.current && curIndex !== lastIndexRef.current
     const needWords = wordsReadyRef.current && (adds.length || rems.length)
@@ -71,7 +74,7 @@ export const useSync = (shardId, words, index, intervalMs = 10000) => {
     } finally {
       syncingRef.current = false
     }
-  }, [shardId, index, diff])
+  }, [shardId, diff])
 
   useEffect(() => {
     wordsReadyRef.current = false
@@ -81,8 +84,9 @@ export const useSync = (shardId, words, index, intervalMs = 10000) => {
   }, [shardId])
 
   useEffect(() => {
-    timerRef.current = setInterval(() => { doSync() }, intervalMs)
-    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+    const id = setInterval(() => { doSync() }, intervalMs)
+    timerRef.current = id
+    return () => { clearInterval(id) }
   }, [doSync, intervalMs])
 
   // Auto-baseline words on first observe

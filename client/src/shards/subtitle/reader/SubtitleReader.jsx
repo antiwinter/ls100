@@ -10,6 +10,67 @@ import { useSubtitleGroups } from './hooks/useSubtitleGroups.js'
 import { useSessionStore } from './overlay/stores/useSessionStore'
 import { useSettingStore } from './overlay/stores/useSettingStore'
 
+const SubtitleHeader = ({ shardName, position, total, onReviewClick }) => {
+  const [totalGroups, setTotalGroups] = useState(0)
+
+  // Update totalGroups when total changes
+  useEffect(() => {
+    setTotalGroups(total)
+  }, [total])
+
+  return (
+    <Stack
+      direction="row"
+      justifyContent="space-between"
+      alignItems="center"
+      sx={{
+        px: 1,
+        py: 0.5,
+        bgcolor: 'background.body'
+      }}
+    >
+      <Stack direction="row" alignItems="center">
+        <Typography
+          level="body-xs"
+          color="neutral"
+          sx={{
+            opacity: 0.7,
+            maxWidth: '110px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          {shardName}
+        </Typography>
+
+        <Chip
+          size="sm"
+          color="secondary"
+          variant='outlined'
+          onClick={onReviewClick}
+          startDecorator={<Bolt sx={{ fontSize: '16px', mr: -0.5 }} />}
+          sx={{
+            cursor: 'pointer',
+            fontSize: '12px',
+            fontWeight: '600 !important',
+            height: '15px',
+            px: 1,
+            ml: 1,
+            minHeight: 'auto'
+          }}
+        >
+          25
+        </Chip>
+      </Stack>
+
+      <Typography level="body-xs" color="neutral" sx={{ opacity: 0.7 }}>
+        {position}/{totalGroups}
+      </Typography>
+    </Stack>
+  )
+}
+
 const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
   // Session store and state
   const {
@@ -21,22 +82,21 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
   const { fontSize, fontFamily } = useSettingStore('subtitle-shard')()
   const viewerRef = useRef(null)
   const overlayRef = useRef(null)
-  const [totalGroups, setTotalGroups] = useState(0)
 
   // Setup sync loop with store state
   const { syncNow } = useSync(shardId, wordlist, position, 10000)
 
-  log.debug('READER re-render', { position })
+  // log.debug('READER re-render', { position })
 
   // UI Event Handlers
   const explainWord = useCallback((word, pos) => {
     const position = pos < window.innerHeight / 2 ? 'bottom' : 'top'
+    toggleWord(word, 1) // From session store
     overlayRef.current?.openDict(word, position)
-  }, [])
+  }, [toggleWord])
 
   const handleEmptyClick = useCallback(() => {
     // If any overlay is open, close them all; otherwise show toolbar
-    log.debug('handleEmptyClick', { overlayRef })
     overlayRef.current?.toggleToolbar()
   }, [])
 
@@ -78,10 +138,9 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
   const languages = shard?.data?.languages || []
 
   // Load lines and groups
-  const { groups, total } = useSubtitleGroups(languages)
-  useEffect(() => {
-    setTotalGroups(total) // Context action
-  }, [setTotalGroups, total])
+  const { groups, total, loading } = useSubtitleGroups(languages)
+  const [viewerReady, setViewerReady] = useState(false)
+  const ready = !loading && (groups?.length || 0) > 0
 
   // Flush on unmount
   useEffect(() => {
@@ -99,9 +158,10 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
 
   // Update viewer when state changes
   useEffect(() => {
+    if (!ready || !viewerReady) return
     log.warn('READER useEffect', { wordlist })
     viewerRef.current?.setWordlist(wordlist)
-  }, [wordlist])
+  }, [wordlist, ready, viewerReady])
 
   useEffect(() => {
     viewerRef.current?.setLangMap(langMap)
@@ -111,10 +171,17 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
     viewerRef.current?.setFont({ fontSize, fontFamily })
   }, [fontSize, fontFamily])
 
+
   // Handle review click (placeholder)
   const handleReviewClick = () => {
     // TODO: Implement review feature
   }
+
+  const handleGroupChange = useCallback((idx) => {
+    setViewerReady(true)
+    setPosition(idx)
+  }, [setPosition])
+
 
   const shardName = shard?.name || ''
   if (!shard) {
@@ -134,68 +201,27 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
       overflow: 'hidden'
     }}>
       {/* Header with Movie Name, Progress, and Review */}
-      <Stack
-        direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        sx={{
-          px: 1,
-          py: 0.5,
-          bgcolor: 'background.body'
-        }}
-      >
-        <Stack direction="row" alignItems="center">
-          <Typography
-            level="body-xs"
-            color="neutral"
-            sx={{
-              opacity: 0.7,
-              maxWidth: '110px',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            {shardName}
-          </Typography>
-
-          <Chip
-            size="sm"
-            color="secondary"
-            variant='outlined'
-            onClick={handleReviewClick}
-            startDecorator={<Bolt sx={{ fontSize: '16px', mr: -0.5 }} />}
-            sx={{
-              cursor: 'pointer',
-              fontSize: '12px',
-              fontWeight: '600 !important',
-              height: '15px',
-              px: 1,
-              ml: 1,
-              minHeight: 'auto'
-            }}
-          >
-            25
-          </Chip>
-        </Stack>
-
-        <Typography level="body-xs" color="neutral" sx={{ opacity: 0.7 }}>
-          {position}/{totalGroups}
-        </Typography>
-      </Stack>
+      <SubtitleHeader
+        shardName={shardName}
+        position={position}
+        total={total}
+        onReviewClick={handleReviewClick}
+      />
 
       {/* OverlayManager - local state management */}
       <OverlayManager ref={overlayRef} onBack={onBack} sessionStore={{ langMap, toggleLang }} />
 
-      {/* SubtitleViewer - uses imperative API */}
-      <SubtitleViewer ref={viewerRef}
-        groups={groups}
-        onWord={handleWordEvent}
-        // position={position.seek}
-        onEmptyClick={handleEmptyClick}
-        onScroll={handleScroll}
-        onCurrentGroupChange={setPosition}
-      />
+      {/* SubtitleViewer - render after groups ready */}
+      {ready && (
+        <SubtitleViewer ref={viewerRef}
+          groups={groups}
+          onWord={handleWordEvent}
+          // position={position.seek}
+          onEmptyClick={handleEmptyClick}
+          onScroll={handleScroll}
+          onGroupChange={handleGroupChange}
+        />
+      )}
     </Box>
   )
 }

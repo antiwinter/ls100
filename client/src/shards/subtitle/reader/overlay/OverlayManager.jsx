@@ -3,7 +3,7 @@ import { Box } from '@mui/joy'
 import { Toolbar } from './Toolbar.jsx'
 import { Dict } from './Dict.jsx'
 import { FontDrawer } from './FontDrawer.jsx'
-import { log } from '../../../../utils/logger'
+// import { log } from '../../../../utils/logger'
 
 export const OverlayManager = forwardRef(({ onBack, sessionStore }, ref) => {
   // UI State
@@ -20,9 +20,7 @@ export const OverlayManager = forwardRef(({ onBack, sessionStore }, ref) => {
 
   useImperativeHandle(ref, () => ({
     toggleToolbar: () => {
-      log.debug('toggleToolbar', { xState })
       setXState(x => {
-        log.debug('toggleToolbar', { x })
         return (x.tool || x.toolbar
           ? { ...x, toolbar: false, tool: null }
           : { ...x, toolbar: true })})

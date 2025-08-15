@@ -20,7 +20,7 @@ const SubtitleViewer_ = forwardRef(({
   onWord,
   onEmptyClick,
   onScroll,
-  onCurrentGroupChange
+  onGroupChange
 }, ref) => {
   const viewerRef = useRef(null)
   const scrollerRef = useRef(null)
@@ -29,8 +29,11 @@ const SubtitleViewer_ = forwardRef(({
   const wordlistRef = useRef(new Set())
   const langMapRef = useRef(null)
 
+  log.debug('!!VIEWER re-render', { entries:groups?.length, entry0: groups?.[0] })
+
   // DOM applicators
   const applyWordlist = useCallback(() => {
+    // log.debug('VIEWER applyWordlist', { wordlistRef: wordlistRef.current })
     const root = viewerRef.current
     if (!root) return
     const set = wordlistRef.current
@@ -84,12 +87,11 @@ const SubtitleViewer_ = forwardRef(({
 
   // re-apply when the viewport changes (virtualized list)
   const onRangeChangeInternal = useCallback(({ startIndex }) => {
+    // log.debug('VIEWER onRangeChangeInternal', { startIndex })
     applyWordlist()
     applyLangMap()
-    onCurrentGroupChange?.(startIndex || 0)
-  }, [applyWordlist, applyLangMap, onCurrentGroupChange])
-
-  log.debug('VIEWER re-render', { entries:groups?.length })
+    onGroupChange?.(startIndex || 0)
+  }, [applyWordlist, applyLangMap, onGroupChange])
 
   // Short/Long press helpers
   const getPressData = useCallback((e) => {
