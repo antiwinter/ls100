@@ -136,7 +136,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
   // Load lines and groups
   const { groups, total, loading } = useSubtitleGroups(languages)
   const [viewerReady, setViewerReady] = useState(false)
-  const ready = !loading && (groups?.length || 0) > 0
+  const groupReady = !loading && (groups?.length || 0) > 0
 
   // Flush on unmount
   useEffect(() => {
@@ -154,18 +154,19 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
 
   // Update viewer when state changes
   useEffect(() => {
-    if (!ready || !viewerReady) return
+    if (!viewerReady) return
     viewerRef.current?.setWordlist(wordlist)
-  }, [wordlist, ready, viewerReady])
+  }, [wordlist, viewerReady])
 
   useEffect(() => {
+    if (!viewerReady) return
     viewerRef.current?.setLangMap(langMap)
-  }, [langMap])
+  }, [langMap, viewerReady])
 
   useEffect(() => {
+    if (!viewerReady) return
     viewerRef.current?.setFont({ fontSize, fontFamily })
-  }, [fontSize, fontFamily])
-
+  }, [fontSize, fontFamily, viewerReady])
 
   // Handle review click (placeholder)
   const handleReviewClick = () => {
@@ -206,8 +207,8 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
       {/* OverlayManager - local state management */}
       <OverlayManager ref={overlayRef} onBack={onBack} sessionStore={{ langMap, toggleLang }} />
 
-      {/* SubtitleViewer - render after groups ready */}
-      {ready && (
+      {/* SubtitleViewer - render after groups groupReady */}
+      {groupReady && (
         <SubtitleViewer ref={viewerRef}
           groups={groups}
           onWord={handleWordEvent}
@@ -221,7 +222,8 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
 
 export const SubtitleReader = ({ shardId, onBack }) => {
   const [shard, setShard] = useState(null)
-  const { setLangMap } = useSessionStore(shardId)()
+  const sessionStore = useSessionStore(shardId)
+  const { setLangMap } = sessionStore()
 
   // Load shard and initialize langMap in session store
   useEffect(() => {
@@ -234,17 +236,23 @@ export const SubtitleReader = ({ shardId, onBack }) => {
 
         // Initialize langMap in session store from shard languages
         const languages = data.shard?.data?.languages || []
-        const langMap = {}
+        const current = sessionStore.getState().langMap || {} // Get existing persisted state
+        const newLangMap = {} // Create fresh object
+
         languages.filter(l => !l.isMain).forEach(l => {
-          langMap[l.code] = { filename: l.filename, visible: false }
+          // Copy existing entry if it exists, otherwise create new one
+          const existing = current[l.code]
+          newLangMap[l.code] = existing
+            ? { ...existing, filename: l.filename } // Update filename, preserve visibility
+            : { filename: l.filename, visible: false } // New entry
         })
-        setLangMap(langMap)
+        setLangMap(newLangMap)
       } catch (error) {
         log.error('Failed to load shard:', error)
       }
     })()
     return () => { alive = false }
-  }, [shardId, setLangMap])
+  }, [shardId, setLangMap, sessionStore])
 
   return <SubtitleReaderContent shard={shard} shardId={shardId} onBack={onBack} />
 }

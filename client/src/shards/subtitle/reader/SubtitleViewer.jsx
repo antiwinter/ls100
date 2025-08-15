@@ -66,7 +66,7 @@ const SubtitleRow = memo(({ group, clean, renderMain }) => {
           {refMap && Array.from(refMap.entries()).map(([code, refEntries]) => {
             if (!refEntries.length) return null
             return (
-              <Box key={code} data-ref-lang={code}>
+              <Box key={code} data-ref-lang={code} style={{ display: 'none' }}>
                 {refEntries.map((entry, i) => (
                   <Typography key={`r-${code}-${i}`} level="body-sm" sx={{ lineHeight: 1.3, color: 'neutral.700' }}>
                     {clean(entry.data?.text)}
@@ -123,6 +123,7 @@ const SubtitleViewer_ = forwardRef(({
   }, [])
 
   const applyLangMap = useCallback(() => {
+    // log.debug('VIEWER applyLangMap', { langMapRef: langMapRef.current })
     const root = viewerRef.current
     const lm = langMapRef.current
     if (!root || !lm) return
