@@ -65,7 +65,7 @@ const SubtitleHeader = ({ shardName, position, total, onReviewClick }) => {
       </Stack>
 
       <Typography level="body-xs" color="neutral" sx={{ opacity: 0.7 }}>
-        {position}/{totalGroups}
+        {position + 1}/{totalGroups}
       </Typography>
     </Stack>
   )
