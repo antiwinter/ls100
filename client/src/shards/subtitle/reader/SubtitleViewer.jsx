@@ -89,7 +89,7 @@ const SubtitleViewer_ = forwardRef(({
     onCurrentGroupChange?.(startIndex || 0)
   }, [applyWordlist, applyLangMap, onCurrentGroupChange])
 
-  log.warn('VIEWER re-render', { entries:groups?.length })
+  log.debug('VIEWER re-render', { entries:groups?.length })
 
   // Short/Long press helpers
   const getPressData = useCallback((e) => {

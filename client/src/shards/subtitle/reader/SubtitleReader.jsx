@@ -26,21 +26,22 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
   // Setup sync loop with store state
   const { syncNow } = useSync(shardId, wordlist, position, 10000)
 
-  log.warn('READER re-render', { position })
+  log.debug('READER re-render', { position })
 
   // UI Event Handlers
   const explainWord = useCallback((word, pos) => {
     const position = pos < window.innerHeight / 2 ? 'bottom' : 'top'
-    overlayRef.current?.openTool('dict', word, position)
+    overlayRef.current?.openDict(word, position)
   }, [])
 
   const handleEmptyClick = useCallback(() => {
     // If any overlay is open, close them all; otherwise show toolbar
-    overlayRef.current?.closeAll()
+    log.debug('handleEmptyClick', { overlayRef })
+    overlayRef.current?.toggleToolbar()
   }, [])
 
   const handleScroll = useCallback(() => {
-    overlayRef.current?.closeAll()
+    overlayRef.current?.closeTool(1)
   }, [])
 
   // Load selected words and position (mount + shard change)

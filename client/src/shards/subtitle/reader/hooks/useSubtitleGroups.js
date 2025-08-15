@@ -103,7 +103,7 @@ export function useSubtitleGroups(languages) {
 
   const total = groups.length
 
-  log.warn('groups re-gen', { groups, total, loading })
+  // log.warn('groups re-gen', { groups, total, loading })
   return { groups, total, loading }
 }
 
