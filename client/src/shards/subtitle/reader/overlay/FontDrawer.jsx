@@ -10,13 +10,22 @@ import {
   Switch
 } from '@mui/joy'
 import { ActionDrawer } from '../../../../components/ActionDrawer.jsx'
-import { useOverlayUI } from './useUiState.jsx'
+import { useSettingStore } from './stores/useSettingStore'
+import { fontStack } from '../../../../utils/font'
 
 export const FontDrawer = ({
   open,
-  onClose
+  onClose,
+  sessionStore  // Pass session store for langMap access
 }) => {
-  const { font, langMap, updateFont, toggleLang } = useOverlayUI()
+  const { fontSize, fontFamily, setFontSize, setFontFamily } = useSettingStore('subtitle-shard')()
+  const { langMap, toggleLang } = sessionStore || { langMap: {}, toggleLang: () => {} }
+  // Extract current font mode from fontFamily
+  const currentMode = useMemo(() => {
+    if (fontFamily.includes('serif')) return 'serif'
+    if (fontFamily.includes('monospace')) return 'mono'
+    return 'sans'
+  }, [fontFamily])
   const marks = useMemo(
     () => [
       { value: 12, label: '12' },
@@ -27,10 +36,10 @@ export const FontDrawer = ({
     []
   )
 
-  // Get ref languages from langMap
+  // Get ref languages from langMap (plain object)
   const refLanguages = useMemo(
     () =>
-      Array.from(langMap?.entries() || []).map(([code, data]) => ({
+      Object.entries(langMap || {}).map(([code, data]) => ({
         code,
         ...data
       })),
@@ -43,25 +52,26 @@ export const FontDrawer = ({
         <Typography level='title-sm'>Font</Typography>
         <RadioGroup
           orientation='horizontal'
-          value={font?.mode || 'sans'}
+          value={currentMode}
           onChange={(e) => {
             const mode = e.target.value
-            updateFont({ mode })
+            setFontFamily(fontStack(mode))
           }}
         >
+          <Radio value='mono' label='Mono' />
           <Radio value='sans' label='Sans' />
           <Radio value='serif' label='Serif' />
         </RadioGroup>
 
         <Typography level='title-sm'>Size</Typography>
         <Slider
-          value={font?.size || 16}
+          value={fontSize}
           min={14}
           max={20}
           step={1}
           marks={marks}
           onChange={(_, v) => {
-            updateFont({ size: v })
+            setFontSize(v)
           }}
         />
 

@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState, useMemo, useRef } from 'react'
+import { useEffect, useCallback, useState, useRef } from 'react'
 import { Box, Typography, Stack, Chip, Button } from '@mui/joy'
 import { Bolt } from '@mui/icons-material'
 import { apiCall } from '../../../config/api'
@@ -7,24 +7,41 @@ import { useSync } from './sync.js'
 import { OverlayManager } from './overlay/OverlayManager.jsx'
 import { SubtitleViewer } from './SubtitleViewer.jsx'
 import { useSubtitleGroups } from './hooks/useSubtitleGroups.js'
-import { ReaderStateProvider, useReaderState } from './overlay/useTraceState.jsx'
-import { OverlayUIProvider, useOverlayUI } from './overlay/useUiState.jsx'
+import { useSessionStore } from './overlay/stores/useSessionStore'
+import { useSettingStore } from './overlay/stores/useSettingStore'
 
 const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
-  // Content state from ReaderStateContext
+  // Session store and state
   const {
-    position, selectedWords,
-    setPositionCurrent, setSeek, setTotal, setSelectedWordsFromArray,
-    handleWordLong
-  } = useReaderState()
-  const viewerRef = useRef(null)
-  // UI events from OverlayUIContext
-  const { handleWordShort, handleEmptyClick, handleScroll } = useOverlayUI()
+    position, wordlist, langMap, setPosition,
+    initWordlist, toggleWord, toggleLang
+  } = useSessionStore(shardId)()
 
-  // Setup sync loop with context state (Option A - safer)
-  const { syncNow } = useSync(shardId, selectedWords, position.current, 10000)
+  // Settings from store
+  const { fontSize, fontFamily } = useSettingStore('subtitle-shard')()
+  const viewerRef = useRef(null)
+  const overlayRef = useRef(null)
+  const [totalGroups, setTotalGroups] = useState(0)
+
+  // Setup sync loop with store state
+  const { syncNow } = useSync(shardId, wordlist, position, 10000)
 
   log.warn('READER re-render', { position })
+
+  // UI Event Handlers
+  const explainWord = useCallback((word, pos) => {
+    const position = pos < window.innerHeight / 2 ? 'bottom' : 'top'
+    overlayRef.current?.openTool('dict', word, position)
+  }, [])
+
+  const handleEmptyClick = useCallback(() => {
+    // If any overlay is open, close them all; otherwise show toolbar
+    overlayRef.current?.closeAll()
+  }, [])
+
+  const handleScroll = useCallback(() => {
+    overlayRef.current?.closeAll()
+  }, [])
 
   // Load selected words and position (mount + shard change)
   useEffect(() => {
@@ -35,7 +52,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
         const data = await apiCall(`/api/subtitle-shards/${shardId}/words`)
         const words = data.words || []
         if (!alive) return
-        setSelectedWordsFromArray(words) // Context action
+        initWordlist(words)
         log.debug(`📝 Loaded ${words.length} selected words`)
       } catch (error) {
         log.error('Failed to load selected words:', error)
@@ -47,14 +64,14 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
         const data = await apiCall(`/api/subtitle-shards/${shardId}/position`)
         const pos = data?.position || 0
         if (!alive) return
-        setSeek(pos) // Context action
+        setPosition(pos)
       } catch (error) {
         log.error('Failed to load position:', error)
       }
     })()
 
     return () => { alive = false }
-  }, [shardId, setSelectedWordsFromArray, setSeek])
+  }, [shardId, initWordlist, setPosition])
 
   // Use languages directly from shard data
   const languages = shard?.data?.languages || []
@@ -62,27 +79,36 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
   // Load lines and groups
   const { groups, total } = useSubtitleGroups(languages)
   useEffect(() => {
-    setTotal(total) // Context action
-  }, [total, setTotal])
+    setTotalGroups(total) // Context action
+  }, [setTotalGroups, total])
 
   // Flush on unmount
   useEffect(() => {
     return () => { syncNow() }
   }, [syncNow])
 
-  // Handle word events with context handlers
+  // Handle word events with store handlers
   const handleWordEvent = useCallback((word, type, pos) => {
     if (type === 'long') {
-      handleWordLong(word) // From ReaderStateContext
+      toggleWord(word) // From session store
     } else {
-      handleWordShort(word, pos) // From OverlayUIContext
+      explainWord(word, pos) // From UI store
     }
-  }, [handleWordLong, handleWordShort])
+  }, [toggleWord, explainWord])
+
+  // Update viewer when state changes
+  useEffect(() => {
+    log.warn('READER useEffect', { wordlist })
+    viewerRef.current?.setWordlist(wordlist)
+  }, [wordlist])
 
   useEffect(() => {
-    log.warn('READER useEffect', { selectedWords })
-    viewerRef.current?.setWordlist(selectedWords)
-  }, [selectedWords])
+    viewerRef.current?.setLangMap(langMap)
+  }, [langMap])
+
+  useEffect(() => {
+    viewerRef.current?.setFont({ fontSize, fontFamily })
+  }, [fontSize, fontFamily])
 
   // Handle review click (placeholder)
   const handleReviewClick = () => {
@@ -137,7 +163,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
             color="secondary"
             variant='outlined'
             onClick={handleReviewClick}
-            // startDecorator={<Bolt sx={{ fontSize: '16px', mr: -0.5 }} />}
+            startDecorator={<Bolt sx={{ fontSize: '16px', mr: -0.5 }} />}
             sx={{
               cursor: 'pointer',
               fontSize: '12px',
@@ -153,21 +179,21 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
         </Stack>
 
         <Typography level="body-xs" color="neutral" sx={{ opacity: 0.7 }}>
-          {position.current}/{position.total}
+          {position}/{totalGroups}
         </Typography>
       </Stack>
 
-      {/* OverlayManager - consumes OverlayUIContext */}
-      <OverlayManager onBack={onBack} />
+      {/* OverlayManager - local state management */}
+      <OverlayManager ref={overlayRef} onBack={onBack} sessionStore={{ langMap, toggleLang }} />
 
-      {/* SubtitleViewer - consumes both contexts */}
+      {/* SubtitleViewer - uses imperative API */}
       <SubtitleViewer ref={viewerRef}
         groups={groups}
         onWord={handleWordEvent}
         // position={position.seek}
         onEmptyClick={handleEmptyClick}
         onScroll={handleScroll}
-        onCurrentGroupChange={setPositionCurrent} // Context action
+        onCurrentGroupChange={setPosition}
       />
     </Box>
   )
@@ -175,8 +201,9 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
 
 export const SubtitleReader = ({ shardId, onBack }) => {
   const [shard, setShard] = useState(null)
+  const { setLangMap } = useSessionStore(shardId)()
 
-  // Load shard first to get languages for UI provider
+  // Load shard and initialize langMap in session store
   useEffect(() => {
     let alive = true
     ;(async () => {
@@ -184,28 +211,20 @@ export const SubtitleReader = ({ shardId, onBack }) => {
         const data = await apiCall(`/api/shards/${shardId}`)
         if (!alive) return
         setShard(data.shard)
+
+        // Initialize langMap in session store from shard languages
+        const languages = data.shard?.data?.languages || []
+        const langMap = {}
+        languages.filter(l => !l.isMain).forEach(l => {
+          langMap[l.code] = { filename: l.filename, visible: false }
+        })
+        setLangMap(langMap)
       } catch (error) {
         log.error('Failed to load shard:', error)
       }
     })()
     return () => { alive = false }
-  }, [shardId])
+  }, [shardId, setLangMap])
 
-  // Convert languages to langMap (shard-specific to our standard)
-  const langMap = useMemo(() => {
-    const languages = shard?.data?.languages || []
-    const map = new Map()
-    languages.filter(l => !l.isMain).forEach(l => {
-      map.set(l.code, { filename: l.filename, visible: true })
-    })
-    return map
-  }, [shard?.data?.languages])
-
-  return (
-    <ReaderStateProvider>
-      <OverlayUIProvider langMap={langMap}>
-        <SubtitleReaderContent shard={shard} shardId={shardId} onBack={onBack} />
-      </OverlayUIProvider>
-    </ReaderStateProvider>
-  )
+  return <SubtitleReaderContent shard={shard} shardId={shardId} onBack={onBack} />
 }

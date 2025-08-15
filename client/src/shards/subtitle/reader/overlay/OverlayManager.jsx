@@ -4,7 +4,7 @@ import { Toolbar } from './Toolbar.jsx'
 import { Dict } from './Dict.jsx'
 import { FontDrawer } from './FontDrawer.jsx'
 
-export const OverlayManager = forwardRef(({ onBack }, ref) => {
+export const OverlayManager = forwardRef(({ onBack, sessionStore }, ref) => {
   // UI State
   const [xState, setXState] = useState({
     toolbar: false,
@@ -51,6 +51,7 @@ export const OverlayManager = forwardRef(({ onBack }, ref) => {
 
       <FontDrawer
         open={xState.tool === 'font'}
+        sessionStore={sessionStore}
       />
     </Box>
   )

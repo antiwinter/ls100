@@ -35,7 +35,7 @@ const SubtitleViewer_ = forwardRef(({
     if (!root) return
     const set = wordlistRef.current
     const nodes = root.querySelectorAll('span[data-word]')
-    log.warn('viewer applyWordlist', { nodes }, set, wordlistRef.current)
+    // log.warn('viewer applyWordlist', { nodes }, set, wordlistRef.current)
     nodes.forEach(el => {
       const w = el.getAttribute('data-word')
       if (!w) return
@@ -89,8 +89,7 @@ const SubtitleViewer_ = forwardRef(({
     onCurrentGroupChange?.(startIndex || 0)
   }, [applyWordlist, applyLangMap, onCurrentGroupChange])
 
-  log.warn('VIEWER re-render', { entries:groups?.length,
-    entry0: groups?.[0] })
+  log.warn('VIEWER re-render', { entries:groups?.length })
 
   // Short/Long press helpers
   const getPressData = useCallback((e) => {
