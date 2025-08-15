@@ -94,7 +94,7 @@ const SubtitleViewer_ = forwardRef(({
 }, ref) => {
   const viewerRef = useRef(null)
   const scrollerRef = useRef(null)
-  const viewportSize = useRef({ top: 0, bottom: 200 })
+  const viewportSize = useRef({ top: 400, bottom: 400 })
   const lastGroupId = useRef(0)
 
   // caches to re-apply on viewport changes
@@ -158,9 +158,8 @@ const SubtitleViewer_ = forwardRef(({
     }
   }))
 
-  // re-apply when the viewport changes (virtualized list)
-  const onRangeChangeInternal = useCallback(({ startIndex:id }) => {
-    // log.debug('VIEWER onRangeChangeInternal', { endIndex, id })
+  // Handle top item changes from intersection observer
+  const onTopItemChange = useCallback((id) => {
     applyWordlist()
     applyLangMap()
     if (id !== lastGroupId.current)
@@ -252,7 +251,7 @@ const SubtitleViewer_ = forwardRef(({
     const group = groups?.[index]
     if (!group) return null
     return (
-      <Box data-group-index={index}>
+      <Box data-index={index}>
         <SubtitleRow group={group} clean={cleanSrtText} renderMain={renderMain} />
       </Box>
     )
@@ -297,7 +296,7 @@ const SubtitleViewer_ = forwardRef(({
         totalCount={groups?.length || 0}
         itemKey={itemKeyMemo}
         increaseViewportBy={viewportSize.current}
-        onRangeChange={onRangeChangeInternal}
+        topItemIndex={onTopItemChange}
         itemContent={itemContentMemo}
         initialTopMostItemIndex={seek || 0}
       />
