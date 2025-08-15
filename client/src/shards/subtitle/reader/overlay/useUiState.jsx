@@ -13,13 +13,7 @@ const useOverlayUI = () => {
 }
 
 export const OverlayUIProvider = ({ langMap: _langMap, children }) => {
-  // UI State
-  const [xState, setXState] = useState({
-    toolbar: false,
-    tool: null,
-    word: '',
-    position: 'bottom'
-  })
+
 
   // Settings State
   const [font, setFont] = useState({ mode: 'sans', size: 16 })
@@ -52,23 +46,6 @@ export const OverlayUIProvider = ({ langMap: _langMap, children }) => {
     langMap
   }
 
-  // UI Actions (stable identities)
-  const openDict = useCallback((word, position) => {
-    setXState(x => ({ ...x, tool:'dict', toolbar: false, word, position }))
-  }, [])
-
-  const openTool = useCallback((tool) => {
-    setXState(x => ({ ...x, tool, toolbar: true }))
-  }, [])
-
-  // don't close dict, don't close toolbar
-  const closeTool = useCallback(() => {
-    setXState(x => ({ ...x, tool: x.tool === 'dict' ? 'dict' : null }))
-  }, [])
-
-  const closeAll = useCallback(() => {
-    setXState(x => ({ ...x, tool:null, toolbar: false }))
-  }, [])
 
   const updateFont = useCallback((updates) => {
     setFont(prev => ({ ...prev, ...updates }))
