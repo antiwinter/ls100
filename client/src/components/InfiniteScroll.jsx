@@ -42,7 +42,7 @@ export const InfiniteScroll = ({
     const observer = new IntersectionObserver(handleIntersection, {
       root: container,
       // Thin band at the very top: any element touching the band becomes current
-      // threshold 0 so any intersection counts; rootMargin shrinks viewport to ~1% height at the top
+      // threshold 0 so any intersection counts; rootMargin shrinks viewport to ~1% height
       threshold: 0,
       rootMargin: '0px 0px -99% 0px'
     })

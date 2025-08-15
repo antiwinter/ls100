@@ -431,7 +431,10 @@ export const EditShard = () => {
           size="sm"
           onClick={handleSave}
           loading={saving}
-          disabled={!shardData.name.trim() || (shardData.data.languages && shardData.data.languages.length === 0)}
+          disabled={
+            !shardData.name.trim() ||
+            (shardData.data.languages && shardData.data.languages.length === 0)
+          }
         >
           {mode === 'create' ? 'Create Shard' : 'Save Changes'}
         </Button>

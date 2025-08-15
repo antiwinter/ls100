@@ -80,7 +80,10 @@ const ActionButton = ({ icon, text, onClick, disabled, color, bgColor, textColor
   )
 }
 
-export const BrowserEditBar = ({ selectedCount, totalCount, selectedShards = [], onSelectAll, onCancel, onDelete, onEdit, onMakePublic, onMakePrivate }) => {
+export const BrowserEditBar = ({
+  selectedCount, totalCount, selectedShards = [], onSelectAll, onCancel,
+  onDelete, onEdit, onMakePublic, onMakePrivate
+}) => {
   const allSelected = selectedCount === totalCount
   const disabled = selectedCount === 0
   const hasPublicShard = selectedShards.some(shard => shard.public)

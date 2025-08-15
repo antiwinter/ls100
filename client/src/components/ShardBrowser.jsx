@@ -53,13 +53,16 @@ const EmptyState = ({ onImport }) => (
         mx: 'auto'
       }}
     >
-      <strong>Import</strong> learning materials or visit the <strong>Explore</strong> tab to discover content and get started
+      <strong>Import</strong> learning materials or visit the <strong>Explore</strong> tab to
+      discover content and get started
     </Typography>
   </Box>
 )
 
 // Individual shard item component
-const ShardItem = ({ shard, index, isSelected, editing, onToggleSelect, onOpenShard, onStartEdit }) => {
+const ShardItem = ({
+  shard, index, isSelected, editing, onToggleSelect, onOpenShard, onStartEdit
+}) => {
   // Long press handlers for this shard
   const handlePress = (e, type) => {
     const select = () => onToggleSelect(shard.id)
@@ -272,7 +275,9 @@ const ShardItem = ({ shard, index, isSelected, editing, onToggleSelect, onOpenSh
   )
 }
 
-export const ShardBrowser = ({ shards, onOpenShard, editing, selected = [], onToggleSelect, onImport, onStartEdit }) => {
+export const ShardBrowser = ({
+  shards, onOpenShard, editing, selected = [], onToggleSelect, onImport, onStartEdit
+}) => {
   if (shards.length === 0) {
     return <EmptyState onImport={onImport} />
   }
