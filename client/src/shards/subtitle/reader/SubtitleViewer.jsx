@@ -95,6 +95,7 @@ const SubtitleViewer_ = forwardRef(({
   const viewerRef = useRef(null)
   const scrollerRef = useRef(null)
   const viewportSize = useRef({ top: 600, bottom: 1000 })
+  const lastGroupId = useRef(0)
 
   // caches to re-apply on viewport changes
   const wordlistRef = useRef(new Set())
@@ -157,11 +158,13 @@ const SubtitleViewer_ = forwardRef(({
   }))
 
   // re-apply when the viewport changes (virtualized list)
-  const onRangeChangeInternal = useCallback(({ startIndex }) => {
-    // log.debug('VIEWER onRangeChangeInternal', { startIndex })
+  const onRangeChangeInternal = useCallback(({ id }) => {
+    // log.debug('VIEWER onRangeChangeInternal', { id })
     applyWordlist()
     applyLangMap()
-    onGroupChange?.(startIndex || 0)
+    if (id !== lastGroupId.current)
+      onGroupChange?.(id || 0)
+    lastGroupId.current = id
   }, [applyWordlist, applyLangMap, onGroupChange])
 
   // Short/Long press helpers
