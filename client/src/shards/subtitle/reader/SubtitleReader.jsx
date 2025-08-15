@@ -73,15 +73,21 @@ const SubtitleHeader = ({ shardName, position, total, onReviewClick }) => {
 
 const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
   // Session store and state
+  const sessionStore = useSessionStore(shardId)
   const {
     position, wordlist, langMap, setPosition,
     initWordlist, toggleWord, toggleLang
-  } = useSessionStore(shardId)()
+  } = sessionStore()
 
   // Settings from store
   const { fontSize, fontFamily } = useSettingStore('subtitle-shard')()
   const viewerRef = useRef(null)
   const overlayRef = useRef(null)
+
+  // Local state for viewer
+  const [viewerReady, setViewerReady] = useState(false)
+  const [positionLoaded, setPositionLoaded] = useState(false)
+  const [seek, setSeek] = useState(0)
 
   // Setup sync loop with store state
   const { syncNow } = useSync(shardId, wordlist, position, 10000)
@@ -118,25 +124,43 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
 
     ;(async () => {
       try {
-        const data = await apiCall(`/api/subtitle-shards/${shardId}/position`)
-        const pos = data?.position || 0
+        // Check if position exists in store first
+        let pos = sessionStore.getState().position
+        if (!pos) {
+          // Fetch from backend if not in store
+          const data = await apiCall(`/api/subtitle-shards/${shardId}/position`)
+          pos = data?.position || 0
+          log.debug('Loaded position from backend:', pos)
+        } else {
+          log.debug('Using position from store:', pos)
+        }
+
         if (!alive) return
-        setPosition(pos)
+        setSeek(pos)
+        setPositionLoaded(true)
       } catch (error) {
         log.error('Failed to load position:', error)
+        // Set default position if backend fails
+        if (!alive) return
+        setSeek(0)
+        setPositionLoaded(true)
       }
     })()
 
     return () => { alive = false }
-  }, [shardId, initWordlist, setPosition])
+  }, [shardId, initWordlist, setPosition, sessionStore, setSeek])
 
   // Use languages directly from shard data
   const languages = shard?.data?.languages || []
 
   // Load lines and groups
   const { groups, total, loading } = useSubtitleGroups(languages)
-  const [viewerReady, setViewerReady] = useState(false)
   const groupReady = !loading && (groups?.length || 0) > 0
+  const canRenderViewer = groupReady && positionLoaded
+
+  // log.debug('READER render state', {
+  //   groupReady, positionLoaded, canRenderViewer, position, seek
+  // })
 
   // Flush on unmount
   useEffect(() => {
@@ -207,10 +231,11 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
       {/* OverlayManager - local state management */}
       <OverlayManager ref={overlayRef} onBack={onBack} sessionStore={{ langMap, toggleLang }} />
 
-      {/* SubtitleViewer - render after groups groupReady */}
-      {groupReady && (
+      {/* SubtitleViewer - render after groups and position ready */}
+      {canRenderViewer && (
         <SubtitleViewer ref={viewerRef}
           groups={groups}
+          seek={seek}
           onWord={handleWordEvent}
           onEmptyClick={handleEmptyClick}
           onGroupChange={handleGroupChange}

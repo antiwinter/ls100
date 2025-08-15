@@ -10,10 +10,11 @@ export const VirtualScroller = forwardRef(({
   onRangeChange,
   onStartReached,
   onEndReached,
-  // increaseViewportBy,
+  increaseViewportBy,
   onScroll,
   className,
-  style
+  style,
+  initialTopMostItemIndex
 }, ref) => {
   const vRef = useRef(null)
 
@@ -65,7 +66,8 @@ export const VirtualScroller = forwardRef(({
       rangeChanged={onRangeChange}
       startReached={onStartReached}
       endReached={onEndReached}
-      // increaseViewportBy={increaseViewportBy || { top: 400, bottom: 800 }}
+      increaseViewportBy={increaseViewportBy}
+      initialTopMostItemIndex={initialTopMostItemIndex}
       components={{ Scroller }}
     />
   )

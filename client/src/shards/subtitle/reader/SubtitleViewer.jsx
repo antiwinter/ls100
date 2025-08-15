@@ -87,21 +87,21 @@ const SubtitleRow = memo(({ group, clean, renderMain }) => {
 
 const SubtitleViewer_ = forwardRef(({
   groups,
-  position,
+  seek,
   onWord,
   onEmptyClick,
   onGroupChange
 }, ref) => {
   const viewerRef = useRef(null)
   const scrollerRef = useRef(null)
-  // const viewportSize = useRef({ top: 600, bottom: 1000 })
+  const viewportSize = useRef({ top: 0, bottom: 200 })
   const lastGroupId = useRef(0)
 
   // caches to re-apply on viewport changes
   const wordlistRef = useRef(new Set())
   const langMapRef = useRef(null)
 
-  log.debug('!!VIEWER re-render', { entries:groups?.length, entry0: groups?.[0] })
+  log.debug('!!VIEWER re-render', { entries:groups?.length, entry0: groups?.[0], seek })
 
   // DOM applicators
   const applyWordlist = useCallback(() => {
@@ -159,8 +159,8 @@ const SubtitleViewer_ = forwardRef(({
   }))
 
   // re-apply when the viewport changes (virtualized list)
-  const onRangeChangeInternal = useCallback(({ startIndex, endIndex:id }) => {
-    log.debug('VIEWER onRangeChangeInternal', { startIndex, id })
+  const onRangeChangeInternal = useCallback(({ startIndex:id }) => {
+    // log.debug('VIEWER onRangeChangeInternal', { endIndex, id })
     applyWordlist()
     applyLangMap()
     if (id !== lastGroupId.current)
@@ -258,12 +258,12 @@ const SubtitleViewer_ = forwardRef(({
     )
   }, [groups, cleanSrtText, renderMain])
 
-  // Monitor position prop changes and scroll to index
+  // Monitor seek prop changes and scroll to index (only for dynamic changes)
   useEffect(() => {
-    if (Number.isFinite(position)) {
-      scrollerRef.current?.scrollToIndex(position, 'start')
+    if (Number.isFinite(seek)) {
+      scrollerRef.current?.scrollToIndex(seek, 'start')
     }
-  }, [position])
+  }, [seek])
 
   return (
     <Box
@@ -296,9 +296,10 @@ const SubtitleViewer_ = forwardRef(({
         ref={scrollerRef}
         totalCount={groups?.length || 0}
         itemKey={itemKeyMemo}
-        // increaseViewportBy={viewportSize.current}
+        increaseViewportBy={viewportSize.current}
         onRangeChange={onRangeChangeInternal}
         itemContent={itemContentMemo}
+        initialTopMostItemIndex={seek || 0}
       />
     </Box>
   )
