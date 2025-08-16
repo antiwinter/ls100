@@ -21,38 +21,23 @@ const DictMainPage = memo(function DictMainPage ({
   scrollContainerRef
 }) {
   return (
-    <Box
-      ref={scrollContainerRef}
-      sx={{
-        height: '100%',
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        touchAction: 'pan-y',
-        WebkitOverflowScrolling: 'touch',
-        scrollbarWidth: 'thin',
-        overscrollBehaviorX: 'none',
-        '&::-webkit-scrollbar': { width: '6px' },
-        '&::-webkit-scrollbar-track': { background: 'transparent' },
-        '&::-webkit-scrollbar-thumb': { background: 'var(--joy-palette-neutral-300)', borderRadius: '3px' },
-        '&::-webkit-scrollbar-thumb:hover': { background: 'var(--joy-palette-neutral-400)' }
-      }}
-      onTouchMove={(e) => {
-        const element = e.currentTarget
-        const atTop = element.scrollTop === 0
-        const atBottom = element.scrollTop >= element.scrollHeight - element.clientHeight
-        const touch = e.touches[0]
-        const deltaY = touch.clientY - (element._lastTouchY || touch.clientY)
-        element._lastTouchY = touch.clientY
-        if ((!atTop && deltaY > 0) || (!atBottom && deltaY < 0)) {
-          e.stopPropagation()
-        }
-      }}
-      onTouchEnd={(e) => {
-        delete e.currentTarget._lastTouchY
-      }}
-    >
+    <Box ref={scrollContainerRef}>
       <Stack spacing={1}>
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          sx={{
+            mb: 0.5,
+            position: 'sticky',
+            top: 0,
+            zIndex: 2,
+            bgcolor: 'background.body',
+            borderBottom: 1,
+            borderColor: 'divider',
+            py: 0.5
+          }}
+        >
           <Typography level="h4">{word}</Typography>
           {!!pronunciation && (
             <Typography level="body-sm" sx={{ color: 'neutral.600' }}>
@@ -180,10 +165,6 @@ const Dict_ = ({ word, position = 'bottom', onClose }) => {
     content: (
       <Box sx={{
         height: '100%',
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        touchAction: 'pan-y',
-        WebkitOverflowScrolling: 'touch',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -199,10 +180,6 @@ const Dict_ = ({ word, position = 'bottom', onClose }) => {
     content: (
       <Box sx={{
         height: '100%',
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        touchAction: 'pan-y',
-        WebkitOverflowScrolling: 'touch',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

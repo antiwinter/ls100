@@ -203,6 +203,14 @@ export const ActionDrawer = ({ open, onClose = () => {}, size = 'half', position
     initialPage,
     onChange: onPageChange
   })
+  useEffect(() => {
+    if (!open) return
+    if (pager.cnt > 0 && slideRef.current) {
+      slideRef.current.style.transition = 'transform 0.25s ease'
+      slideRef.current.style.transform = 'translateX(0px)'
+    }
+  }, [open, pages, pager.cnt])
+
   const bottom = pos === 'bottom'
   const sz = SIZES[size] || SIZES.half
 
@@ -341,8 +349,18 @@ export const ActionDrawer = ({ open, onClose = () => {}, size = 'half', position
                   key={p.key ?? i}
                   sx={{ flex: '0 0 100%', height: '100%', overflowY: 'auto', overflowX: 'hidden', touchAction: 'pan-y', pr: 0.5 }}
                   onClick={e => e.stopPropagation()}
+                  onTouchMove={(e) => {
+                    const el = e.currentTarget
+                    const atTop = el.scrollTop === 0
+                    const atBottom = el.scrollTop >= el.scrollHeight - el.clientHeight
+                    const t = e.touches[0]
+                    const dy = t.clientY - (el._lastTouchY || t.clientY)
+                    el._lastTouchY = t.clientY
+                    if ((!atTop && dy > 0) || (!atBottom && dy < 0)) e.stopPropagation()
+                  }}
+                  onTouchEnd={(e) => { delete e.currentTarget._lastTouchY }}
                 >
-                  <Box sx={{ p: 2, boxSizing: 'border-box', minHeight: '100%' }}>
+                  <Box sx={{ p: 2, boxSizing: 'border-box', minHeight: '100%', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'thin', '&::-webkit-scrollbar': { width: '6px' }, '&::-webkit-scrollbar-track': { background: 'transparent' }, '&::-webkit-scrollbar-thumb': { background: 'var(--joy-palette-neutral-300)', borderRadius: '3px' }, '&::-webkit-scrollbar-thumb:hover': { background: 'var(--joy-palette-neutral-400)' } }}>
                     {p.title ? (
                       <Typography level='title-sm' sx={{ mb: 1, color: 'neutral.500' }}>
                         {p.title}

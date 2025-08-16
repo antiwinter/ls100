@@ -34,7 +34,7 @@ export const OverlayManager = forwardRef(({ onBack, sessionStore }, ref) => {
 
     // close tool
     closeTool: (clean = false) => {
-      setXState(x => ({ ...x, tool: null, word: '', toolbar: clean ? false : x.toolbar }))
+      setXState(x => ({ ...x, tool: x.tool === 'dict' ? 'dict' : null, toolbar: clean ? false : x.toolbar }))
     }
   }))
 
