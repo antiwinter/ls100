@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, memo } from 'react'
 import {
   Stack,
   Typography,
@@ -11,8 +11,10 @@ import { log } from '../../../../utils/logger'
 import DictCollins from '../../../../components/DictCollins.jsx'
 
 // Dictionary component - simple props interface
-export const Dict = ({ word, position = 'bottom', visible, onClose }) => {
+const Dict_ = ({ word, position = 'bottom', visible, onClose }) => {
   const scrollContainerRef = useRef(null)
+
+  log.debug('Dict re-render', { word, position, visible, onClose })
 
   // Track drawer visibility changes
   useEffect(() => {
@@ -171,3 +173,5 @@ export const Dict = ({ word, position = 'bottom', visible, onClose }) => {
     </ActionDrawer>
   )
 }
+
+export const Dict = memo(Dict_)

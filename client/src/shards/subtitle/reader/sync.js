@@ -54,7 +54,7 @@ export const useSync = (shardId, words, index, intervalMs = 10000) => {
     syncingRef.current = true
     try {
       if (needWords) {
-        log.debug('sync words payload', { shardId, additions: adds, removals: rems })
+        log.trace('sync words payload', { shardId, additions: adds, removals: rems })
         await apiCall(`/api/subtitle-shards/${shardId}/words`, {
           method: 'PUT',
           body: JSON.stringify({ additions: adds, removals: rems })
@@ -62,7 +62,7 @@ export const useSync = (shardId, words, index, intervalMs = 10000) => {
         lastWordsRef.current = new Set(curWords)
       }
       if (indexChanged) {
-        log.debug('sync position payload', { shardId, position: curIndex })
+        log.trace('sync position payload', { shardId, position: curIndex })
         await apiCall(`/api/subtitle-shards/${shardId}/position`, {
           method: 'PUT',
           body: JSON.stringify({ position: curIndex })
