@@ -40,6 +40,7 @@ router.get('/lookup', requireAuth, (req, res) => {
       searchedWord: word,
       source: result.source,
       definitionHtml: result.definitionHtml,
+      pronunciation: result.pronunciation,
       found: !!result.definitionHtml
     }
 

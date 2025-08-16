@@ -4,6 +4,7 @@ import { existsSync } from 'fs'
 import { Mdict } from 'js-mdict'
 import sanitizeHtml from 'sanitize-html'
 import { log } from '../../utils/logger.js'
+import { lookupPronunciation } from './phonetic.js'
 // Toggle HTML sanitization (temporarily disabled per request)
 const SANITIZE = false
 
@@ -24,11 +25,36 @@ let dicts = {
 
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
+// Extract IPA pronunciation from dictionary HTML
+export const extractPronunciation = (html) => {
+  if (!html) return null
+  
+  try {
+    // Look for IPA patterns in forward slashes
+    const ipaMatches = html.match(/\/[θðʃʒɪɛɑɔʊəɝɜɐɞɵɤɪʏʊeøɯɤoəɨʉɘəɚɻɾɭɲɳŋɹɻɻwjɥʍχɣʁʜʢħhɦʦʣʧʤʔɫɺɻɮʟˈˌ:.aeiou]+\//g)
+    
+    if (ipaMatches && ipaMatches.length > 0) {
+      // Clean up the IPA notation - remove slashes and return the most common one
+      const cleanedIPA = ipaMatches.map(match => match.replace(/^\/|\/$/g, ''))
+      // Return the first one (usually the main pronunciation)
+      return cleanedIPA[0]
+    }
+    
+    return null
+  } catch (e) {
+    return null
+  }
+}
+
 export const processCollinsHtml = (word, html) => {
   if (!html) return html
   let out = html
 
   try {
+    // 0) Remove CSS link references that cause MIME type errors in browsers
+    out = out.replace(/<link[^>]*href=["']?collins\.css["']?[^>]*>/gi, '')
+    out = out.replace(/<head[^>]*>.*?<\/head>/gi, '')
+
     // 1) Remove duplicated head word preceding star rating, like "would ★★★★★"
     const w = escapeRegExp(word)
     out = out.replace(new RegExp(`(<[^>]*>\n?)*${w}\\s*(?=<[^>]*>\\n?<font[^>]*>\\s*[★☆])`, 'i'), '')
@@ -109,6 +135,10 @@ const lookupThesaurus = (word) => {
 export const lookup = (word) => {
   const def = lookupDefinition(word)
   const thes = lookupThesaurus(word)
+  
+  // Get IPA pronunciation from CMU dictionary
+  const pronunciation = lookupPronunciation(word, 'ipa')
+  
   if (SANITIZE) {
     const cfg = {
       allowedTags: [
@@ -121,12 +151,17 @@ export const lookup = (word) => {
     const merged = [def.html, thes.html].filter(Boolean).map(h => processCollinsHtml(word, h)).join('\n') || null
     return {
       source: def.source,
-      definitionHtml: merged ? sanitizeHtml(merged, cfg) : null
+      definitionHtml: merged ? sanitizeHtml(merged, cfg) : null,
+      pronunciation
     }
   }
 
   const merged = [def.html, thes.html].filter(Boolean).map(h => processCollinsHtml(word, h)).join('\n') || null
-  return { source: def.source, definitionHtml: merged }
+  return { 
+    source: def.source, 
+    definitionHtml: merged,
+    pronunciation
+  }
 }
 
 
