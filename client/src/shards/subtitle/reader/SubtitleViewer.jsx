@@ -9,7 +9,7 @@ import {
   Typography
 } from '@mui/joy'
 
-import VirtualScroller from '../../../components/VirtualScroller'
+import VirtualScroller from '../../../components/VirtualScrollerWindow'
 import { useLongPress } from '../../../utils/useLongPress'
 import { log } from '../../../utils/logger.js'
 
@@ -245,7 +245,13 @@ const SubtitleViewer_ = forwardRef(({
   // Row is rendered via memoized SubtitleRow
 
   // Memoized functions for VirtualScroller props
-  const itemKeyMemo = useCallback((i) => groups?.[i]?.sec ?? i, [groups])
+  const itemKeyMemo = useCallback((i) => {
+    const g = groups?.[i]
+    if (!g) return i
+    if (g.id != null) return g.id
+    const sec = g.sec
+    return Number.isFinite(sec) ? `${sec}-${i}` : i
+  }, [groups])
 
   const itemContentMemo = useCallback(({ index }) => {
     const group = groups?.[index]
@@ -299,6 +305,7 @@ const SubtitleViewer_ = forwardRef(({
         topItemIndex={onTopItemChange}
         itemContent={itemContentMemo}
         initialTopMostItemIndex={seek || 0}
+        estimatedItemSize={60}
       />
     </Box>
   )
