@@ -96,6 +96,7 @@ const SubtitleViewer_ = forwardRef(({
   const scrollerRef = useRef(null)
   const viewportSize = useRef({ top: 400, bottom: 400 })
   const lastGroupId = useRef(-1)
+  const styleFilter = useRef(0)
 
   // caches to re-apply on viewport changes
   const wordlistRef = useRef(new Set())
@@ -147,27 +148,34 @@ const SubtitleViewer_ = forwardRef(({
       applyWordlist()
     },
     setLangMap: (langMap) => {
+      const anchor = lastGroupId.current
       langMapRef.current = langMap || null
       log.debug('viewer setLangMap', { keys: langMap instanceof Map ? Array.from(langMap.keys()) : Object.keys(langMap || {}) })
       applyLangMap()
+      scrollerRef.current?.reanchorTo(anchor)
+      styleFilter.current = 2
     },
     setFont: (font) => {
+      const anchor = lastGroupId.current
       if (!viewerRef.current || !font) return
       const { fontFamily, fontSize } = font
       if (fontFamily) viewerRef.current.style.setProperty('--reader-font-family', fontFamily)
       if (Number.isFinite(fontSize)) viewerRef.current.style.setProperty('--reader-font-size', `${fontSize}px`)
       log.debug('viewer setFont', { font })
+      scrollerRef.current?.reanchorTo(anchor)
+      styleFilter.current = 2
     }
   }))
 
   // Handle top item changes from intersection observer
   const onTopItemChange = useCallback((id) => {
-    log.debug('viewer topItemChange', { id })
+    // log.debug('viewer topItemChange', { id })
     applyWordlist()
     applyLangMap()
-    if (id !== lastGroupId.current)
+    if (id !== lastGroupId.current && styleFilter.current < 1)
       onGroupChange?.(id || 0)
     lastGroupId.current = id
+    styleFilter.current--
   }, [applyWordlist, applyLangMap, onGroupChange])
 
   // Short/Long press helpers

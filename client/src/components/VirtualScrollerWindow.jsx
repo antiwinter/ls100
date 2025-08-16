@@ -32,6 +32,8 @@ export const VirtualScrollerRW = forwardRef(({
   const anchorDoneRef = useRef(false)
   const anchorTriesRef = useRef(0)
   const anchorStableRef = useRef(0)
+  const ensureTriesRef = useRef(0)
+  const ensureRafRef = useRef(0)
   // Fixed estimated size for stability
   const ESTIMATED_SIZE = 60
 
@@ -64,6 +66,21 @@ export const VirtualScrollerRW = forwardRef(({
     },
     scrollTo: ({ top = 0 } = {}) => {
       listRef.current?.scrollTo(top)
+    },
+    reanchorTo: (index) => {
+      if (!Number.isFinite(index)) return
+      initIdxRef.current = index
+      didInitScrollRef.current = false
+      didSnapRef.current = false
+      anchorDoneRef.current = false
+      anchorTriesRef.current = 0
+      anchorStableRef.current = 0
+      const run = () => {
+        listRef.current?.scrollToItem(index, 'start')
+        didInitScrollRef.current = true
+      }
+      if (!listRef.current || size.height === 0) requestAnimationFrame(run)
+      else run()
     }
   }), [])
 
@@ -84,14 +101,19 @@ export const VirtualScrollerRW = forwardRef(({
   // Ensure initial index is visible
   useEffect(() => {
     if (!Number.isFinite(initialTopMostItemIndex)) return
-    if (!listRef.current || size.height === 0) return
-    // schedule after mount + measurement
-    const id = requestAnimationFrame(() => {
-      // log.debug('RW scrollTo initial index', { index: initialTopMostItemIndex })
-      listRef.current?.scrollToItem(initialTopMostItemIndex, 'start')
+    ensureTriesRef.current = 0
+    const tick = () => {
+      if (!listRef.current || size.height === 0) {
+        if (ensureTriesRef.current++ < 30) ensureRafRef.current = requestAnimationFrame(tick)
+        return
+      }
+      // Ensure target is recorded before anchoring
+      initIdxRef.current = Number(initialTopMostItemIndex)
+      listRef.current.scrollToItem(initialTopMostItemIndex, 'start')
       didInitScrollRef.current = true
-    })
-    return () => cancelAnimationFrame(id)
+    }
+    ensureRafRef.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(ensureRafRef.current)
   }, [initialTopMostItemIndex, size.height])
 
   const getSizeForIndex = useCallback((index) => {
@@ -143,9 +165,11 @@ export const VirtualScrollerRW = forwardRef(({
   ), [itemContent, setMeasuredEl])
 
   const handleItemsRendered = useCallback(({ visibleStartIndex, visibleStopIndex }) => {
-    // Retry a few frames until the visible start equals target, then lock overscan
+    // Retry a few frames until the visible start equals target, then lock
     const target = initIdxRef.current
-    if (Number.isFinite(target) && didInitScrollRef.current && !anchorDoneRef.current) {
+    const anchoring = didInitScrollRef.current && !anchorDoneRef.current
+    const validTarget = Number.isFinite(target) && target > 0
+    if (anchoring && validTarget) {
       if (visibleStartIndex === target) {
         anchorStableRef.current += 1
         if (anchorStableRef.current >= 2) {
