@@ -1,38 +1,40 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, memo } from 'react'
 import { Box, Stack, Typography, CircularProgress } from '@mui/joy'
 import { apiCall } from '../config/api.js'
 import { log } from '../utils/logger'
 
-export const DictCollins = ({ word, visible, onMeta }) => {
+const DictCollinsImpl = ({ word, onMeta }) => {
   const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const lastPronRef = useRef('')
+  const reqIdRef = useRef(0)
+
+  // log.debug('DictCollins re-render', { word, onMeta })
 
   useEffect(() => {
-    if (!visible || !word) {
-      setData(null)
-      setError(null)
-      onMeta?.(null)
+    if (!word) {
       return
     }
-
-    const load = async () => {
-      setLoading(true)
-      setError(null)
+    const myId = ++reqIdRef.current
+    ;(async () => {
       try {
+        setError(null)
         const result = await apiCall(`/api/dict/lookup?word=${encodeURIComponent(word)}&dict=collins`)
+        // ignore outdated responses
+        if (reqIdRef.current !== myId) return
         setData(result)
-        onMeta?.({ pronunciation: result?.pronunciation || '' })
+        const nextPron = result?.pronunciation || ''
+        if (nextPron !== lastPronRef.current) {
+          lastPronRef.current = nextPron
+          onMeta?.({ pronunciation: nextPron })
+        }
       } catch (e) {
+        if (reqIdRef.current !== myId) return
         log.error('Collins fetch failed:', e)
         setError('Failed to load definition')
-      } finally {
-        setLoading(false)
       }
-    }
-
-    load()
-  }, [word, visible, onMeta])
+    })()
+  }, [word, onMeta])
 
   const collinsSx = {
     fontFamily: 'var(--joy-fontFamily-body)',
@@ -76,7 +78,8 @@ export const DictCollins = ({ word, visible, onMeta }) => {
     }
   }
 
-  if (loading) {
+  if (!word) return null
+  if (!data && !error) {
     return (
       <Stack alignItems="center" spacing={1} sx={{ py: 3 }}>
         <CircularProgress size="sm" />
@@ -105,8 +108,7 @@ export const DictCollins = ({ word, visible, onMeta }) => {
         <Box sx={collinsSx} dangerouslySetInnerHTML={{ __html: data.definitionHtml }} />
       )}
     </Stack>
-  )}
+  )
+}
 
-export default DictCollins
-
-
+export const DictCollins = memo(DictCollinsImpl)

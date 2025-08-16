@@ -20,10 +20,9 @@ export const OverlayManager = forwardRef(({ onBack, sessionStore }, ref) => {
 
   useImperativeHandle(ref, () => ({
     toggleToolbar: () => {
-      setXState(x => {
-        return (x.tool || x.toolbar
-          ? { ...x, toolbar: false, tool: null }
-          : { ...x, toolbar: true })})
+      setXState(x => (x.tool || x.toolbar
+        ? { ...x, toolbar: false, tool: null, word:'' }
+        : { ...x, toolbar: true }))
     },
 
     openDict: (word, position) => {
@@ -35,8 +34,8 @@ export const OverlayManager = forwardRef(({ onBack, sessionStore }, ref) => {
 
     // close tool
     closeTool: (clean = false) => {
-      setXState(x => ({ ...x, tool: x.tool === 'dict' ? 'dict' : null,
-        toolbar: clean ? false : x.toolbar }))    }
+      setXState(x => ({ ...x, tool: null, word: '', toolbar: clean ? false : x.toolbar }))
+    }
   }))
 
 
