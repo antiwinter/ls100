@@ -9,7 +9,7 @@ import {
   Typography
 } from '@mui/joy'
 
-import VirtualScroller from '../../../components/VirtualScrollerWindow'
+import VirtualScrollerRW from '../../../components/VirtualScrollerWindow'
 import { useLongPress } from '../../../utils/useLongPress'
 import { log } from '../../../utils/logger.js'
 
@@ -297,7 +297,7 @@ const SubtitleViewer_ = forwardRef(({
         '& span[data-selected="true"] .word-overlay': { opacity: 0.3 }
       }}
     >
-      <VirtualScroller
+      <VirtualScrollerRW
         ref={scrollerRef}
         totalCount={groups?.length || 0}
         itemKey={itemKeyMemo}

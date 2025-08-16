@@ -4,7 +4,7 @@ import { VariableSizeList as List } from 'react-window'
 // Minimal virtual scroller built on react-window (VariableSizeList)
 // Keeps the same surface props as our Virtuoso-based scroller
 
-export const VirtualScrollerWindow = forwardRef(({
+export const VirtualScrollerRW = forwardRef(({ 
   totalCount = 0,
   itemContent,
   itemKey,
@@ -139,8 +139,8 @@ export const VirtualScrollerWindow = forwardRef(({
   )
 })
 
-VirtualScrollerWindow.displayName = 'VirtualScrollerWindow'
+VirtualScrollerRW.displayName = 'VirtualScrollerRW'
 
-export default VirtualScrollerWindow
+export default VirtualScrollerRW
 
 
