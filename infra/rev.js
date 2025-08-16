@@ -1,17 +1,12 @@
 #!/usr/bin/env node
 /*
   rev.js — bump client/server versions based on git diff, commit, optionally tag, and push.
-  Usage:
-    yarn rev                      # auto-detect changed packages; bump MINOR by default
-    yarn rev major                # force MAJOR bump for all changed packages
-    yarn rev --base <sha-or-ref>  # diff base..HEAD to detect changes (default HEAD~1)
-    yarn rev --tag                # create a repo tag summarizing bumped versions and push
-    yarn rev --dry-run            # write package.json changes only, no git add/commit/push/tag
 */
 
 import { execSync, spawnSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { Command } from 'commander'
 
 function run(cmd, opts = {}) {
   return execSync(cmd, { stdio: 'pipe', encoding: 'utf8', ...opts }).trim()
@@ -48,23 +43,45 @@ function bumpSemver(version, kind) {
   return `${major}.${minor}.${patch}`
 }
 
-function parseArgs(argv) {
-  const args = { kind: 'minor', base: null, tag: false, dryRun: false }
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i]
-    if (a === 'major' || a === 'minor') {
-      args.kind = a
-    } else if (a === '--base') {
-      args.base = argv[++i] || null
-    } else if (a === '--tag') {
-      args.tag = true
-    } else if (a === '--dry-run' || a === '-n') {
-      args.dryRun = true
-    } else {
-      fail(`Unknown argument: ${a}`)
+function getDefaultBase() {
+  // Try to get saved commit from root package.json
+  try {
+    const rootPkg = JSON.parse(readFileSync('package.json', 'utf8'))
+    if (rootPkg.lastCommit) {
+      return rootPkg.lastCommit
     }
+  } catch (_) {
+    // ignore
   }
-  return args
+  return 'HEAD~1'
+}
+
+function parseArgs() {
+  const program = new Command()
+  
+  program
+    .name('rev')
+    .description('Bump client/server versions based on git diff, commit, optionally tag, and push')
+    .version('1.0.0')
+    .argument('[bump-type]', 'Version bump type', 'patch')
+    .option('-b, --base <commit>', 'Diff base commit (defaults to saved commit or HEAD~1)', getDefaultBase())
+    .option('-t, --tag', 'Create and push git tag', false)
+    .option('-n, --dry-run', 'Write package.json changes only, no git operations', false)
+    .helpOption('-h, --help', 'Show help')
+
+  program.parse()
+  
+  const bumpType = program.args[0] || 'patch'
+  if (!['major', 'minor', 'patch'].includes(bumpType)) {
+    fail(`Invalid bump type: ${bumpType}. Use major, minor, or patch`)
+  }
+
+  return {
+    kind: bumpType,
+    base: program.opts().base,
+    tag: program.opts().tag,
+    dryRun: program.opts().dryRun
+  }
 }
 
 function ensureCleanAndUpToDate() {
@@ -80,11 +97,11 @@ function ensureCleanAndUpToDate() {
 }
 
 function main() {
-  const { kind, base, tag, dryRun } = parseArgs(process.argv.slice(2))
+  const { kind, base, tag, dryRun } = parseArgs()
 
   ensureCleanAndUpToDate()
 
-  const baseRef = base || 'HEAD~1'
+  const baseRef = base
   let changedFiles = ''
   try {
     changedFiles = run(`git diff --name-only ${baseRef}..HEAD`)
@@ -108,6 +125,7 @@ function main() {
 
   const updates = []
   const results = {}
+  const currentCommit = run('git rev-parse HEAD')
 
   if (touchedClient) {
     const clientPkgPath = resolve(process.cwd(), 'client', 'package.json')
@@ -131,10 +149,17 @@ function main() {
     results.server = { current, next }
   }
 
-  if (updates.length === 0) {
-    console.log('No package.json updated.')
+  if (!results.client && !results.server) {
+    console.log('No client/server package.json updated.')
     process.exit(0)
   }
+
+  // Save commit to root package.json for next run's default base
+  const rootPkgPath = resolve(process.cwd(), 'package.json')
+  const rootPkg = JSON.parse(readFileSync(rootPkgPath, 'utf8'))
+  rootPkg.lastCommit = currentCommit
+  writeFileSync(rootPkgPath, JSON.stringify(rootPkg, null, 2) + '\n', 'utf8')
+  updates.push(rootPkgPath)
 
   // Show stat for visibility
   try {
