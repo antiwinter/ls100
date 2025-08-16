@@ -309,7 +309,6 @@ const SubtitleViewer_ = forwardRef(({
         topItemIndex={onTopItemChange}
         itemContent={itemContentMemo}
         initialTopMostItemIndex={seek || 0}
-        estimatedItemSize={60}
       />
     </Box>
   )
