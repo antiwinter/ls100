@@ -131,7 +131,7 @@ const Dict_ = ({ word, position = 'bottom', visible, onClose }) => {
       size="half"
       pages={[{
         content: (
-          <Box 
+          <Box
             ref={scrollContainerRef}
             sx={{
               height: '100%',

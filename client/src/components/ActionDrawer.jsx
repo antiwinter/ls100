@@ -1,558 +1,352 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Box, Stack, Typography, IconButton } from '@mui/joy'
 import { Close } from '@mui/icons-material'
 import { log } from '../utils/logger'
 
-// Toggle to enable swipe debug logging
-const ENABLE_SWIPE_DEBUG = true
+const DEBUG = false
 
-// Handle area doubles as page indicator; still captures vertical drag to close
-const Handle = ({ onDragStart, onDragMove, onDragEnd, position = 'bottom', pageCount = 0, activePage = 0 }) => (
-  <Box sx={{
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 0.75,
-    // Remove padding on side adjacent to content
-    pb: position === 'bottom' ? 0 : 1.5,
-    pt: position === 'top' ? 0 : 1.5,
-    cursor: 'grab',
-    touchAction: 'none',
-    '&:active': { cursor: 'grabbing' }
-  }}
-  onTouchStart={(e) => {
-    e.stopPropagation()
-    onDragStart(e)
-  }}
-  onTouchMove={(e) => {
-    e.stopPropagation()
-    onDragMove(e)
-  }}
-  onTouchEnd={(e) => {
-    e.stopPropagation()
-    onDragEnd(e)
-  }}
-  onMouseDown={(e) => {
-    e.stopPropagation()
-    onDragStart(e)
-  }}
-  onMouseMove={(e) => {
-    e.stopPropagation()
-    onDragMove(e)
-  }}
-  onMouseUp={(e) => {
-    e.stopPropagation()
-    onDragEnd(e)
-  }}
+const clamp = (n, a, b) => Math.max(a, Math.min(b, n))
+const pt = e => ({
+  x: e.touches?.[0]?.clientX ?? e.clientX,
+  y: e.touches?.[0]?.clientY ?? e.clientY
+})
+const SIZES = {
+  full: { h: '99vh', mh: '99vh' },
+  half: { h: 'min(60vh, 300px)', mh: 'min(60vh, 300px)' },
+  'fit-content': { h: 'auto', mh: '99vh' }
+}
+
+const Handle = ({ onDown, onMove, onUp, pos = 'bottom', pages = 0, page = 0 }) => (
+  <Box
+    sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 0.75, pb: pos === 'bottom' ? 0 : 1.5, pt: pos === 'top' ? 0 : 1.5, cursor: 'grab', touchAction: 'none', '&:active': { cursor: 'grabbing' } }}
+    onTouchStart={e => { e.stopPropagation(); onDown(e) }}
+    onTouchMove={e => { e.stopPropagation(); onMove(e) }}
+    onTouchEnd={e => { e.stopPropagation(); onUp(e) }}
+    onMouseDown={e => { e.stopPropagation(); onDown(e) }}
+    onMouseMove={e => { e.stopPropagation(); onMove(e) }}
+    onMouseUp={e => { e.stopPropagation(); onUp(e) }}
   >
-    <Stack direction='row' spacing={0.75} alignItems='center' onClick={(e) => e.stopPropagation()}>
-      {Array.from({ length: Math.max(pageCount, 1) }).map((_, idx) => (
-        <Box key={idx}
-          sx={{
-            height: '6px',
-            width: idx === activePage ? '20px' : '6px',
-            borderRadius: '999px',
-            bgcolor: idx === activePage ? 'neutral.400' : 'neutral.300',
-            transition: 'all 0.2s ease'
-          }}
-        />
+    <Stack direction='row' spacing={0.75} alignItems='center' onClick={e => e.stopPropagation()}>
+      {Array.from({ length: Math.max(pages, 1) }).map((_, i) => (
+        <Box key={i} sx={{ height: '6px', width: i === page ? '20px' : '6px', borderRadius: '999px', bgcolor: i === page ? 'neutral.400' : 'neutral.300', transition: 'all 0.2s ease' }} />
       ))}
     </Stack>
   </Box>
 )
 
-export const ActionDrawer = ({
-  open,
-  onClose,
-  size = 'half',
-  position = 'bottom',
-  title,
-  content,
-  children,
-  pages,
-  initialPage = 0,
-  onPageChange
-}) => {
-  const [dragY, setDragY] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const [shouldRender, setShouldRender] = useState(false)
-  const [isEntering, setIsEntering] = useState(false)
-  const [displayPosition, setDisplayPosition] = useState(position)
-  const [isPositionChanging, setIsPositionChanging] = useState(false)
-  const drawerRef = useRef(null)
-  const startY = useRef(0)
-  const contentRef = useRef(null)
-  const sliderRef = useRef(null)
-  const startX = useRef(0)
-  const startYH = useRef(0)
-  const hLockRef = useRef(null) // null=undecided, 'h'=horizontal, 'v'=vertical
-  const widthRef = useRef(0)
-  const basePxRef = useRef(0)
-  const dragXRef = useRef(0)
-  const pointerIdRef = useRef(null)
-  const isPointerDraggingRef = useRef(false)
+const usePager = ({ open, contentRef, sliderRef, pages, initialPage = 0, onChange }) => {
+  const list = Array.isArray(pages) ? pages.map(p => (p && typeof p === 'object' && 'content' in p) ? p : { content: p }) : []
+  const cnt = list.length
+  const [page, setPage] = useState(clamp(initialPage, 0, Math.max(0, cnt - 1)))
+  const pageRef = useRef(page)
+  const cntRef = useRef(cnt)
+  const start = useRef({ x: 0, y: 0 })
+  const wRef = useRef(1)
+  const baseRef = useRef(0)
+  const dxRef = useRef(0)
+  const lockRef = useRef(null)
+  const dragRef = useRef(false)
+  const wheelTs = useRef(0)
+  const onChangeRef = useRef(onChange)
+  useEffect(() => { onChangeRef.current = onChange }, [onChange])
 
-  // Horizontal paging state
-  const normalizedPages = Array.isArray(pages) ? pages.map(p => {
-    if (p && typeof p === 'object' && 'content' in p) return p
-    return { content: p }
-  }) : []
-  const pageCount = normalizedPages.length
-  const [activePage, setActivePage] = useState(() => {
-    const idx = Math.max(0, Math.min(initialPage, Math.max(0, pageCount - 1)))
-    return idx
-  })
-  const [isHDragging, setIsHDragging] = useState(false)
-  const activePageRef = useRef(0)
-  const pageCountRef = useRef(pageCount)
-
-  const isPagingEnabled = pageCount > 0
-
-  const getPoint = (e) => ({
-    x: e.touches?.[0]?.clientX ?? e.clientX,
-    y: e.touches?.[0]?.clientY ?? e.clientY
-  })
-
-  const isBottom = displayPosition === 'bottom'
-  const heights = {
-    full: '99vh',
-    half: 'min(60vh, 300px)',
-    'fit-content': 'auto'
-  }
-  const maxHeights = {
-    full: '99vh',
-    half: 'min(60vh, 300px)',
-    'fit-content': '99vh'
-  }
-
-  const handleDragStart = (e) => {
-    setIsDragging(true)
-    startY.current = e.touches?.[0]?.clientY ?? e.clientY
-    setDragY(0)
-  }
-
-  const handleDragMove = (e) => {
-    if (!isDragging) return
-    const y = e.touches?.[0]?.clientY ?? e.clientY
-    const delta = y - startY.current
-
-    if ((isBottom && delta > 0) || (!isBottom && delta < 0)) {
-      setDragY(Math.abs(delta))
-    }
-  }
-
-  const handleDragEnd = () => {
-    if (!isDragging) return
-    setIsDragging(false)
-    if (dragY > 100) onClose()
-    setDragY(0)
-  }
-
-  // Horizontal swipe handlers (content area) - only active when pages are provided
-  const handleHDragStartCapture = (e) => {
-    if (!isPagingEnabled) return
-    const { x, y } = getPoint(e)
-    startX.current = x
-    startYH.current = y
-    if (ENABLE_SWIPE_DEBUG) log.debug('[ActionDrawer] hdrag start', { x, y, activePage })
-    hLockRef.current = null
-    dragXRef.current = 0
-    widthRef.current = contentRef.current?.clientWidth || 1
-    basePxRef.current = -activePageRef.current * widthRef.current
-    if (sliderRef.current) sliderRef.current.style.transition = 'none'
-    // prevent rubber-banding between pages by stopping horizontal scrolling on container
-    try { e.preventDefault() } catch {}
-  }
-
-  const handleHDragMoveCapture = (e) => {
-    if (!isPagingEnabled) return
-    const { x, y } = getPoint(e)
-    const dx = x - startX.current
-    const dy = y - startYH.current
-
-    if (hLockRef.current == null) {
-      const ax = Math.abs(dx)
-      const ay = Math.abs(dy)
-      if (ax > 8 || ay > 8) {
-        if (ax > ay + 6) {
-          hLockRef.current = 'h'
-          setIsHDragging(true)
-          if (ENABLE_SWIPE_DEBUG) log.debug('[ActionDrawer] lock horizontal', { dx, dy })
-        } else {
-          hLockRef.current = 'v'
-          if (ENABLE_SWIPE_DEBUG) log.debug('[ActionDrawer] lock vertical', { dx, dy })
-        }
-      }
-    }
-
-    if (hLockRef.current === 'h') {
-      // prevent browser navigation but only once we decide it's horizontal
-      try { e.preventDefault() } catch {}
-      e.stopPropagation?.()
-      dragXRef.current = dx
-      if (sliderRef.current) {
-        const px = basePxRef.current + dx
-        sliderRef.current.style.transform = `translateX(${px}px)`
-      }
-    }
-  }
-
-  const handleHDragEndCapture = (e) => {
-    if (!isPagingEnabled) return
-    if (hLockRef.current === 'h') {
-      try { e.preventDefault() } catch {}
-      e.stopPropagation?.()
-      const threshold = 60
-      const dx = dragXRef.current
-      const cur = activePageRef.current
-      const max = pageCountRef.current - 1
-      let finalPage = cur
-      if (dx > threshold && cur > 0) finalPage = cur - 1
-      else if (dx < -threshold && cur < max) finalPage = cur + 1
-      if (ENABLE_SWIPE_DEBUG) log.debug('[ActionDrawer] hdrag end', { dx, from: cur, to: finalPage })
-      if (finalPage !== cur) {
-        activePageRef.current = finalPage
-        setActivePage(finalPage)
-        onPageChange?.(finalPage)
-      }
-    }
-    setIsHDragging(false)
-    dragXRef.current = 0
-    hLockRef.current = null
-    const w = widthRef.current || contentRef.current?.clientWidth || 1
+  const snap = useCallback((idx = pageRef.current) => {
+    const w = contentRef.current?.clientWidth || 1
+    wRef.current = w
     if (sliderRef.current) {
       sliderRef.current.style.transition = 'transform 0.25s ease'
-      sliderRef.current.style.transform = `translateX(${-activePageRef.current * w}px)`
+      sliderRef.current.style.transform = `translateX(${-idx * w}px)`
     }
-  }
+  }, [contentRef, sliderRef])
 
-  // Pointer Events (unified mouse/touch) - more robust across browsers
-  const handlePointerDown = (e) => {
-    if (!isPagingEnabled) return
-    pointerIdRef.current = e.pointerId
-    isPointerDraggingRef.current = true
-    const x = e.clientX
-    const y = e.clientY
-    startX.current = x
-    startYH.current = y
-    hLockRef.current = null
-    dragXRef.current = 0
-    widthRef.current = contentRef.current?.clientWidth || 1
-    basePxRef.current = -activePageRef.current * widthRef.current
+  const down = useCallback((x, y) => {
+    if (!cntRef.current || !open) return
+    dragRef.current = true
+    start.current = { x, y }
+    lockRef.current = null
+    dxRef.current = 0
+    wRef.current = contentRef.current?.clientWidth || 1
+    baseRef.current = -pageRef.current * wRef.current
     if (sliderRef.current) sliderRef.current.style.transition = 'none'
-    try { contentRef.current?.setPointerCapture?.(e.pointerId) } catch {}
-  }
+  }, [contentRef, sliderRef, open])
 
-  const handlePointerMove = (e) => {
-    if (!isPagingEnabled || !isPointerDraggingRef.current) return
-    const x = e.clientX
-    const y = e.clientY
-    const dx = x - startX.current
-    const dy = y - startYH.current
-    if (hLockRef.current == null) {
-      const ax = Math.abs(dx)
-      const ay = Math.abs(dy)
-      if (ax > 8 || ay > 8) {
-        if (ax > ay + 6) {
-          hLockRef.current = 'h'
-          setIsHDragging(true)
-          if (ENABLE_SWIPE_DEBUG) log.debug('[ActionDrawer] pointer lock horizontal', { dx, dy })
-        } else {
-          hLockRef.current = 'v'
-          if (ENABLE_SWIPE_DEBUG) log.debug('[ActionDrawer] pointer lock vertical', { dx, dy })
-        }
-      }
+  const move = useCallback((x, y, evt) => {
+    if (!dragRef.current) return
+    const dx = x - start.current.x
+    const dy = y - start.current.y
+    if (lockRef.current == null) {
+      const ax = Math.abs(dx), ay = Math.abs(dy)
+      if (ax > 8 || ay > 8) lockRef.current = ax > ay + 6 ? 'h' : 'v'
+      if (DEBUG && lockRef.current) log.debug(`[drawer] lock ${lockRef.current}`, { dx, dy })
     }
-    if (hLockRef.current === 'h') {
-      try { e.preventDefault() } catch {}
-      e.stopPropagation?.()
-      dragXRef.current = dx
-      if (sliderRef.current) {
-        const px = basePxRef.current + dx
-        sliderRef.current.style.transform = `translateX(${px}px)`
-      }
+    if (lockRef.current === 'h') {
+      try { evt?.preventDefault() } catch { /* noop */ }
+      evt?.stopPropagation?.()
+      dxRef.current = dx
+      if (sliderRef.current) sliderRef.current.style.transform = `translateX(${baseRef.current + dx}px)`
     }
-  }
+  }, [sliderRef])
 
-  const handlePointerUp = (e) => {
-    if (!isPagingEnabled || !isPointerDraggingRef.current) return
-    isPointerDraggingRef.current = false
-    try { contentRef.current?.releasePointerCapture?.(pointerIdRef.current) } catch {}
-    pointerIdRef.current = null
-    // reuse end logic
-    handleHDragEndCapture(e)
-  }
-
-  // Wheel-based navigation (trackpads)
-  const wheelCooldownRef = useRef(0)
-  const handleWheelCapture = (e) => {
-    if (!isPagingEnabled) return
-    const now = Date.now()
-    if (now - wheelCooldownRef.current < 400) return
-    const ax = Math.abs(e.deltaX)
-    const ay = Math.abs(e.deltaY)
-    if (ax > ay + 5 && ax > 20) {
-      try { e.preventDefault() } catch {}
-      e.stopPropagation?.()
-      const cur = activePageRef.current
-      const max = pageCountRef.current - 1
-      let next = cur
-      if (e.deltaX > 0 && cur < max) next = cur + 1
-      if (e.deltaX < 0 && cur > 0) next = cur - 1
-      if (ENABLE_SWIPE_DEBUG) log.debug('[ActionDrawer] wheel swipe', { deltaX: e.deltaX, from: cur, to: next })
-      if (next !== cur) {
-        wheelCooldownRef.current = now
-        activePageRef.current = next
-        setActivePage(next)
-        onPageChange?.(next)
-        const w = contentRef.current?.clientWidth || 1
-        if (sliderRef.current) {
-          sliderRef.current.style.transition = 'transform 0.25s ease'
-          sliderRef.current.style.transform = `translateX(${-next * w}px)`
-        }
-      }
+  const end = useCallback(() => {
+    if (!dragRef.current) return
+    const dx = dxRef.current
+    const cur = pageRef.current
+    const max = cntRef.current - 1
+    let next = cur
+    if (lockRef.current === 'h') {
+      const th = 60
+      if (dx > th && cur > 0) next = cur - 1
+      else if (dx < -th && cur < max) next = cur + 1
     }
-  }
+    if (DEBUG) log.debug('[drawer] end', { dx, from: cur, to: next })
+    pageRef.current = next
+    setPage(next)
+    onChangeRef.current?.(next)
+    dragRef.current = false
+    lockRef.current = null
+    dxRef.current = 0
+    snap(next)
+  }, [snap])
 
-  // Attach gesture listeners once per open/paging state, after node exists
+  useEffect(() => { pageRef.current = page }, [page])
+  useEffect(() => { cntRef.current = cnt }, [cnt])
   useEffect(() => {
-    if (!isPagingEnabled || !open) return
-    let detach = null
+    if (open && cnt) snap(pageRef.current)
+  }, [open, cnt, snap])
+
+  useEffect(() => {
+    if (!open || !cnt) return
     let raf = 0
+    let det
     const attach = () => {
-      const node = contentRef.current
-      if (!node) {
-        raf = requestAnimationFrame(attach)
-        return
+      const n = contentRef.current
+      if (!n) { raf = requestAnimationFrame(attach); return }
+      const opt = { passive: false, capture: true }
+      const pd = e => down(e.clientX, e.clientY)
+      const pm = e => move(e.clientX, e.clientY, e)
+      const pu = () => end()
+      const ts = e => { const { x, y } = pt(e); down(x, y) }
+      const tm = e => { const { x, y } = pt(e); move(x, y, e) }
+      const te = () => end()
+      const wh = e => {
+        const now = Date.now()
+        if (now - wheelTs.current < 400) return
+        const ax = Math.abs(e.deltaX), ay = Math.abs(e.deltaY)
+        if (ax > ay + 5 && ax > 20) {
+          try { e.preventDefault() } catch { /* noop */ }
+          e.stopPropagation?.()
+          const cur = pageRef.current
+          const max = cntRef.current - 1
+          let next = cur
+          if (e.deltaX > 0 && cur < max) next = cur + 1
+          if (e.deltaX < 0 && cur > 0) next = cur - 1
+          if (next !== cur) {
+            wheelTs.current = now
+            pageRef.current = next
+            setPage(next)
+            onChangeRef.current?.(next)
+            snap(next)
+          }
+        }
       }
-      const options = { passive: false, capture: true }
-      node.addEventListener('pointerdown', handlePointerDown, options)
-      node.addEventListener('pointermove', handlePointerMove, options)
-      node.addEventListener('pointerup', handlePointerUp, options)
-      node.addEventListener('pointercancel', handlePointerUp, options)
-      node.addEventListener('touchstart', handleHDragStartCapture, options)
-      node.addEventListener('touchmove', handleHDragMoveCapture, options)
-      node.addEventListener('touchend', handleHDragEndCapture, options)
-      node.addEventListener('wheel', handleWheelCapture, options)
-      if (ENABLE_SWIPE_DEBUG) log.debug('[ActionDrawer] listeners attached')
-      detach = () => {
-        node.removeEventListener('pointerdown', handlePointerDown, options)
-        node.removeEventListener('pointermove', handlePointerMove, options)
-        node.removeEventListener('pointerup', handlePointerUp, options)
-        node.removeEventListener('pointercancel', handlePointerUp, options)
-        node.removeEventListener('touchstart', handleHDragStartCapture, options)
-        node.removeEventListener('touchmove', handleHDragMoveCapture, options)
-        node.removeEventListener('touchend', handleHDragEndCapture, options)
-        node.removeEventListener('wheel', handleWheelCapture, options)
-        if (ENABLE_SWIPE_DEBUG) log.debug('[ActionDrawer] listeners removed')
+      n.addEventListener('pointerdown', pd, opt)
+      n.addEventListener('pointermove', pm, opt)
+      n.addEventListener('pointerup', pu, opt)
+      n.addEventListener('pointercancel', pu, opt)
+      n.addEventListener('touchstart', ts, opt)
+      n.addEventListener('touchmove', tm, opt)
+      n.addEventListener('touchend', te, opt)
+      n.addEventListener('wheel', wh, opt)
+      if (DEBUG) log.debug('[drawer] listeners attached')
+      det = () => {
+        n.removeEventListener('pointerdown', pd, opt)
+        n.removeEventListener('pointermove', pm, opt)
+        n.removeEventListener('pointerup', pu, opt)
+        n.removeEventListener('pointercancel', pu, opt)
+        n.removeEventListener('touchstart', ts, opt)
+        n.removeEventListener('touchmove', tm, opt)
+        n.removeEventListener('touchend', te, opt)
+        n.removeEventListener('wheel', wh, opt)
+        if (DEBUG) log.debug('[drawer] listeners removed')
       }
     }
     raf = requestAnimationFrame(attach)
-    return () => {
-      if (raf) cancelAnimationFrame(raf)
-      detach?.()
-    }
-  }, [isPagingEnabled, open])
+    return () => { if (raf) cancelAnimationFrame(raf); det?.() }
+  }, [open, cnt, contentRef, snap, down, move, end])
 
-  // Reset gesture state on close to avoid stuck pointer capture or locks
   useEffect(() => {
-    if (open) return
-    isPointerDraggingRef.current = false
-    pointerIdRef.current = null
-    hLockRef.current = null
-    dragXRef.current = 0
-  }, [open])
+    const onR = () => snap(pageRef.current)
+    if (open && cnt) window.addEventListener('resize', onR)
+    return () => window.removeEventListener('resize', onR)
+  }, [open, cnt, snap])
 
-  // Snap to active page whenever size changes or page/page-drag changes
-  useEffect(() => {
-    if (!isPagingEnabled || !open) return
-    const snap = () => {
-      const w = contentRef.current?.clientWidth || 1
-      widthRef.current = w
-      if (sliderRef.current) {
-        sliderRef.current.style.transition = isHDragging ? 'none' : 'transform 0.25s ease'
-        sliderRef.current.style.transform = `translateX(${-activePageRef.current * w}px)`
-      }
-    }
-    snap()
-    window.addEventListener('resize', snap)
-    return () => window.removeEventListener('resize', snap)
-  }, [activePage, isHDragging, isPagingEnabled, open])
+  return { page, cnt, list, down, move, end }
+}
 
-  // keep refs in sync with state/props
-  useEffect(() => { activePageRef.current = activePage }, [activePage])
-  useEffect(() => { pageCountRef.current = pageCount }, [pageCount])
+export const ActionDrawer = ({ open, onClose = () => {}, size = 'half', position = 'bottom', title, content, children, pages, initialPage = 0, onPageChange }) => {
+  const [dragY, setDragY] = useState(0)
+  const [dragV, setDragV] = useState(false)
+  const [render, setRender] = useState(false)
+  const [enter, setEnter] = useState(false)
+  const [pos, setPos] = useState(position)
+  const [posChg, setPosChg] = useState(false)
+  const drawRef = useRef(null)
+  const contRef = useRef(null)
+  const slideRef = useRef(null)
+  const y0 = useRef(0)
 
-  // Manage rendering state
+  const pager = usePager({
+    open,
+    contentRef: contRef,
+    sliderRef: slideRef,
+    pages,
+    initialPage,
+    onChange: onPageChange
+  })
+  const bottom = pos === 'bottom'
+  const sz = SIZES[size] || SIZES.half
+
+  const vStart = e => { setDragV(true); y0.current = pt(e).y; setDragY(0) }
+  const vMove = e => {
+    if (!dragV) return
+    const y = pt(e).y
+    const d = y - y0.current
+    const forward = (bottom && d > 0) || (!bottom && d < 0)
+    if (forward) setDragY(Math.abs(d))
+  }
+  const vEnd = () => {
+    if (!dragV) return
+    setDragV(false)
+    if (dragY > 100 && typeof onClose === 'function') onClose()
+    setDragY(0)
+  }
+
   useEffect(() => {
     if (open) {
-      setDisplayPosition(position)
-      setShouldRender(true)
-      setIsEntering(true)
-      // Complete enter animation
-      const timer = setTimeout(() => setIsEntering(false), 50)
-      return () => clearTimeout(timer)
+      setPos(position)
+      setRender(true)
+      setEnter(true)
+      const t = setTimeout(() => setEnter(false), 50)
+      return () => clearTimeout(t)
     } else {
-      setIsEntering(false)
-      // Keep rendered for exit animation
-      const timer = setTimeout(() => setShouldRender(false), 400)
-      return () => clearTimeout(timer)
+      setEnter(false)
+      const t = setTimeout(() => setRender(false), 400)
+      return () => clearTimeout(t)
     }
   }, [open, position])
 
-  // Handle position changes while drawer is open
   useEffect(() => {
-    if (position !== displayPosition && open && !isEntering) {
-      setIsPositionChanging(true)
-      // Change position immediately, then clear changing state after animation
-      setDisplayPosition(position)
-      const timer = setTimeout(() => {
-        setIsPositionChanging(false)
-      }, 500)
-      return () => clearTimeout(timer)
+    if (position !== pos && open && !enter) {
+      setPosChg(true)
+      setPos(position)
+      const t = setTimeout(() => setPosChg(false), 500)
+      return () => clearTimeout(t)
     }
-  }, [position, displayPosition, open, isEntering])
+  }, [position, pos, open, enter])
 
   useEffect(() => {
-    const handleEscape = (e) => e.key === 'Escape' && open && onClose()
-    document.addEventListener('keydown', handleEscape)
-    return () => document.removeEventListener('keydown', handleEscape)
+    const onKey = e => e.key === 'Escape' && open && onClose()
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
   }, [open, onClose])
 
-  if (!shouldRender) return null
+  if (!render) return null
 
-  // Calculate transform based on state
-  const getTransform = () => {
-    if (isDragging) {
-      return `translateY(${isBottom ? dragY : -dragY}px)`
-    }
-
-    if (isEntering) {
-      // Start off-screen for enter animation
-      return `translateY(${isBottom ? '100%' : '-100%'})`
-    }
-
-    if (!open) {
-      // Exit to off-screen - CSS transition will handle smooth movement
-      return `translateY(${isBottom ? '100%' : '-100%'})`
-    }
-
-    // Open and stable - normal position with any drag offset
-    return `translateY(${isBottom ? dragY : -dragY}px)`
+  const tr = () => {
+    if (dragV) return `translateY(${bottom ? dragY : -dragY}px)`
+    if (enter) return `translateY(${bottom ? '100%' : '-100%'})`
+    if (!open) return `translateY(${bottom ? '100%' : '-100%'})`
+    return `translateY(${bottom ? dragY : -dragY}px)`
   }
 
   return (
-    <Box sx={{
-      position: 'fixed',
-      inset: 0,
-      display: 'flex',
-      alignItems: isBottom ? 'flex-end' : 'flex-start',
-      justifyContent: 'center',
-      p: 0,
-      pointerEvents: 'none', // Never block background clicks
-      zIndex: 1300,
-      transition: isPositionChanging
-        ? 'align-items 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
-        : 'none'
-    }}>
+    <Box
+      sx={{
+        position: 'fixed',
+        inset: 0,
+        display: 'flex',
+        alignItems: bottom ? 'flex-end' : 'flex-start',
+        justifyContent: 'center',
+        p: 0,
+        pointerEvents: 'none',
+        zIndex: 1300,
+        transition: posChg
+          ? 'align-items 0.5s cubic-bezier(0.25,0.46,0.45,0.94)'
+          : 'none'
+      }}
+    >
       <Box
-        ref={drawerRef}
-        onClick={(e) => e.stopPropagation()} // Block clicks from passing through
+        ref={drawRef}
+        onClick={e => e.stopPropagation()}
         sx={{
           bgcolor: 'background.body',
           pointerEvents: 'auto',
-          borderRadius: isBottom ? '24px 24px 0 0' : '0 0 24px 24px',
-          // Slightly narrower than viewport to reveal side borders
+          borderRadius: bottom ? '24px 24px 0 0' : '0 0 24px 24px',
           width: 'calc(100% - 8px)',
           maxWidth: '500px',
-          height: heights[size] || heights.half,
-          maxHeight: maxHeights[size] || maxHeights.half,
-          transform: getTransform(),
-          transition: isDragging
+          height: sz.h,
+          maxHeight: sz.mh,
+          transform: tr(),
+          transition: dragV
             ? 'none'
-            : !open
-              ? 'transform 0.4s ease-out'  // Smooth exit
-              : 'transform 0.3s ease-in', // Smooth enter
-          boxShadow: (theme) => {
-            if (theme.palette.mode === 'dark') {
-              // Colored glow effect for dark mode - more visible
-              return '0 0 0 1px rgba(255, 255, 255, 0.2), 0 0 10px rgba(159, 248, 217, 0.7), 0 0 20px rgba(59, 246, 93, 0.15)'
-            } else {
-              // Traditional shadows for light mode
-              return isBottom
-                ? '0 -8px 32px rgba(0, 0, 0, 0.12), 0 -4px 16px rgba(0, 0, 0, 0.08)'
-                : '0 8px 32px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.08)'
-            }
-          },
+            : (!open ? 'transform 0.4s ease-out' : 'transform 0.3s ease-in'),
+          boxShadow: t => (
+            t.palette.mode === 'dark'
+              ? '0 0 0 1px rgba(255,255,255,0.2), 0 0 10px rgba(159,248,217,0.7), 0 0 20px rgba(59,246,93,0.15)'
+              : (
+                bottom
+                  ? '0 -8px 32px rgba(0,0,0,0.12), 0 -4px 16px rgba(0,0,0,0.08)'
+                  : '0 8px 32px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.08)'
+              )
+          ),
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden'
         }}
       >
-        {isBottom && (
-          <Handle
-            onDragStart={handleDragStart}
-            onDragMove={handleDragMove}
-            onDragEnd={handleDragEnd}
-            position='bottom'
-            pageCount={pageCount}
-            activePage={activePage}
-          />
+        {bottom && (
+          <Handle onDown={vStart} onMove={vMove} onUp={vEnd} pos='bottom' pages={pager.cnt} page={pager.page} />
         )}
-
         {title && (
-          <Stack direction='row' justifyContent='space-between' alignItems='center'
-            sx={{ px: 2, py: 1, borderBottom: isBottom ? 1 : 0, borderTop: isBottom ? 0 : 1, borderColor: 'divider' }}>
+          <Stack
+            direction='row'
+            justifyContent='space-between'
+            alignItems='center'
+            sx={{ px: 2, py: 1, borderBottom: bottom ? 1 : 0, borderTop: bottom ? 0 : 1, borderColor: 'divider' }}
+          >
             <Typography level='h4'>{title}</Typography>
             <IconButton size='sm' variant='plain' onClick={onClose} sx={{ color: 'neutral.500' }}>
               <Close />
             </IconButton>
           </Stack>
         )}
-
         <Box
-          ref={contentRef}
+          ref={contRef}
           sx={{
             flex: 1,
-            p: isPagingEnabled ? 0 : 2,
+            p: pager.cnt ? 0 : 2,
             overflow: 'hidden',
             position: 'relative',
             overscrollBehaviorX: 'none'
           }}
-          onMouseDownCapture={undefined}
-          onMouseMoveCapture={undefined}
-          onMouseUpCapture={undefined}
         >
-          {isPagingEnabled ? (
+          {pager.cnt ? (
             <Box
-              ref={sliderRef}
-              sx={{
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'row',
-                width: '100%',
-                transition: isHDragging ? 'none' : 'transform 0.25s ease',
-                willChange: 'transform',
-                minWidth: '100%'
-              }}
-              onClick={(e) => e.stopPropagation()}
+              ref={slideRef}
+              sx={{ height: '100%', display: 'flex', flexDirection: 'row', width: '100%', willChange: 'transform', minWidth: '100%' }}
+              onClick={e => e.stopPropagation()}
             >
-              {normalizedPages.map((p, idx) => (
+              {pager.list.map((p, i) => (
                 <Box
-                  key={p.key ?? idx}
-                  sx={{
-                    flex: '0 0 100%',
-                    height: '100%',
-                    overflowY: 'auto',
-                    overflowX: 'hidden',
-                    touchAction: 'pan-y',
-                    pr: 0.5
-                  }}
-                  onClick={(e) => e.stopPropagation()}
+                  key={p.key ?? i}
+                  sx={{ flex: '0 0 100%', height: '100%', overflowY: 'auto', overflowX: 'hidden', touchAction: 'pan-y', pr: 0.5 }}
+                  onClick={e => e.stopPropagation()}
                 >
                   <Box sx={{ p: 2, boxSizing: 'border-box', minHeight: '100%' }}>
                     {p.title ? (
-                      <Typography level='title-sm' sx={{ mb: 1, color: 'neutral.500' }}>{p.title}</Typography>
+                      <Typography level='title-sm' sx={{ mb: 1, color: 'neutral.500' }}>
+                        {p.title}
+                      </Typography>
                     ) : null}
                     {p.content ?? p}
                   </Box>
@@ -560,21 +354,11 @@ export const ActionDrawer = ({
               ))}
             </Box>
           ) : (
-            <Box sx={{ height: '100%', overflow: 'hidden' }}>
-              {content || children}
-            </Box>
+            <Box sx={{ height: '100%', overflow: 'hidden' }}>{content || children}</Box>
           )}
         </Box>
-
-        {!isBottom && (
-          <Handle
-            onDragStart={handleDragStart}
-            onDragMove={handleDragMove}
-            onDragEnd={handleDragEnd}
-            position='top'
-            pageCount={pageCount}
-            activePage={activePage}
-          />
+        {!bottom && (
+          <Handle onDown={vStart} onMove={vMove} onUp={vEnd} pos='top' pages={pager.cnt} page={pager.page} />
         )}
       </Box>
     </Box>
