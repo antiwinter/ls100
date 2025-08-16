@@ -292,12 +292,14 @@ const SubtitleViewer_ = forwardRef(({
         display: 'flex',
         flexDirection: 'column',
         minHeight: 0,
+        px: 1,
+        py: 1,
         userSelect: 'none',
         WebkitUserSelect: 'none',
         msUserSelect: 'none',
         WebkitTouchCallout: 'none',
         WebkitTapHighlightColor: 'transparent',
-        touchAction: 'pan-y',
+        // Viewer scroll/pan is handled inside VirtualScrollerRW
         '--reader-font-family': 'system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Noto Sans, PingFang SC, Hiragino Sans GB, Microsoft YaHei, Heiti SC, sans-serif',
         '--reader-font-size': '16px',
         '& *, & *::before, & *::after': {

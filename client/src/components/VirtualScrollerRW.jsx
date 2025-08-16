@@ -157,7 +157,7 @@ export const VirtualScrollerRW = forwardRef(({
   }, [])
 
   const renderItem = useCallback(({ index, style: itemStyle }) => (
-    <div style={itemStyle} data-index={index}>
+    <div style={{ ...itemStyle, overflow: 'hidden', maxWidth: '100%' }} data-index={index}>
       <div ref={(el) => setMeasuredEl(index, el)}>
         {itemContent?.({ index })}
       </div>
@@ -214,6 +214,7 @@ export const VirtualScrollerRW = forwardRef(({
           overscanCount={overscanCount}
           onItemsRendered={handleItemsRendered}
           onScroll={handleScroll}
+          style={{ overflowX: 'hidden', overscrollBehaviorX: 'contain', WebkitOverflowScrolling: 'touch' }}
         >
           {renderItem}
         </List>
