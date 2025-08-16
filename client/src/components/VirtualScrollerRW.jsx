@@ -82,7 +82,7 @@ export const VirtualScrollerRW = forwardRef(({
       if (!listRef.current || size.height === 0) requestAnimationFrame(run)
       else run()
     }
-  }), [])
+  }), [size.height])
 
   const computeKey = useMemo(() => (
     typeof itemKey === 'function'
