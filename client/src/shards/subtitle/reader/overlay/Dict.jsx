@@ -1,4 +1,4 @@
-import { useEffect, useRef, memo } from 'react'
+import { useEffect, useRef, useState, memo } from 'react'
 import {
   Stack,
   Typography,
@@ -13,6 +13,7 @@ import DictCollins from '../../../../components/DictCollins.jsx'
 // Dictionary component - simple props interface
 const Dict_ = ({ word, position = 'bottom', visible, onClose }) => {
   const scrollContainerRef = useRef(null)
+  const [pronunciation, setPronunciation] = useState('')
 
   log.debug('Dict re-render', { word, position, visible, onClose })
 
@@ -98,6 +99,11 @@ const Dict_ = ({ word, position = 'bottom', visible, onClose }) => {
       {/* Word header with phonetic and audio */}
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
         <Typography level="h4">{word}</Typography>
+        {!!pronunciation && (
+          <Typography level="body-sm" sx={{ color: 'neutral.600' }}>
+            /{pronunciation}/
+          </Typography>
+        )}
         <IconButton
           size="sm"
           variant="plain"
@@ -109,7 +115,11 @@ const Dict_ = ({ word, position = 'bottom', visible, onClose }) => {
         </IconButton>
       </Stack>
 
-      <DictCollins word={word} visible={visible} />
+      <DictCollins
+        word={word}
+        visible={visible}
+        onMeta={(meta) => setPronunciation(meta?.pronunciation || '')}
+      />
     </Stack>
   )
 

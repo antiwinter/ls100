@@ -28,7 +28,9 @@ export const OverlayManager = forwardRef(({ onBack, sessionStore }, ref) => {
 
     openDict: (word, position) => {
       if (!word || typeof word !== 'string') return
-      setXState(x => ({ ...x, tool: 'dict', toolbar: false, word, position }))
+      setXState(x => (x.tool === 'dict'
+        ? { ...x, toolbar: false, word } // don't change position
+        : { ...x, tool: 'dict', toolbar: false, word, position }))
     },
 
     // close tool

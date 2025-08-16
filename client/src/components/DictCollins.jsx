@@ -3,7 +3,7 @@ import { Box, Stack, Typography, CircularProgress } from '@mui/joy'
 import { apiCall } from '../config/api.js'
 import { log } from '../utils/logger'
 
-export const DictCollins = ({ word, visible }) => {
+export const DictCollins = ({ word, visible, onMeta }) => {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -12,6 +12,7 @@ export const DictCollins = ({ word, visible }) => {
     if (!visible || !word) {
       setData(null)
       setError(null)
+      onMeta?.(null)
       return
     }
 
@@ -21,6 +22,7 @@ export const DictCollins = ({ word, visible }) => {
       try {
         const result = await apiCall(`/api/dict/lookup?word=${encodeURIComponent(word)}&dict=collins`)
         setData(result)
+        onMeta?.({ pronunciation: result?.pronunciation || '' })
       } catch (e) {
         log.error('Collins fetch failed:', e)
         setError('Failed to load definition')
@@ -30,7 +32,7 @@ export const DictCollins = ({ word, visible }) => {
     }
 
     load()
-  }, [word, visible])
+  }, [word, visible, onMeta])
 
   const collinsSx = {
     fontFamily: 'var(--joy-fontFamily-body)',
