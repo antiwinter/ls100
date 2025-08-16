@@ -28,6 +28,7 @@ export function useSubtitleGroups(languages) {
     const load = async () => {
       if (!languages || !languages.length || loadedRef.current) return
       setLoading(true)
+      // no artificial delay
       try {
         // Fetch main first, then refs in parallel
         const [main, ...refs] = languages

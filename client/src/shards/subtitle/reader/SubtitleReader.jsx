@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useState, useRef } from 'react'
-import { Box, Typography, Stack, Chip, Button } from '@mui/joy'
+import { Box, Typography, Stack, Chip, Button, Skeleton } from '@mui/joy'
 import { Bolt } from '@mui/icons-material'
 import { apiCall } from '../../../config/api'
 import { log } from '../../../utils/logger'
@@ -71,8 +71,9 @@ const SubtitleHeader = ({ shardName, position, total, onReviewClick }) => {
   )
 }
 
-const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
+const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   // Session store and state
+  log.debug('SUBTITLE READER RENDER', shard, shardId)
   const sessionStore = useSessionStore(shardId)
   const {
     position, wordlist, langMap, setPosition,
@@ -85,7 +86,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
   const overlayRef = useRef(null)
 
   // Local state for viewer
-  const [viewerReady, setViewerReady] = useState(false)
+  const [viewerAnchored, setViewerAnchored] = useState(false)
   const [positionLoaded, setPositionLoaded] = useState(false)
   const [seek, setSeek] = useState(0)
 
@@ -109,7 +110,6 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
   // Load selected words and position (mount + shard change)
   useEffect(() => {
     let alive = true
-
     ;(async () => {
       try {
         const data = await apiCall(`/api/subtitle-shards/${shardId}/words`)
@@ -121,7 +121,6 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
         log.error('Failed to load selected words:', error)
       }
     })()
-
     ;(async () => {
       try {
         // Check if position exists in store first
@@ -154,9 +153,15 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
   const languages = shard?.data?.languages || []
 
   // Load lines and groups
-  const { groups, total, loading } = useSubtitleGroups(languages)
-  const groupReady = !loading && (groups?.length || 0) > 0
+  const { groups, total, loading: groupsLoading } = useSubtitleGroups(languages)
+  const groupReady = !groupsLoading && (groups?.length || 0) > 0
   const canRenderViewer = groupReady && positionLoaded
+  const showViewer = canRenderViewer && viewerAnchored
+
+  // Reset anchored flag when shard/seek changes
+  useEffect(() => { setViewerAnchored(false) }, [shardId, seek])
+
+  const handleAnchored = useCallback(() => setViewerAnchored(true), [])
 
   // log.debug('READER render state', {
   //   groupReady, positionLoaded, canRenderViewer, position, seek
@@ -178,19 +183,16 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
 
   // Update viewer when state changes
   useEffect(() => {
-    if (!viewerReady) return
     viewerRef.current?.setWordlist(wordlist)
-  }, [wordlist, viewerReady])
+  }, [wordlist])
 
   useEffect(() => {
-    if (!viewerReady) return
     viewerRef.current?.setLangMap(langMap)
-  }, [langMap, viewerReady])
+  }, [langMap])
 
   useEffect(() => {
-    if (!viewerReady) return
     viewerRef.current?.setFont({ fontSize, fontFamily })
-  }, [fontSize, fontFamily, viewerReady])
+  }, [fontSize, fontFamily])
 
   // Handle review click (placeholder)
   const handleReviewClick = () => {
@@ -198,12 +200,14 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
   }
 
   const handleGroupChange = useCallback((idx) => {
-    setViewerReady(true)
     setPosition(idx)
     overlayRef.current?.closeTool(1)
   }, [setPosition])
 
   const shardName = shard?.name || ''
+  if (loading) {
+    return null
+  }
   if (!shard) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
@@ -232,21 +236,33 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
       <OverlayManager ref={overlayRef} onBack={onBack} sessionStore={{ langMap, toggleLang }} />
 
       {/* SubtitleViewer - render after groups and position ready */}
-      {canRenderViewer && (
-        <SubtitleViewer ref={viewerRef}
-          groups={groups}
-          seek={seek}
-          onWord={handleWordEvent}
-          onEmptyClick={handleEmptyClick}
-          onGroupChange={handleGroupChange}
-        />
-      )}
+      <Box sx={{ position: 'relative', flex: 1 }}>
+        <Box sx={{ visibility: showViewer ? 'visible' : 'hidden', height: '100%', display: 'flex' }}>
+          {canRenderViewer && (
+            <SubtitleViewer
+              ref={viewerRef}
+              groups={groups}
+              seek={seek}
+              onWord={handleWordEvent}
+              onEmptyClick={handleEmptyClick}
+              onGroupChange={handleGroupChange}
+              onAnchored={handleAnchored}
+            />
+          )}
+        </Box>
+        {!showViewer && (
+          <Box sx={{ position: 'absolute', inset: 0, p: 1 }}>
+            <Skeleton variant="rectangular" width="100%" height="100%" animation="wave" />
+          </Box>
+        )}
+      </Box>
     </Box>
   )
 }
 
 export const SubtitleReader = ({ shardId, onBack }) => {
-  const [shard, setShard] = useState(null)
+  const [shard, setShard] = useState(undefined)
+  const [loading, setLoading] = useState(true)
   const sessionStore = useSessionStore(shardId)
   const { setLangMap } = sessionStore()
 
@@ -257,7 +273,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
       try {
         const data = await apiCall(`/api/shards/${shardId}`)
         if (!alive) return
-        setShard(data.shard)
+        setShard(data.shard || null)
 
         // Initialize langMap in session store from shard languages
         const languages = data.shard?.data?.languages || []
@@ -272,12 +288,16 @@ export const SubtitleReader = ({ shardId, onBack }) => {
             : { filename: l.filename, visible: false } // New entry
         })
         setLangMap(newLangMap)
+        setLoading(false)
       } catch (error) {
         log.error('Failed to load shard:', error)
+        if (!alive) return
+        setShard(null)
+        setLoading(false)
       }
     })()
     return () => { alive = false }
   }, [shardId, setLangMap, sessionStore])
 
-  return <SubtitleReaderContent shard={shard} shardId={shardId} onBack={onBack} />
+  return <SubtitleReaderContent shard={shard} shardId={shardId} loading={loading} onBack={onBack} />
 }

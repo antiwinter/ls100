@@ -90,13 +90,20 @@ const SubtitleViewer_ = forwardRef(({
   seek,
   onWord,
   onEmptyClick,
-  onGroupChange
+  onGroupChange,
+  onAnchored
 }, ref) => {
   const viewerRef = useRef(null)
   const scrollerRef = useRef(null)
   const viewportSize = useRef({ top: 400, bottom: 400 })
   const lastGroupId = useRef(-1)
   const styleFilter = useRef(0)
+  const seekRef = useRef(0)
+  const anchoredDoneRef = useRef(false)
+  const anchoredScheduledRef = useRef(false)
+  const langAppliedRef = useRef(false)
+  const fontAppliedRef = useRef(false)
+  seekRef.current = Number(seek) || 0
 
   // caches to re-apply on viewport changes
   const wordlistRef = useRef(new Set())
@@ -154,6 +161,7 @@ const SubtitleViewer_ = forwardRef(({
       applyLangMap()
       scrollerRef.current?.reanchorTo(anchor)
       styleFilter.current = 2
+      langAppliedRef.current = true
     },
     setFont: (font) => {
       const anchor = lastGroupId.current
@@ -164,6 +172,7 @@ const SubtitleViewer_ = forwardRef(({
       log.debug('viewer setFont', { font })
       scrollerRef.current?.reanchorTo(anchor)
       styleFilter.current = 2
+      fontAppliedRef.current = true
     }
   }))
 
@@ -176,7 +185,24 @@ const SubtitleViewer_ = forwardRef(({
       onGroupChange?.(id || 0)
     lastGroupId.current = id
     styleFilter.current--
-  }, [applyWordlist, applyLangMap, onGroupChange])
+
+    // Anchoring detection: consider near target sufficient to reveal
+    if (!anchoredDoneRef.current) {
+      const target = seekRef.current
+      const near = Number.isFinite(target) && target >= 0 && Math.abs(id - target) <= 1
+      if (near) {
+        anchoredDoneRef.current = true
+        if (!anchoredScheduledRef.current) {
+          anchoredScheduledRef.current = true
+          // final snap + reveal next frame to avoid visible adjustment
+          requestAnimationFrame(() => {
+            scrollerRef.current?.scrollToIndex(target, 'start')
+            requestAnimationFrame(() => onAnchored?.())
+          })
+        }
+      }
+    }
+  }, [applyWordlist, applyLangMap, onGroupChange, onAnchored])
 
   // Short/Long press helpers
   const getPressData = useCallback((e) => {
