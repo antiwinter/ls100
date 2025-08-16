@@ -181,11 +181,6 @@ const addStressMarks = (arpabetArray, ipaString) => {
     }
   }
   
-  // Check if we need to simplify stress pattern
-  // If there's both secondary and primary stress, sometimes we only show primary
-  const hasPrimary = stressPositions.some(s => s.type === 'primary')
-  const hasSecondary = stressPositions.some(s => s.type === 'secondary')
-  
   // Keep all stress marks as indicated by ARPABET
   // No artificial filtering - ARPABET stress information is authoritative
   
@@ -211,7 +206,7 @@ const addStressMarks = (arpabetArray, ipaString) => {
 }
 
 // Build mapping from ARPABET phoneme index to IPA character position
-const buildPositionMap = (arpabetArray, ipaString) => {
+const buildPositionMap = (arpabetArray, _ipaString) => {
   const map = []
   let ipaPos = 0
   

@@ -41,7 +41,7 @@ export const extractPronunciation = (html) => {
     }
     
     return null
-  } catch (e) {
+  } catch {
     return null
   }
 }
@@ -82,8 +82,8 @@ export const processCollinsHtml = (word, html) => {
 
     // 5) Remove a dangling colon text node between tags (e.g., "> : <")
     out = out.replace(new RegExp('>\\s*[:：]\\s*(?=<)', 'g'), '>')
-  } catch (e) {
-    log.warn({ err: e?.message }, 'Collins HTML post-process failed, returning original')
+  } catch (error) {
+    log.warn({ err: error?.message }, 'Collins HTML post-process failed, returning original')
     return html
   }
 

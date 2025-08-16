@@ -1,4 +1,4 @@
-import { lookupPronunciation } from './lib/collins/phonetic.js'
+import { lookupPronunciation } from '../lib/collins/phonetic.js'
 
 const testCases = [
   // Original test cases
