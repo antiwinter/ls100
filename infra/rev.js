@@ -161,14 +161,15 @@ function main() {
   writeFileSync(rootPkgPath, JSON.stringify(rootPkg, null, 2) + '\n', 'utf8')
   updates.push(rootPkgPath)
 
-  // Show stat for visibility
-  try {
-    const stat = run(`git diff --stat ${baseRef}..HEAD`)
-    if (stat) {
-      console.log('Changed files since', baseRef)
-      console.log(stat)
-    }
-  } catch (_) {}
+  // Show change summary
+  const clientFiles = Array.from(changed).filter(p => p.startsWith('client/')).length
+  const serverFiles = Array.from(changed).filter(p => p.startsWith('server/')).length
+  const summary = []
+  if (clientFiles > 0) summary.push(`client: ${clientFiles} files`)
+  if (serverFiles > 0) summary.push(`server: ${serverFiles} files`)
+  if (summary.length > 0) {
+    console.log(`Changed since ${baseRef}: ${summary.join(', ')}`)
+  }
 
   if (dryRun) {
     console.log('[dry-run] wrote package.json updates; skipping git add/commit/push/tag')
