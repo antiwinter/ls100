@@ -95,7 +95,7 @@ const SubtitleViewer_ = forwardRef(({
   const viewerRef = useRef(null)
   const scrollerRef = useRef(null)
   const viewportSize = useRef({ top: 400, bottom: 400 })
-  const lastGroupId = useRef(0)
+  const lastGroupId = useRef(-1)
 
   // caches to re-apply on viewport changes
   const wordlistRef = useRef(new Set())
@@ -141,13 +141,14 @@ const SubtitleViewer_ = forwardRef(({
 
   useImperativeHandle(ref, () => ({
     setWordlist: (words) => {
-      log.debug('viewer setWordlist', { words })
+      log.debug('viewer setWordlist', { count: Array.isArray(words) ? words.length : (words?.size || 0) })
       const set = words instanceof Set ? words : new Set(words || [])
       wordlistRef.current = set
       applyWordlist()
     },
     setLangMap: (langMap) => {
       langMapRef.current = langMap || null
+      log.debug('viewer setLangMap', { keys: langMap instanceof Map ? Array.from(langMap.keys()) : Object.keys(langMap || {}) })
       applyLangMap()
     },
     setFont: (font) => {
@@ -155,11 +156,13 @@ const SubtitleViewer_ = forwardRef(({
       const { fontFamily, fontSize } = font
       if (fontFamily) viewerRef.current.style.setProperty('--reader-font-family', fontFamily)
       if (Number.isFinite(fontSize)) viewerRef.current.style.setProperty('--reader-font-size', `${fontSize}px`)
+      log.debug('viewer setFont', { font })
     }
   }))
 
   // Handle top item changes from intersection observer
   const onTopItemChange = useCallback((id) => {
+    log.debug('viewer topItemChange', { id })
     applyWordlist()
     applyLangMap()
     if (id !== lastGroupId.current)
@@ -266,6 +269,7 @@ const SubtitleViewer_ = forwardRef(({
   // Monitor seek prop changes and scroll to index (only for dynamic changes)
   useEffect(() => {
     if (Number.isFinite(seek)) {
+      log.debug('viewer seek->scrollToIndex', { seek })
       scrollerRef.current?.scrollToIndex(seek, 'start')
     }
   }, [seek])

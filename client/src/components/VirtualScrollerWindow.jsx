@@ -1,5 +1,6 @@
 import React, { forwardRef, useImperativeHandle, useMemo, useRef, useState, useEffect, useCallback } from 'react'
 import { VariableSizeList as List } from 'react-window'
+import { log } from '../utils/logger.js'
 
 // Minimal virtual scroller built on react-window (VariableSizeList)
 // Keeps the same surface props as our Virtuoso-based scroller
@@ -25,6 +26,7 @@ export const VirtualScrollerRW = forwardRef(({
   const listRef = useRef(null)
   const [size, setSize] = useState({ width: 0, height: 0 })
   const sizeMapRef = useRef(new Map())
+  const lastRangeRef = useRef({ s: -1, e: -1 })
 
   // Resize observer to measure container
   useEffect(() => {
@@ -33,6 +35,7 @@ export const VirtualScrollerRW = forwardRef(({
     const ro = new ResizeObserver(([entry]) => {
       const cr = entry.contentRect
       setSize({ width: Math.ceil(cr.width), height: Math.ceil(cr.height) })
+      log.debug('RW resize', { w: Math.ceil(cr.width), h: Math.ceil(cr.height) })
     })
     ro.observe(el)
     return () => ro.disconnect()
@@ -63,14 +66,15 @@ export const VirtualScrollerRW = forwardRef(({
 
   // Ensure initial index is visible
   useEffect(() => {
-    if (Number.isFinite(initialTopMostItemIndex)) {
-      // defer to next frame to allow size measurement
-      const id = requestAnimationFrame(() => {
-        listRef.current?.scrollToItem(initialTopMostItemIndex, 'start')
-      })
-      return () => cancelAnimationFrame(id)
-    }
-  }, [initialTopMostItemIndex])
+    if (!Number.isFinite(initialTopMostItemIndex)) return
+    if (!listRef.current || size.height === 0) return
+    // schedule after mount + measurement
+    const id = requestAnimationFrame(() => {
+      log.debug('RW scrollTo initial index', { index: initialTopMostItemIndex })
+      listRef.current?.scrollToItem(initialTopMostItemIndex, 'start')
+    })
+    return () => cancelAnimationFrame(id)
+  }, [initialTopMostItemIndex, size.height])
 
   const getSizeForIndex = useCallback((index) => {
     if (typeof itemSize === 'number') return itemSize
@@ -90,6 +94,7 @@ export const VirtualScrollerRW = forwardRef(({
       if (prev !== h) {
         sizeMapRef.current.set(index, h)
         listRef.current?.resetAfterIndex(index, true)
+        if (index < 10) log.debug('RW measure', { index, h })
       }
     }
     // Measure immediately and then observe for changes
@@ -111,10 +116,16 @@ export const VirtualScrollerRW = forwardRef(({
     onRangeChange?.({ startIndex: visibleStartIndex, endIndex: visibleStopIndex })
     if (visibleStartIndex <= 0) onStartReached?.()
     if (visibleStopIndex >= totalCount - 1) onEndReached?.()
+    const { s, e } = lastRangeRef.current
+    if (s !== visibleStartIndex || e !== visibleStopIndex) {
+      lastRangeRef.current = { s: visibleStartIndex, e: visibleStopIndex }
+      log.debug('RW range', { s: visibleStartIndex, e: visibleStopIndex })
+    }
   }, [topItemIndex, onRangeChange, onStartReached, onEndReached, totalCount])
 
   const handleScroll = useCallback((scrollProps) => {
     onScroll?.(scrollProps)
+    // log at a low frequency
   }, [onScroll])
 
   return (
