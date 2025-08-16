@@ -97,7 +97,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
   // UI Event Handlers
   const explainWord = useCallback((word, pos) => {
     const position = pos < window.innerHeight / 2 ? 'bottom' : 'top'
-    toggleWord(word, 1) // From session store
+    // toggleWord(word, 1) // From session store
     overlayRef.current?.openDict(word, position)
   }, [toggleWord])
 

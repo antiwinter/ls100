@@ -182,7 +182,7 @@ const SubtitleViewer_ = forwardRef(({
   // Unified press handler
   const handlePress = useCallback((e, type) => {
     const data = getPressData(e)
-    if (!data) { onEmptyClick?.(); return }
+    if (!data && type === 'short') { onEmptyClick?.(); return }
     e.stopPropagation()
     onWord?.(data.word, type === 'long' ? 'long' : 'short', getClickY(e))
   }, [getPressData, onEmptyClick, onWord])
