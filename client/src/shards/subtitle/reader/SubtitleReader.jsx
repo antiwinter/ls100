@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useState, useRef } from 'react'
-import { Box, Typography, Stack, Chip, Button, Skeleton } from '@mui/joy'
+import { Box, Typography, Stack, Chip, Button } from '@mui/joy'
+import ViewerSkeleton from './ViewerSkeleton.jsx'
 import { Bolt } from '@mui/icons-material'
 import { apiCall } from '../../../config/api'
 import { log } from '../../../utils/logger'
@@ -73,7 +74,7 @@ const SubtitleHeader = ({ shardName, position, total, onReviewClick }) => {
 
 const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   // Session store and state
-  log.debug('SUBTITLE READER RENDER', shard, shardId)
+  // log.debug('SUBTITLE READER RENDER', shard, shardId)
   const sessionStore = useSessionStore(shardId)
   const {
     position, wordlist, langMap, setPosition,
@@ -251,8 +252,8 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
           )}
         </Box>
         {!showViewer && (
-          <Box sx={{ position: 'absolute', inset: 0, p: 1 }}>
-            <Skeleton variant="rectangular" width="100%" height="100%" animation="wave" />
+          <Box sx={{ position: 'absolute', inset: 0 }}>
+            <ViewerSkeleton />
           </Box>
         )}
       </Box>
