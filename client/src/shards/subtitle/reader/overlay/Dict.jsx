@@ -102,7 +102,7 @@ const Dict_ = ({ word, position = 'bottom', onClose }) => {
   // Speech synthesis (cross-browser)
   const supportsTTS = typeof window !== 'undefined' && 'speechSynthesis' in window && typeof window.SpeechSynthesisUtterance === 'function'
   const voiceRef = useRef(null)
-  const loadVoices = () => new Promise((resolve) => {
+  const loadVoices = useCallback(() => new Promise((resolve) => {
     if (!supportsTTS) return resolve([])
     const synth = window.speechSynthesis
     const existing = synth.getVoices()
@@ -115,7 +115,7 @@ const Dict_ = ({ word, position = 'bottom', onClose }) => {
     synth.addEventListener?.('voiceschanged', handle)
     // Safari sometimes needs a tick
     setTimeout(() => handle(), 250)
-  })
+  }), [supportsTTS])
 
   const pickVoice = (voices) => {
     const english = voices.filter(v => /^en(-|_|$)/i.test(v.lang || ''))
