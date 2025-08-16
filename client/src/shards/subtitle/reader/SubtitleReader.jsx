@@ -99,7 +99,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack }) => {
     const position = pos < window.innerHeight / 2 ? 'bottom' : 'top'
     // toggleWord(word, 1) // From session store
     overlayRef.current?.openDict(word, position)
-  }, [toggleWord])
+  }, [])
 
   const handleEmptyClick = useCallback(() => {
     // If any overlay is open, close them all; otherwise show toolbar

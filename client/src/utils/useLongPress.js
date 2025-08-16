@@ -12,7 +12,9 @@ export const useLongPress = (handler, { delay = 500, moveThreshold = 10 } = {}) 
 
   const getPoint = (e) => {
     if (e.touches && e.touches[0]) return { x: e.touches[0].clientX, y: e.touches[0].clientY }
-    if (e.changedTouches && e.changedTouches[0]) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY }
+    if (e.changedTouches && e.changedTouches[0]) {
+      return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY }
+    }
     return { x: e.clientX, y: e.clientY }
   }
 
@@ -41,7 +43,7 @@ export const useLongPress = (handler, { delay = 500, moveThreshold = 10 } = {}) 
       // Arm mouse suppression window for synthetic mouse events that follow touch
       suppressMouseUntil.current = Date.now() + 800
     }
-    
+
     timer.current = setTimeout(() => {
       isLong.current = true
       handler?.(e, 'long')
@@ -83,7 +85,7 @@ export const useLongPress = (handler, { delay = 500, moveThreshold = 10 } = {}) 
     isLong.current = false
     moved.current = false
     pressing.current = false
-  }, [clear])
+  }, [handler, clear])
 
   return {
     handlers: {
