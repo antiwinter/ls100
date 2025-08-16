@@ -81,7 +81,7 @@ async function deploy() {
       if (existsSync(COLLINS_SRC)) {
         // Copy .mdx/.mdd if present; ignore if none
         const files = readdirSync(COLLINS_SRC)
-          .filter(f => /\.(mdx|mdd)$/i.test(f))
+          .filter(f => /\.(mdx|mdd|txt)$/i.test(f))
         files.forEach(f => {
           const src = path.join(COLLINS_SRC, f)
           const dst = path.join(COLLINS_DST, f)
