@@ -9,7 +9,7 @@ import {
   Typography
 } from '@mui/joy'
 
-import VirtualScrollerRW from '../../../components/VirtualScrollerWindow'
+import VirtualScrollerRW from '../../../components/VirtualScrollerRW.jsx'
 import { useLongPress } from '../../../utils/useLongPress'
 import { log } from '../../../utils/logger.js'
 
