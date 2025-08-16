@@ -17,8 +17,10 @@ export default function ViewerSkeleton() {
             <Skeleton variant="rectangular" width={40} height={12} animation="wave" />
             <Box sx={{ flex: 1 }}>
               <Skeleton variant="rectangular" height={12} sx={{ mb: 0.5, width: `${95 - (i % 2) * 10}%` }} animation="wave" />
-              {/* <Skeleton variant="rectangular" height={12} sx={{ mb: 0.5, width: `80%` }} animation="wave" /> */}
-              {/* <Skeleton variant="rectangular" height={12} sx={{ width: `${60 + (i % 2) * 10}%` }} animation="wave" /> */}
+              {/* <Skeleton variant="rectangular" height={12}
+                  sx={{ mb: 0.5, width: `80%` }} animation="wave" /> */}
+              {/* <Skeleton variant="rectangular" height={12}
+                  sx={{ width: `${60 + (i % 2) * 10}%` }} animation="wave" /> */}
             </Box>
           </Stack>
         ))}
