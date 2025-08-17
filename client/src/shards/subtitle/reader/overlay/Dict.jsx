@@ -9,7 +9,6 @@ import { VolumeUp } from '@mui/icons-material'
 import { ActionDrawer } from '../../../../components/ActionDrawer.jsx'
 import { log } from '../../../../utils/logger'
 import { DictCollins } from '../../../../components/DictCollins.jsx'
-const MemoCollins = memo(DictCollins)
 
 // First page content (scrollable) extracted as a memoized component
 const DictMainPage = memo(function DictMainPage ({
@@ -17,11 +16,16 @@ const DictMainPage = memo(function DictMainPage ({
   pronunciation,
   supportsTTS,
   onPlayAudio,
-  onMeta,
-  scrollContainerRef
+  onMeta
 }) {
+  const wordRef = useRef(word)
+  useEffect(() => {
+    if(word)
+      wordRef.current = word
+  }, [word])
+
   return (
-    <Box ref={scrollContainerRef}>
+    <Box>
       <Stack spacing={1}>
         <Stack
           direction="row"
@@ -38,7 +42,7 @@ const DictMainPage = memo(function DictMainPage ({
             py: 0.5
           }}
         >
-          <Typography level="h4">{word}</Typography>
+          <Typography level="h4">{wordRef.current}</Typography>
           {!!pronunciation && (
             <Typography level="body-sm" sx={{ color: 'neutral.600' }}>
               /{pronunciation}/
@@ -54,7 +58,7 @@ const DictMainPage = memo(function DictMainPage ({
             <VolumeUp />
           </IconButton>
         </Stack>
-        <DictCollins word={word} onMeta={onMeta} />
+        <DictCollins word={wordRef.current} onMeta={onMeta} />
       </Stack>
     </Box>
   )
@@ -62,7 +66,6 @@ const DictMainPage = memo(function DictMainPage ({
 
 // Dictionary component - simple props interface
 const Dict_ = ({ word, position = 'bottom', onClose }) => {
-  const scrollContainerRef = useRef(null)
   const [pronunciation, setPronunciation] = useState('')
 
   // log.debug('Dict re-render', { word, position, onClose })
@@ -73,16 +76,6 @@ const Dict_ = ({ word, position = 'bottom', onClose }) => {
       log.debug(`📖 Dict drawer visible: ${word}`)
     }
   }, [word])
-
-  // Scroll to top when word changes (keep dict position but reset scroll)
-  useEffect(() => {
-    if (word && scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = 0
-      log.debug(`📖 Dict scrolled to top for new word: ${word}`)
-    }
-  }, [word])
-
-  // Data fetching is handled by DictCollins
 
   // Speech synthesis (cross-browser)
   const supportsTTS = typeof window !== 'undefined' && 'speechSynthesis' in window && typeof window.SpeechSynthesisUtterance === 'function'
@@ -157,7 +150,6 @@ const Dict_ = ({ word, position = 'bottom', onClose }) => {
         supportsTTS={supportsTTS}
         onPlayAudio={handlePlayAudio}
         onMeta={handleMeta}
-        scrollContainerRef={scrollContainerRef}
       />
     )
   }, {
@@ -168,7 +160,7 @@ const Dict_ = ({ word, position = 'bottom', onClose }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        p: 2
+        // p: 2
       }}>
         <Typography level="body-md" sx={{ color: 'neutral.500' }}>
           Notes are coming soon
@@ -183,7 +175,7 @@ const Dict_ = ({ word, position = 'bottom', onClose }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        p: 2
+        // p: 8
       }}>
         <Typography level="body-md" sx={{ color: 'neutral.500' }}>
           Third page placeholder
