@@ -18,12 +18,6 @@ const DictMainPage = memo(function DictMainPage ({
   onPlayAudio,
   onMeta
 }) {
-  const wordRef = useRef(word)
-  useEffect(() => {
-    if(word)
-      wordRef.current = word
-  }, [word])
-
   return (
     <Box>
       <Stack spacing={1}>
@@ -42,7 +36,7 @@ const DictMainPage = memo(function DictMainPage ({
             py: 0.5
           }}
         >
-          <Typography level="h4">{wordRef.current}</Typography>
+          <Typography level="h4">{word}</Typography>
           {!!pronunciation && (
             <Typography level="body-sm" sx={{ color: 'neutral.600' }}>
               /{pronunciation}/
@@ -58,7 +52,7 @@ const DictMainPage = memo(function DictMainPage ({
             <VolumeUp />
           </IconButton>
         </Stack>
-        <DictCollins word={wordRef.current} onMeta={onMeta} />
+        <DictCollins word={word} onMeta={onMeta} />
       </Stack>
     </Box>
   )
@@ -159,7 +153,7 @@ const Dict_ = ({ word, position = 'bottom', onClose }) => {
         height: '100%',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center',
+        justifyContent: 'center'
         // p: 2
       }}>
         <Typography level="body-md" sx={{ color: 'neutral.500' }}>
@@ -174,7 +168,7 @@ const Dict_ = ({ word, position = 'bottom', onClose }) => {
         height: '100%',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center',
+        justifyContent: 'center'
         // p: 8
       }}>
         <Typography level="body-md" sx={{ color: 'neutral.500' }}>
@@ -184,6 +178,7 @@ const Dict_ = ({ word, position = 'bottom', onClose }) => {
     )
   }]), [word, handleMeta, handlePlayAudio, pronunciation, supportsTTS])
 
+  log.info('Dict re-render', { word, position, onClose })
   return (
     <ActionDrawer
       open={!!word}

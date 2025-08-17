@@ -6,6 +6,23 @@ import { log } from '../utils/logger'
 // Clamp a number to the inclusive range [a, b]
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n))
 
+// Helper to prevent all pointer events from bubbling
+const stopAllEvents = () => {
+  const res = {}
+  ;['onPointerDown', 'onPointerMove',
+    'onPointerUp', 'onTouchStart',
+    'onTouchMove', 'onTouchEnd',
+    'onMouseDown', 'onMouseMove',
+    'onMouseUp', 'onClick', 'onWheel']
+    .forEach(k => {
+      res[k] = (e) => {
+        // log.info('stopped Events', k, e)
+        e.stopPropagation()
+      }
+    })
+  return res
+}
+
 // Preset size configurations
 const SIZES = {
   full: { h: '99vh', mh: '99vh' },
@@ -17,6 +34,7 @@ const SIZES = {
 const Indicator = forwardRef(({ pos = 'bottom', pages = 0, page = 0, onChange }, ref) => {
   const [currentPage, setCurrentPage] = useState(page)
 
+  log.info('Indicator re-render', { pos, pages, page, onChange })
   // Expose imperative methods
   useImperativeHandle(ref, () => ({
     setPage: (newPage) => {
@@ -69,6 +87,8 @@ export const ActionDrawer = ({
   // Normalize pages to objects (must do this before hooks)
   const list = pages && Array.isArray(pages) ? pages.map(p => (p && typeof p === 'object' && 'content' in p) ? p : { content: p }) : []
 
+  log.debug('ActionDrawer re-render', { open, onClose, size, position, title, pages, initialPage, onPageChange })
+
   const [page, setPage] = useState(clamp(initialPage, 0, Math.max(0, list.length - 1)))
   const [render, setRender] = useState(open)
   const [shown, setShown] = useState(false)
@@ -83,7 +103,7 @@ export const ActionDrawer = ({
   const sz = SIZES[size] || SIZES.half
 
   // Update page in parent when changed
-  const _changePage = useCallback((newPage) => {
+  const handleIndicatorChange = useCallback((newPage) => {
     const p = clamp(newPage, 0, list.length - 1)
     pageRef.current = p
     setPage(p)
@@ -92,11 +112,6 @@ export const ActionDrawer = ({
     bottomIndicatorRef.current?.setPage(p)
     topIndicatorRef.current?.setPage(p)
   }, [list.length, onPageChange])
-
-  // Handle indicator onChange
-  const handleIndicatorChange = useCallback((newPage) => {
-    _changePage(newPage)
-  }, [_changePage])
 
   // Internal close handler
   const handleClose = useCallback(() => {
@@ -116,9 +131,8 @@ export const ActionDrawer = ({
     }
   }, [])
 
-  // Indicator external open/close
+  // Handle external open/close
   useEffect(() => {
-    log.info('ActionDrawer useEffect open', open)
     if (open) {
       // External open: render true -> delay -> shown true (animate in)
       setRender(true)
@@ -174,7 +188,7 @@ export const ActionDrawer = ({
     >
       <Box
         ref={drawRef}
-        onClick={e => e.stopPropagation()}
+        {...stopAllEvents()}
         sx={{
           bgcolor: 'background.body',
           pointerEvents: 'auto', // Drawer content should receive clicks
@@ -196,7 +210,8 @@ export const ActionDrawer = ({
           ),
           display: 'flex',
           flexDirection: 'column',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          overscrollBehavior: 'contain' // Prevent scroll chaining at root level
         }}
       >
         {bottom && <Indicator ref={bottomIndicatorRef} pos='bottom' pages={list.length} page={page} onChange={handleIndicatorChange} />}
@@ -230,7 +245,8 @@ export const ActionDrawer = ({
               flexDirection: 'row',
               width: '100%',
               willChange: 'transform',
-              minWidth: '100%'
+              minWidth: '100%',
+              overscrollBehavior: 'contain' // Prevent any scroll chaining
             }}
           >
             {list.map((p, i) => (
@@ -240,7 +256,9 @@ export const ActionDrawer = ({
                   flex: '0 0 100%',
                   height: '100%',
                   overflowY: 'auto',
-                  overflowX: 'hidden'
+                  overflowX: 'hidden',
+                  overscrollBehavior: 'contain', // Prevent scroll chaining
+                  WebkitOverflowScrolling: 'touch' // Smooth scrolling on iOS
                 }}
               >
                 <Box sx={{ p: 2, minHeight: '100%' }}>
