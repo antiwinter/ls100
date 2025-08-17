@@ -83,17 +83,14 @@ export const ActionDrawer = ({
     onPageChange?.(p)
   }
 
-  // Shared close animation logic
-  const animateOut = useCallback(() => {
-    setShown(false)
-    setTimeout(() => setRender(false), 300)
-  }, [])
-
   // Internal close handler
   const handleClose = useCallback(() => {
-    animateOut()
-    setTimeout(() => onClose(), 300) // Wait for animation
-  }, [animateOut, onClose])
+    setShown(false)
+    setTimeout(() => {
+      setRender(false)
+      onClose?.()
+    }, 300)// Wait for animation
+  }, [onClose])
 
   // Snap to page with animation
   const snap = (idx = pageRef.current) => {
@@ -182,13 +179,12 @@ export const ActionDrawer = ({
       // External open: render true -> delay -> shown true (animate in)
       setRender(true)
       setShown(false)
-      const timer = setTimeout(() => setShown(true), 20)
-      return () => clearTimeout(timer)
+      setTimeout(() => setShown(true), 20)
     } else {
       // External close: shown false (animate out) -> delay -> render false
-      animateOut()
+      handleClose()
     }
-  }, [open, animateOut])
+  }, [open])
 
   // Snap to page when opened
   useEffect(() => {
