@@ -162,18 +162,22 @@ export const ActionDrawer = ({
     <Box
       sx={{
         position: 'fixed',
-        inset: 0,
+        left: 0,
+        right: 0,
+        [bottom ? 'bottom' : 'top']: 0,
         display: 'flex',
-        alignItems: bottom ? 'flex-end' : 'flex-start',
         justifyContent: 'center',
         p: 0,
-        zIndex: 1300
+        zIndex: 1300,
+        pointerEvents: 'none' // Allow clicks to pass through to content below
       }}
     >
       <Box
         ref={drawRef}
+        onClick={e => e.stopPropagation()}
         sx={{
           bgcolor: 'background.body',
+          pointerEvents: 'auto', // Drawer content should receive clicks
           borderRadius: bottom ? '24px 24px 0 0' : '0 0 24px 24px',
           width: 'calc(100% - 8px)',
           maxWidth: '500px',
