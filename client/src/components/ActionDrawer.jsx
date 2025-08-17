@@ -1,8 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Box, Stack, Typography, IconButton } from '@mui/joy'
 import { Close } from '@mui/icons-material'
-import { useDrag, useWheel } from '@use-gesture/react'
-import { log } from '../utils/logger'
 
 // Clamp a number to the inclusive range [a, b]
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n))
@@ -23,8 +21,7 @@ const Handle = ({ pos = 'bottom', pages = 0, page = 0 }) => (
       alignItems: 'center',
       gap: 0.75,
       pb: pos === 'bottom' ? 0 : 1.5,
-      pt: pos === 'top' ? 0 : 1.5,
-      pointerEvents: 'none'
+      pt: pos === 'top' ? 0 : 1.5
     }}
   >
     <Stack direction='row' spacing={0.75} alignItems='center'>
@@ -55,33 +52,27 @@ export const ActionDrawer = ({
   initialPage = 0,
   onPageChange
 }) => {
-  // Return nothing if no pages
-  if (!pages || !Array.isArray(pages) || pages.length === 0) {
-    return null
-  }
+  // Normalize pages to objects (must do this before hooks)
+  const list = pages && Array.isArray(pages) ? pages.map(p => (p && typeof p === 'object' && 'content' in p) ? p : { content: p }) : []
 
-  // Normalize pages to objects
-  const list = pages.map(p => (p && typeof p === 'object' && 'content' in p) ? p : { content: p })
-  
   const [page, setPage] = useState(clamp(initialPage, 0, Math.max(0, list.length - 1)))
-  const [dragY, setDragY] = useState(0)
   const [render, setRender] = useState(open)
   const [shown, setShown] = useState(false)
-  
+
   const drawRef = useRef(null)
   const slideRef = useRef(null)
   const pageRef = useRef(page)
-  
+
   const bottom = position === 'bottom'
   const sz = SIZES[size] || SIZES.half
 
   // Update page in parent when changed
-  const changePage = (newPage) => {
+  const _changePage = useCallback((newPage) => {
     const p = clamp(newPage, 0, list.length - 1)
     pageRef.current = p
     setPage(p)
     onPageChange?.(p)
-  }
+  }, [list.length, onPageChange])
 
   // Internal close handler
   const handleClose = useCallback(() => {
@@ -89,89 +80,17 @@ export const ActionDrawer = ({
     setTimeout(() => {
       setRender(false)
       onClose?.()
-    }, 300)// Wait for animation
+    }, 300)
   }, [onClose])
 
   // Snap to page with animation
-  const snap = (idx = pageRef.current) => {
+  const snap = useCallback((idx = pageRef.current) => {
     if (slideRef.current) {
       const w = slideRef.current.parentElement?.clientWidth || 1
       slideRef.current.style.transition = 'transform 0.25s ease'
       slideRef.current.style.transform = `translateX(${-idx * w}px)`
     }
-  }
-
-  // Unified drag gesture handler
-  const bind = useDrag(
-    ({ movement: [mx, my], dragging, last, velocity: [vx, vy], direction: [dx, dy] }) => {
-      const axisThreshold = 20
-      const isHorizontal = Math.abs(mx) > axisThreshold && Math.abs(mx) > Math.abs(my)
-      const isVertical = Math.abs(my) > axisThreshold && Math.abs(my) > Math.abs(mx)
-
-      if (isHorizontal) {
-        // Horizontal drag for page navigation
-        if (dragging && slideRef.current) {
-          const w = slideRef.current.parentElement?.clientWidth || 1
-          const offset = -page * w + mx
-          slideRef.current.style.transition = 'none'
-          slideRef.current.style.transform = `translateX(${offset}px)`
-        }
-        
-        if (last) {
-          const threshold = 80
-          let newPage = page
-          if (mx > threshold && page > 0) newPage = page - 1
-          else if (mx < -threshold && page < list.length - 1) newPage = page + 1
-          
-          changePage(newPage)
-          snap(newPage)
-        }
-      } else if (isVertical) {
-        // Vertical drag for drawer close
-        const forward = (bottom && my > 0) || (!bottom && my < 0)
-        if (dragging && forward) {
-          setDragY(Math.abs(my))
-        }
-        
-        if (last) {
-          if (Math.abs(my) > 100 && forward) {
-            handleClose()
-          }
-          setDragY(0)
-        }
-      }
-    },
-    {
-      axis: undefined, // Allow both axes
-      filterTaps: true,
-      preventScrollAxis: 'xy'
-    }
-  )
-
-  // Wheel gesture for shift+wheel page navigation
-  const wheelBind = useWheel(
-    ({ event, delta: [dx, dy] }) => {
-      if (event.shiftKey) {
-        // Shift+wheel for page navigation
-        event.preventDefault()
-        const threshold = 50
-        if (Math.abs(dx) > threshold) {
-          let newPage = page
-          if (dx > 0 && page < list.length - 1) newPage = page + 1
-          else if (dx < 0 && page > 0) newPage = page - 1
-          
-          if (newPage !== page) {
-            changePage(newPage)
-            snap(newPage)
-          }
-        }
-      }
-      // Regular wheel events pass through for content scrolling
-    },
-    {
-      preventScrollAxis: 'xy'
-    }
-  )
+  }, [])
 
   // Handle external open/close
   useEffect(() => {
@@ -184,26 +103,24 @@ export const ActionDrawer = ({
       // External close: shown false (animate out) -> delay -> render false
       handleClose()
     }
-  }, [open])
+  }, [open, handleClose])
 
   // Snap to page when opened
   useEffect(() => {
     if (open && list.length > 0) {
       setTimeout(() => snap(page), 100)
     }
-  }, [open, list.length])
+  }, [open, list.length, page, snap])
 
   // Update internal page ref
   useEffect(() => {
     pageRef.current = page
   }, [page])
 
-  // Keyboard support
-  useEffect(() => {
-    const onKey = e => e.key === 'Escape' && open && handleClose()
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [open, handleClose])
+  // Return nothing if no pages (after hooks)
+  if (!pages || !Array.isArray(pages) || pages.length === 0) {
+    return null
+  }
 
   // Only render based on render state (single source of truth)
   if (!render) return null
@@ -211,7 +128,7 @@ export const ActionDrawer = ({
   // Compute transform for vertical position
   const transform = () => {
     if (!shown) return `translateY(${bottom ? '100%' : '-100%'})`
-    return `translateY(${bottom ? dragY : -dragY}px)`
+    return 'translateY(0px)'
   }
 
   return (
@@ -223,18 +140,13 @@ export const ActionDrawer = ({
         alignItems: bottom ? 'flex-end' : 'flex-start',
         justifyContent: 'center',
         p: 0,
-        pointerEvents: 'none',
         zIndex: 1300
       }}
     >
       <Box
         ref={drawRef}
-        {...bind()}
-        {...wheelBind()}
-        onClick={e => e.stopPropagation()}
         sx={{
           bgcolor: 'background.body',
-          pointerEvents: 'auto',
           borderRadius: bottom ? '24px 24px 0 0' : '0 0 24px 24px',
           width: 'calc(100% - 8px)',
           maxWidth: '500px',
@@ -253,12 +165,11 @@ export const ActionDrawer = ({
           ),
           display: 'flex',
           flexDirection: 'column',
-          overflow: 'hidden',
-          touchAction: 'none'
+          overflow: 'hidden'
         }}
       >
         {bottom && <Handle pos='bottom' pages={list.length} page={page} />}
-        
+
         {title && (
           <Stack
             direction='row'
@@ -272,7 +183,7 @@ export const ActionDrawer = ({
             </IconButton>
           </Stack>
         )}
-        
+
         <Box
           sx={{
             flex: 1,
@@ -280,8 +191,8 @@ export const ActionDrawer = ({
             position: 'relative'
           }}
         >
-            <Box
-              ref={slideRef}
+          <Box
+            ref={slideRef}
             sx={{
               height: '100%',
               display: 'flex',
@@ -292,29 +203,28 @@ export const ActionDrawer = ({
             }}
           >
             {list.map((p, i) => (
-                <Box
-                  key={p.key ?? i}
+              <Box
+                key={p.key ?? i}
                 sx={{
                   flex: '0 0 100%',
                   height: '100%',
                   overflowY: 'auto',
-                  overflowX: 'hidden',
-                  touchAction: 'pan-y'
+                  overflowX: 'hidden'
                 }}
               >
                 <Box sx={{ p: 2, minHeight: '100%' }}>
                   {p.title && (
-                      <Typography level='title-sm' sx={{ mb: 1, color: 'neutral.500' }}>
-                        {p.title}
-                      </Typography>
+                    <Typography level='title-sm' sx={{ mb: 1, color: 'neutral.500' }}>
+                      {p.title}
+                    </Typography>
                   )}
-                    {p.content ?? p}
-                  </Box>
+                  {p.content ?? p}
                 </Box>
-              ))}
-            </Box>
+              </Box>
+            ))}
+          </Box>
         </Box>
-        
+
         {!bottom && <Handle pos='top' pages={list.length} page={page} />}
       </Box>
     </Box>
