@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { Box, Stack, Typography, IconButton } from '@mui/joy'
 import { Close } from '@mui/icons-material'
+import { log } from '../utils/logger'
 
 // Clamp a number to the inclusive range [a, b]
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n))
@@ -12,34 +13,47 @@ const SIZES = {
   'fit-content': { h: 'auto', mh: '99vh' }
 }
 
-// Handle: visual-only page indicator
-const Handle = ({ pos = 'bottom', pages = 0, page = 0 }) => (
-  <Box
-    sx={{
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      gap: 0.75,
-      pb: pos === 'bottom' ? 0 : 1.5,
-      pt: pos === 'top' ? 0 : 1.5
-    }}
-  >
-    <Stack direction='row' spacing={0.75} alignItems='center'>
-      {Array.from({ length: Math.max(pages, 1) }).map((_, i) => (
-        <Box
-          key={i}
-          sx={{
-            height: '6px',
-            width: i === page ? '20px' : '6px',
-            borderRadius: '999px',
-            bgcolor: i === page ? 'neutral.400' : 'neutral.300',
-            transition: 'all 0.2s ease'
-          }}
-        />
-      ))}
-    </Stack>
-  </Box>
-)
+// Indicator: page indicator with imperative control
+const Indicator = forwardRef(({ pos = 'bottom', pages = 0, page = 0, onChange }, ref) => {
+  const [currentPage, setCurrentPage] = useState(page)
+
+  // Expose imperative methods
+  useImperativeHandle(ref, () => ({
+    setPage: (newPage) => {
+      setCurrentPage(newPage)
+    }
+  }), [])
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 0.75,
+        pb: pos === 'bottom' ? 0 : 1.5,
+        pt: pos === 'top' ? 0 : 1.5
+      }}
+    >
+      <Stack direction='row' spacing={0.75} alignItems='center'>
+        {Array.from({ length: Math.max(pages, 1) }).map((_, i) => (
+          <Box
+            key={i}
+            onClick={() => onChange?.(i)}
+            sx={{
+              height: '6px',
+              width: i === currentPage ? '20px' : '6px',
+              borderRadius: '999px',
+              bgcolor: i === currentPage ? 'neutral.400' : 'neutral.300',
+              transition: 'all 0.2s ease',
+              cursor: onChange ? 'pointer' : 'default'
+            }}
+          />
+        ))}
+      </Stack>
+    </Box>
+  )
+})
 
 // ActionDrawer: lite version with unified gesture handling
 export const ActionDrawer = ({
@@ -62,6 +76,8 @@ export const ActionDrawer = ({
   const drawRef = useRef(null)
   const slideRef = useRef(null)
   const pageRef = useRef(page)
+  const bottomIndicatorRef = useRef(null)
+  const topIndicatorRef = useRef(null)
 
   const bottom = position === 'bottom'
   const sz = SIZES[size] || SIZES.half
@@ -72,7 +88,15 @@ export const ActionDrawer = ({
     pageRef.current = p
     setPage(p)
     onPageChange?.(p)
+    // Update indicators
+    bottomIndicatorRef.current?.setPage(p)
+    topIndicatorRef.current?.setPage(p)
   }, [list.length, onPageChange])
+
+  // Handle indicator onChange
+  const handleIndicatorChange = useCallback((newPage) => {
+    _changePage(newPage)
+  }, [_changePage])
 
   // Internal close handler
   const handleClose = useCallback(() => {
@@ -92,8 +116,9 @@ export const ActionDrawer = ({
     }
   }, [])
 
-  // Handle external open/close
+  // Indicator external open/close
   useEffect(() => {
+    log.info('ActionDrawer useEffect open', open)
     if (open) {
       // External open: render true -> delay -> shown true (animate in)
       setRender(true)
@@ -112,9 +137,11 @@ export const ActionDrawer = ({
     }
   }, [open, list.length, page, snap])
 
-  // Update internal page ref
+  // Update internal page ref and indicators
   useEffect(() => {
     pageRef.current = page
+    bottomIndicatorRef.current?.setPage(page)
+    topIndicatorRef.current?.setPage(page)
   }, [page])
 
   // Return nothing if no pages (after hooks)
@@ -168,7 +195,7 @@ export const ActionDrawer = ({
           overflow: 'hidden'
         }}
       >
-        {bottom && <Handle pos='bottom' pages={list.length} page={page} />}
+        {bottom && <Indicator ref={bottomIndicatorRef} pos='bottom' pages={list.length} page={page} onChange={handleIndicatorChange} />}
 
         {title && (
           <Stack
@@ -225,7 +252,7 @@ export const ActionDrawer = ({
           </Box>
         </Box>
 
-        {!bottom && <Handle pos='top' pages={list.length} page={page} />}
+        {!bottom && <Indicator ref={topIndicatorRef} pos='top' pages={list.length} page={page} onChange={handleIndicatorChange} />}
       </Box>
     </Box>
   )
