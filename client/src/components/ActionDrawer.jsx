@@ -4,6 +4,7 @@ import { useState, useRef, useEffect,
 import { Box, Stack, Typography, IconButton } from '@mui/joy'
 import { Close } from '@mui/icons-material'
 import { log } from '../utils/logger'
+import { useDrag } from '@use-gesture/react'
 
 const ANIMATION = 300
 // Preset size configurations
@@ -131,7 +132,6 @@ export const ActionDrawer = forwardRef(({
   // Internal state for pages and visibility
   const [pages, setPages] = useState([])
   const [page, setPage] = useState(0)
-  const [shown, setShown] = useState(false)
 
   // Memoize pages normalization to prevent recreation on every render
   const list = useMemo(() => {
@@ -140,7 +140,7 @@ export const ActionDrawer = forwardRef(({
       : []
   }, [pages])
 
-  log.warn('ActionDrawer re-render', { title, pages: pages.length, shown })
+  log.warn('ActionDrawer re-render', { title, pages: pages.length })
   const drawRef = useRef(null)
   const sliderRef = useRef(null)
   const bottomIndicatorRef = useRef(null)
@@ -149,6 +149,19 @@ export const ActionDrawer = forwardRef(({
 
   const bottom = position === 'bottom'
   const sz = SIZES[size] || SIZES.half
+
+  const dY = useRef(null)
+  const transform = useCallback((dy) => {
+    const st =  `translateY(${dy === undefined || dy === null
+      ? bottom ? '100%' : '-100%'
+      : `${dy}px`})`
+
+    if (drawRef.current)
+      drawRef.current.style.transform = st
+    log.debug('style', st)
+    dY.current = dy
+    return st
+  }, [bottom])
 
   // Shared navigation logic
   const snap = useCallback((newPage) => {
@@ -165,13 +178,13 @@ export const ActionDrawer = forwardRef(({
 
   // Shared close logic
   const doClose = useCallback(() => {
-    setShown(false)
+    transform()
     closingRef.current = setTimeout(() => {
       setPages([])
       setPage(0)
       closingRef.current = null
     }, ANIMATION)
-  }, [])
+  }, [transform])
 
   // Imperative API
   useImperativeHandle(ref, () => ({
@@ -186,14 +199,14 @@ export const ActionDrawer = forwardRef(({
       setPage(0)
 
       // setShown(false)
-      setTimeout(() => setShown(true), 20)
+      setTimeout(() => transform(0), 20)
     },
     close: () => {
       log.debug('ActionDrawer.close')
       doClose()
     },
     snap
-  }), [doClose, snap])
+  }), [doClose, snap, transform])
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -203,17 +216,6 @@ export const ActionDrawer = forwardRef(({
       }
     }
   }, [])
-
-  // Return nothing if no pages (after hooks)
-  if (!pages || pages?.length === 0) {
-    return null
-  }
-
-  // Compute transform for vertical position
-  const transform = () => {
-    if (!shown) return `translateY(${bottom ? '100%' : '-100%'})`
-    return 'translateY(0px)'
-  }
 
   // Helper to prevent all pointer events from bubbling
   const stopAllEvents = () => {
@@ -230,6 +232,41 @@ export const ActionDrawer = forwardRef(({
         }
       })
     return res
+  }
+
+  const bind = useDrag(
+    ({ last, velocity: [, vy], direction: [, dy], offset: [, oy], cancel }) => {
+      const _oy = bottom ? oy : -oy
+      // if the user drags up passed a threshold, then we cancel
+      // the drag so that the sheet resets to its open position
+      log.debug('drag info', { dy, oy, vy })
+      if (_oy < -70) {
+        transform(0)
+        cancel()
+        return
+      }
+
+      const height = drawRef.current.parentElement?.clientHeight
+      log.debug('drawer height', height, drawRef.current?.offsetHeight)
+      // when the user releases the sheet, we check whether it passed
+      // the threshold for it to close, or if we reset it to its open positino
+      if (last) {
+        if (_oy > height * 0.5 || (vy > 0.5 && dy > 0)) {
+          doClose()
+        } else {
+          transform(0)
+        }
+      }
+      // when the user keeps dragging, we just move the sheet according to
+      // the cursor position
+      else transform(oy)
+    },
+    { filterTaps: true, bounds: { top: 0 }, rubberband: true }
+  )
+
+  // Return nothing if no pages (after hooks)
+  if (!pages || pages?.length === 0) {
+    return null
   }
 
   return (
@@ -249,6 +286,7 @@ export const ActionDrawer = forwardRef(({
       <Box
         ref={drawRef}
         {...stopAllEvents()}
+        {...bind()}
         sx={{
           bgcolor: 'background.body',
           pointerEvents: 'auto', // Drawer content should receive clicks
@@ -257,7 +295,7 @@ export const ActionDrawer = forwardRef(({
           maxWidth: '500px',
           height: sz.h,
           maxHeight: sz.mh,
-          transform: transform(),
+          transform: transform(dY.current),
           transition: `transform ${ANIMATION / 1000}s ease`,
           boxShadow: t => (
             t.palette.mode === 'dark'
@@ -271,7 +309,8 @@ export const ActionDrawer = forwardRef(({
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
-          overscrollBehavior: 'contain' // Prevent scroll chaining at root level
+          overscrollBehavior: 'contain', // Prevent scroll chaining at root level
+          touchAction: 'none'
         }}
       >
         {bottom && <Indicator ref={bottomIndicatorRef} pos='bottom' pages={list.length} page={page} onChange={snap} />}
