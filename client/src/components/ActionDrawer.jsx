@@ -1,10 +1,13 @@
-import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react'
+import { useState, useRef, useEffect,
+  useCallback, forwardRef, useImperativeHandle,
+  useMemo, memo, useLayoutEffect } from 'react'
 import { Box, Stack, Typography, IconButton } from '@mui/joy'
 import { Close } from '@mui/icons-material'
 import { log } from '../utils/logger'
 
-// Clamp a number to the inclusive range [a, b]
-const clamp = (n, a, b) => Math.max(a, Math.min(b, n))
+
+
+const ANIMATION = 3000
 
 // Helper to prevent all pointer events from bubbling
 const stopAllEvents = () => {
@@ -31,7 +34,7 @@ const SIZES = {
 }
 
 // Indicator: page indicator with imperative control
-const Indicator = forwardRef(({ pos = 'bottom', pages = 0, page = 0, onChange }, ref) => {
+const Indicator = memo(forwardRef(({ pos = 'bottom', pages = 0, page = 0, onChange }, ref) => {
   const [currentPage, setCurrentPage] = useState(page)
 
   log.info('Indicator re-render', { pos, pages, page, onChange })
@@ -71,12 +74,12 @@ const Indicator = forwardRef(({ pos = 'bottom', pages = 0, page = 0, onChange },
       </Stack>
     </Box>
   )
-})
+}))
 
 // ActionDrawer: lite version with unified gesture handling
 export const ActionDrawer = ({
   open,
-  onClose = () => {},
+  onClose = null,
   size = 'half',
   position = 'bottom',
   title,
@@ -84,15 +87,17 @@ export const ActionDrawer = ({
   initialPage = 0,
   onPageChange
 }) => {
-  // Normalize pages to objects (must do this before hooks)
-  const list = pages && Array.isArray(pages) ? pages.map(p => (p && typeof p === 'object' && 'content' in p) ? p : { content: p }) : []
+  // Memoize pages normalization to prevent recreation on every render
+  const list = useMemo(() => {
+    return pages && Array.isArray(pages)
+      ? pages.map(p => (p && typeof p === 'object' && 'content' in p) ? p : { content: p })
+      : []
+  }, [pages])
 
-  log.debug('ActionDrawer re-render', { open, onClose, size, position, title, pages, initialPage, onPageChange })
-
-  const [page, setPage] = useState(clamp(initialPage, 0, Math.max(0, list.length - 1)))
+  const [page, setPage] = useState(Math.max(0, Math.min(list.length - 1, initialPage)))
   const [render, setRender] = useState(open)
   const [shown, setShown] = useState(false)
-
+  log.warn('ActionDrawer re-render', { title, initialPage, pages, render, shown })
   const drawRef = useRef(null)
   const slideRef = useRef(null)
   const pageRef = useRef(page)
@@ -104,7 +109,7 @@ export const ActionDrawer = ({
 
   // Update page in parent when changed
   const handleIndicatorChange = useCallback((newPage) => {
-    const p = clamp(newPage, 0, list.length - 1)
+    const p = Math.max(0, Math.min(list.length - 1, newPage))
     pageRef.current = p
     setPage(p)
     onPageChange?.(p)
@@ -117,10 +122,11 @@ export const ActionDrawer = ({
   const handleClose = useCallback(() => {
     setShown(false)
     setTimeout(() => {
+      log.debug('set render false', title)
       setRender(false)
       onClose?.()
-    }, 300)
-  }, [onClose])
+    }, ANIMATION)
+  }, [onClose, title])
 
   // Snap to page with animation
   const snap = useCallback((idx = pageRef.current) => {
@@ -137,7 +143,8 @@ export const ActionDrawer = ({
       // External open: render true -> delay -> shown true (animate in)
       setRender(true)
       setShown(false)
-      setTimeout(() => setShown(true), 20)
+      setTimeout(() => {
+        setShown(true)}, 20)
     } else {
       // External close: shown false (animate out) -> delay -> render false
       handleClose()
@@ -147,19 +154,19 @@ export const ActionDrawer = ({
   // Snap to page when opened
   useEffect(() => {
     if (open && list.length > 0) {
-      setTimeout(() => snap(page), 100)
+      setTimeout(() => snap(), 100)
     }
-  }, [open, list.length, page, snap])
+  }, [open, list.length, snap])
 
   // Update internal page ref and indicators
-  useEffect(() => {
-    pageRef.current = page
-    bottomIndicatorRef.current?.setPage(page)
-    topIndicatorRef.current?.setPage(page)
-  }, [page])
+  // useEffect(() => {
+  //   pageRef.current = page
+  //   bottomIndicatorRef.current?.setPage(page)
+  //   topIndicatorRef.current?.setPage(page)
+  // }, [page])
 
   // Return nothing if no pages (after hooks)
-  if (!pages || !Array.isArray(pages) || pages.length === 0) {
+  if (!pages || pages?.length === 0) {
     return null
   }
 
@@ -198,7 +205,7 @@ export const ActionDrawer = ({
           height: sz.h,
           maxHeight: sz.mh,
           transform: transform(),
-          transition: 'transform 0.3s ease',
+          transition: `transform ${ANIMATION / 1000}s ease`,
           boxShadow: t => (
             t.palette.mode === 'dark'
               ? '0 0 0 1px rgba(255,255,255,0.2), 0 0 10px rgba(159,248,217,0.7), 0 0 20px rgba(59,246,93,0.15)'

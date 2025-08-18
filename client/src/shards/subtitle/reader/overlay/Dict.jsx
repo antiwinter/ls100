@@ -59,7 +59,7 @@ const DictMainPage = memo(function DictMainPage ({
 })
 
 // Dictionary component - simple props interface
-const Dict_ = ({ word, position = 'bottom', onClose }) => {
+const Dict_ = ({ word, position = 'bottom', visible, onClose }) => {
   const [pronunciation, setPronunciation] = useState('')
 
   // log.debug('Dict re-render', { word, position, onClose })
@@ -178,19 +178,17 @@ const Dict_ = ({ word, position = 'bottom', onClose }) => {
     )
   }]), [word, handleMeta, handlePlayAudio, pronunciation, supportsTTS])
 
-  log.info('Dict re-render', { word, position, onClose })
+  log.info('Dict re-render', { visible: !!visible, word, position, pages })
   return (
     <ActionDrawer
-      open={!!word}
+      open={!!visible}
       onClose={onClose}
       position={position}
       size="half"
       pages={pages}
+      title='dict'
     />
   )
 }
 
-const propsEqual = (a, b) => (
-  a.word === b.word && a.visible === b.visible && a.position === b.position
-)
-export const Dict = memo(Dict_, propsEqual)
+export const Dict = memo(Dict_)

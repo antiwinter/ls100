@@ -104,6 +104,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   }, [])
 
   const handleEmptyClick = useCallback(() => {
+    log.debug('handleEmptyClick')
     // If any overlay is open, close them all; otherwise show toolbar
     overlayRef.current?.toggleToolbar()
   }, [])
@@ -175,6 +176,8 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
 
   // Handle word events with store handlers
   const handleWordEvent = useCallback((word, type, pos) => {
+    log.info('SubtitleReader:handleWordEvent received', { word, type, pos })
+    log.debug('handleWordEvent', { word, type, pos })
     if (type === 'long') {
       toggleWord(word) // From session store
     } else {

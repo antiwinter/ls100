@@ -3,7 +3,7 @@ import { Box } from '@mui/joy'
 import { Toolbar } from './Toolbar.jsx'
 import { Dict } from './Dict.jsx'
 import { FontDrawer } from './FontDrawer.jsx'
-// import { log } from '../../../../utils/logger'
+import { log } from '../../../../utils/logger'
 
 export const OverlayManager = forwardRef(({ onBack, sessionStore }, ref) => {
   // UI State
@@ -21,11 +21,12 @@ export const OverlayManager = forwardRef(({ onBack, sessionStore }, ref) => {
   useImperativeHandle(ref, () => ({
     toggleToolbar: () => {
       setXState(x => (x.tool || x.toolbar
-        ? { ...x, toolbar: false, tool: null, word:'' }
+        ? { ...x, toolbar: false, tool: null }
         : { ...x, toolbar: true }))
     },
 
     openDict: (word, position) => {
+      log.info('OverlayManager:openDict received', { word, position })
       if (!word || typeof word !== 'string') return
       setXState(x => (x.tool === 'dict'
         ? { ...x, toolbar: false, word } // don't change position
@@ -34,6 +35,7 @@ export const OverlayManager = forwardRef(({ onBack, sessionStore }, ref) => {
 
     // close tool
     closeTool: (clean = false) => {
+      log.info('OverlayManager:closeTool called', { clean })
       setXState(x => ({ ...x, tool: x.tool === 'dict' ? 'dict' : null, toolbar: clean ? false : x.toolbar }))
     }
   }))
@@ -54,10 +56,10 @@ export const OverlayManager = forwardRef(({ onBack, sessionStore }, ref) => {
         visible={xState.tool == 'dict'}
       />
 
-      <FontDrawer
+      {/* <FontDrawer
         open={xState.tool === 'font'}
         sessionStore={sessionStore}
-      />
+      /> */}
     </Box>
   )
 })
