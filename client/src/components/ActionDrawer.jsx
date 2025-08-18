@@ -5,6 +5,7 @@ import { Box, Stack, Typography, IconButton } from '@mui/joy'
 import { Close } from '@mui/icons-material'
 import { log } from '../utils/logger'
 import { useDrag } from '@use-gesture/react'
+import { useSpring } from '@react-spring/web'
 
 const ANIMATION = 300
 // Preset size configurations
@@ -14,11 +15,28 @@ const SIZES = {
   'fit-content': { h: 'auto', mh: '99vh' }
 }
 
+// Helper to prevent all pointer events from bubbling
+const stopAllEvents = () => {
+  const res = {}
+  ;['onPointerDown', 'onPointerMove',
+    'onPointerUp', 'onTouchStart',
+    'onTouchMove', 'onTouchEnd',
+    'onMouseDown', 'onMouseMove',
+    'onMouseUp', 'onClick', 'onWheel']
+    .forEach(k => {
+      res[k] = (e) => {
+        // log.info('stopped Events', k, e)
+        e.stopPropagation()
+      }
+    })
+  return res
+}
+
 // Indicator: page indicator with imperative control
 const Indicator = memo(forwardRef(({ pos = 'bottom', pages = 0, page = 0, onChange }, ref) => {
   const [currentPage, setCurrentPage] = useState(page)
 
-  log.info('Indicator re-render', { pos, pages, page, onChange })
+  log.debug('Indicator re-render', { pos, pages, page, onChange })
   // Expose imperative methods
   useImperativeHandle(ref, () => ({
     setPage: (newPage) => {
@@ -103,6 +121,7 @@ const Slider = forwardRef(({ pages = [] }, ref) => {
               overflowX: 'hidden',
               overscrollBehavior: 'contain', // Prevent scroll chaining
               WebkitOverflowScrolling: 'touch' // Smooth scrolling on iOS
+              // touchAction: 'contain'
             }}
           >
             <Box sx={{ p: 2, minHeight: '100%' }}>
@@ -146,6 +165,7 @@ export const ActionDrawer = forwardRef(({
   const bottomIndicatorRef = useRef(null)
   const topIndicatorRef = useRef(null)
   const closingRef = useRef(null)
+  const keepScroll = useRef(0)
 
   const bottom = position === 'bottom'
   const sz = SIZES[size] || SIZES.half
@@ -217,41 +237,41 @@ export const ActionDrawer = forwardRef(({
     }
   }, [])
 
-  // Helper to prevent all pointer events from bubbling
-  const stopAllEvents = () => {
-    const res = {}
-  ;['onPointerDown', 'onPointerMove',
-      'onPointerUp', 'onTouchStart',
-      'onTouchMove', 'onTouchEnd',
-      'onMouseDown', 'onMouseMove',
-      'onMouseUp', 'onClick', 'onWheel']
-      .forEach(k => {
-        res[k] = (e) => {
-          // log.info('stopped Events', k, e)
-          e.stopPropagation()
-        }
-      })
-    return res
-  }
-
+  // const height = 300
+  // const [{ y }, api] = useSpring(() => ({ y: height }))
   const bind = useDrag(
-    ({ last, velocity: [, vy], direction: [, dy], offset: [, oy], cancel }) => {
+    ({ last, velocity: [, vy], direction: [, dy], offset: [, oy], event, cancel }) => {
       const _oy = bottom ? oy : -oy
       // if the user drags up passed a threshold, then we cancel
       // the drag so that the sheet resets to its open position
-      log.debug('drag info', { dy, oy, vy })
-      if (_oy < -70) {
-        transform(0)
-        cancel()
+      log.warn('drag info', { dy, oy, vy })
+
+      const scrollContainer = event.target.closest('[data-scrollable]')
+      log.debug('container', scrollContainer )
+      if (scrollContainer) {
+        const { scrollTop } = scrollContainer
+        log.debug('skip scroll', scrollTop)
+        if (scrollTop > 0) {
+          return
+        }
+      }
+
+      if (bottom ^ (dy > 0)) {
+        log.debug('skip drag')
         return
       }
+      // if (_oy < -70) {
+      //   transform(0)
+      //   cancel()
+      //   return
+      // }
 
       const height = drawRef.current.parentElement?.clientHeight
       log.debug('drawer height', height, drawRef.current?.offsetHeight)
       // when the user releases the sheet, we check whether it passed
       // the threshold for it to close, or if we reset it to its open positino
       if (last) {
-        if (_oy > height * 0.5 || (vy > 0.5 && dy > 0)) {
+        if (_oy > height * 0.5 || vy > 0.5) {
           doClose()
         } else {
           transform(0)
@@ -261,7 +281,11 @@ export const ActionDrawer = forwardRef(({
       // the cursor position
       else transform(oy)
     },
-    { filterTaps: true, bounds: { top: 0 }, rubberband: true }
+    { from: () => [0, 0],
+      filterTaps: true,
+      // bounds: { top: 0 },
+      rubberband: true
+    }
   )
 
   // Return nothing if no pages (after hooks)
@@ -272,9 +296,9 @@ export const ActionDrawer = forwardRef(({
   return (
     <Box
       sx={{
-        position: 'fixed',
-        left: 0,
-        right: 0,
+        position: 'absolute',
+        // left: 0,
+        // right: 0,
         [bottom ? 'bottom' : 'top']: 0,
         display: 'flex',
         justifyContent: 'center',
