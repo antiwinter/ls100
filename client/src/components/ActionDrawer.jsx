@@ -6,24 +6,6 @@ import { Close } from '@mui/icons-material'
 import { log } from '../utils/logger'
 
 const ANIMATION = 300
-
-// Helper to prevent all pointer events from bubbling
-const stopAllEvents = () => {
-  const res = {}
-  ;['onPointerDown', 'onPointerMove',
-    'onPointerUp', 'onTouchStart',
-    'onTouchMove', 'onTouchEnd',
-    'onMouseDown', 'onMouseMove',
-    'onMouseUp', 'onClick', 'onWheel']
-    .forEach(k => {
-      res[k] = (e) => {
-        // log.info('stopped Events', k, e)
-        e.stopPropagation()
-      }
-    })
-  return res
-}
-
 // Preset size configurations
 const SIZES = {
   full: { h: '99vh', mh: '99vh' },
@@ -51,7 +33,7 @@ const Indicator = memo(forwardRef(({ pos = 'bottom', pages = 0, page = 0, onChan
         alignItems: 'center',
         gap: 0.75,
         pb: pos === 'bottom' ? 0 : 1.5,
-        pt: pos === 'top' ? 0 : 1.5
+        pt: pos === 'top' ? 1 : 1.5
       }}
     >
       <Stack direction='row' spacing={0.75} alignItems='center'>
@@ -169,7 +151,7 @@ export const ActionDrawer = forwardRef(({
   const sz = SIZES[size] || SIZES.half
 
   // Shared navigation logic
-  const handleIndicatorChange = useCallback((newPage) => {
+  const snap = useCallback((newPage) => {
     log.debug('ActionDrawer.nav', { page: newPage })
 
     const p = Math.max(0, Math.min(list.length - 1, newPage))
@@ -210,8 +192,8 @@ export const ActionDrawer = forwardRef(({
       log.debug('ActionDrawer.close')
       doClose()
     },
-    snap: handleIndicatorChange
-  }), [doClose, handleIndicatorChange])
+    snap
+  }), [doClose, snap])
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -231,6 +213,23 @@ export const ActionDrawer = forwardRef(({
   const transform = () => {
     if (!shown) return `translateY(${bottom ? '100%' : '-100%'})`
     return 'translateY(0px)'
+  }
+
+  // Helper to prevent all pointer events from bubbling
+  const stopAllEvents = () => {
+    const res = {}
+  ;['onPointerDown', 'onPointerMove',
+      'onPointerUp', 'onTouchStart',
+      'onTouchMove', 'onTouchEnd',
+      'onMouseDown', 'onMouseMove',
+      'onMouseUp', 'onClick', 'onWheel']
+      .forEach(k => {
+        res[k] = (e) => {
+          // log.info('stopped Events', k, e)
+          e.stopPropagation()
+        }
+      })
+    return res
   }
 
   return (
@@ -275,7 +274,7 @@ export const ActionDrawer = forwardRef(({
           overscrollBehavior: 'contain' // Prevent scroll chaining at root level
         }}
       >
-        {bottom && <Indicator ref={bottomIndicatorRef} pos='bottom' pages={list.length} page={page} onChange={handleIndicatorChange} />}
+        {bottom && <Indicator ref={bottomIndicatorRef} pos='bottom' pages={list.length} page={page} onChange={snap} />}
 
         {title && (
           <Stack
@@ -293,7 +292,7 @@ export const ActionDrawer = forwardRef(({
 
         <Slider ref={sliderRef} pages={list} />
 
-        {!bottom && <Indicator ref={topIndicatorRef} pos='top' pages={list.length} page={page} onChange={handleIndicatorChange} />}
+        {!bottom && <Indicator ref={topIndicatorRef} pos='top' pages={list.length} page={page} onChange={snap} />}
       </Box>
     </Box>
   )
