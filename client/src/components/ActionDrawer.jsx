@@ -1,13 +1,11 @@
 import { useState, useRef, useEffect,
   useCallback, forwardRef, useImperativeHandle,
-  useMemo, memo, useLayoutEffect } from 'react'
+  useMemo, memo } from 'react'
 import { Box, Stack, Typography, IconButton } from '@mui/joy'
 import { Close } from '@mui/icons-material'
 import { log } from '../utils/logger'
 
-
-
-const ANIMATION = 3000
+const ANIMATION = 300
 
 // Helper to prevent all pointer events from bubbling
 const stopAllEvents = () => {
@@ -76,17 +74,18 @@ const Indicator = memo(forwardRef(({ pos = 'bottom', pages = 0, page = 0, onChan
   )
 }))
 
-// ActionDrawer: lite version with unified gesture handling
-export const ActionDrawer = ({
-  open,
-  onClose = null,
+// ActionDrawer: lite version with unified gesture handling and imperative API
+export const ActionDrawer = forwardRef(({
   size = 'half',
   position = 'bottom',
   title,
-  pages = [],
-  initialPage = 0,
   onPageChange
-}) => {
+}, ref) => {
+  // Internal state for pages and visibility
+  const [pages, setPages] = useState([])
+  const [page, setPage] = useState(0)
+  const [shown, setShown] = useState(false)
+
   // Memoize pages normalization to prevent recreation on every render
   const list = useMemo(() => {
     return pages && Array.isArray(pages)
@@ -94,39 +93,16 @@ export const ActionDrawer = ({
       : []
   }, [pages])
 
-  const [page, setPage] = useState(Math.max(0, Math.min(list.length - 1, initialPage)))
-  const [render, setRender] = useState(open)
-  const [shown, setShown] = useState(false)
-  log.warn('ActionDrawer re-render', { title, initialPage, pages, render, shown })
+  log.warn('ActionDrawer re-render', { title, pages: pages.length, shown })
   const drawRef = useRef(null)
   const slideRef = useRef(null)
   const pageRef = useRef(page)
   const bottomIndicatorRef = useRef(null)
   const topIndicatorRef = useRef(null)
+  const closeTimeoutRef = useRef(null)
 
   const bottom = position === 'bottom'
   const sz = SIZES[size] || SIZES.half
-
-  // Update page in parent when changed
-  const handleIndicatorChange = useCallback((newPage) => {
-    const p = Math.max(0, Math.min(list.length - 1, newPage))
-    pageRef.current = p
-    setPage(p)
-    onPageChange?.(p)
-    // Update indicators
-    bottomIndicatorRef.current?.setPage(p)
-    topIndicatorRef.current?.setPage(p)
-  }, [list.length, onPageChange])
-
-  // Internal close handler
-  const handleClose = useCallback(() => {
-    setShown(false)
-    setTimeout(() => {
-      log.debug('set render false', title)
-      setRender(false)
-      onClose?.()
-    }, ANIMATION)
-  }, [onClose, title])
 
   // Snap to page with animation
   const snap = useCallback((idx = pageRef.current) => {
@@ -137,41 +113,82 @@ export const ActionDrawer = ({
     }
   }, [])
 
-  // Handle external open/close
-  useEffect(() => {
-    if (open) {
-      // External open: render true -> delay -> shown true (animate in)
-      setRender(true)
-      setShown(false)
-      setTimeout(() => {
-        setShown(true)}, 20)
-    } else {
-      // External close: shown false (animate out) -> delay -> render false
-      handleClose()
-    }
-  }, [open, handleClose])
+  // Update page in parent when changed
+  const handleIndicatorChange = useCallback((newPage) => {
+    const p = Math.max(0, Math.min(list.length - 1, newPage))
+    pageRef.current = p
+    setPage(p)
+    onPageChange?.(p)
+    // Update indicators
+    bottomIndicatorRef.current?.setPage(p)
+    topIndicatorRef.current?.setPage(p)
+    setTimeout(() => snap(p), 50)
+  }, [list.length, onPageChange, snap])
 
-  // Snap to page when opened
+  // Shared close logic
+  const doClose = useCallback(() => {
+    setShown(false)
+    closeTimeoutRef.current = setTimeout(() => {
+      setPages([])
+      setPage(0)
+      pageRef.current = 0
+      closeTimeoutRef.current = null
+    }, ANIMATION)
+  }, [])
+
+  // Imperative API
+  useImperativeHandle(ref, () => ({
+    open: (newPages) => {
+      log.debug('ActionDrawer.open', { pages: newPages?.length })
+      // Cancel any ongoing close timeout
+      if (closeTimeoutRef.current) {
+        clearTimeout(closeTimeoutRef.current)
+        closeTimeoutRef.current = null
+      }
+      setPages(newPages || [])
+      setPage(0)
+      pageRef.current = 0
+
+      // setShown(false)
+      setTimeout(() => setShown(true), 20)
+    },
+    close: () => {
+      log.debug('ActionDrawer.close')
+      doClose()
+    },
+    nav: (newPage) => {
+      log.debug('ActionDrawer.nav', { page: newPage })
+      const p = Math.max(0, Math.min(list.length - 1, newPage))
+      pageRef.current = p
+      setPage(p)
+      onPageChange?.(p)
+      bottomIndicatorRef.current?.setPage(p)
+      topIndicatorRef.current?.setPage(p)
+      setTimeout(() => snap(p), 50)
+    }
+  }), [list.length, onPageChange, snap, doClose])
+
+
+  // Snap to page when pages change
   useEffect(() => {
-    if (open && list.length > 0) {
+    if (list.length > 0 && shown) {
       setTimeout(() => snap(), 100)
     }
-  }, [open, list.length, snap])
+  }, [list.length, shown, snap])
 
-  // Update internal page ref and indicators
-  // useEffect(() => {
-  //   pageRef.current = page
-  //   bottomIndicatorRef.current?.setPage(page)
-  //   topIndicatorRef.current?.setPage(page)
-  // }, [page])
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current) {
+        clearTimeout(closeTimeoutRef.current)
+      }
+    }
+  }, [])
 
   // Return nothing if no pages (after hooks)
   if (!pages || pages?.length === 0) {
     return null
   }
-
-  // Only render based on render state (single source of truth)
-  if (!render) return null
 
   // Compute transform for vertical position
   const transform = () => {
@@ -231,7 +248,7 @@ export const ActionDrawer = ({
             sx={{ px: 2, py: 1, borderBottom: bottom ? 1 : 0, borderTop: bottom ? 0 : 1, borderColor: 'divider' }}
           >
             <Typography level='h4'>{title}</Typography>
-            <IconButton size='sm' variant='plain' onClick={handleClose} sx={{ color: 'neutral.500' }}>
+            <IconButton size='sm' variant='plain' onClick={doClose} sx={{ color: 'neutral.500' }}>
               <Close />
             </IconButton>
           </Stack>
@@ -285,4 +302,6 @@ export const ActionDrawer = ({
       </Box>
     </Box>
   )
-}
+})
+
+ActionDrawer.displayName = 'ActionDrawer'

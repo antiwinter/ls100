@@ -61,6 +61,7 @@ const DictMainPage = memo(function DictMainPage ({
 // Dictionary component - simple props interface
 const Dict_ = ({ word, position = 'bottom', visible, onClose }) => {
   const [pronunciation, setPronunciation] = useState('')
+  const drawerRef = useRef(null)
 
   // log.debug('Dict re-render', { word, position, onClose })
 
@@ -178,15 +179,24 @@ const Dict_ = ({ word, position = 'bottom', visible, onClose }) => {
     )
   }]), [word, handleMeta, handlePlayAudio, pronunciation, supportsTTS])
 
-  log.info('Dict re-render', { visible: !!visible, word, position, pages })
+  // Handle drawer visibility with imperative API
+  useEffect(() => {
+    if (visible && word && pages.length > 0) {
+      log.debug('📖 Opening dict drawer', { word })
+      drawerRef.current?.open(pages)
+    } else if (!visible) {
+      log.debug('📖 Closing dict drawer')
+      drawerRef.current?.close()
+    }
+  }, [visible, word, pages])
+
+  log.info('Dict re-render', { visible: !!visible, word, position, pages: pages.length })
   return (
     <ActionDrawer
-      open={!!visible}
+      ref={drawerRef}
       onClose={onClose}
       position={position}
       size="half"
-      pages={pages}
-      title='dict'
     />
   )
 }
