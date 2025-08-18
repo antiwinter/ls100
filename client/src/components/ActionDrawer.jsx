@@ -74,6 +74,71 @@ const Indicator = memo(forwardRef(({ pos = 'bottom', pages = 0, page = 0, onChan
   )
 }))
 
+// Slider: horizontal page slider with imperative snapping API
+const Slider = forwardRef(({ pages = [] }, ref) => {
+  const slideRef = useRef(null)
+
+  // Expose imperative snapping API
+  useImperativeHandle(ref, () => ({
+    snap: (idx) => {
+      log.debug('snapping to', idx)
+      if (slideRef.current) {
+        const w = slideRef.current.parentElement?.clientWidth || 1
+        slideRef.current.style.transition = 'transform 0.25s ease'
+        slideRef.current.style.transform = `translateX(${-idx * w}px)`
+      }
+    }
+  }))
+
+  return (
+    <Box
+      sx={{
+        flex: 1,
+        overflow: 'hidden',
+        position: 'relative'
+      }}
+    >
+      <Box
+        ref={slideRef}
+        sx={{
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'row',
+          width: '100%',
+          willChange: 'transform',
+          minWidth: '100%',
+          overscrollBehavior: 'contain' // Prevent any scroll chaining
+        }}
+      >
+        {pages.map((p, i) => (
+          <Box
+            key={p.key ?? i}
+            sx={{
+              flex: '0 0 100%',
+              height: '100%',
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              overscrollBehavior: 'contain', // Prevent scroll chaining
+              WebkitOverflowScrolling: 'touch' // Smooth scrolling on iOS
+            }}
+          >
+            <Box sx={{ p: 2, minHeight: '100%' }}>
+              {p.title && (
+                <Typography level='title-sm' sx={{ mb: 1, color: 'neutral.500' }}>
+                  {p.title}
+                </Typography>
+              )}
+              {p.content ?? p}
+            </Box>
+          </Box>
+        ))}
+      </Box>
+    </Box>
+  )
+})
+
+Slider.displayName = 'Slider'
+
 // ActionDrawer: lite version with unified gesture handling and imperative API
 export const ActionDrawer = forwardRef(({
   size = 'half',
@@ -95,44 +160,34 @@ export const ActionDrawer = forwardRef(({
 
   log.warn('ActionDrawer re-render', { title, pages: pages.length, shown })
   const drawRef = useRef(null)
-  const slideRef = useRef(null)
-  const pageRef = useRef(page)
+  const sliderRef = useRef(null)
   const bottomIndicatorRef = useRef(null)
   const topIndicatorRef = useRef(null)
-  const closeTimeoutRef = useRef(null)
+  const closingRef = useRef(null)
 
   const bottom = position === 'bottom'
   const sz = SIZES[size] || SIZES.half
 
-  // Snap to page with animation
-  const snap = useCallback((idx = pageRef.current) => {
-    if (slideRef.current) {
-      const w = slideRef.current.parentElement?.clientWidth || 1
-      slideRef.current.style.transition = 'transform 0.25s ease'
-      slideRef.current.style.transform = `translateX(${-idx * w}px)`
-    }
-  }, [])
-
-  // Update page in parent when changed
+  // Shared navigation logic
   const handleIndicatorChange = useCallback((newPage) => {
+    log.debug('ActionDrawer.nav', { page: newPage })
+
     const p = Math.max(0, Math.min(list.length - 1, newPage))
-    pageRef.current = p
     setPage(p)
     onPageChange?.(p)
     // Update indicators
     bottomIndicatorRef.current?.setPage(p)
     topIndicatorRef.current?.setPage(p)
-    setTimeout(() => snap(p), 50)
-  }, [list.length, onPageChange, snap])
+    sliderRef.current?.snap(p)
+  }, [list.length, onPageChange])
 
   // Shared close logic
   const doClose = useCallback(() => {
     setShown(false)
-    closeTimeoutRef.current = setTimeout(() => {
+    closingRef.current = setTimeout(() => {
       setPages([])
       setPage(0)
-      pageRef.current = 0
-      closeTimeoutRef.current = null
+      closingRef.current = null
     }, ANIMATION)
   }, [])
 
@@ -141,13 +196,12 @@ export const ActionDrawer = forwardRef(({
     open: (newPages) => {
       log.debug('ActionDrawer.open', { pages: newPages?.length })
       // Cancel any ongoing close timeout
-      if (closeTimeoutRef.current) {
-        clearTimeout(closeTimeoutRef.current)
-        closeTimeoutRef.current = null
+      if (closingRef.current) {
+        clearTimeout(closingRef.current)
+        closingRef.current = null
       }
       setPages(newPages || [])
       setPage(0)
-      pageRef.current = 0
 
       // setShown(false)
       setTimeout(() => setShown(true), 20)
@@ -156,31 +210,14 @@ export const ActionDrawer = forwardRef(({
       log.debug('ActionDrawer.close')
       doClose()
     },
-    nav: (newPage) => {
-      log.debug('ActionDrawer.nav', { page: newPage })
-      const p = Math.max(0, Math.min(list.length - 1, newPage))
-      pageRef.current = p
-      setPage(p)
-      onPageChange?.(p)
-      bottomIndicatorRef.current?.setPage(p)
-      topIndicatorRef.current?.setPage(p)
-      setTimeout(() => snap(p), 50)
-    }
-  }), [list.length, onPageChange, snap, doClose])
-
-
-  // Snap to page when pages change
-  useEffect(() => {
-    if (list.length > 0 && shown) {
-      setTimeout(() => snap(), 100)
-    }
-  }, [list.length, shown, snap])
+    snap: handleIndicatorChange
+  }), [doClose, handleIndicatorChange])
 
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
-      if (closeTimeoutRef.current) {
-        clearTimeout(closeTimeoutRef.current)
+      if (closingRef.current) {
+        clearTimeout(closingRef.current)
       }
     }
   }, [])
@@ -254,49 +291,7 @@ export const ActionDrawer = forwardRef(({
           </Stack>
         )}
 
-        <Box
-          sx={{
-            flex: 1,
-            overflow: 'hidden',
-            position: 'relative'
-          }}
-        >
-          <Box
-            ref={slideRef}
-            sx={{
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'row',
-              width: '100%',
-              willChange: 'transform',
-              minWidth: '100%',
-              overscrollBehavior: 'contain' // Prevent any scroll chaining
-            }}
-          >
-            {list.map((p, i) => (
-              <Box
-                key={p.key ?? i}
-                sx={{
-                  flex: '0 0 100%',
-                  height: '100%',
-                  overflowY: 'auto',
-                  overflowX: 'hidden',
-                  overscrollBehavior: 'contain', // Prevent scroll chaining
-                  WebkitOverflowScrolling: 'touch' // Smooth scrolling on iOS
-                }}
-              >
-                <Box sx={{ p: 2, minHeight: '100%' }}>
-                  {p.title && (
-                    <Typography level='title-sm' sx={{ mb: 1, color: 'neutral.500' }}>
-                      {p.title}
-                    </Typography>
-                  )}
-                  {p.content ?? p}
-                </Box>
-              </Box>
-            ))}
-          </Box>
-        </Box>
+        <Slider ref={sliderRef} pages={list} />
 
         {!bottom && <Indicator ref={topIndicatorRef} pos='top' pages={list.length} page={page} onChange={handleIndicatorChange} />}
       </Box>
