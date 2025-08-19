@@ -17,7 +17,6 @@ export const ExportDrawer = ({
   currentLine = 0,
   lines = []
 }) => {
-  const [isExporting, setIsExporting] = useState(false)
   const [showBookmarkModal, setShowBookmarkModal] = useState(false)
   const [bookmarkNote, setBookmarkNote] = useState('')
 
@@ -66,8 +65,6 @@ export const ExportDrawer = ({
       return
     }
 
-    setIsExporting(true)
-
     try {
       log.debug(`Exporting ${selectedWords.length} words to Eudic`)
 
@@ -88,8 +85,6 @@ export const ExportDrawer = ({
       onClose()
     } catch (error) {
       log.error('Failed to export to Eudic:', error)
-    } finally {
-      setIsExporting(false)
     }
   }
 

@@ -63,7 +63,7 @@ const WordTile = ({ word, editMode, onWordDelete, isHighlighted }) => {
       >
         {word}
       </Typography>
-      
+
       {editMode && (
         <IconButton
           size="sm"
@@ -124,14 +124,14 @@ export const WordListDrawer = ({
   const [searchTerm, setSearchTerm] = useState('')
   const [editMode, setEditMode] = useState(false)
   const gridRef = useRef(null)
-  
+
   // Convert Set to Array and filter
   const wordsArray = useMemo(() => Array.from(selectedWords).sort(), [selectedWords])
-  
+
   const filteredWords = useMemo(() => {
     if (!searchTerm.trim()) return wordsArray
     const term = searchTerm.toLowerCase()
-    return wordsArray.filter(word => 
+    return wordsArray.filter(word =>
       word.toLowerCase().includes(term)
     )
   }, [wordsArray, searchTerm])
@@ -139,10 +139,10 @@ export const WordListDrawer = ({
   // Scroll to first matching word when search changes
   const scrollToMatch = useCallback(() => {
     if (!searchTerm.trim() || !gridRef.current) return
-    
+
     const firstMatch = filteredWords[0]
     if (!firstMatch) return
-    
+
     // Find the tile element and scroll to it
     const tileElement = gridRef.current.querySelector(`[data-word="${firstMatch}"]`)
     if (tileElement) {
