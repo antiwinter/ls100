@@ -197,7 +197,7 @@ export const ActionDrawer = forwardRef(({
 
     if (drawRef.current) {
       drawRef.current.style.transform = st
-      drawRef.current.style.transition = typeof dy === 'number' ? 'none' : 'transform 0.28s ease'
+      drawRef.current.style.transition = 'transform 0.28s ease'
     }
     // log.debug('style', st)
     dY.current = dy
@@ -255,12 +255,13 @@ export const ActionDrawer = forwardRef(({
 
   // Cleanup timeout on unmount
   useEffect(() => {
+    transform()
     return () => {
       if (closingRef.current) {
         clearTimeout(closingRef.current)
       }
     }
-  }, [])
+  }, [transform])
 
   // const height = 300
   // const [{ y }, api] = useSpring(() => ({ y: height }))
@@ -275,7 +276,7 @@ export const ActionDrawer = forwardRef(({
         if (t1 - debounce.current < 20) return
         debounce.current = t1
       }
-      // log.warn('drag info', { last, dy, oy, vy,dx, ox, vx } )
+      // log.warn('drag info', { last, dy, oy, vy, _dx, ox, _vx } )
       // log.debug('target', event.target, c)
 
       // slide
@@ -307,7 +308,7 @@ export const ActionDrawer = forwardRef(({
       // when the user keeps dragging, we just move the sheet according to
       // the cursor position
       else {
-        if (!(dy ^ bottom))
+        if ((dy < 1) ^ bottom)
           transform(oy)
       }
     },
@@ -349,6 +350,8 @@ export const ActionDrawer = forwardRef(({
           maxWidth: '500px',
           height: sz.h,
           maxHeight: sz.mh,
+          transition: 'transform 0.28s ease',
+          transform: transform(),
           boxShadow: t => (
             t.palette.mode === 'dark'
               ? '0 0 0 1px rgba(255,255,255,0.2), 0 0 10px rgba(159,248,217,0.7), 0 0 20px rgba(59,246,93,0.15)'
