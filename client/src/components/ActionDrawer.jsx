@@ -5,7 +5,7 @@ import { Box, Stack, Typography, IconButton } from '@mui/joy'
 import { Close } from '@mui/icons-material'
 import { log } from '../utils/logger'
 import { useDrag } from '@use-gesture/react'
-import { useSpring } from '@react-spring/web'
+// import { useSpring } from '@react-spring/web'
 
 const ANIMATION = 300
 // Preset size configurations
@@ -65,7 +65,7 @@ const Indicator = memo(forwardRef(({ pos = 'bottom', pages = 0, page = 0, onChan
               width: i === currentPage ? '20px' : '6px',
               borderRadius: '999px',
               bgcolor: i === currentPage ? 'neutral.400' : 'neutral.300',
-              transition: 'all 0.2s ease',
+              transition: 'all 0.25s ease',
               cursor: onChange ? 'pointer' : 'default'
             }}
           />
@@ -78,16 +78,27 @@ const Indicator = memo(forwardRef(({ pos = 'bottom', pages = 0, page = 0, onChan
 // Slider: horizontal page slider with imperative snapping API
 const Slider = forwardRef(({ pages = [] }, ref) => {
   const slideRef = useRef(null)
+  const pageRef = useRef(0)
+
+  const _trans = useCallback((dx, animate = false) => {
+    const w = slideRef.current.parentElement?.clientWidth || 0
+    const st =  `translateX(${-pageRef.current * w + (dx || 0)}px)`
+
+    if (slideRef.current) {
+      slideRef.current.style.transition = animate ? 'transform 0.25s ease' : 'none'
+      slideRef.current.style.transform = st
+    }
+    log.debug('move slider', st)
+    return st
+  }, [])
 
   // Expose imperative snapping API
   useImperativeHandle(ref, () => ({
+    trans: _trans,
     snap: (idx) => {
       log.debug('snapping to', idx)
-      if (slideRef.current) {
-        const w = slideRef.current.parentElement?.clientWidth || 1
-        slideRef.current.style.transition = 'transform 0.25s ease'
-        slideRef.current.style.transform = `translateX(${-idx * w}px)`
-      }
+      pageRef.current = idx
+      _trans()
     }
   }))
 
@@ -114,14 +125,15 @@ const Slider = forwardRef(({ pages = [] }, ref) => {
         {pages.map((p, i) => (
           <Box
             key={p.key ?? i}
+            data-scrollable
             sx={{
               flex: '0 0 100%',
               height: '100%',
               overflowY: 'auto',
               overflowX: 'hidden',
               overscrollBehavior: 'contain', // Prevent scroll chaining
-              WebkitOverflowScrolling: 'touch' // Smooth scrolling on iOS
-              // touchAction: 'contain'
+              WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS
+              touchAction: 'pan-y'
             }}
           >
             <Box sx={{ p: 2, minHeight: '100%' }}>
@@ -165,7 +177,6 @@ export const ActionDrawer = forwardRef(({
   const bottomIndicatorRef = useRef(null)
   const topIndicatorRef = useRef(null)
   const closingRef = useRef(null)
-  const keepScroll = useRef(0)
 
   const bottom = position === 'bottom'
   const sz = SIZES[size] || SIZES.half
@@ -176,8 +187,10 @@ export const ActionDrawer = forwardRef(({
       ? bottom ? '100%' : '-100%'
       : `${dy}px`})`
 
-    if (drawRef.current)
+    if (drawRef.current) {
       drawRef.current.style.transform = st
+      drawRef.current.style.transition = typeof dy === 'number' ? 'none' : 'transform 0.28s ease'
+    }
     log.debug('style', st)
     dY.current = dy
     return st
@@ -185,9 +198,9 @@ export const ActionDrawer = forwardRef(({
 
   // Shared navigation logic
   const snap = useCallback((newPage) => {
-    log.debug('ActionDrawer.nav', { page: newPage })
 
     const p = Math.max(0, Math.min(list.length - 1, newPage))
+    log.debug('ActionDrawer.nav', { p })
     setPage(p)
     onPageChange?.(p)
     // Update indicators
@@ -239,52 +252,56 @@ export const ActionDrawer = forwardRef(({
 
   // const height = 300
   // const [{ y }, api] = useSpring(() => ({ y: height }))
+  const debounce = useRef(0)
   const bind = useDrag(
-    ({ last, velocity: [, vy], direction: [, dy], offset: [, oy], event, cancel }) => {
-      const _oy = bottom ? oy : -oy
-      // if the user drags up passed a threshold, then we cancel
-      // the drag so that the sheet resets to its open position
-      log.warn('drag info', { dy, oy, vy })
+    ({ last, velocity: [vx, vy], direction: [dx, dy], offset: [ox, oy], event, cancel }) => {
+      const c = event.target.closest('[data-scrollable]')
 
-      const scrollContainer = event.target.closest('[data-scrollable]')
-      log.debug('container', scrollContainer )
-      if (scrollContainer) {
-        const { scrollTop } = scrollContainer
-        log.debug('skip scroll', scrollTop)
-        if (scrollTop > 0) {
-          return
-        }
+      if (last) {
+        let t1 = Date.now()
+        log.debug(t1, debounce.current)
+        if (t1 - debounce.current < 20) return
+        debounce.current = t1
       }
+      log.warn('drag info', { last, dy, oy, vy,dx, ox, vx } )
+      log.debug('target', event.target, c)
 
-      if (bottom ^ (dy > 0)) {
-        log.debug('skip drag')
+      // slide
+      if (c) {
+        if (last) {
+          log.debug('current page', page)
+          if (ox > 30) snap(page - 1)
+          else if (ox < -30) snap(page + 1)
+          else {
+            snap(page)
+          }
+        } else
+          sliderRef.current?.trans(ox)
         return
       }
-      // if (_oy < -70) {
-      //   transform(0)
-      //   cancel()
-      //   return
-      // }
 
-      const height = drawRef.current.parentElement?.clientHeight
-      log.debug('drawer height', height, drawRef.current?.offsetHeight)
-      // when the user releases the sheet, we check whether it passed
-      // the threshold for it to close, or if we reset it to its open positino
+      // manage drawer
+      const _oy = bottom ? oy : -oy
+      const height = drawRef.current.parentElement?.clientHeight || 200
+
       if (last) {
-        if (_oy > height * 0.5 || vy > 0.5) {
+        if (_oy > height * 0.5 || vy > 1) {
           doClose()
         } else {
           transform(0)
+          cancel()
         }
       }
       // when the user keeps dragging, we just move the sheet according to
       // the cursor position
-      else transform(oy)
+      else {
+        transform(oy)
+      }
     },
     { from: () => [0, 0],
-      filterTaps: true,
-      // bounds: { top: 0 },
-      rubberband: true
+      filterTaps: true
+      // bounds: bottom ? { top: 0 } : { bottom: 0 },
+      // rubberband: true
     }
   )
 
@@ -319,8 +336,6 @@ export const ActionDrawer = forwardRef(({
           maxWidth: '500px',
           height: sz.h,
           maxHeight: sz.mh,
-          transform: transform(dY.current),
-          transition: `transform ${ANIMATION / 1000}s ease`,
           boxShadow: t => (
             t.palette.mode === 'dark'
               ? '0 0 0 1px rgba(255,255,255,0.2), 0 0 10px rgba(159,248,217,0.7), 0 0 20px rgba(59,246,93,0.15)'
@@ -353,7 +368,7 @@ export const ActionDrawer = forwardRef(({
           </Stack>
         )}
 
-        <Slider ref={sliderRef} pages={list} />
+        <Slider ref={sliderRef} pages={list} position={position} />
 
         {!bottom && <Indicator ref={topIndicatorRef} pos='top' pages={list.length} page={page} onChange={snap} />}
       </Box>
