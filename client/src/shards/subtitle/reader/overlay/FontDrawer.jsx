@@ -12,12 +12,14 @@ import {
 import { ActionDrawer } from '../../../../components/ActionDrawer.jsx'
 import { useSettingStore } from './stores/useSettingStore'
 import { fontStack } from '../../../../utils/font'
+import { log } from '../../../../utils/logger'
 
 export const FontDrawer = ({
   open,
   onClose,
   sessionStore  // Pass session store for langMap access
 }) => {
+  log.debug('FontDrawer re-render', { open })
   const { fontSize, fontFamily, setFontSize, setFontFamily } = useSettingStore('subtitle-shard')()
   const { langMap, toggleLang } = sessionStore || { langMap: {}, toggleLang: () => {} }
   // Extract current font mode from fontFamily
@@ -47,7 +49,7 @@ export const FontDrawer = ({
   )
 
   return (
-    <ActionDrawer open={open} onClose={onClose} position='bottom' size='half'>
+    <ActionDrawer open={open} onClose={onClose} position='bottom' size='half' title='fontDrawer'>
       <Stack spacing={2} sx={{ px: 1, pb: 1 }}>
         <Typography level='title-sm'>Font</Typography>
         <RadioGroup
