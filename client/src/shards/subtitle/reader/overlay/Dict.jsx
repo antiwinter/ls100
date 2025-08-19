@@ -184,6 +184,8 @@ const Dict_ = ({ word, position = 'bottom', visible, onClose }) => {
     if (visible && word && pages.length > 0) {
       log.debug('📖 Opening dict drawer', { word })
       drawerRef.current?.open(pages)
+      drawerRef.current?.snap(0)
+      drawerRef.current?.resetScroll()
     } else if (!visible) {
       log.debug('📖 Closing dict drawer')
       drawerRef.current?.close()

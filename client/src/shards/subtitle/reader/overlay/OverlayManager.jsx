@@ -5,7 +5,8 @@ import { Dict } from './Dict.jsx'
 import { FontDrawer } from './FontDrawer.jsx'
 import { log } from '../../../../utils/logger'
 
-export const OverlayManager = forwardRef(({ onBack, sessionStore }, ref) => {
+export const OverlayManager = forwardRef(({ onBack /*, sessionStore */
+}, ref) => {
   // UI State
   const [xState, setXState] = useState({
     toolbar: false,
@@ -16,6 +17,10 @@ export const OverlayManager = forwardRef(({ onBack, sessionStore }, ref) => {
 
   const toggleTool = useCallback((tool) => {
     setXState(x => ({ ...x, tool: x.tool === tool ? null : tool }))
+  }, [])
+
+  const cleanDict = useCallback(() => {
+    setXState(x => ({ ...x, tool: null }))
   }, [])
 
   useImperativeHandle(ref, () => ({
@@ -54,6 +59,7 @@ export const OverlayManager = forwardRef(({ onBack, sessionStore }, ref) => {
         word={xState.word}
         position={xState.position}
         visible={xState.tool == 'dict'}
+        onClose={cleanDict}
       />
 
       {/* <FontDrawer

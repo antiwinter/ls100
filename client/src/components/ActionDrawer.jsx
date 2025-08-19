@@ -3,8 +3,8 @@ import { useState, useRef, useEffect,
   useMemo, memo } from 'react'
 import { Box, Stack, Typography, IconButton } from '@mui/joy'
 import { Close } from '@mui/icons-material'
-import { log } from '../utils/logger'
 import { useDrag } from '@use-gesture/react'
+// import { log } from '../utils/logger'
 // import { useSpring } from '@react-spring/web'
 
 const ANIMATION = 300
@@ -36,7 +36,7 @@ const stopAllEvents = () => {
 const Indicator = memo(forwardRef(({ pos = 'bottom', pages = 0, page = 0, onChange }, ref) => {
   const [currentPage, setCurrentPage] = useState(page)
 
-  log.debug('Indicator re-render', { pos, pages, page, onChange })
+  // log.debug('Indicator re-render', { pos, pages, page, onChange })
   // Expose imperative methods
   useImperativeHandle(ref, () => ({
     setPage: (newPage) => {
@@ -88,7 +88,7 @@ const Slider = forwardRef(({ pages = [] }, ref) => {
       slideRef.current.style.transition = animate ? 'transform 0.25s ease' : 'none'
       slideRef.current.style.transform = st
     }
-    log.debug('move slider', st)
+    // log.debug('move slider', st)
     return st
   }, [])
 
@@ -96,9 +96,16 @@ const Slider = forwardRef(({ pages = [] }, ref) => {
   useImperativeHandle(ref, () => ({
     trans: _trans,
     snap: (idx) => {
-      log.debug('snapping to', idx)
+      // log.debug('snapping to', idx)
       pageRef.current = idx
       _trans()
+    },
+    resetScroll: () => {
+      if (slideRef.current) {
+        slideRef.current.querySelectorAll('[data-scrollable]').forEach(el => {
+          el.scrollTop = 0
+        })
+      }
     }
   }))
 
@@ -158,7 +165,8 @@ export const ActionDrawer = forwardRef(({
   size = 'half',
   position = 'bottom',
   title,
-  onPageChange
+  onPageChange,
+  onClose
 }, ref) => {
   // Internal state for pages and visibility
   const [pages, setPages] = useState([])
@@ -171,7 +179,7 @@ export const ActionDrawer = forwardRef(({
       : []
   }, [pages])
 
-  log.warn('ActionDrawer re-render', { title, pages: pages.length })
+  // log.warn('ActionDrawer re-render', { title, pages: pages.length })
   const drawRef = useRef(null)
   const sliderRef = useRef(null)
   const bottomIndicatorRef = useRef(null)
@@ -191,7 +199,7 @@ export const ActionDrawer = forwardRef(({
       drawRef.current.style.transform = st
       drawRef.current.style.transition = typeof dy === 'number' ? 'none' : 'transform 0.28s ease'
     }
-    log.debug('style', st)
+    // log.debug('style', st)
     dY.current = dy
     return st
   }, [bottom])
@@ -200,7 +208,7 @@ export const ActionDrawer = forwardRef(({
   const snap = useCallback((newPage) => {
 
     const p = Math.max(0, Math.min(list.length - 1, newPage))
-    log.debug('ActionDrawer.nav', { p })
+    // log.debug('ActionDrawer.nav', { p })
     setPage(p)
     onPageChange?.(p)
     // Update indicators
@@ -217,12 +225,13 @@ export const ActionDrawer = forwardRef(({
       setPage(0)
       closingRef.current = null
     }, ANIMATION)
-  }, [transform])
+    onClose?.()
+  }, [transform, onClose])
 
   // Imperative API
   useImperativeHandle(ref, () => ({
     open: (newPages) => {
-      log.debug('ActionDrawer.open', { pages: newPages?.length })
+      // log.debug('ActionDrawer.open', { pages: newPages?.length })
       // Cancel any ongoing close timeout
       if (closingRef.current) {
         clearTimeout(closingRef.current)
@@ -235,10 +244,13 @@ export const ActionDrawer = forwardRef(({
       setTimeout(() => transform(0), 20)
     },
     close: () => {
-      log.debug('ActionDrawer.close')
+      // log.debug('ActionDrawer.close')
       doClose()
     },
-    snap
+    snap,
+    resetScroll: () => {
+      sliderRef.current?.resetScroll()
+    }
   }), [doClose, snap, transform])
 
   // Cleanup timeout on unmount
@@ -254,22 +266,22 @@ export const ActionDrawer = forwardRef(({
   // const [{ y }, api] = useSpring(() => ({ y: height }))
   const debounce = useRef(0)
   const bind = useDrag(
-    ({ last, velocity: [vx, vy], direction: [dx, dy], offset: [ox, oy], event, cancel }) => {
+    ({ last, velocity: [_vx, vy], direction: [_dx, dy], offset: [ox, oy], event, cancel }) => {
       const c = event.target.closest('[data-scrollable]')
 
       if (last) {
         let t1 = Date.now()
-        log.debug(t1, debounce.current)
+        // log.debug(t1, debounce.current)
         if (t1 - debounce.current < 20) return
         debounce.current = t1
       }
-      log.warn('drag info', { last, dy, oy, vy,dx, ox, vx } )
-      log.debug('target', event.target, c)
+      // log.warn('drag info', { last, dy, oy, vy,dx, ox, vx } )
+      // log.debug('target', event.target, c)
 
       // slide
       if (c) {
         if (last) {
-          log.debug('current page', page)
+          // log.debug('current page', page)
           if (ox > 30) snap(page - 1)
           else if (ox < -30) snap(page + 1)
           else {
@@ -295,7 +307,8 @@ export const ActionDrawer = forwardRef(({
       // when the user keeps dragging, we just move the sheet according to
       // the cursor position
       else {
-        transform(oy)
+        if (!(dy ^ bottom))
+          transform(oy)
       }
     },
     { from: () => [0, 0],
