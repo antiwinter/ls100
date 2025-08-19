@@ -4,3 +4,4 @@ node_modules
 *.mdx
 *.mdd
 cmudict.txt
+.gemini-clipboard/

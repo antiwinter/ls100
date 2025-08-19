@@ -3,9 +3,11 @@ import { Box } from '@mui/joy'
 import { Toolbar } from './Toolbar.jsx'
 import { Dict } from './Dict.jsx'
 import { FontDrawer } from './FontDrawer.jsx'
+import { ExportDrawer } from '../ExportDrawer.jsx'
+import { WordListDrawer } from '../WordListDrawer.jsx'
 import { log } from '../../../../utils/logger'
 
-export const OverlayManager = forwardRef(({ onBack /*, sessionStore */
+export const OverlayManager = forwardRef(({ onBack, sessionStore, wordlist = [], movieName = '', shardId = '', currentLine = 0, lines = []
 }, ref) => {
   // UI State
   const [xState, setXState] = useState({
@@ -62,10 +64,35 @@ export const OverlayManager = forwardRef(({ onBack /*, sessionStore */
         onClose={cleanDict}
       />
 
-      {/* <FontDrawer
+      <FontDrawer
         open={xState.tool === 'font'}
+        onClose={() => setXState(x => ({ ...x, tool: null }))}
         sessionStore={sessionStore}
-      /> */}
+      />
+
+      <ExportDrawer
+        open={xState.tool === 'export'}
+        onClose={() => setXState(x => ({ ...x, tool: null }))}
+        selectedWords={Array.isArray(wordlist) ? wordlist : Array.from(wordlist || [])}
+        movieName={movieName}
+        shardId={shardId}
+        currentLine={currentLine}
+        lines={lines}
+      />
+
+      <WordListDrawer
+        open={xState.tool === 'wordlist'}
+        onClose={() => setXState(x => ({ ...x, tool: null }))}
+        selectedWords={new Set(Array.isArray(wordlist) ? wordlist : Array.from(wordlist || []))}
+        onWordDelete={(w) => {
+          try {
+            const api = sessionStore?.getState?.()
+            if (api?.toggleWord) api.toggleWord(w)
+          } catch (e) {
+            log.error('Failed to toggle word from WordListDrawer', e)
+          }
+        }}
+      />
     </Box>
   )
 })

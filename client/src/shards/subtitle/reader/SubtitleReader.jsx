@@ -78,7 +78,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   const sessionStore = useSessionStore(shardId)
   const {
     position, wordlist, langMap, setPosition,
-    initWordlist, toggleWord, toggleLang
+    initWordlist, toggleWord
   } = sessionStore()
 
   // Settings from store
@@ -237,7 +237,16 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
       />
 
       {/* OverlayManager - local state management */}
-      <OverlayManager ref={overlayRef} onBack={onBack} sessionStore={{ langMap, toggleLang }} />
+      <OverlayManager
+        ref={overlayRef}
+        onBack={onBack}
+        sessionStore={sessionStore}
+        wordlist={wordlist}
+        movieName={shardName}
+        shardId={shardId}
+        currentLine={(position || 0) + 1}
+        lines={groups || []}
+      />
 
       {/* SubtitleViewer - render after groups and position ready */}
       <Box sx={{ position: 'relative', flex: 1 }}>
