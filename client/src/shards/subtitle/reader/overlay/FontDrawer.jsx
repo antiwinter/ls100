@@ -1,4 +1,4 @@
-import { useMemo, useRef, useEffect } from 'react'
+import { useMemo } from 'react'
 import {
   Stack,
   Typography,
@@ -9,25 +9,21 @@ import {
   Sheet,
   Switch
 } from '@mui/joy'
-import { ActionDrawer } from '../../../../components/ActionDrawer.jsx'
 import { useSettingStore } from './stores/useSettingStore'
 import { fontStack } from '../../../../utils/font'
-import { log } from '../../../../utils/logger'
 
-export const FontDrawer = ({
-  open,
-  onClose,
-  sessionStore  // Pass session store for langMap access
-}) => {
-  log.debug('FontDrawer re-render', { open })
+// Create a stateful wrapper component for internal state management
+const FontContent = ({ sessionStore }) => {
   const { fontSize, fontFamily, setFontSize, setFontFamily } = useSettingStore('subtitle-shard')()
   const { langMap, toggleLang } = sessionStore || { langMap: {}, toggleLang: () => {} }
+
   // Extract current font mode from fontFamily
   const currentMode = useMemo(() => {
     if (fontFamily.includes('serif')) return 'serif'
     if (fontFamily.includes('monospace')) return 'mono'
     return 'sans'
   }, [fontFamily])
+
   const marks = useMemo(
     () => [
       { value: 12, label: '12' },
@@ -48,93 +44,84 @@ export const FontDrawer = ({
     [langMap]
   )
 
-  const drawerRef = useRef(null)
-
-  const emptyPagesRef = useRef([])
-  const pages = useMemo(() => {
-    if (!open) return emptyPagesRef.current
-    return [{
-      content: (
-        <Stack spacing={2} sx={{ px: 1, pb: 1 }}>
-          <Typography level='title-sm'>Font</Typography>
-          <RadioGroup
-            orientation='horizontal'
-            value={currentMode}
-            onChange={(e) => {
-              const mode = e.target.value
-              setFontFamily(fontStack(mode))
-            }}
-          >
-            <Radio value='mono' label='Mono' />
-            <Radio value='sans' label='Sans' />
-            <Radio value='serif' label='Serif' />
-          </RadioGroup>
-
-          <Typography level='title-sm'>Size</Typography>
-          <Slider
-            value={fontSize}
-            min={14}
-            max={20}
-            step={1}
-            marks={marks}
-            onChange={(_, v) => {
-              setFontSize(v)
-            }}
-          />
-
-          {refLanguages?.length > 0 && (
-            <>
-              <Typography level='title-sm'>Languages</Typography>
-              <Sheet variant='soft' sx={{ p: 1, borderRadius: 'sm' }}>
-                <Stack spacing={1}>
-                  {refLanguages.map((lang) => {
-                    return (
-                      <Stack
-                        key={lang.code}
-                        direction='row'
-                        alignItems='center'
-                        justifyContent='space-between'
-                        spacing={1}
-                      >
-                        <Stack direction='row' spacing={1} sx={{ minWidth: 0 }}>
-                          <Typography
-                            level='body-sm'
-                            sx={{
-                              maxWidth: 220,
-                              overflow: 'hidden',
-                              whiteSpace: 'nowrap',
-                              textOverflow: 'ellipsis'
-                            }}
-                          >
-                            {lang.filename || 'Untitled subtitle'}
-                          </Typography>
-                          <Chip variant='outlined' size='sm'>
-                            {lang.code.toUpperCase()}
-                          </Chip>
-                        </Stack>
-                        <Switch
-                          checked={!!lang.visible}
-                          onChange={() => toggleLang(lang.code)}
-                        />
-                      </Stack>
-                    )
-                  })}
-                </Stack>
-              </Sheet>
-            </>
-          )}
-        </Stack>
-      )
-    }]
-  }, [open, currentMode, fontSize, marks, refLanguages, setFontFamily, setFontSize, toggleLang])
-
-  useEffect(() => {
-    if (!drawerRef.current) return
-    if (open) drawerRef.current.open(pages)
-    else drawerRef.current.close()
-  }, [open, pages])
-
   return (
-    <ActionDrawer ref={drawerRef} onClose={onClose} position='bottom' size='half' title='fontDrawer' />
+    <Stack spacing={2} sx={{ px: 1, pb: 1 }}>
+      <Typography level='title-sm'>Font</Typography>
+      <RadioGroup
+        orientation='horizontal'
+        value={currentMode}
+        onChange={(e) => {
+          const mode = e.target.value
+          setFontFamily(fontStack(mode))
+        }}
+      >
+        <Radio value='mono' label='Mono' />
+        <Radio value='sans' label='Sans' />
+        <Radio value='serif' label='Serif' />
+      </RadioGroup>
+
+      <Typography level='title-sm'>Size</Typography>
+      <Slider
+        value={fontSize}
+        min={14}
+        max={20}
+        step={1}
+        marks={marks}
+        onChange={(_, v) => {
+          setFontSize(v)
+        }}
+      />
+
+      {refLanguages?.length > 0 && (
+        <>
+          <Typography level='title-sm'>Languages</Typography>
+          <Sheet variant='soft' sx={{ p: 1, borderRadius: 'sm' }}>
+            <Stack spacing={1}>
+              {refLanguages.map((lang) => {
+                return (
+                  <Stack
+                    key={lang.code}
+                    direction='row'
+                    alignItems='center'
+                    justifyContent='space-between'
+                    spacing={1}
+                  >
+                    <Stack direction='row' spacing={1} sx={{ minWidth: 0 }}>
+                      <Typography
+                        level='body-sm'
+                        sx={{
+                          maxWidth: 220,
+                          overflow: 'hidden',
+                          whiteSpace: 'nowrap',
+                          textOverflow: 'ellipsis'
+                        }}
+                      >
+                        {lang.filename || 'Untitled subtitle'}
+                      </Typography>
+                      <Chip variant='outlined' size='sm'>
+                        {lang.code.toUpperCase()}
+                      </Chip>
+                    </Stack>
+                    <Switch
+                      checked={!!lang.visible}
+                      onChange={() => toggleLang(lang.code)}
+                    />
+                  </Stack>
+                )
+              })}
+            </Stack>
+          </Sheet>
+        </>
+      )}
+    </Stack>
   )
+}
+
+export const getFontDrawerContent = ({ sessionStore }) => {
+  return {
+    title: 'Font Settings',
+    size: 'half',
+    position: 'bottom',
+    pages: [{ content: <FontContent sessionStore={sessionStore} /> }]
+  }
 }

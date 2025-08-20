@@ -1,26 +1,18 @@
 import { useState } from 'react'
-import { Stack, Typography, Input, Button } from '@mui/joy'
+import { Stack, Typography, Input, Button, Box, List, ListItem, ListItemButton, ListItemDecorator, ListItemContent } from '@mui/joy'
 import { BookmarkAdd, InsertDriveFile } from '@mui/icons-material'
-import { MenuDrawer } from '../../../../components/MenuDrawer.jsx'
 import { AppDialog } from '../../../../components/AppDialog.jsx'
 import { generateEudicXML, downloadFileEnhanced, generateFilename, isMobile } from '../../../../utils/exporters.js'
 
 import { apiCall } from '../../../../config/api.js'
 import { log } from '../../../../utils/logger.js'
 
-export const ExportDrawer = ({
-  open,
-  onClose,
-  selectedWords = [],
-  movieName = '',
-  shardId,
-  currentLine = 0,
-  lines = []
-}) => {
+// Create a stateful wrapper component for internal state management
+const ExportContent = ({ selectedWords, movieName, shardId, currentLine, lines, onClose }) => {
   const [showBookmarkModal, setShowBookmarkModal] = useState(false)
   const [bookmarkNote, setBookmarkNote] = useState('')
 
-  log.debug('ExportDrawer re-render', { open, selectedWords, movieName, shardId, currentLine, lines })
+  log.debug('ExportContent re-render', { selectedWords, movieName, shardId, currentLine, lines })
 
   // Generate default bookmark note
   const getDefaultNote = () => {
@@ -92,38 +84,42 @@ export const ExportDrawer = ({
 
   const wordCount = selectedWords.length
 
-  const menuEntries = [
-    {
-      entryName: 'Add to Bookmark',
-      icon: <BookmarkAdd />,
-      action: handleBookmarkClick
-    },
-    {
-      entryName: 'Save to Files (Eudic)',
-      icon: <InsertDriveFile />,
-      action: wordCount > 0 ? handleEudicExport : null
-    }
-  ]
-
-  const titleComponent = (
-    <Stack spacing={0.5}>
-      <Typography level="title-md" sx={{ fontWeight: 600 }}>
-        {movieName}
-      </Typography>
-      <Typography level="body-sm" color="neutral">
-        {wordCount} word{wordCount !== 1 ? 's' : ''} selected
-      </Typography>
-    </Stack>
-  )
-
   return (
     <>
-      <MenuDrawer
-        open={open}
-        onClose={onClose}
-        title={titleComponent}
-        entries={menuEntries}
-      />
+      <Box sx={{ px: 1, pb: 1 }}>
+        {/* Title Section */}
+        <Stack spacing={0.5} sx={{ mb: 2 }}>
+          <Typography level="title-md" sx={{ fontWeight: 600 }}>
+            {movieName}
+          </Typography>
+          <Typography level="body-sm" color="neutral">
+            {wordCount} word{wordCount !== 1 ? 's' : ''} selected
+          </Typography>
+        </Stack>
+
+        {/* Action List */}
+        <List sx={{ '--List-gap': '0px' }}>
+          <ListItem>
+            <ListItemButton onClick={handleBookmarkClick}>
+              <ListItemDecorator>
+                <BookmarkAdd />
+              </ListItemDecorator>
+              <ListItemContent>Add to Bookmark</ListItemContent>
+            </ListItemButton>
+          </ListItem>
+          <ListItem>
+            <ListItemButton
+              onClick={wordCount > 0 ? handleEudicExport : undefined}
+              disabled={wordCount === 0}
+            >
+              <ListItemDecorator>
+                <InsertDriveFile />
+              </ListItemDecorator>
+              <ListItemContent>Save to Files (Eudic)</ListItemContent>
+            </ListItemButton>
+          </ListItem>
+        </List>
+      </Box>
 
       {/* Bookmark Note Modal */}
       <AppDialog
@@ -166,6 +162,34 @@ export const ExportDrawer = ({
       </AppDialog>
     </>
   )
+}
+
+export const getExportDrawerContent = ({
+  selectedWords = [],
+  movieName = '',
+  shardId,
+  currentLine = 0,
+  lines = [],
+  onClose
+}) => {
+  log.debug('getExportDrawerContent called', { selectedWords, movieName, shardId, currentLine, lines })
+
+  return {
+    title: 'Export Options',
+    size: 'half',
+    pages: [{
+      content: (
+        <ExportContent
+          selectedWords={selectedWords}
+          movieName={movieName}
+          shardId={shardId}
+          currentLine={currentLine}
+          lines={lines}
+          onClose={onClose}
+        />
+      )
+    }]
+  }
 }
 
 
