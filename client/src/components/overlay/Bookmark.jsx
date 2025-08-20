@@ -5,25 +5,21 @@ import { AppDialog } from '../AppDialog.jsx'
 
 import { apiCall } from '../../config/api.js'
 import { log } from '../../utils/logger.js'
+import { useSessionStore } from './stores/useSessionStore.js'
 
-export const BookmarkContent = ({
-  movieName, shardId, currentLine, lines, onClose
-}) => {
+export const BookmarkContent = ({ shardId }) => {
   const [showBookmarkModal, setShowBookmarkModal] = useState(false)
   const [bookmarkNote, setBookmarkNote] = useState('')
 
-  log.debug('BookmarkContent re-render', { movieName, shardId, currentLine, lines })
+  // Get session store data
+  const sessionStore = useSessionStore(shardId)
+  const { position, hint, shardName } = sessionStore()
+
+  log.debug('BookmarkContent re-render', { shardId, position, hint, shardName })
 
   // Generate default bookmark note
   const getDefaultNote = () => {
-    const currentLineIndex = currentLine - 1
-    const lineContent = lines[currentLineIndex]?.data?.text || lines[currentLineIndex]?.text || ''
-    const timestamp = new Date().toLocaleTimeString('en-US', {
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-    return `${timestamp} - ${lineContent.substring(0, 50)}${lineContent.length > 50 ? '...' : ''}`
+    return hint || 'Bookmark'
   }
 
   const handleBookmarkClick = async () => {
@@ -33,10 +29,10 @@ export const BookmarkContent = ({
 
   const handleBookmarkSave = async () => {
     try {
-      log.debug(`Adding bookmark at position ${currentLine}`)
+      log.debug(`Adding bookmark at position ${position}`)
 
       const bookmark = {
-        position: currentLine,
+        position: position,
         note: bookmarkNote.trim()
       }
 
@@ -47,7 +43,6 @@ export const BookmarkContent = ({
 
       log.debug('Bookmark added successfully')
       setShowBookmarkModal(false)
-      onClose()
     } catch (error) {
       log.error('Failed to add bookmark:', error)
     }
@@ -59,10 +54,10 @@ export const BookmarkContent = ({
         {/* Title Section */}
         <Stack spacing={0.5} sx={{ mb: 2 }}>
           <Typography level="title-md" sx={{ fontWeight: 600 }}>
-            {movieName}
+            {shardName}
           </Typography>
           <Typography level="body-sm" color="neutral">
-            Add bookmark at line {currentLine}
+            Add bookmark at line {position}
           </Typography>
         </Stack>
 
@@ -88,7 +83,7 @@ export const BookmarkContent = ({
       >
         <Stack spacing={2}>
           <Typography level="body-sm" color="neutral">
-            Note for position {currentLine}:
+            Note for position {position}:
           </Typography>
 
           <Input

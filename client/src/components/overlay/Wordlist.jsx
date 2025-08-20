@@ -3,6 +3,7 @@ import { Box, Stack, Typography, IconButton, Input, Chip } from '@mui/joy'
 import { Close, Delete, Search, Edit } from '@mui/icons-material'
 import { useLongPress } from '../../utils/useLongPress.js'
 import { log } from '../../utils/logger.js'
+import { useSessionStore } from './stores/useSessionStore.js'
 
 // Container for word tile with long press handling
 const WordTileContainer = ({ word, editMode, onWordDelete, onLongPress, isHighlighted }) => {
@@ -113,13 +114,17 @@ const SearchBar = ({ searchTerm, onSearchChange, onClear }) => {
   )
 }
 
-export const WordListContent = ({ selectedWords, onWordDelete }) => {
+export const WordListContent = ({ shardId }) => {
   const [searchTerm, setSearchTerm] = useState('')
   const [editMode, setEditMode] = useState(false)
   const gridRef = useRef(null)
 
+  // Get session store data
+  const sessionStore = useSessionStore(shardId)
+  const { wordlist, toggleWord } = sessionStore()
+
   // Convert Set to Array and filter
-  const wordsArray = useMemo(() => Array.from(selectedWords).sort(), [selectedWords])
+  const wordsArray = useMemo(() => Array.from(wordlist || []).sort(), [wordlist])
 
   const filteredWords = useMemo(() => {
     if (!searchTerm.trim()) return wordsArray
@@ -162,8 +167,8 @@ export const WordListContent = ({ selectedWords, onWordDelete }) => {
 
   const handleWordDelete = useCallback((word) => {
     log.debug('Deleting word:', word)
-    onWordDelete?.(word)
-  }, [onWordDelete])
+    toggleWord(word)
+  }, [toggleWord])
 
   const toggleEditMode = useCallback(() => {
     setEditMode(prev => !prev)

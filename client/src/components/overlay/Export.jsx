@@ -3,23 +3,26 @@ import { InsertDriveFile } from '@mui/icons-material'
 import { generateEudicXML, downloadFileEnhanced, generateFilename, isMobile } from '../../utils/exporters.js'
 
 import { log } from '../../utils/logger.js'
+import { useSessionStore } from './stores/useSessionStore.js'
 
-export const ExportContent = ({
-  selectedWords, movieName, onClose
-}) => {
-  log.debug('ExportContent re-render', { selectedWords, movieName })
+export const ExportContent = ({ shardId }) => {
+  // Get session store data
+  const sessionStore = useSessionStore(shardId)
+  const { wordlist, shardName } = sessionStore()
+
+  log.debug('ExportContent re-render', { shardId, wordlist, shardName })
 
   const handleEudicExport = async () => {
-    if (!selectedWords.length) {
+    if (!wordlist.length) {
       log.warn('No words selected for export')
       return
     }
 
     try {
-      log.debug(`Exporting ${selectedWords.length} words to Eudic`)
+      log.debug(`Exporting ${wordlist.length} words to Eudic`)
 
-      const xmlContent = generateEudicXML(selectedWords, movieName)
-      const filename = generateFilename(movieName, 'wordbook.xml')
+      const xmlContent = generateEudicXML(wordlist, shardName)
+      const filename = generateFilename(shardName, 'wordbook.xml')
 
       // Use enhanced download with mobile Eudic detection
       const result = await downloadFileEnhanced(xmlContent, filename, 'text/xml', {
@@ -31,14 +34,12 @@ export const ExportContent = ({
       } else {
         log.error('Export failed:', result.error)
       }
-
-      onClose()
     } catch (error) {
       log.error('Failed to export to Eudic:', error)
     }
   }
 
-  const wordCount = selectedWords.length
+  const wordCount = wordlist.length
 
   return (
     <>
@@ -46,7 +47,7 @@ export const ExportContent = ({
         {/* Title Section */}
         <Stack spacing={0.5} sx={{ mb: 2 }}>
           <Typography level="title-md" sx={{ fontWeight: 600 }}>
-            {movieName}
+            {shardName}
           </Typography>
           <Typography level="body-sm" color="neutral">
             {wordCount} word{wordCount !== 1 ? 's' : ''} selected

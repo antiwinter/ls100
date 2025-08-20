@@ -78,7 +78,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   const sessionStore = useSessionStore(shardId)
   const {
     position, wordlist, langMap, setPosition,
-    initWordlist, toggleWord
+    initWordlist, toggleWord, setHint
   } = sessionStore()
 
   // Settings from store
@@ -95,11 +95,33 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   const { syncNow } = useSync(shardId, wordlist, position, 10000)
 
   // log.debug('READER re-render', { position })
+  const [hintTrigger, setHintTrigger] = useState(0)
+
   const handleEmptyClick = useCallback(() => {
     log.debug('handleEmptyClick')
+
+    // Trigger hint saving side effect
+    setHintTrigger(prev => prev + 1)
+
     // If any overlay is open, close them all; otherwise show toolbar
     overlayRef.current?.toggleTools()
   }, [])
+
+  // Side effect for saving hint (triggered by handleEmptyClick)
+  useEffect(() => {
+    if (hintTrigger === 0) return
+
+    // Save hint to session store
+    if (groups && groups.length > 0 && position >= 0 && position < groups.length) {
+      const g = groups[position]
+      if (!g) return
+
+      const sec = g.sec || 0
+      const mainText = g.main?.[0]?.data?.text || ''
+      const hint = `${sec} - ${mainText}`
+      setHint(hint)
+    }
+  }, [hintTrigger, groups, position, setHint])
 
   // Load selected words and position (mount + shard change)
   useEffect(() => {
@@ -305,7 +327,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
   const [shard, setShard] = useState(undefined)
   const [loading, setLoading] = useState(true)
   const sessionStore = useSessionStore(shardId)
-  const { setLangMap } = sessionStore()
+  const { setLangMap, setShardName } = sessionStore()
 
   // Load shard and initialize langMap in session store
   useEffect(() => {
@@ -315,6 +337,11 @@ export const SubtitleReader = ({ shardId, onBack }) => {
         const data = await apiCall(`/api/shards/${shardId}`)
         if (!alive) return
         setShard(data.shard || null)
+
+        // Save shard name to session store
+        if (data.shard?.name) {
+          setShardName(data.shard.name)
+        }
 
         // Initialize langMap in session store from shard languages
         const languages = data.shard?.data?.languages || []
@@ -338,7 +365,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
       }
     })()
     return () => { alive = false }
-  }, [shardId, setLangMap, sessionStore])
+  }, [shardId, setLangMap, setShardName, sessionStore])
 
   return <SubtitleReaderContent shard={shard} shardId={shardId} loading={loading} onBack={onBack} />
 }

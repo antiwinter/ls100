@@ -33,6 +33,18 @@ export const useSessionStore = (shardId) => {
           state.position = idx
         }),
 
+        // Hint state
+        hint: '',
+        setHint: (hint) => set((state) => {
+          state.hint = hint
+        }),
+
+        // Shard name state
+        shardName: '',
+        setShardName: (name) => set((state) => {
+          state.shardName = name
+        }),
+
         // Selected words state (plain array for easy serialization)
         wordlist: [],
         initWordlist: (words) => set((state) => {

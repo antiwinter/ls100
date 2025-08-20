@@ -5,12 +5,11 @@ import { DictMainPageComponent, DictNotesPage, DictMorePage } from './Dict.jsx'
 import { FontContent } from './Font.jsx'
 import { ExportContent } from './Export.jsx'
 import { WordListContent } from './Wordlist.jsx'
+import { BookmarkContent } from './Bookmark.jsx'
 import { ActionDrawer } from '../ActionDrawer.jsx'
 import { log } from '../../utils/logger.js'
 
-export const OverlayManager = forwardRef(({ onBack, sessionStore, wordlist = [],
-  movieName = '', shardId = '', currentLine = 0, lines = []
-}, ref) => {
+export const OverlayManager = forwardRef(({ onBack, shardId = ''}, ref) => {
   // UI State
   const [xState, setXState] = useState({
     toolbar: false,
@@ -71,37 +70,16 @@ export const OverlayManager = forwardRef(({ onBack, sessionStore, wordlist = [],
         position={xState.position}
         size="half"
       >
+        {/* dict */}
         {xState.tool === 'dict' && xState.wordCtx  && (
           <DictMainPageComponent key="main" word={xState.wordCtx.word} />)}
         {xState.tool === 'dict' && xState.wordCtx  && (<DictNotesPage key="notes" wordCtx={xState.wordCtx} />)}
         {xState.tool === 'dict' && xState.wordCtx  && (<DictMorePage key="more" />)}
 
-        {xState.tool === 'font' && (
-          <FontContent sessionStore={sessionStore} />
-        )}
-        {xState.tool === 'wordlist' && (
-          <WordListContent
-            selectedWords={new Set(Array.isArray(wordlist) ? wordlist : Array.from(wordlist || []))}
-            onWordDelete={(w) => {
-              try {
-                const api = sessionStore?.getState?.()
-                if (api?.toggleWord) api.toggleWord(w)
-              } catch (e) {
-                log.error('Failed to toggle wordCtx from WordListDrawer', e)
-              }
-            }}
-          />
-        )}
-        {xState.tool === 'export' && (
-          <ExportContent
-            selectedWords={Array.isArray(wordlist) ? wordlist : Array.from(wordlist || [])}
-            movieName={movieName}
-            shardId={shardId}
-            currentLine={currentLine}
-            lines={lines}
-            onClose={handleDrawerClose}
-          />
-        )}
+        {xState.tool === 'font' && (<FontContent shardId={shardId} />)}
+        {xState.tool === 'wordlist' && (<WordListContent shardId={shardId} />)}
+        {xState.tool === 'export' && (<ExportContent shardId={shardId} />)}
+        {xState.tool === 'bookmark' && (<BookmarkContent shardId={shardId} />)}
       </ActionDrawer>
     </Box>
   )

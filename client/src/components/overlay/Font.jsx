@@ -10,11 +10,15 @@ import {
   Switch
 } from '@mui/joy'
 import { useSettingStore } from './stores/useSettingStore'
+import { useSessionStore } from './stores/useSessionStore'
 import { fontStack } from '../../utils/font'
 
-export const FontContent = ({ sessionStore }) => {
+export const FontContent = ({ shardId }) => {
   const { fontSize, fontFamily, setFontSize, setFontFamily } = useSettingStore('subtitle-shard')()
-  const { langMap, toggleLang } = sessionStore || { langMap: {}, toggleLang: () => {} }
+  
+  // Get session store data
+  const sessionStore = useSessionStore(shardId)
+  const { langMap, toggleLang } = sessionStore()
 
   // Extract current font mode from fontFamily
   const currentMode = useMemo(() => {
