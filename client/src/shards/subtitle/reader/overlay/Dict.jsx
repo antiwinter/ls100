@@ -57,7 +57,8 @@ const DictMainPage = memo(function DictMainPage ({
   )
 })
 
-export const DictContent = ({ word }) => {
+// Main dictionary page with TTS functionality
+export const DictMainPageComponent = ({ word }) => {
   const [pronunciation, setPronunciation] = useState('')
   const voiceRef = useRef(null)
 
@@ -123,17 +124,21 @@ export const DictContent = ({ word }) => {
     setPronunciation(prev => (prev === next ? prev : next))
   }, [])
 
-  // Return array for multi-page support
-  return [
+  return (
     <DictMainPage
-      key="main"
       word={word}
       pronunciation={pronunciation}
       supportsTTS={supportsTTS}
       onPlayAudio={handlePlayAudio}
       onMeta={handleMeta}
-    />,
-    <Box key="notes" sx={{
+    />
+  )
+}
+
+// Notes page component
+export const DictNotesPage = () => {
+  return (
+    <Box sx={{
       height: '100%',
       display: 'flex',
       alignItems: 'center',
@@ -142,8 +147,14 @@ export const DictContent = ({ word }) => {
       <Typography level="body-md" sx={{ color: 'neutral.500' }}>
         Notes are coming soon
       </Typography>
-    </Box>,
-    <Box key="more" sx={{
+    </Box>
+  )
+}
+
+// More page component
+export const DictMorePage = () => {
+  return (
+    <Box sx={{
       height: '100%',
       display: 'flex',
       alignItems: 'center',
@@ -153,5 +164,5 @@ export const DictContent = ({ word }) => {
         Third page placeholder
       </Typography>
     </Box>
-  ]
+  )
 }

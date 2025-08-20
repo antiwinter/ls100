@@ -1,7 +1,7 @@
-import { useState, forwardRef, useImperativeHandle, useCallback, useRef } from 'react'
+import { useState, forwardRef, useImperativeHandle, useCallback, useRef, useEffect } from 'react'
 import { Box } from '@mui/joy'
 import { Toolbar } from './Toolbar.jsx'
-import { DictContent } from './Dict.jsx'
+import { DictMainPageComponent, DictNotesPage, DictMorePage } from './Dict.jsx'
 import { FontContent } from './FontDrawer.jsx'
 import { ExportContent } from './ExportDrawer.jsx'
 import { WordListContent } from './WordListDrawer.jsx'
@@ -27,6 +27,17 @@ export const OverlayManager = forwardRef(({ onBack, sessionStore, wordlist = [],
   const handleDrawerClose = useCallback(() => {
     setXState(x => ({ ...x, tool: null }))
   }, [])
+
+  // Handle special dict features when dict opens
+  useEffect(() => {
+    if (xState.tool === 'dict' && xState.word) {
+      // Small delay to ensure drawer is open
+      setTimeout(() => {
+        drawerRef.current?.snap(0)
+        drawerRef.current?.resetScroll()
+      }, 50)
+    }
+  }, [xState.tool, xState.word])
 
   useImperativeHandle(ref, () => ({
     toggleDict: (word, position) => {
@@ -59,9 +70,11 @@ export const OverlayManager = forwardRef(({ onBack, sessionStore, wordlist = [],
         position={xState.position}
         size="half"
       >
-        {xState.tool === 'dict' && xState.word && (
-          <DictContent word={xState.word} />
-        )}
+        {xState.tool === 'dict' && xState.word  && (
+          <DictMainPageComponent key="main" word={xState.word} />)}
+        {xState.tool === 'dict' && xState.word  && (<DictNotesPage key="notes" />)}
+        {xState.tool === 'dict' && xState.word  && (  <DictMorePage key="more" />)}
+
         {xState.tool === 'font' && (
           <FontContent sessionStore={sessionStore} />
         )}

@@ -183,7 +183,7 @@ export const ActionDrawer = forwardRef(({
     return validChildren.map(p => (p && typeof p === 'object' && 'content' in p) ? p : { content: p })
   }, [content])
 
-  log.warn('ActionDrawer re-render', { title, pages: children, size })
+  // log.warn('ActionDrawer re-render', { title, pages: children, size })
   const drawRef = useRef(null)
   const sliderRef = useRef(null)
   const bottomIndicatorRef = useRef(null)
@@ -203,7 +203,7 @@ export const ActionDrawer = forwardRef(({
       drawRef.current.style.transform = st
       drawRef.current.style.transition = typeof dy === 'number' ? 'none' : 'transform 0.28s ease'
     }
-    log.debug('style', st)
+    // log.debug('style', st)
     dY.current = dy
     return st
   }, [bottom])
@@ -376,7 +376,7 @@ export const ActionDrawer = forwardRef(({
           touchAction: 'none'
         }}
       >
-        {bottom && <Indicator ref={bottomIndicatorRef} pos='bottom' pages={list.length} page={page} onChange={snap} />}
+        {bottom && <Indicator ref={bottomIndicatorRef} pos='bottom' N={list.length} cur={page} onChange={snap} />}
 
         {title && (
           <Stack
@@ -396,7 +396,7 @@ export const ActionDrawer = forwardRef(({
 
         <Slider ref={sliderRef} pages={list} position={position} />
 
-        {!bottom && <Indicator ref={topIndicatorRef} pos='top' pages={list.length} page={page} onChange={snap} />}
+        {!bottom && <Indicator ref={topIndicatorRef} pos='top' N={list.length} cur={page} onChange={snap} />}
       </Box>
     </Box>
   )
