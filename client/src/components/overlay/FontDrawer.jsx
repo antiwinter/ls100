@@ -10,7 +10,7 @@ import {
   Switch
 } from '@mui/joy'
 import { useSettingStore } from './stores/useSettingStore'
-import { fontStack } from '../../../../utils/font'
+import { fontStack } from '../../utils/font'
 
 export const FontContent = ({ sessionStore }) => {
   const { fontSize, fontFamily, setFontSize, setFontFamily } = useSettingStore('subtitle-shard')()

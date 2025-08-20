@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { Stack, Typography, Input, Button, Box, List, ListItem, ListItemButton, ListItemDecorator, ListItemContent } from '@mui/joy'
 import { BookmarkAdd, InsertDriveFile } from '@mui/icons-material'
-import { AppDialog } from '../../../../components/AppDialog.jsx'
-import { generateEudicXML, downloadFileEnhanced, generateFilename, isMobile } from '../../../../utils/exporters.js'
+import { AppDialog } from '../AppDialog.jsx'
+import { generateEudicXML, downloadFileEnhanced, generateFilename, isMobile } from '../../utils/exporters.js'
 
-import { apiCall } from '../../../../config/api.js'
-import { log } from '../../../../utils/logger.js'
+import { apiCall } from '../../config/api.js'
+import { log } from '../../utils/logger.js'
 
 export const ExportContent = ({
   selectedWords, movieName, shardId, currentLine, lines, onClose

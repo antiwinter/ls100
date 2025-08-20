@@ -6,8 +6,8 @@ import {
   Box
 } from '@mui/joy'
 import { VolumeUp } from '@mui/icons-material'
-import { log } from '../../../../utils/logger'
-import { DictCollins } from '../../../../components/DictCollins.jsx'
+import { log } from '../../utils/logger.js'
+import { DictCollins } from '../DictCollins.jsx'
 
 // First page content (scrollable) extracted as a memoized component
 const DictMainPage = memo(function DictMainPage ({

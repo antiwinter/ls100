@@ -5,8 +5,8 @@ import { DictMainPageComponent, DictNotesPage, DictMorePage } from './Dict.jsx'
 import { FontContent } from './FontDrawer.jsx'
 import { ExportContent } from './ExportDrawer.jsx'
 import { WordListContent } from './WordListDrawer.jsx'
-import { ActionDrawer } from '../../../../components/ActionDrawer.jsx'
-import { log } from '../../../../utils/logger'
+import { ActionDrawer } from '../ActionDrawer.jsx'
+import { log } from '../../utils/logger.js'
 
 export const OverlayManager = forwardRef(({ onBack, sessionStore, wordlist = [], movieName = '', shardId = '', currentLine = 0, lines = []
 }, ref) => {

@@ -5,11 +5,11 @@ import { Bolt } from '@mui/icons-material'
 import { apiCall } from '../../../config/api'
 import { log } from '../../../utils/logger'
 import { useSync } from './sync.js'
-import { OverlayManager } from './overlay/OverlayManager.jsx'
+import { OverlayManager } from '../../../components/overlay/OverlayManager.jsx'
 import { SubtitleViewer } from './SubtitleViewer.jsx'
 import { useSubtitleGroups } from './hooks/useSubtitleGroups.js'
-import { useSessionStore } from './overlay/stores/useSessionStore'
-import { useSettingStore } from './overlay/stores/useSettingStore'
+import { useSessionStore } from '../../../components/overlay/stores/useSessionStore.js'
+import { useSettingStore } from '../../../components/overlay/stores/useSettingStore.js'
 
 const SubtitleHeader = ({ shardName, position, total, onReviewClick }) => {
   const [totalGroups, setTotalGroups] = useState(0)
