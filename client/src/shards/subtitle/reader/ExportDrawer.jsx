@@ -20,6 +20,8 @@ export const ExportDrawer = ({
   const [showBookmarkModal, setShowBookmarkModal] = useState(false)
   const [bookmarkNote, setBookmarkNote] = useState('')
 
+  log.debug('ExportDrawer re-render', { open, selectedWords, movieName, shardId, currentLine, lines })
+
   // Generate default bookmark note
   const getDefaultNote = () => {
     const currentLineIndex = currentLine - 1

@@ -327,8 +327,8 @@ export const ActionDrawer = forwardRef(({
     <Box
       sx={{
         position: 'absolute',
-        // left: 0,
-        // right: 0,
+        left: 0,
+        right: 0,
         [bottom ? 'bottom' : 'top']: 0,
         display: 'flex',
         justifyContent: 'center',
@@ -374,7 +374,9 @@ export const ActionDrawer = forwardRef(({
             alignItems='center'
             sx={{ px: 2, py: 1, borderBottom: bottom ? 1 : 0, borderTop: bottom ? 0 : 1, borderColor: 'divider' }}
           >
-            <Typography level='h4'>{title}</Typography>
+            {typeof title === 'string' || typeof title === 'number'
+              ? <Typography level='h4'>{title}</Typography>
+              : title}
             <IconButton size='sm' variant='plain' onClick={doClose} sx={{ color: 'neutral.500' }}>
               <Close />
             </IconButton>

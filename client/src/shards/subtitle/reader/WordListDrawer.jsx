@@ -125,6 +125,7 @@ export const WordListDrawer = ({
   const [editMode, setEditMode] = useState(false)
   const gridRef = useRef(null)
 
+  log.debug('WordListDrawer re-render', { open, selectedWords, onWordDelete })
   // Convert Set to Array and filter
   const wordsArray = useMemo(() => Array.from(selectedWords).sort(), [selectedWords])
 
@@ -184,83 +185,91 @@ export const WordListDrawer = ({
     }
   }, [editMode])
 
-  return (
-    <ActionDrawer
-      open={open}
-      onClose={onClose}
-      size='fit-content'
-      title='Word List'
-    >
-      <Stack spacing={2} sx={{ height: '100%' }}>
-        {/* Header with search and edit toggle */}
-        <Stack direction='row' spacing={1} alignItems='center'>
-          <Box sx={{ flex: 1 }}>
-            <SearchBar
-              searchTerm={searchTerm}
-              onSearchChange={handleSearchChange}
-              onClear={handleSearchClear}
-            />
-          </Box>
-          <IconButton
-            variant={editMode ? 'solid' : 'outlined'}
-            color={editMode ? 'danger' : 'neutral'}
-            onClick={toggleEditMode}
-            sx={{ flexShrink: 0 }}
-          >
-            <Edit />
-          </IconButton>
-        </Stack>
-
-        {/* Word count */}
-        <Stack direction='row' justifyContent='space-between' alignItems='center'>
-          <Typography level='body-sm' color='neutral'>
-            {filteredWords.length} of {wordsArray.length} words
-          </Typography>
-          {editMode && (
-            <Chip size='sm' color='danger' variant='soft'>
-              Edit Mode
-            </Chip>
-          )}
-        </Stack>
-
-        {/* Word grid */}
-        <Box
-          ref={gridRef}
-          sx={{
-            flex: 1,
-            overflow: 'auto',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
-            gap: 1.5,
-            p: 0.5
-          }}
-        >
-          {filteredWords.length > 0 ? (
-            filteredWords.map((word) => (
-              <WordTileContainer
-                key={word}
-                word={word}
-                editMode={editMode}
-                onWordDelete={handleWordDelete}
-                onLongPress={handleTileLongPress}
-                isHighlighted={searchTerm.trim() &&
-                  word.toLowerCase().includes(searchTerm.toLowerCase())}
+  const drawerRef = useRef(null)
+  const emptyPagesRef = useRef([])
+  const pages = useMemo(() => {
+    if (!open) return emptyPagesRef.current
+    return [{
+      title: 'Word List',
+      content: (
+        <Stack spacing={2} sx={{ height: '100%' }}>
+          <Stack direction='row' spacing={1} alignItems='center'>
+            <Box sx={{ flex: 1 }}>
+              <SearchBar
+                searchTerm={searchTerm}
+                onSearchChange={handleSearchChange}
+                onClear={handleSearchClear}
               />
-            ))
-          ) : (
-            <Box sx={{
-              gridColumn: '1 / -1',
-              textAlign: 'center',
-              py: 4
-            }}>
-              <Typography level='body-sm' color='neutral'>
-                {searchTerm.trim() ? 'No words match your search' : 'No words saved yet'}
-              </Typography>
             </Box>
-          )}
-        </Box>
-      </Stack>
-    </ActionDrawer>
+            <IconButton
+              variant={editMode ? 'solid' : 'outlined'}
+              color={editMode ? 'danger' : 'neutral'}
+              onClick={toggleEditMode}
+              sx={{ flexShrink: 0 }}
+            >
+              <Edit />
+            </IconButton>
+          </Stack>
+
+          <Stack direction='row' justifyContent='space-between' alignItems='center'>
+            <Typography level='body-sm' color='neutral'>
+              {filteredWords.length} of {wordsArray.length} words
+            </Typography>
+            {editMode && (
+              <Chip size='sm' color='danger' variant='soft'>
+                Edit Mode
+              </Chip>
+            )}
+          </Stack>
+
+          <Box
+            ref={gridRef}
+            sx={{
+              flex: 1,
+              overflow: 'auto',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+              gap: 1.5,
+              p: 0.5
+            }}
+          >
+            {filteredWords.length > 0 ? (
+              filteredWords.map((word) => (
+                <WordTileContainer
+                  key={word}
+                  word={word}
+                  editMode={editMode}
+                  onWordDelete={handleWordDelete}
+                  onLongPress={handleTileLongPress}
+                  isHighlighted={searchTerm.trim() &&
+                    word.toLowerCase().includes(searchTerm.toLowerCase())}
+                />
+              ))
+            ) : (
+              <Box sx={{
+                gridColumn: '1 / -1',
+                textAlign: 'center',
+                py: 4
+              }}>
+                <Typography level='body-sm' color='neutral'>
+                  {searchTerm.trim() ? 'No words match your search' : 'No words saved yet'}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        </Stack>
+      )
+    }]
+  }, [open, searchTerm, filteredWords, wordsArray, editMode, handleSearchChange, handleSearchClear, toggleEditMode, handleWordDelete, handleTileLongPress])
+
+  useEffect(() => {
+    if (!drawerRef.current) return
+    if (open) drawerRef.current.open(pages)
+    else drawerRef.current.close()
+  }, [open, pages])
+
+  return (
+    <ActionDrawer ref={drawerRef} onClose={onClose} size='fit-content' title='Word List' />
   )
 }
 
