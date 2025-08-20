@@ -154,15 +154,16 @@ export const DictNotesPage = ({ wordCtx }) => {
   }
 
   const formatTime = (sec) => {
+    if (!Number.isFinite(sec) || sec < 0) return '--:--'
     const minutes = Math.floor(sec / 60)
-    const seconds = sec % 60
+    const seconds = Math.floor(sec % 60)
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
   }
 
   const extractText = (line) => line?.data?.text || line?.text || ''
 
   return (
-    <Box sx={{ p: 2, height: '100%', overflow: 'auto' }}>
+    <Box sx={{ p: 2 }}>
       <Stack spacing={2}>
         {/* Word and Timestamp */}
         <Stack spacing={0.5}>

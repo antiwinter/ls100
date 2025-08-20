@@ -73,7 +73,7 @@ export const OverlayManager = forwardRef(({ onBack, sessionStore, wordlist = [],
       >
         {xState.tool === 'dict' && xState.wordCtx  && (
           <DictMainPageComponent key="main" word={xState.wordCtx.word} />)}
-        {xState.tool === 'dict' && xState.wordCtx  && (<DictNotesPage key="notes" wordCtx={xState.wordCtx.word} />)}
+        {xState.tool === 'dict' && xState.wordCtx  && (<DictNotesPage key="notes" wordCtx={xState.wordCtx} />)}
         {xState.tool === 'dict' && xState.wordCtx  && (<DictMorePage key="more" />)}
 
         {xState.tool === 'font' && (
