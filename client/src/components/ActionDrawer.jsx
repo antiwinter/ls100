@@ -169,16 +169,19 @@ export const ActionDrawer = forwardRef(({
   onClose,
   children
 }, ref) => {
-  // Internal state for pages and visibility
-  const [pages, setPages] = useState([])
+  // Internal state for content and navigation
+  const [content, setContent] = useState(null)
   const [page, setPage] = useState(0)
 
   // Memoize pages normalization to prevent recreation on every render
   const list = useMemo(() => {
-    return pages && Array.isArray(pages)
-      ? pages.map(p => (p && typeof p === 'object' && 'content' in p) ? p : { content: p })
-      : []
-  }, [pages])
+    if (!content) return []
+    // Filter out falsy children and convert to pages format
+    const validChildren = Array.isArray(content)
+      ? content.filter(Boolean)
+      : content ? [content] : []
+    return validChildren.map(p => (p && typeof p === 'object' && 'content' in p) ? p : { content: p })
+  }, [content])
 
   log.warn('ActionDrawer re-render', { title, pages: children, size })
   const drawRef = useRef(null)
@@ -219,21 +222,20 @@ export const ActionDrawer = forwardRef(({
   }, [list.length, onPageChange])
 
   // Shared close logic
-  const doClose = useCallback(() => {
+  const doClose = useCallback((intential) => {
     transform()
     closingRef.current = setTimeout(() => {
-      setPages([])
-      setPage(0)
+      setContent(null)  // Clear content after animation
       closingRef.current = null
     }, ANIMATION)
-    onClose?.()
+    intential && onClose?.()
   }, [transform, onClose])
 
   // Imperative API
   useImperativeHandle(ref, () => ({
     close: () => {
       // log.debug('ActionDrawer.close')
-      doClose()
+      doClose(true)
     },
     snap,
     resetScroll: () => {
@@ -243,33 +245,24 @@ export const ActionDrawer = forwardRef(({
 
   // Auto-open/close based on children presence
   useEffect(() => {
-    if (children) {
-      // Filter out falsy children (false, null, undefined)
-      const validChildren = Array.isArray(children)
-        ? children.filter(Boolean)  // Remove falsy values
-        : children ? [children] : []
+    // Filter out falsy children (false, null, undefined)
+    const validChildren = children
+      ? (Array.isArray(children) ? children.filter(Boolean) : [children])
+      : []
 
-      if (validChildren.length > 0) {
-        // Convert valid children to pages format
-        const newPages = validChildren.map(child => ({ content: child }))
-        // Use internal open logic (same as imperative open)
-        if (closingRef.current) {
-          clearTimeout(closingRef.current)
-          closingRef.current = null
-        }
-        setPages(newPages)
-        setTimeout(() => transform(0), 20)
-      } else {
-        // No valid children, close drawer if it was open
-        if (pages.length > 0) {
-          doClose()
-        }
+    if (validChildren.length > 0) {
+      // If we receive valid children, open the drawer and set the content
+      if (closingRef.current) {
+        clearTimeout(closingRef.current)
+        closingRef.current = null
       }
-    } else if (pages.length > 0) {
-      // Auto-close when no children (but only if drawer was open)
+      setContent(children)  // Set content immediately
+      setTimeout(() => transform(0), 20)
+    } else if (content) {
+      // If we have no valid children but still have content, close
       doClose()
     }
-  }, [children, transform, doClose, pages.length])
+  }, [children, content, transform, doClose])
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -316,7 +309,7 @@ export const ActionDrawer = forwardRef(({
 
       if (last) {
         if (_oy > height * 0.5 || vy > 1) {
-          doClose()
+          doClose(true)
         } else {
           transform(0)
           cancel()
@@ -336,8 +329,8 @@ export const ActionDrawer = forwardRef(({
     }
   )
 
-  // Return nothing if no pages (after hooks)
-  if (!pages || pages?.length === 0) {
+  // Return nothing if no content (after hooks)
+  if (!content) {
     return null
   }
 
@@ -395,7 +388,7 @@ export const ActionDrawer = forwardRef(({
             {typeof title === 'string' || typeof title === 'number'
               ? <Typography level='h4'>{title}</Typography>
               : title}
-            <IconButton size='sm' variant='plain' onClick={doClose} sx={{ color: 'neutral.500' }}>
+            <IconButton size='sm' variant='plain' onClick={doClose(true)} sx={{ color: 'neutral.500' }}>
               <Close />
             </IconButton>
           </Stack>

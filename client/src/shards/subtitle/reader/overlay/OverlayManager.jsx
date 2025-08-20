@@ -20,8 +20,8 @@ export const OverlayManager = forwardRef(({ onBack, sessionStore, wordlist = [],
 
   const drawerRef = useRef(null)
 
-  const toggleTool = useCallback((tool) => {
-    setXState(x => ({ ...x, tool: x.tool === tool ? null : tool }))
+  const toggleTool = useCallback((tool, position = 'bottom') => {
+    setXState(x => ({ ...x, tool: x.tool === tool ? null : tool, position }))
   }, [])
 
   const handleDrawerClose = useCallback(() => {
@@ -34,10 +34,10 @@ export const OverlayManager = forwardRef(({ onBack, sessionStore, wordlist = [],
       // if tool or toolbar -> hide them all
       // else open toolbar
       setXState(x => {
-        if (word) {
-          if (x.tool === 'dict') return { ...x, word }
-          else return { ...x, tool: 'dict', toolbar: false, word, position }
-        } else  return { ...x, tool: null, toolbar: !(x.tool || x.toolbar) }
+        if (word && !x.toolbar) {
+          return x.tool === 'dict' ? { ...x, word } :  { ...x, word, position, tool:'dict' }
+        } else
+          return { ...x, tool: null, toolbar: !(x.tool || x.toolbar) }
       })
     },
     closeTools: () => {
