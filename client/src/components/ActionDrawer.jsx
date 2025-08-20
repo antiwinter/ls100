@@ -4,7 +4,7 @@ import { useState, useRef, useEffect,
 import { Box, Stack, Typography, IconButton } from '@mui/joy'
 import { Close } from '@mui/icons-material'
 import { useDrag } from '@use-gesture/react'
-// import { log } from '../utils/logger'
+import { log } from '../utils/logger'
 // import { useSpring } from '@react-spring/web'
 
 const ANIMATION = 300
@@ -33,14 +33,14 @@ const stopAllEvents = () => {
 }
 
 // Indicator: page indicator with imperative control
-const Indicator = memo(forwardRef(({ pos = 'bottom', pages = 0, page = 0, onChange }, ref) => {
-  const [currentPage, setCurrentPage] = useState(page)
+const Indicator = memo(forwardRef(({ pos = 'bottom', N = 0, _cur = 0, onChange }, ref) => {
+  const [cur, setCur] = useState(_cur)
 
-  // log.debug('Indicator re-render', { pos, pages, page, onChange })
+  // log.debug('Indicator re-render', { pos, N, _cur, onChange })
   // Expose imperative methods
   useImperativeHandle(ref, () => ({
-    setPage: (newPage) => {
-      setCurrentPage(newPage)
+    setCursor: (i) => {
+      setCur(i)
     }
   }), [])
 
@@ -56,15 +56,15 @@ const Indicator = memo(forwardRef(({ pos = 'bottom', pages = 0, page = 0, onChan
       }}
     >
       <Stack direction='row' spacing={0.75} alignItems='center'>
-        {Array.from({ length: Math.max(pages, 1) }).map((_, i) => (
+        {Array.from({ length: Math.max(N, 1) }).map((_, i) => (
           <Box
             key={i}
             onClick={() => onChange?.(i)}
             sx={{
               height: '6px',
-              width: i === currentPage ? '20px' : '6px',
+              width: i === cur ? '20px' : '6px',
               borderRadius: '999px',
-              bgcolor: i === currentPage ? 'neutral.400' : 'neutral.300',
+              bgcolor: i === cur ? 'neutral.400' : 'neutral.300',
               transition: 'all 0.25s ease',
               cursor: onChange ? 'pointer' : 'default'
             }}
@@ -180,7 +180,7 @@ export const ActionDrawer = forwardRef(({
       : []
   }, [pages])
 
-  // log.warn('ActionDrawer re-render', { title, pages: pages.length })
+  log.warn('ActionDrawer re-render', { title, pages: children, size })
   const drawRef = useRef(null)
   const sliderRef = useRef(null)
   const bottomIndicatorRef = useRef(null)
@@ -200,7 +200,7 @@ export const ActionDrawer = forwardRef(({
       drawRef.current.style.transform = st
       drawRef.current.style.transition = typeof dy === 'number' ? 'none' : 'transform 0.28s ease'
     }
-    // log.debug('style', st)
+    log.debug('style', st)
     dY.current = dy
     return st
   }, [bottom])
@@ -213,8 +213,8 @@ export const ActionDrawer = forwardRef(({
     setPage(p)
     onPageChange?.(p)
     // Update indicators
-    bottomIndicatorRef.current?.setPage(p)
-    topIndicatorRef.current?.setPage(p)
+    bottomIndicatorRef.current?.setCursor(p)
+    topIndicatorRef.current?.setCursor(p)
     sliderRef.current?.snap(p)
   }, [list.length, onPageChange])
 
@@ -244,18 +244,27 @@ export const ActionDrawer = forwardRef(({
   // Auto-open/close based on children presence
   useEffect(() => {
     if (children) {
-      // Convert children to pages format
-      const newPages = Array.isArray(children)
-        ? children.map(child => ({ content: child }))
-        : [{ content: children }]
-      // Use internal open logic (same as imperative open)
-      if (closingRef.current) {
-        clearTimeout(closingRef.current)
-        closingRef.current = null
+      // Filter out falsy children (false, null, undefined)
+      const validChildren = Array.isArray(children)
+        ? children.filter(Boolean)  // Remove falsy values
+        : children ? [children] : []
+
+      if (validChildren.length > 0) {
+        // Convert valid children to pages format
+        const newPages = validChildren.map(child => ({ content: child }))
+        // Use internal open logic (same as imperative open)
+        if (closingRef.current) {
+          clearTimeout(closingRef.current)
+          closingRef.current = null
+        }
+        setPages(newPages)
+        setTimeout(() => transform(0), 20)
+      } else {
+        // No valid children, close drawer if it was open
+        if (pages.length > 0) {
+          doClose()
+        }
       }
-      setPages(newPages)
-      // setPage(0)
-      setTimeout(() => transform(0), 20)
     } else if (pages.length > 0) {
       // Auto-close when no children (but only if drawer was open)
       doClose()
