@@ -2,13 +2,14 @@ import { useState, forwardRef, useImperativeHandle, useCallback, useRef, useEffe
 import { Box } from '@mui/joy'
 import { Toolbar } from './Toolbar.jsx'
 import { DictMainPageComponent, DictNotesPage, DictMorePage } from './Dict.jsx'
-import { FontContent } from './FontDrawer.jsx'
-import { ExportContent } from './ExportDrawer.jsx'
-import { WordListContent } from './WordListDrawer.jsx'
+import { FontContent } from './Font.jsx'
+import { ExportContent } from './Export.jsx'
+import { WordListContent } from './Wordlist.jsx'
 import { ActionDrawer } from '../ActionDrawer.jsx'
 import { log } from '../../utils/logger.js'
 
-export const OverlayManager = forwardRef(({ onBack, sessionStore, wordlist = [], movieName = '', shardId = '', currentLine = 0, lines = []
+export const OverlayManager = forwardRef(({ onBack, sessionStore, wordlist = [],
+  movieName = '', shardId = '', currentLine = 0, lines = []
 }, ref) => {
   // UI State
   const [xState, setXState] = useState({

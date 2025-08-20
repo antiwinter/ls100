@@ -1,19 +1,18 @@
 import { useState } from 'react'
 import { Stack, Typography, Input, Button, Box, List, ListItem, ListItemButton, ListItemDecorator, ListItemContent } from '@mui/joy'
-import { BookmarkAdd, InsertDriveFile } from '@mui/icons-material'
+import { BookmarkAdd } from '@mui/icons-material'
 import { AppDialog } from '../AppDialog.jsx'
-import { generateEudicXML, downloadFileEnhanced, generateFilename, isMobile } from '../../utils/exporters.js'
 
 import { apiCall } from '../../config/api.js'
 import { log } from '../../utils/logger.js'
 
-export const ExportContent = ({
-  selectedWords, movieName, shardId, currentLine, lines, onClose
+export const BookmarkContent = ({
+  movieName, shardId, currentLine, lines, onClose
 }) => {
   const [showBookmarkModal, setShowBookmarkModal] = useState(false)
   const [bookmarkNote, setBookmarkNote] = useState('')
 
-  log.debug('ExportContent re-render', { selectedWords, movieName, shardId, currentLine, lines })
+  log.debug('BookmarkContent re-render', { movieName, shardId, currentLine, lines })
 
   // Generate default bookmark note
   const getDefaultNote = () => {
@@ -54,37 +53,6 @@ export const ExportContent = ({
     }
   }
 
-  const handleEudicExport = async () => {
-    if (!selectedWords.length) {
-      log.warn('No words selected for export')
-      return
-    }
-
-    try {
-      log.debug(`Exporting ${selectedWords.length} words to Eudic`)
-
-      const xmlContent = generateEudicXML(selectedWords, movieName)
-      const filename = generateFilename(movieName, 'wordbook.xml')
-
-      // Use enhanced download with mobile Eudic detection
-      const result = await downloadFileEnhanced(xmlContent, filename, 'text/xml', {
-        tryEudic: isMobile()
-      })
-
-      if (result.success) {
-        log.debug(`Export completed via ${result.method}`)
-      } else {
-        log.error('Export failed:', result.error)
-      }
-
-      onClose()
-    } catch (error) {
-      log.error('Failed to export to Eudic:', error)
-    }
-  }
-
-  const wordCount = selectedWords.length
-
   return (
     <>
       <Box sx={{ px: 1, pb: 1 }}>
@@ -94,7 +62,7 @@ export const ExportContent = ({
             {movieName}
           </Typography>
           <Typography level="body-sm" color="neutral">
-            {wordCount} word{wordCount !== 1 ? 's' : ''} selected
+            Add bookmark at line {currentLine}
           </Typography>
         </Stack>
 
@@ -106,17 +74,6 @@ export const ExportContent = ({
                 <BookmarkAdd />
               </ListItemDecorator>
               <ListItemContent>Add to Bookmark</ListItemContent>
-            </ListItemButton>
-          </ListItem>
-          <ListItem>
-            <ListItemButton
-              onClick={wordCount > 0 ? handleEudicExport : undefined}
-              disabled={wordCount === 0}
-            >
-              <ListItemDecorator>
-                <InsertDriveFile />
-              </ListItemDecorator>
-              <ListItemContent>Save to Files (Eudic)</ListItemContent>
             </ListItemButton>
           </ListItem>
         </List>
@@ -164,7 +121,3 @@ export const ExportContent = ({
     </>
   )
 }
-
-
-
-
