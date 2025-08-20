@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { Stack, Typography, Input, Button } from '@mui/joy'
 import { BookmarkAdd, InsertDriveFile } from '@mui/icons-material'
-import { MenuDrawer } from '../../../components/MenuDrawer.jsx'
-import { AppDialog } from '../../../components/AppDialog.jsx'
-import { generateEudicXML, downloadFileEnhanced, generateFilename, isMobile } from '../../../utils/exporters'
+import { MenuDrawer } from '../../../../components/MenuDrawer.jsx'
+import { AppDialog } from '../../../../components/AppDialog.jsx'
+import { generateEudicXML, downloadFileEnhanced, generateFilename, isMobile } from '../../../../utils/exporters.js'
 
-import { apiCall } from '../../../config/api'
-import { log } from '../../../utils/logger'
+import { apiCall } from '../../../../config/api.js'
+import { log } from '../../../../utils/logger.js'
 
 export const ExportDrawer = ({
   open,

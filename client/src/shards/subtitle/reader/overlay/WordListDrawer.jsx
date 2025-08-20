@@ -1,9 +1,9 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from 'react'
 import { Box, Stack, Typography, IconButton, Input, Chip } from '@mui/joy'
 import { Close, Delete, Search, Edit } from '@mui/icons-material'
-import { ActionDrawer } from '../../../components/ActionDrawer.jsx'
-import { useLongPress } from '../../../utils/useLongPress.js'
-import { log } from '../../../utils/logger'
+import { ActionDrawer } from '../../../../components/ActionDrawer.jsx'
+import { useLongPress } from '../../../../utils/useLongPress.js'
+import { log } from '../../../../utils/logger.js'
 
 // Container for word tile with long press handling
 const WordTileContainer = ({ word, editMode, onWordDelete, onLongPress, isHighlighted }) => {

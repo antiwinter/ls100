@@ -3,8 +3,8 @@ import { Box } from '@mui/joy'
 import { Toolbar } from './Toolbar.jsx'
 import { Dict } from './Dict.jsx'
 import { FontDrawer } from './FontDrawer.jsx'
-import { ExportDrawer } from '../ExportDrawer.jsx'
-import { WordListDrawer } from '../WordListDrawer.jsx'
+import { ExportDrawer } from './ExportDrawer.jsx'
+import { WordListDrawer } from './WordListDrawer.jsx'
 import { log } from '../../../../utils/logger'
 
 export const OverlayManager = forwardRef(({ onBack, sessionStore, wordlist = [], movieName = '', shardId = '', currentLine = 0, lines = []
