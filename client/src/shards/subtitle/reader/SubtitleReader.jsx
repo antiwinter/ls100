@@ -5,7 +5,7 @@ import { Bolt } from '@mui/icons-material'
 import { apiCall } from '../../../config/api'
 import { log } from '../../../utils/logger'
 import { useSync } from './sync.js'
-import { OverlayManager } from '../../../components/overlay/OverlayManager.jsx'
+import { OverlayManager } from '../../../components/overlay/index.jsx'
 import { SubtitleViewer } from './SubtitleViewer.jsx'
 import { useSubtitleGroups } from './hooks/useSubtitleGroups.js'
 import { useSessionStore } from '../../../components/overlay/stores/useSessionStore.js'
@@ -95,18 +95,10 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   const { syncNow } = useSync(shardId, wordlist, position, 10000)
 
   // log.debug('READER re-render', { position })
-
-  // UI Event Handlers
-  const explainWord = useCallback((word, pos) => {
-    const position = pos < window.innerHeight / 2 ? 'bottom' : 'top'
-    // toggleWord(word, 1) // From session store
-    overlayRef.current?.toggleDict(word, position)
-  }, [])
-
   const handleEmptyClick = useCallback(() => {
     log.debug('handleEmptyClick')
     // If any overlay is open, close them all; otherwise show toolbar
-    overlayRef.current?.toggleDict()
+    overlayRef.current?.toggleTools()
   }, [])
 
   // Load selected words and position (mount + shard change)
@@ -160,6 +152,42 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   const canRenderViewer = groupReady && positionLoaded
   const showViewer = canRenderViewer && viewerAnchored
 
+
+  // Helper to create merged group context
+  const mergeGroup = useCallback((word, groups) => {
+    const main = []
+    const refs = new Map()
+
+    groups.forEach(group => {
+      main.push(...(group.main || []))
+
+      if (group.refs) {
+        for (const [code, lines] of group.refs.entries()) {
+          if (!refs.has(code)) refs.set(code, [])
+          refs.get(code).push(...lines)
+        }
+      }
+    })
+
+    return {
+      word,
+      sec: groups[0]?.sec || 0,
+      main,
+      refs
+    }
+  }, [])
+
+  // UI Event Handlers
+  const explainWord = useCallback((word, pos, gid = 1) => {
+    if (!groups || !groups.length) return
+
+    // Always get 3 adjacent groups: 0->[0,1,2], 1->[0,1,2], 2->[1,2,3]
+    const start = Math.max(0, Math.min(gid - 1, groups.length - 3))
+    const ctx = mergeGroup(word, groups.slice(start, start + 3))
+    const position = pos < window.innerHeight / 2 ? 'bottom' : 'top'
+    overlayRef.current?.toggleTools(ctx, position)
+  }, [groups, mergeGroup])
+
   // Reset anchored flag when shard/seek changes
   useEffect(() => { setViewerAnchored(false) }, [shardId, seek])
 
@@ -175,13 +203,13 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   }, [syncNow])
 
   // Handle word events with store handlers
-  const handleWordEvent = useCallback((word, type, pos) => {
-    log.info('SubtitleReader:handleWordEvent received', { word, type, pos })
-    log.debug('handleWordEvent', { word, type, pos })
+  const handleWordEvent = useCallback((word, type, pos, gid) => {
+    log.info('SubtitleReader:handleWordEvent received', { word, type, pos, gid })
+    log.debug('handleWordEvent', { word, type, pos, gid })
     if (type === 'long') {
       toggleWord(word) // From session store
     } else {
-      explainWord(word, pos) // From UI store
+      explainWord(word, pos, gid) // From UI store
     }
   }, [toggleWord, explainWord])
 

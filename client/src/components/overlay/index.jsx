@@ -15,7 +15,7 @@ export const OverlayManager = forwardRef(({ onBack, sessionStore, wordlist = [],
   const [xState, setXState] = useState({
     toolbar: false,
     tool: null,
-    word: '',
+    wordCtx: '',
     position: 'bottom'
   })
 
@@ -31,23 +31,23 @@ export const OverlayManager = forwardRef(({ onBack, sessionStore, wordlist = [],
 
   // Handle special dict features when dict opens
   useEffect(() => {
-    if (xState.tool === 'dict' && xState.word) {
+    if (xState.tool === 'dict' && xState.wordCtx) {
       // Small delay to ensure drawer is open
       setTimeout(() => {
         drawerRef.current?.snap(0)
         drawerRef.current?.resetScroll()
       }, 50)
     }
-  }, [xState.tool, xState.word])
+  }, [xState.tool, xState.wordCtx])
 
   useImperativeHandle(ref, () => ({
-    toggleDict: (word, position) => {
-      // if word -> open dict / update word
+    toggleTools: (wordCtx, position) => {
+      // if wordCtx -> open dict / update wordCtx
       // if tool or toolbar -> hide them all
       // else open toolbar
       setXState(x => {
-        if (word && !x.toolbar) {
-          return x.tool === 'dict' ? { ...x, word } :  { ...x, word, position, tool:'dict' }
+        if (wordCtx && !x.toolbar) {
+          return x.tool === 'dict' ? { ...x, wordCtx } :  { ...x, wordCtx, position, tool:'dict' }
         } else
           return { ...x, tool: null, toolbar: !(x.tool || x.toolbar) }
       })
@@ -71,10 +71,10 @@ export const OverlayManager = forwardRef(({ onBack, sessionStore, wordlist = [],
         position={xState.position}
         size="half"
       >
-        {xState.tool === 'dict' && xState.word  && (
-          <DictMainPageComponent key="main" word={xState.word} />)}
-        {xState.tool === 'dict' && xState.word  && (<DictNotesPage key="notes" />)}
-        {xState.tool === 'dict' && xState.word  && (  <DictMorePage key="more" />)}
+        {xState.tool === 'dict' && xState.wordCtx  && (
+          <DictMainPageComponent key="main" word={xState.wordCtx.word} />)}
+        {xState.tool === 'dict' && xState.wordCtx  && (<DictNotesPage key="notes" wordCtx={xState.wordCtx.word} />)}
+        {xState.tool === 'dict' && xState.wordCtx  && (<DictMorePage key="more" />)}
 
         {xState.tool === 'font' && (
           <FontContent sessionStore={sessionStore} />
@@ -87,7 +87,7 @@ export const OverlayManager = forwardRef(({ onBack, sessionStore, wordlist = [],
                 const api = sessionStore?.getState?.()
                 if (api?.toggleWord) api.toggleWord(w)
               } catch (e) {
-                log.error('Failed to toggle word from WordListDrawer', e)
+                log.error('Failed to toggle wordCtx from WordListDrawer', e)
               }
             }}
           />

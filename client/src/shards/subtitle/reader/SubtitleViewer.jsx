@@ -208,7 +208,12 @@ const SubtitleViewer_ = forwardRef(({
   const getPressData = useCallback((e) => {
     const { word } = e.target?.dataset || {}
     if (!word || word.length <= 1) return null
-    return { word }
+
+    // Find parent with data-index to get group index
+    const indexEl = e.target.closest('[data-index]')
+    const gid = indexEl ? parseInt(indexEl.dataset.index) : undefined
+
+    return { word, gid }
   }, [])
 
   const getClickY = (e) => {
@@ -221,7 +226,7 @@ const SubtitleViewer_ = forwardRef(({
     const data = getPressData(e)
     if (!data && type === 'short') { onEmptyClick?.(); return }
     e.stopPropagation()
-    onWord?.(data.word, type === 'long' ? 'long' : 'short', getClickY(e))
+    onWord?.(data.word, type === 'long' ? 'long' : 'short', getClickY(e), data.gid)
   }, [getPressData, onEmptyClick, onWord])
 
   const { handlers } = useLongPress(handlePress, { delay: 450 })

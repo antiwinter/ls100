@@ -62,6 +62,7 @@ export const DictMainPageComponent = ({ word }) => {
   const [pronunciation, setPronunciation] = useState('')
   const voiceRef = useRef(null)
 
+  log.debug('DictMainPageComponent re-render', word)
   // Speech synthesis (cross-browser)
   const supportsTTS = typeof window !== 'undefined' && 'speechSynthesis' in window && typeof window.SpeechSynthesisUtterance === 'function'
   const loadVoices = useCallback(() => new Promise((resolve) => {
@@ -136,17 +137,105 @@ export const DictMainPageComponent = ({ word }) => {
 }
 
 // Notes page component
-export const DictNotesPage = () => {
+export const DictNotesPage = ({ wordCtx }) => {
+  if (!wordCtx) {
+    return (
+      <Box sx={{
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <Typography level="body-md" sx={{ color: 'neutral.500' }}>
+          Select a word to view context
+        </Typography>
+      </Box>
+    )
+  }
+
+  const formatTime = (sec) => {
+    const minutes = Math.floor(sec / 60)
+    const seconds = sec % 60
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`
+  }
+
+  const extractText = (line) => line?.data?.text || line?.text || ''
+
   return (
-    <Box sx={{
-      height: '100%',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center'
-    }}>
-      <Typography level="body-md" sx={{ color: 'neutral.500' }}>
-        Notes are coming soon
-      </Typography>
+    <Box sx={{ p: 2, height: '100%', overflow: 'auto' }}>
+      <Stack spacing={2}>
+        {/* Word and Timestamp */}
+        <Stack spacing={0.5}>
+          <Typography level="title-lg" sx={{ fontWeight: 'bold' }}>
+            {wordCtx.word}
+          </Typography>
+          <Typography level="body-xs" color="neutral">
+            {formatTime(wordCtx.sec)}
+          </Typography>
+        </Stack>
+
+        {/* Main Language Context */}
+        {wordCtx.main && wordCtx.main.length > 0 && (
+          <Box>
+            <Typography level="title-sm" sx={{ mb: 1, fontWeight: 600 }}>
+              Context
+            </Typography>
+            <Stack spacing={0.5}>
+              {wordCtx.main.map((line, idx) => (
+                <Typography
+                  key={idx}
+                  level="body-sm"
+                  sx={{
+                    p: 1,
+                    bgcolor: 'background.level1',
+                    borderRadius: 'sm',
+                    lineHeight: 1.4
+                  }}
+                >
+                  {extractText(line)}
+                </Typography>
+              ))}
+            </Stack>
+          </Box>
+        )}
+
+        {/* Reference Languages */}
+        {wordCtx.refs && wordCtx.refs.size > 0 && (
+          <Box>
+            <Typography level="title-sm" sx={{ mb: 1, fontWeight: 600 }}>
+              References
+            </Typography>
+            <Stack spacing={1.5}>
+              {Array.from(wordCtx.refs.entries()).map(([langCode, lines]) => (
+                lines.length > 0 && (
+                  <Box key={langCode}>
+                    <Typography level="body-xs" color="primary" sx={{ mb: 0.5, fontWeight: 600 }}>
+                      {langCode.toUpperCase()}
+                    </Typography>
+                    <Stack spacing={0.5}>
+                      {lines.map((line, idx) => (
+                        <Typography
+                          key={idx}
+                          level="body-sm"
+                          sx={{
+                            p: 1,
+                            bgcolor: 'background.level2',
+                            borderRadius: 'sm',
+                            lineHeight: 1.4,
+                            color: 'neutral.700'
+                          }}
+                        >
+                          {extractText(line)}
+                        </Typography>
+                      ))}
+                    </Stack>
+                  </Box>
+                )
+              ))}
+            </Stack>
+          </Box>
+        )}
+      </Stack>
     </Box>
   )
 }
