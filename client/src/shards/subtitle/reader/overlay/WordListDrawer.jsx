@@ -113,8 +113,7 @@ const SearchBar = ({ searchTerm, onSearchChange, onClear }) => {
   )
 }
 
-// Create a stateful wrapper component for internal state management
-const WordListContent = ({ selectedWords, onWordDelete }) => {
+export const WordListContent = ({ selectedWords, onWordDelete }) => {
   const [searchTerm, setSearchTerm] = useState('')
   const [editMode, setEditMode] = useState(false)
   const gridRef = useRef(null)
@@ -248,21 +247,6 @@ const WordListContent = ({ selectedWords, onWordDelete }) => {
   )
 }
 
-export const getWordListDrawerContent = ({ selectedWords = new Set(), onWordDelete }) => {
-  log.debug('getWordListDrawerContent called', { selectedWords, onWordDelete })
 
-  return {
-    title: 'Word List',
-    size: 'fit-content',
-    pages: [{
-      content: (
-        <WordListContent
-          selectedWords={selectedWords}
-          onWordDelete={onWordDelete}
-        />
-      )
-    }]
-  }
-}
 
 

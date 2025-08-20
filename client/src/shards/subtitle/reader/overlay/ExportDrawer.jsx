@@ -7,8 +7,9 @@ import { generateEudicXML, downloadFileEnhanced, generateFilename, isMobile } fr
 import { apiCall } from '../../../../config/api.js'
 import { log } from '../../../../utils/logger.js'
 
-// Create a stateful wrapper component for internal state management
-const ExportContent = ({ selectedWords, movieName, shardId, currentLine, lines, onClose }) => {
+export const ExportContent = ({
+  selectedWords, movieName, shardId, currentLine, lines, onClose
+}) => {
   const [showBookmarkModal, setShowBookmarkModal] = useState(false)
   const [bookmarkNote, setBookmarkNote] = useState('')
 
@@ -164,32 +165,6 @@ const ExportContent = ({ selectedWords, movieName, shardId, currentLine, lines, 
   )
 }
 
-export const getExportDrawerContent = ({
-  selectedWords = [],
-  movieName = '',
-  shardId,
-  currentLine = 0,
-  lines = [],
-  onClose
-}) => {
-  log.debug('getExportDrawerContent called', { selectedWords, movieName, shardId, currentLine, lines })
 
-  return {
-    title: 'Export Options',
-    size: 'half',
-    pages: [{
-      content: (
-        <ExportContent
-          selectedWords={selectedWords}
-          movieName={movieName}
-          shardId={shardId}
-          currentLine={currentLine}
-          lines={lines}
-          onClose={onClose}
-        />
-      )
-    }]
-  }
-}
 
 

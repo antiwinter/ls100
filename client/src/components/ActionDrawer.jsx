@@ -166,7 +166,8 @@ export const ActionDrawer = forwardRef(({
   position = 'bottom',
   title,
   onPageChange,
-  onClose
+  onClose,
+  children
 }, ref) => {
   // Internal state for pages and visibility
   const [pages, setPages] = useState([])
@@ -230,19 +231,6 @@ export const ActionDrawer = forwardRef(({
 
   // Imperative API
   useImperativeHandle(ref, () => ({
-    open: (newPages) => {
-      // log.debug('ActionDrawer.open', { pages: newPages?.length })
-      // Cancel any ongoing close timeout
-      if (closingRef.current) {
-        clearTimeout(closingRef.current)
-        closingRef.current = null
-      }
-      setPages(newPages || [])
-      setPage(0)
-
-      // setShown(false)
-      setTimeout(() => transform(0), 20)
-    },
     close: () => {
       // log.debug('ActionDrawer.close')
       doClose()
@@ -251,7 +239,28 @@ export const ActionDrawer = forwardRef(({
     resetScroll: () => {
       sliderRef.current?.resetScroll()
     }
-  }), [doClose, snap, transform])
+  }), [doClose, snap])
+
+  // Auto-open/close based on children presence
+  useEffect(() => {
+    if (children) {
+      // Convert children to pages format
+      const newPages = Array.isArray(children)
+        ? children.map(child => ({ content: child }))
+        : [{ content: children }]
+      // Use internal open logic (same as imperative open)
+      if (closingRef.current) {
+        clearTimeout(closingRef.current)
+        closingRef.current = null
+      }
+      setPages(newPages)
+      // setPage(0)
+      setTimeout(() => transform(0), 20)
+    } else if (pages.length > 0) {
+      // Auto-close when no children (but only if drawer was open)
+      doClose()
+    }
+  }, [children, transform, doClose, pages.length])
 
   // Cleanup timeout on unmount
   useEffect(() => {

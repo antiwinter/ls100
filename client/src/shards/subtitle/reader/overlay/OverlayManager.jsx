@@ -1,10 +1,10 @@
-import { useState, forwardRef, useImperativeHandle, useCallback, useRef, useEffect } from 'react'
+import { useState, forwardRef, useImperativeHandle, useCallback, useRef } from 'react'
 import { Box } from '@mui/joy'
 import { Toolbar } from './Toolbar.jsx'
-import { getDictContent } from './Dict.jsx'
-import { getFontDrawerContent } from './FontDrawer.jsx'
-import { getExportDrawerContent } from './ExportDrawer.jsx'
-import { getWordListDrawerContent } from './WordListDrawer.jsx'
+import { DictContent } from './Dict.jsx'
+import { FontContent } from './FontDrawer.jsx'
+import { ExportContent } from './ExportDrawer.jsx'
+import { WordListContent } from './WordListDrawer.jsx'
 import { ActionDrawer } from '../../../../components/ActionDrawer.jsx'
 import { log } from '../../../../utils/logger'
 
@@ -28,70 +28,6 @@ export const OverlayManager = forwardRef(({ onBack, sessionStore, wordlist = [],
     setXState(x => ({ ...x, tool: null }))
   }, [])
 
-  // When the tool changes, open the drawer with the right content
-  useEffect(() => {
-    if (!xState.tool) {
-      drawerRef.current?.close()
-      return
-    }
-
-    let content = null
-
-    switch (xState.tool) {
-    case 'dict':
-      content = getDictContent({
-        word: xState.word,
-        position: xState.position
-      })
-      break
-    case 'font':
-      content = getFontDrawerContent({ sessionStore })
-      break
-    case 'wordlist':
-      content = getWordListDrawerContent({
-        selectedWords: new Set(Array.isArray(wordlist) ? wordlist : Array.from(wordlist || [])),
-        onWordDelete: (w) => {
-          try {
-            const api = sessionStore?.getState?.()
-            if (api?.toggleWord) api.toggleWord(w)
-          } catch (e) {
-            log.error('Failed to toggle word from WordListDrawer', e)
-          }
-        }
-      })
-      break
-    case 'export':
-      content = getExportDrawerContent({
-        selectedWords: Array.isArray(wordlist) ? wordlist : Array.from(wordlist || []),
-        movieName,
-        shardId,
-        currentLine,
-        lines,
-        onClose: handleDrawerClose
-      })
-      break
-    default:
-      drawerRef.current?.close()
-      return
-    }
-
-    if (content && drawerRef.current) {
-      log.debug('Opening drawer with content:', { tool: xState.tool, title: content.title })
-      drawerRef.current.open(content.pages)
-
-      // Handle special cases for dict drawer
-      if (xState.tool === 'dict') {
-        drawerRef.current.snap?.(0)
-        drawerRef.current.resetScroll?.()
-      }
-    }
-
-  }, [
-    xState.tool, xState.word, xState.position, sessionStore,
-    wordlist, movieName, shardId, currentLine,
-    lines, handleDrawerClose
-  ])
-
   useImperativeHandle(ref, () => ({
     toggleTools: (word, position) => {
       // if word -> open dict / update word
@@ -100,7 +36,7 @@ export const OverlayManager = forwardRef(({ onBack, sessionStore, wordlist = [],
       setXState(x => {
         if (word) {
           if (x.tool === 'dict') return { ...x, word }
-          else return { ...x, word, position }
+          else return { ...x, tool: 'dict', toolbar: false, word, position }
         } else  return { ...x, tool: null, toolbar: !(x.tool || x.toolbar) }
       })
     }
@@ -119,7 +55,37 @@ export const OverlayManager = forwardRef(({ onBack, sessionStore, wordlist = [],
         onClose={handleDrawerClose}
         position={xState.position}
         size="half"
-      />
+      >
+        {xState.tool === 'dict' && xState.word && (
+          <DictContent word={xState.word} />
+        )}
+        {xState.tool === 'font' && (
+          <FontContent sessionStore={sessionStore} />
+        )}
+        {xState.tool === 'wordlist' && (
+          <WordListContent
+            selectedWords={new Set(Array.isArray(wordlist) ? wordlist : Array.from(wordlist || []))}
+            onWordDelete={(w) => {
+              try {
+                const api = sessionStore?.getState?.()
+                if (api?.toggleWord) api.toggleWord(w)
+              } catch (e) {
+                log.error('Failed to toggle word from WordListDrawer', e)
+              }
+            }}
+          />
+        )}
+        {xState.tool === 'export' && (
+          <ExportContent
+            selectedWords={Array.isArray(wordlist) ? wordlist : Array.from(wordlist || [])}
+            movieName={movieName}
+            shardId={shardId}
+            currentLine={currentLine}
+            lines={lines}
+            onClose={handleDrawerClose}
+          />
+        )}
+      </ActionDrawer>
     </Box>
   )
 })

@@ -12,8 +12,7 @@ import {
 import { useSettingStore } from './stores/useSettingStore'
 import { fontStack } from '../../../../utils/font'
 
-// Create a stateful wrapper component for internal state management
-const FontContent = ({ sessionStore }) => {
+export const FontContent = ({ sessionStore }) => {
   const { fontSize, fontFamily, setFontSize, setFontFamily } = useSettingStore('subtitle-shard')()
   const { langMap, toggleLang } = sessionStore || { langMap: {}, toggleLang: () => {} }
 
@@ -115,13 +114,4 @@ const FontContent = ({ sessionStore }) => {
       )}
     </Stack>
   )
-}
-
-export const getFontDrawerContent = ({ sessionStore }) => {
-  return {
-    title: 'Font Settings',
-    size: 'half',
-    position: 'bottom',
-    pages: [{ content: <FontContent sessionStore={sessionStore} /> }]
-  }
 }

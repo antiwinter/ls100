@@ -57,8 +57,7 @@ const DictMainPage = memo(function DictMainPage ({
   )
 })
 
-// Create a stateful wrapper component for internal state management
-const DictContent = ({ word }) => {
+export const DictContent = ({ word }) => {
   const [pronunciation, setPronunciation] = useState('')
   const voiceRef = useRef(null)
 
@@ -124,57 +123,35 @@ const DictContent = ({ word }) => {
     setPronunciation(prev => (prev === next ? prev : next))
   }, [])
 
-  return (
+  // Return array for multi-page support
+  return [
     <DictMainPage
+      key="main"
       word={word}
       pronunciation={pronunciation}
       supportsTTS={supportsTTS}
       onPlayAudio={handlePlayAudio}
       onMeta={handleMeta}
-    />
-  )
-}
-
-export const getDictContent = ({ word, position = 'bottom' }) => {
-  log.debug('getDictContent called', { word, position })
-  if (!word || typeof word !== 'string') {
-    return null
-  }
-
-  return {
-    title: 'Dictionary',
-    size: 'half',
-    position,
-    pages: [{
-      content: <DictContent word={word} />
-    }, {
-      title: 'Notes',
-      content: (
-        <Box sx={{
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-          <Typography level="body-md" sx={{ color: 'neutral.500' }}>
-            Notes are coming soon
-          </Typography>
-        </Box>
-      )
-    }, {
-      title: 'More',
-      content: (
-        <Box sx={{
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-          <Typography level="body-md" sx={{ color: 'neutral.500' }}>
-            Third page placeholder
-          </Typography>
-        </Box>
-      )
-    }]
-  }
+    />,
+    <Box key="notes" sx={{
+      height: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }}>
+      <Typography level="body-md" sx={{ color: 'neutral.500' }}>
+        Notes are coming soon
+      </Typography>
+    </Box>,
+    <Box key="more" sx={{
+      height: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }}>
+      <Typography level="body-md" sx={{ color: 'neutral.500' }}>
+        Third page placeholder
+      </Typography>
+    </Box>
+  ]
 }
