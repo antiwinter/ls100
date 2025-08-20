@@ -78,7 +78,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   const sessionStore = useSessionStore(shardId)
   const {
     position, wordlist, langMap, setPosition,
-    initWordlist, toggleWord, toggleLang
+    initWordlist, toggleWord
   } = sessionStore()
 
   // Settings from store
@@ -100,13 +100,13 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   const explainWord = useCallback((word, pos) => {
     const position = pos < window.innerHeight / 2 ? 'bottom' : 'top'
     // toggleWord(word, 1) // From session store
-    overlayRef.current?.openDict(word, position)
+    overlayRef.current?.toggleDict(word, position)
   }, [])
 
   const handleEmptyClick = useCallback(() => {
     log.debug('handleEmptyClick')
     // If any overlay is open, close them all; otherwise show toolbar
-    overlayRef.current?.toggleToolbar()
+    overlayRef.current?.toggleDict()
   }, [])
 
   // Load selected words and position (mount + shard change)
@@ -205,7 +205,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
 
   const handleGroupChange = useCallback((idx) => {
     setPosition(idx)
-    overlayRef.current?.closeTool(1)
+    overlayRef.current?.closeTools()
   }, [setPosition])
 
   const shardName = shard?.name || ''
@@ -237,7 +237,16 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
       />
 
       {/* OverlayManager - local state management */}
-      <OverlayManager ref={overlayRef} onBack={onBack} sessionStore={{ langMap, toggleLang }} />
+      <OverlayManager
+        ref={overlayRef}
+        onBack={onBack}
+        sessionStore={sessionStore}
+        wordlist={wordlist}
+        movieName={shardName}
+        shardId={shardId}
+        currentLine={(position || 0) + 1}
+        lines={groups || []}
+      />
 
       {/* SubtitleViewer - render after groups and position ready */}
       <Box sx={{ position: 'relative', flex: 1 }}>

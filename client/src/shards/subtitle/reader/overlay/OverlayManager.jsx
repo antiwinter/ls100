@@ -1,11 +1,14 @@
-import { useState, forwardRef, useImperativeHandle, useCallback } from 'react'
+import { useState, forwardRef, useImperativeHandle, useCallback, useRef, useEffect } from 'react'
 import { Box } from '@mui/joy'
 import { Toolbar } from './Toolbar.jsx'
-import { Dict } from './Dict.jsx'
-import { FontDrawer } from './FontDrawer.jsx'
+import { DictMainPageComponent, DictNotesPage, DictMorePage } from './Dict.jsx'
+import { FontContent } from './FontDrawer.jsx'
+import { ExportContent } from './ExportDrawer.jsx'
+import { WordListContent } from './WordListDrawer.jsx'
+import { ActionDrawer } from '../../../../components/ActionDrawer.jsx'
 import { log } from '../../../../utils/logger'
 
-export const OverlayManager = forwardRef(({ onBack /*, sessionStore */
+export const OverlayManager = forwardRef(({ onBack, sessionStore, wordlist = [], movieName = '', shardId = '', currentLine = 0, lines = []
 }, ref) => {
   // UI State
   const [xState, setXState] = useState({
@@ -15,37 +18,43 @@ export const OverlayManager = forwardRef(({ onBack /*, sessionStore */
     position: 'bottom'
   })
 
-  const toggleTool = useCallback((tool) => {
-    setXState(x => ({ ...x, tool: x.tool === tool ? null : tool }))
+  const drawerRef = useRef(null)
+
+  const toggleTool = useCallback((tool, position = 'bottom') => {
+    setXState(x => ({ ...x, tool: x.tool === tool ? null : tool, position }))
   }, [])
 
-  const cleanDict = useCallback(() => {
+  const handleDrawerClose = useCallback(() => {
     setXState(x => ({ ...x, tool: null }))
   }, [])
 
+  // Handle special dict features when dict opens
+  useEffect(() => {
+    if (xState.tool === 'dict' && xState.word) {
+      // Small delay to ensure drawer is open
+      setTimeout(() => {
+        drawerRef.current?.snap(0)
+        drawerRef.current?.resetScroll()
+      }, 50)
+    }
+  }, [xState.tool, xState.word])
+
   useImperativeHandle(ref, () => ({
-    toggleToolbar: () => {
-      setXState(x => (x.tool || x.toolbar
-        ? { ...x, toolbar: false, tool: null }
-        : { ...x, toolbar: true }))
+    toggleDict: (word, position) => {
+      // if word -> open dict / update word
+      // if tool or toolbar -> hide them all
+      // else open toolbar
+      setXState(x => {
+        if (word && !x.toolbar) {
+          return x.tool === 'dict' ? { ...x, word } :  { ...x, word, position, tool:'dict' }
+        } else
+          return { ...x, tool: null, toolbar: !(x.tool || x.toolbar) }
+      })
     },
-
-    openDict: (word, position) => {
-      log.info('OverlayManager:openDict received', { word, position })
-      if (!word || typeof word !== 'string') return
-      setXState(x => (x.tool === 'dict'
-        ? { ...x, toolbar: false, word } // don't change position
-        : { ...x, tool: 'dict', toolbar: false, word, position }))
-    },
-
-    // close tool
-    closeTool: (clean = false) => {
-      log.info('OverlayManager:closeTool called', { clean })
-      setXState(x => ({ ...x, tool: x.tool === 'dict' ? 'dict' : null, toolbar: clean ? false : x.toolbar }))
+    closeTools: () => {
+      setXState(x => ({ ...x, tool: null, toolbar: false }))
     }
   }))
-
-
 
   return (
     <Box>
@@ -55,17 +64,44 @@ export const OverlayManager = forwardRef(({ onBack /*, sessionStore */
         onToolSelect={toggleTool}
       />
 
-      <Dict
-        word={xState.word}
+      <ActionDrawer
+        ref={drawerRef}
+        onClose={handleDrawerClose}
         position={xState.position}
-        visible={xState.tool == 'dict'}
-        onClose={cleanDict}
-      />
+        size="half"
+      >
+        {xState.tool === 'dict' && xState.word  && (
+          <DictMainPageComponent key="main" word={xState.word} />)}
+        {xState.tool === 'dict' && xState.word  && (<DictNotesPage key="notes" />)}
+        {xState.tool === 'dict' && xState.word  && (  <DictMorePage key="more" />)}
 
-      {/* <FontDrawer
-        open={xState.tool === 'font'}
-        sessionStore={sessionStore}
-      /> */}
+        {xState.tool === 'font' && (
+          <FontContent sessionStore={sessionStore} />
+        )}
+        {xState.tool === 'wordlist' && (
+          <WordListContent
+            selectedWords={new Set(Array.isArray(wordlist) ? wordlist : Array.from(wordlist || []))}
+            onWordDelete={(w) => {
+              try {
+                const api = sessionStore?.getState?.()
+                if (api?.toggleWord) api.toggleWord(w)
+              } catch (e) {
+                log.error('Failed to toggle word from WordListDrawer', e)
+              }
+            }}
+          />
+        )}
+        {xState.tool === 'export' && (
+          <ExportContent
+            selectedWords={Array.isArray(wordlist) ? wordlist : Array.from(wordlist || [])}
+            movieName={movieName}
+            shardId={shardId}
+            currentLine={currentLine}
+            lines={lines}
+            onClose={handleDrawerClose}
+          />
+        )}
+      </ActionDrawer>
     </Box>
   )
 })

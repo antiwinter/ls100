@@ -4,7 +4,7 @@ import { useState, useRef, useEffect,
 import { Box, Stack, Typography, IconButton } from '@mui/joy'
 import { Close } from '@mui/icons-material'
 import { useDrag } from '@use-gesture/react'
-// import { log } from '../utils/logger'
+import { log } from '../utils/logger'
 // import { useSpring } from '@react-spring/web'
 
 const ANIMATION = 300
@@ -33,14 +33,14 @@ const stopAllEvents = () => {
 }
 
 // Indicator: page indicator with imperative control
-const Indicator = memo(forwardRef(({ pos = 'bottom', pages = 0, page = 0, onChange }, ref) => {
-  const [currentPage, setCurrentPage] = useState(page)
+const Indicator = memo(forwardRef(({ pos = 'bottom', N = 0, _cur = 0, onChange }, ref) => {
+  const [cur, setCur] = useState(_cur)
 
-  // log.debug('Indicator re-render', { pos, pages, page, onChange })
+  // log.debug('Indicator re-render', { pos, N, _cur, onChange })
   // Expose imperative methods
   useImperativeHandle(ref, () => ({
-    setPage: (newPage) => {
-      setCurrentPage(newPage)
+    setCursor: (i) => {
+      setCur(i)
     }
   }), [])
 
@@ -56,15 +56,15 @@ const Indicator = memo(forwardRef(({ pos = 'bottom', pages = 0, page = 0, onChan
       }}
     >
       <Stack direction='row' spacing={0.75} alignItems='center'>
-        {Array.from({ length: Math.max(pages, 1) }).map((_, i) => (
+        {Array.from({ length: Math.max(N, 1) }).map((_, i) => (
           <Box
             key={i}
             onClick={() => onChange?.(i)}
             sx={{
               height: '6px',
-              width: i === currentPage ? '20px' : '6px',
+              width: i === cur ? '20px' : '6px',
               borderRadius: '999px',
-              bgcolor: i === currentPage ? 'neutral.400' : 'neutral.300',
+              bgcolor: i === cur ? 'neutral.400' : 'neutral.300',
               transition: 'all 0.25s ease',
               cursor: onChange ? 'pointer' : 'default'
             }}
@@ -166,20 +166,24 @@ export const ActionDrawer = forwardRef(({
   position = 'bottom',
   title,
   onPageChange,
-  onClose
+  onClose,
+  children
 }, ref) => {
-  // Internal state for pages and visibility
-  const [pages, setPages] = useState([])
+  // Internal state for content and navigation
+  const [content, setContent] = useState(null)
   const [page, setPage] = useState(0)
 
   // Memoize pages normalization to prevent recreation on every render
   const list = useMemo(() => {
-    return pages && Array.isArray(pages)
-      ? pages.map(p => (p && typeof p === 'object' && 'content' in p) ? p : { content: p })
-      : []
-  }, [pages])
+    if (!content) return []
+    // Filter out falsy children and convert to pages format
+    const validChildren = Array.isArray(content)
+      ? content.filter(Boolean)
+      : content ? [content] : []
+    return validChildren.map(p => (p && typeof p === 'object' && 'content' in p) ? p : { content: p })
+  }, [content])
 
-  // log.warn('ActionDrawer re-render', { title, pages: pages.length })
+  // log.warn('ActionDrawer re-render', { title, pages: children, size })
   const drawRef = useRef(null)
   const sliderRef = useRef(null)
   const bottomIndicatorRef = useRef(null)
@@ -212,46 +216,53 @@ export const ActionDrawer = forwardRef(({
     setPage(p)
     onPageChange?.(p)
     // Update indicators
-    bottomIndicatorRef.current?.setPage(p)
-    topIndicatorRef.current?.setPage(p)
+    bottomIndicatorRef.current?.setCursor(p)
+    topIndicatorRef.current?.setCursor(p)
     sliderRef.current?.snap(p)
   }, [list.length, onPageChange])
 
   // Shared close logic
-  const doClose = useCallback(() => {
+  const doClose = useCallback((intential) => {
     transform()
     closingRef.current = setTimeout(() => {
-      setPages([])
-      setPage(0)
+      setContent(null)  // Clear content after animation
       closingRef.current = null
     }, ANIMATION)
-    onClose?.()
+    intential && onClose?.()
   }, [transform, onClose])
 
   // Imperative API
   useImperativeHandle(ref, () => ({
-    open: (newPages) => {
-      // log.debug('ActionDrawer.open', { pages: newPages?.length })
-      // Cancel any ongoing close timeout
-      if (closingRef.current) {
-        clearTimeout(closingRef.current)
-        closingRef.current = null
-      }
-      setPages(newPages || [])
-      setPage(0)
-
-      // setShown(false)
-      setTimeout(() => transform(0), 20)
-    },
     close: () => {
       // log.debug('ActionDrawer.close')
-      doClose()
+      doClose(true)
     },
     snap,
     resetScroll: () => {
       sliderRef.current?.resetScroll()
     }
-  }), [doClose, snap, transform])
+  }), [doClose, snap])
+
+  // Auto-open/close based on children presence
+  useEffect(() => {
+    // Filter out falsy children (false, null, undefined)
+    const validChildren = children
+      ? (Array.isArray(children) ? children.filter(Boolean) : [children])
+      : []
+
+    if (validChildren.length > 0) {
+      // If we receive valid children, open the drawer and set the content
+      if (closingRef.current) {
+        clearTimeout(closingRef.current)
+        closingRef.current = null
+      }
+      setContent(children)  // Set content immediately
+      setTimeout(() => transform(0), 20)
+    } else if (content) {
+      // If we have no valid children but still have content, close
+      doClose()
+    }
+  }, [children, content, transform, doClose])
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -299,7 +310,7 @@ export const ActionDrawer = forwardRef(({
 
       if (last) {
         if (_oy > height * 0.5 || vy > 1) {
-          doClose()
+          doClose(true)
         } else {
           transform(0)
           cancel()
@@ -319,8 +330,8 @@ export const ActionDrawer = forwardRef(({
     }
   )
 
-  // Return nothing if no pages (after hooks)
-  if (!pages || pages?.length === 0) {
+  // Return nothing if no content (after hooks)
+  if (!content) {
     return null
   }
 
@@ -328,8 +339,8 @@ export const ActionDrawer = forwardRef(({
     <Box
       sx={{
         position: 'absolute',
-        // left: 0,
-        // right: 0,
+        left: 0,
+        right: 0,
         [bottom ? 'bottom' : 'top']: 0,
         display: 'flex',
         justifyContent: 'center',
@@ -368,7 +379,7 @@ export const ActionDrawer = forwardRef(({
           touchAction: 'none'
         }}
       >
-        {bottom && <Indicator ref={bottomIndicatorRef} pos='bottom' pages={list.length} page={page} onChange={snap} />}
+        {bottom && <Indicator ref={bottomIndicatorRef} pos='bottom' N={list.length} cur={page} onChange={snap} />}
 
         {title && (
           <Stack
@@ -377,8 +388,10 @@ export const ActionDrawer = forwardRef(({
             alignItems='center'
             sx={{ px: 2, py: 1, borderBottom: bottom ? 1 : 0, borderTop: bottom ? 0 : 1, borderColor: 'divider' }}
           >
-            <Typography level='h4'>{title}</Typography>
-            <IconButton size='sm' variant='plain' onClick={doClose} sx={{ color: 'neutral.500' }}>
+            {typeof title === 'string' || typeof title === 'number'
+              ? <Typography level='h4'>{title}</Typography>
+              : title}
+            <IconButton size='sm' variant='plain' onClick={doClose(true)} sx={{ color: 'neutral.500' }}>
               <Close />
             </IconButton>
           </Stack>
@@ -386,7 +399,7 @@ export const ActionDrawer = forwardRef(({
 
         <Slider ref={sliderRef} pages={list} position={position} />
 
-        {!bottom && <Indicator ref={topIndicatorRef} pos='top' pages={list.length} page={page} onChange={snap} />}
+        {!bottom && <Indicator ref={topIndicatorRef} pos='top' N={list.length} cur={page} onChange={snap} />}
       </Box>
     </Box>
   )

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo, useCallback, memo } from 'react'
+import { useRef, useState, useCallback, memo } from 'react'
 import {
   Stack,
   Typography,
@@ -6,7 +6,6 @@ import {
   Box
 } from '@mui/joy'
 import { VolumeUp } from '@mui/icons-material'
-import { ActionDrawer } from '../../../../components/ActionDrawer.jsx'
 import { log } from '../../../../utils/logger'
 import { DictCollins } from '../../../../components/DictCollins.jsx'
 
@@ -58,23 +57,13 @@ const DictMainPage = memo(function DictMainPage ({
   )
 })
 
-// Dictionary component - simple props interface
-const Dict_ = ({ word, position = 'bottom', visible, onClose }) => {
+// Main dictionary page with TTS functionality
+export const DictMainPageComponent = ({ word }) => {
   const [pronunciation, setPronunciation] = useState('')
-  const drawerRef = useRef(null)
-
-  // log.debug('Dict re-render', { word, position, onClose })
-
-  // Track drawer visibility changes
-  useEffect(() => {
-    if (word) {
-      log.debug(`📖 Dict drawer visible: ${word}`)
-    }
-  }, [word])
+  const voiceRef = useRef(null)
 
   // Speech synthesis (cross-browser)
   const supportsTTS = typeof window !== 'undefined' && 'speechSynthesis' in window && typeof window.SpeechSynthesisUtterance === 'function'
-  const voiceRef = useRef(null)
   const loadVoices = useCallback(() => new Promise((resolve) => {
     if (!supportsTTS) return resolve([])
     const synth = window.speechSynthesis
@@ -103,8 +92,6 @@ const Dict_ = ({ word, position = 'bottom', visible, onClose }) => {
     }
     return english[0] || voices[0] || null
   }
-
-  // inline ensure logic inside handler to avoid extra function deps
 
   const handlePlayAudio = useCallback(async () => {
     if (!supportsTTS || !word) return
@@ -137,70 +124,45 @@ const Dict_ = ({ word, position = 'bottom', visible, onClose }) => {
     setPronunciation(prev => (prev === next ? prev : next))
   }, [])
 
-  const pages = useMemo(() => ([{
-    content: (
-      <DictMainPage
-        word={word}
-        pronunciation={pronunciation}
-        supportsTTS={supportsTTS}
-        onPlayAudio={handlePlayAudio}
-        onMeta={handleMeta}
-      />
-    )
-  }, {
-    title: 'Notes',
-    content: (
-      <Box sx={{
-        height: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-        // p: 2
-      }}>
-        <Typography level="body-md" sx={{ color: 'neutral.500' }}>
-          Notes are coming soon
-        </Typography>
-      </Box>
-    )
-  }, {
-    title: 'More',
-    content: (
-      <Box sx={{
-        height: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-        // p: 8
-      }}>
-        <Typography level="body-md" sx={{ color: 'neutral.500' }}>
-          Third page placeholder
-        </Typography>
-      </Box>
-    )
-  }]), [word, handleMeta, handlePlayAudio, pronunciation, supportsTTS])
-
-  // Handle drawer visibility with imperative API
-  useEffect(() => {
-    if (visible && word && pages.length > 0) {
-      log.debug('📖 Opening dict drawer', { word })
-      drawerRef.current?.open(pages)
-      drawerRef.current?.snap(0)
-      drawerRef.current?.resetScroll()
-    } else if (!visible) {
-      log.debug('📖 Closing dict drawer')
-      drawerRef.current?.close()
-    }
-  }, [visible, word, pages])
-
-  log.info('Dict re-render', { visible: !!visible, word, position, pages: pages.length })
   return (
-    <ActionDrawer
-      ref={drawerRef}
-      onClose={onClose}
-      position={position}
-      size="half"
+    <DictMainPage
+      word={word}
+      pronunciation={pronunciation}
+      supportsTTS={supportsTTS}
+      onPlayAudio={handlePlayAudio}
+      onMeta={handleMeta}
     />
   )
 }
 
-export const Dict = memo(Dict_)
+// Notes page component
+export const DictNotesPage = () => {
+  return (
+    <Box sx={{
+      height: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }}>
+      <Typography level="body-md" sx={{ color: 'neutral.500' }}>
+        Notes are coming soon
+      </Typography>
+    </Box>
+  )
+}
+
+// More page component
+export const DictMorePage = () => {
+  return (
+    <Box sx={{
+      height: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }}>
+      <Typography level="body-md" sx={{ color: 'neutral.500' }}>
+        Third page placeholder
+      </Typography>
+    </Box>
+  )
+}
