@@ -171,7 +171,7 @@ export const ActionDrawer = forwardRef(({
 }, ref) => {
   // Internal state for content and navigation
   const [content, setContent] = useState(null)
-  const [page, setPage] = useState(0)
+  const pageRef = useRef(0)
 
   // Memoize pages normalization to prevent recreation on every render
   const list = useMemo(() => {
@@ -195,7 +195,7 @@ export const ActionDrawer = forwardRef(({
 
   const dY = useRef(null)
   const transform = useCallback((dy) => {
-    const st =  `translateY(${dy === undefined || dy === null
+    const st =  `translateY(${(dy === undefined || dy === null)
       ? bottom ? '100%' : '-100%'
       : `${dy}px`})`
 
@@ -213,7 +213,7 @@ export const ActionDrawer = forwardRef(({
 
     const p = Math.max(0, Math.min(list.length - 1, newPage))
     // log.debug('ActionDrawer.nav', { p })
-    setPage(p)
+    pageRef.current = p
     onPageChange?.(p)
     // Update indicators
     bottomIndicatorRef.current?.setCursor(p)
@@ -294,10 +294,10 @@ export const ActionDrawer = forwardRef(({
       if (c) {
         if (last) {
           // log.debug('current page', page)
-          if (ox > 30) snap(page - 1)
-          else if (ox < -30) snap(page + 1)
+          if (ox > 30) snap(pageRef.current - 1)
+          else if (ox < -30) snap(pageRef.current + 1)
           else {
-            snap(page)
+            snap(pageRef.current)
           }
         } else
           sliderRef.current?.trans(ox)
@@ -379,7 +379,7 @@ export const ActionDrawer = forwardRef(({
           touchAction: 'none'
         }}
       >
-        {bottom && <Indicator ref={bottomIndicatorRef} pos='bottom' N={list.length} cur={page} onChange={snap} />}
+        {bottom && <Indicator ref={bottomIndicatorRef} pos='bottom' N={list.length} cur={pageRef.current} onChange={snap} />}
 
         {title && (
           <Stack
@@ -399,7 +399,7 @@ export const ActionDrawer = forwardRef(({
 
         <Slider ref={sliderRef} pages={list} position={position} />
 
-        {!bottom && <Indicator ref={topIndicatorRef} pos='top' N={list.length} cur={page} onChange={snap} />}
+        {!bottom && <Indicator ref={topIndicatorRef} pos='top' N={list.length} cur={pageRef.current} onChange={snap} />}
       </Box>
     </Box>
   )
