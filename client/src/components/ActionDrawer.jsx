@@ -4,7 +4,7 @@ import { useState, useRef, useEffect,
 import { Box, Stack, Typography, IconButton } from '@mui/joy'
 import { Close } from '@mui/icons-material'
 import { useDrag } from '@use-gesture/react'
-import { log } from '../utils/logger'
+// import { log } from '../utils/logger'
 // import { useSpring } from '@react-spring/web'
 
 const ANIMATION = 300
