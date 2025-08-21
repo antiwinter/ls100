@@ -64,16 +64,18 @@ export const FontContent = ({ shardId }) => {
       </RadioGroup>
 
       <Typography level='title-sm'>Size</Typography>
-      <Slider
-        value={fontSize}
-        min={14}
-        max={20}
-        step={1}
-        marks={marks}
-        onChange={(_, v) => {
-          setFontSize(v)
-        }}
-      />
+      <div data-allow-events="true">
+        <Slider
+          value={fontSize}
+          min={14}
+          max={20}
+          step={1}
+          marks={marks}
+          onChange={(_, v) => {
+            setFontSize(v)
+          }}
+        />
+      </div>
 
       {refLanguages?.length > 0 && (
         <>

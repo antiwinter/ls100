@@ -25,6 +25,7 @@ const stopAllEvents = () => {
     'onMouseUp', 'onClick', 'onWheel']
     .forEach(k => {
       res[k] = (e) => {
+        if (e.target.closest('[data-allow-events="true"]')) return
         // log.info('stopped Events', k, e)
         e.stopPropagation()
       }
@@ -62,7 +63,7 @@ const Indicator = memo(forwardRef(({ pos = 'bottom', N = 0, _cur = 0, onChange }
             onClick={() => onChange?.(i)}
             sx={{
               height: '6px',
-              width: i === cur ? '20px' : '6px',
+              width: i === cur ? N > 1 ? '20px' : '40px' : '6px',
               borderRadius: '999px',
               bgcolor: i === cur ? 'neutral.400' : 'neutral.300',
               transition: 'all 0.25s ease',
@@ -292,6 +293,8 @@ export const ActionDrawer = forwardRef(({
 
       // slide
       if (c) {
+        if (!(list?.length > 1)) return
+
         if (last) {
           // log.debug('current page', page)
           if (ox > 30) snap(pageRef.current - 1)
