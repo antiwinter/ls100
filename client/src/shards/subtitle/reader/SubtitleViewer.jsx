@@ -9,7 +9,8 @@ import {
   Typography
 } from '@mui/joy'
 
-import VirtualScrollerRW from '../../../components/VirtualScrollerRW.jsx'
+// import { VirtualScroller as VS } from '../../../components/VirtualScroller.jsx'
+import { VirtualScrollerRW as VS } from '../../../components/VirtualScrollerRW.jsx'
 import { useLongPress } from '../../../utils/useLongPress'
 import { log } from '../../../utils/logger.js'
 
@@ -110,7 +111,9 @@ const SubtitleViewer_ = forwardRef(({
   const langMapRef = useRef(null)
 
   log.debug('!!VIEWER re-render', { entries:groups?.length, entry0: groups?.[0], seek })
-  onAnchored?.(1)
+  useEffect(() => {
+    onAnchored?.(1)
+  }, [onAnchored])
 
   // DOM applicators
   const applyWordlist = useCallback(() => {
@@ -344,7 +347,7 @@ const SubtitleViewer_ = forwardRef(({
         '& span[data-selected="true"] .word-overlay': { opacity: 0.3 }
       }}
     >
-      <VirtualScrollerRW
+      <VS
         ref={scrollerRef}
         totalCount={groups?.length || 0}
         itemKey={itemKeyMemo}

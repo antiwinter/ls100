@@ -12,7 +12,7 @@ import { useState } from 'react'
 export const Me = () => {
   const { user, logout } = useAuth()
   const [/*noop*/,] = useState(null)
-
+  if (!user) return null
   return (
     <Stack spacing={3}>
       <Card sx={{ p: 3 }}>
