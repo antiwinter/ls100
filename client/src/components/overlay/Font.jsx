@@ -10,6 +10,7 @@ import {
 import { useSettingStore } from './stores/useSettingStore'
 import { useSessionStore } from './stores/useSessionStore'
 import { getAvailableFonts } from '../../utils/font'
+// import { log } from '../../utils/logger'
 
 export const FontContent = ({ shardId }) => {
   const { fontSize, selectedFont, setFontSize, setSelectedFont } = useSettingStore('subtitle-shard')()
@@ -19,6 +20,7 @@ export const FontContent = ({ shardId }) => {
 
   // Find main language by isMain === true
   const mainLangCode = useMemo(() => {
+    // log.debug('FontContent mainLangCode', { langMap })
     const languages = Object.entries(langMap || {})
     const mainLang = languages.find(([, data]) => data.isMain)
     return mainLang?.[0] || 'en'

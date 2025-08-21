@@ -350,7 +350,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
           // Copy existing entry if it exists, otherwise create new one
           const existing = current[l.code]
           newLangMap[l.code] = existing
-            ? { ...existing, filename: l.filename } // Update filename, preserve visibility
+            ? { ...existing, filename: l.filename, isMain: l.isMain }
             : { filename: l.filename, visible: false, isMain: l.isMain } // New entry
         })
         setLangMap(newLangMap)
