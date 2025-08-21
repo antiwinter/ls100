@@ -4,13 +4,14 @@ import { Box } from '@mui/joy'
 import { Toolbar } from './Toolbar.jsx'
 import { DictMainPageComponent, DictNotesPage, DictMorePage } from './Dict.jsx'
 import { FontContent } from './Font.jsx'
+import { SearchContent } from './Search.jsx'
 import { ExportContent } from './Export.jsx'
 import { WordListContent } from './Wordlist.jsx'
 import { BookmarkContent } from './Bookmark.jsx'
 import { ActionDrawer } from '../ActionDrawer.jsx'
 import { log } from '../../utils/logger.js'
 
-const OverlayManager_ = forwardRef(({ onBack, shardId = '' }, ref) => {
+const OverlayManager_ = forwardRef(({ onBack, shardId = '', onSeek }, ref) => {
   // UI State
   const [xState, setXState] = useState({
     toolbar: false,
@@ -59,8 +60,10 @@ const OverlayManager_ = forwardRef(({ onBack, shardId = '' }, ref) => {
       })
     },
     closeTools: () => {
-      log.debug('OverlayManager.closeTools')
-      setXState(x => ({ ...x, tool: null, toolbar: false }))
+      if (xState.tool || xState.toolbar) {
+        log.debug('OverlayManager.closeTools')
+        setXState(x => ({ ...x, tool: null, toolbar: false }))
+      }
     }
   }))
 
@@ -85,6 +88,7 @@ const OverlayManager_ = forwardRef(({ onBack, shardId = '' }, ref) => {
         {xState.tool === 'dict' && xState.wordCtx  && (<DictMorePage key="more" />)}
 
         {xState.tool === 'font' && (<FontContent shardId={shardId} />)}
+        {xState.tool === 'search' && (<SearchContent shardId={shardId} onSeek={onSeek} />)}
         {xState.tool === 'wordlist' && (<WordListContent shardId={shardId} />)}
         {xState.tool === 'export' && (<ExportContent shardId={shardId} />)}
         {xState.tool === 'bookmark' && (<BookmarkContent shardId={shardId} />)}

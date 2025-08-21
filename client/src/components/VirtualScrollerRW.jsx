@@ -1,6 +1,6 @@
 import React, { forwardRef, useImperativeHandle, useMemo, useRef, useEffect, useCallback, useState } from 'react'
 import { VariableSizeList as List } from 'react-window'
-// import { log } from '../utils/logger.js'
+import { log } from '../utils/logger.js'
 
 // Minimal virtual scroller built on react-window (VariableSizeList)
 // Keeps the same surface props as our Virtuoso-based scroller
@@ -37,6 +37,7 @@ export const VirtualScrollerRW = forwardRef(({
   // Fixed estimated size for stability
   const ESTIMATED_SIZE = 60
 
+  log.debug('RW render', { totalCount, itemContent, itemKey, onRangeChange, onStartReached, onEndReached, increaseViewportBy, onScroll, className, style, initialTopMostItemIndex, topItemIndex })
   // Resize observer to measure container
   useEffect(() => {
     const el = containerRef.current
@@ -60,29 +61,32 @@ export const VirtualScrollerRW = forwardRef(({
     anchorStableRef.current = 0
   }, [initialTopMostItemIndex])
 
+  const doReanchor = useCallback((index) => {
+    if (!Number.isFinite(index)) return
+    initIdxRef.current = index
+    didInitScrollRef.current = false
+    didSnapRef.current = false
+    anchorDoneRef.current = false
+    anchorTriesRef.current = 0
+    anchorStableRef.current = 0
+    const run = () => {
+      listRef.current?.scrollToItem(index, 'start')
+      didInitScrollRef.current = true
+    }
+    if (!listRef.current || size.height === 0) requestAnimationFrame(run)
+    else run()
+  }, [size.height])
+
   useImperativeHandle(ref, () => ({
     scrollToIndex: (index, align = 'start') => {
-      listRef.current?.scrollToItem(index, align)
+      log.debug('RW scrollToIndex', { index, align })
+      doReanchor(index, align)
     },
     scrollTo: ({ top = 0 } = {}) => {
       listRef.current?.scrollTo(top)
     },
-    reanchorTo: (index) => {
-      if (!Number.isFinite(index)) return
-      initIdxRef.current = index
-      didInitScrollRef.current = false
-      didSnapRef.current = false
-      anchorDoneRef.current = false
-      anchorTriesRef.current = 0
-      anchorStableRef.current = 0
-      const run = () => {
-        listRef.current?.scrollToItem(index, 'start')
-        didInitScrollRef.current = true
-      }
-      if (!listRef.current || size.height === 0) requestAnimationFrame(run)
-      else run()
-    }
-  }), [size.height])
+    reanchorTo: doReanchor
+  }), [doReanchor])
 
   const computeKey = useMemo(() => (
     typeof itemKey === 'function'

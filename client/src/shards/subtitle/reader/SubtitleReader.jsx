@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState, useRef } from 'react'
+import { useEffect, useCallback, useState, useRef, useMemo } from 'react'
 import { Box, Typography, Stack, Chip, Button } from '@mui/joy'
 import ViewerSkeleton from './ViewerSkeleton.jsx'
 import { Bolt } from '@mui/icons-material'
@@ -10,6 +10,7 @@ import { SubtitleViewer } from './SubtitleViewer.jsx'
 import { useSubtitleGroups } from './hooks/useSubtitleGroups.js'
 import { useSessionStore } from '../../../components/overlay/stores/useSessionStore.js'
 import { useSettingStore } from '../../../components/overlay/stores/useSettingStore.js'
+import Fuse from 'fuse.js'
 
 const SubtitleHeader = ({ shardName, position, total, onReviewClick }) => {
   const [totalGroups, setTotalGroups] = useState(0)
@@ -78,7 +79,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   const sessionStore = useSessionStore(shardId)
   const {
     position, wordlist, langMap, setPosition,
-    initWordlist, toggleWord, setHint
+    initWordlist, toggleWord, setHint, searchQuery, setSearchResults
   } = sessionStore()
 
   // Settings from store
@@ -157,6 +158,27 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   const groupReady = !groupsLoading && (groups?.length || 0) > 0
   const canRenderViewer = groupReady && positionLoaded
   const showViewer = canRenderViewer && viewerAnchored === 2
+
+  // Setup fuse for search
+  const fuse = useMemo(() => {
+    if (!groups?.length) return null
+
+    // Create search data from main language only
+    const searchData = groups.map((group, gid) => {
+      const mainLine = group.main?.[0]?.data?.text || ''
+      return {
+        gid,
+        sec: group.sec || 0,
+        line: mainLine
+      }
+    }).filter(item => item.line.trim())
+
+    return new Fuse(searchData, {
+      keys: ['line'],
+      threshold: 0.8,
+      includeScore: true
+    })
+  }, [groups])
 
   // Side effect for saving hint (triggered by handleEmptyClick)
   useEffect(() => {
@@ -261,6 +283,28 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
     overlayRef.current?.closeTools()
   }, [setPosition])
 
+  // Monitor search query and update results
+  useEffect(() => {
+    if (!fuse || !searchQuery?.trim()) {
+      setSearchResults([])
+      viewerRef.current?.setSearchResult([])
+      return
+    }
+
+    const results = fuse.search(searchQuery, { limit: 10 })
+    const searchResults = results.map(result => result.item).sort((a, b) => a.sec - b.sec)
+    setSearchResults(searchResults)
+
+    // Send gids to viewer for highlighting
+    const gids = searchResults.map(result => result.gid)
+    viewerRef.current?.setSearchResult(gids)
+  }, [fuse, searchQuery, setSearchResults])
+
+  const handleSeek = useCallback((gid) => {
+    viewerRef.current?.seek(gid)
+    // setSeek(gid)
+  }, [])
+
   const shardName = shard?.name || ''
   if (loading) {
     return null
@@ -294,6 +338,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
         ref={overlayRef}
         onBack={onBack}
         shardId={shardId}
+        onSeek={handleSeek}
       />
 
       {/* SubtitleViewer - render after groups and position ready */}

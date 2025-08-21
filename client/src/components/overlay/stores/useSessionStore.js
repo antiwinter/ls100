@@ -62,11 +62,25 @@ export const useSessionStore = (shardId) => {
           state.wordlist = []
         }),
 
+        // Search state (non-persistent)
+        searchResults: [],
+        searchQuery: '',
+        setSearchResults: (results) => set((state) => {
+          state.searchResults = results || []
+        }),
+        setSearchQuery: (query) => set((state) => {
+          state.searchQuery = query || ''
+        }),
+
         // Helper functions
         hasWord: (word) => get().wordlist.includes(word)
       })),
       {
-        name: `ls100-session-${shardId}`
+        name: `ls100-session-${shardId}`,
+        partialize: (state) => {
+          const { searchResults: _, searchQuery: __, ...persistedState } = state
+          return persistedState
+        }
       }
     )
   )

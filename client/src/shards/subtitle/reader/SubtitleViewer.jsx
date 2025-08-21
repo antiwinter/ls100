@@ -109,6 +109,7 @@ const SubtitleViewer_ = forwardRef(({
   // caches to re-apply on viewport changes
   const wordlistRef = useRef(new Set())
   const langMapRef = useRef(null)
+  const searchResultRef = useRef(new Set())
 
   log.debug('!!VIEWER re-render', { entries:groups?.length, entry0: groups?.[0], seek })
   useEffect(() => {
@@ -151,6 +152,19 @@ const SubtitleViewer_ = forwardRef(({
     })
   }, [])
 
+  const applySearchResults = useCallback(() => {
+    const root = viewerRef.current
+    if (!root) return
+    const set = searchResultRef.current || new Set()
+
+    // Single pass: clear or set highlight based on membership
+    const allGroups = root.querySelectorAll('[data-index]')
+    allGroups.forEach(el => {
+      const gid = Number(el.getAttribute('data-index'))
+      el.style.backgroundColor = set.has(gid) ? 'rgba(255, 235, 59, 0.3)' : ''
+    })
+  }, [])
+
   useImperativeHandle(ref, () => ({
     setWordlist: (words) => {
       // log.debug('viewer setWordlist', { count: Array.isArray(words)
@@ -178,6 +192,18 @@ const SubtitleViewer_ = forwardRef(({
       scrollerRef.current?.reanchorTo(anchor)
       styleFilter.current = 2
       fontAppliedRef.current = true
+    },
+    seek: (gid) => {
+      log.debug('viewer seek', { gid })
+      styleFilter.current = 5
+      anchoredDoneRef.current = false
+      anchoredScheduledRef.current = false
+      scrollerRef.current?.scrollToIndex(gid, 'start')
+    },
+    setSearchResult: (gids) => {
+      const set = gids instanceof Set ? gids : new Set(gids || [])
+      searchResultRef.current = set
+      applySearchResults()
     }
   }))
 
@@ -186,6 +212,7 @@ const SubtitleViewer_ = forwardRef(({
     // log.debug('viewer topItemChange', { id })
     applyWordlist()
     applyLangMap()
+    applySearchResults()
     if (id !== lastGroupId.current && styleFilter.current < 1)
       onGroupChange?.(id || 0)
     lastGroupId.current = id
@@ -207,7 +234,7 @@ const SubtitleViewer_ = forwardRef(({
         }
       }
     }
-  }, [applyWordlist, applyLangMap, onGroupChange, onAnchored])
+  }, [applyWordlist, applyLangMap, applySearchResults, onGroupChange, onAnchored])
 
   // Short/Long press helpers
   const getPressData = useCallback((e) => {
