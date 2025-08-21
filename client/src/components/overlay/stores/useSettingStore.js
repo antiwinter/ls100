@@ -19,11 +19,16 @@ export const useSettingStore = (id) => {
         // Font settings (raw values)
         fontSize: 16,
         fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Noto Sans, PingFang SC, Hiragino Sans GB, Microsoft YaHei, Heiti SC, sans-serif',
+        selectedFont: 'system-ui',
         setFontSize: (size) => set((state) => {
           state.fontSize = size
         }),
         setFontFamily: (family) => set((state) => {
           state.fontFamily = family
+        }),
+        setSelectedFont: (font) => set((state) => {
+          state.selectedFont = font
+          state.fontFamily = font
         }),
         updateFont: (updates) => set((state) => {
           if (updates.fontSize !== undefined) state.fontSize = updates.fontSize

@@ -346,12 +346,12 @@ export const SubtitleReader = ({ shardId, onBack }) => {
         const current = sessionStore.getState().langMap || {} // Get existing persisted state
         const newLangMap = {} // Create fresh object
 
-        languages.filter(l => !l.isMain).forEach(l => {
+        languages.forEach(l => {
           // Copy existing entry if it exists, otherwise create new one
           const existing = current[l.code]
           newLangMap[l.code] = existing
             ? { ...existing, filename: l.filename } // Update filename, preserve visibility
-            : { filename: l.filename, visible: false } // New entry
+            : { filename: l.filename, visible: false, isMain: l.isMain } // New entry
         })
         setLangMap(newLangMap)
         setLoading(false)

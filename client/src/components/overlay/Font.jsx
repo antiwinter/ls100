@@ -2,8 +2,6 @@ import { useMemo } from 'react'
 import {
   Stack,
   Typography,
-  RadioGroup,
-  Radio,
   Slider,
   Chip,
   Sheet,
@@ -11,21 +9,25 @@ import {
 } from '@mui/joy'
 import { useSettingStore } from './stores/useSettingStore'
 import { useSessionStore } from './stores/useSessionStore'
-import { fontStack } from '../../utils/font'
+import { getAvailableFonts } from '../../utils/font'
 
 export const FontContent = ({ shardId }) => {
-  const { fontSize, fontFamily, setFontSize, setFontFamily } = useSettingStore('subtitle-shard')()
+  const { fontSize, selectedFont, setFontSize, setSelectedFont } = useSettingStore('subtitle-shard')()
 
-  // Get session store data
   const sessionStore = useSessionStore(shardId)
   const { langMap, toggleLang } = sessionStore()
 
-  // Extract current font mode from fontFamily
-  const currentMode = useMemo(() => {
-    if (fontFamily.includes('serif')) return 'serif'
-    if (fontFamily.includes('monospace')) return 'mono'
-    return 'sans'
-  }, [fontFamily])
+  // Find main language by isMain === true
+  const mainLangCode = useMemo(() => {
+    const languages = Object.entries(langMap || {})
+    const mainLang = languages.find(([, data]) => data.isMain)
+    return mainLang?.[0] || 'en'
+  }, [langMap])
+
+  // Get available fonts for main language
+  const availableFonts = useMemo(() => {
+    return getAvailableFonts(mainLangCode)
+  }, [mainLangCode])
 
   const marks = useMemo(
     () => [
@@ -49,19 +51,26 @@ export const FontContent = ({ shardId }) => {
 
   return (
     <Stack spacing={2} sx={{ px: 1, pb: 1 }}>
-      <Typography level='title-sm'>Font</Typography>
-      <RadioGroup
-        orientation='horizontal'
-        value={currentMode}
-        onChange={(e) => {
-          const mode = e.target.value
-          setFontFamily(fontStack(mode))
-        }}
-      >
-        <Radio value='mono' label='Mono' />
-        <Radio value='sans' label='Sans' />
-        <Radio value='serif' label='Serif' />
-      </RadioGroup>
+      <Typography level='title-sm'>Font {availableFonts.os}</Typography>
+      <Stack direction='row' spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+        {availableFonts.fonts.map((font) => (
+          <Chip
+            key={font.fontName}
+            variant={selectedFont === font.fontName ? 'solid' : 'outlined'}
+            color='primary'
+            onClick={() => setSelectedFont(font.fontName)}
+            sx={{
+              fontFamily: font.fontName,
+              cursor: 'pointer',
+              '&:hover': {
+                backgroundColor: 'primary.softHoverBg'
+              }
+            }}
+          >
+            {font.fontName === 'system-ui' ? 'System' : font.fontName}
+          </Chip>
+        ))}
+      </Stack>
 
       <Typography level='title-sm'>Size</Typography>
       <div data-allow-events="true">
@@ -77,12 +86,13 @@ export const FontContent = ({ shardId }) => {
         />
       </div>
 
+
       {refLanguages?.length > 0 && (
         <>
           <Typography level='title-sm'>Languages</Typography>
           <Sheet variant='soft' sx={{ p: 1, borderRadius: 'sm' }}>
             <Stack spacing={1}>
-              {refLanguages.map((lang) => {
+              {refLanguages.filter(l => !l.isMain).map((lang) => {
                 return (
                   <Stack
                     key={lang.code}
