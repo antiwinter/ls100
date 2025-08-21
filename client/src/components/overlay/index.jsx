@@ -1,4 +1,5 @@
-import { useState, forwardRef, useImperativeHandle, useCallback, useRef, useEffect } from 'react'
+import { useState, forwardRef, useImperativeHandle,
+  useCallback, useRef, useEffect, memo } from 'react'
 import { Box } from '@mui/joy'
 import { Toolbar } from './Toolbar.jsx'
 import { DictMainPageComponent, DictNotesPage, DictMorePage } from './Dict.jsx'
@@ -7,9 +8,9 @@ import { ExportContent } from './Export.jsx'
 import { WordListContent } from './Wordlist.jsx'
 import { BookmarkContent } from './Bookmark.jsx'
 import { ActionDrawer } from '../ActionDrawer.jsx'
-// import { log } from '../../utils/logger.js'
+import { log } from '../../utils/logger.js'
 
-export const OverlayManager = forwardRef(({ onBack, shardId = '' }, ref) => {
+const OverlayManager_ = forwardRef(({ onBack, shardId = '' }, ref) => {
   // UI State
   const [xState, setXState] = useState({
     toolbar: false,
@@ -18,6 +19,7 @@ export const OverlayManager = forwardRef(({ onBack, shardId = '' }, ref) => {
     position: 'bottom',
     size: 'half'
   })
+  log.debug('OverlayManager re-render', { xState })
 
   const drawerRef = useRef(null)
 
@@ -57,6 +59,7 @@ export const OverlayManager = forwardRef(({ onBack, shardId = '' }, ref) => {
       })
     },
     closeTools: () => {
+      log.debug('OverlayManager.closeTools')
       setXState(x => ({ ...x, tool: null, toolbar: false }))
     }
   }))
@@ -90,4 +93,5 @@ export const OverlayManager = forwardRef(({ onBack, shardId = '' }, ref) => {
   )
 })
 
-export default OverlayManager
+export const OverlayManager = memo(OverlayManager_)
+OverlayManager.displayName = 'OverlayManager'
