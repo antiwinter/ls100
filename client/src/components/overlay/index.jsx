@@ -15,13 +15,17 @@ export const OverlayManager = forwardRef(({ onBack, shardId = '' }, ref) => {
     toolbar: false,
     tool: null,
     wordCtx: '',
-    position: 'bottom'
+    position: 'bottom',
+    size: 'half'
   })
 
   const drawerRef = useRef(null)
 
+  // toggle tool with toolbar open
   const toggleTool = useCallback((tool, position = 'bottom') => {
-    setXState(x => ({ ...x, tool: x.tool === tool ? null : tool, position }))
+    setXState(x => ({ ...x, tool: x.tool === tool ? null : tool,
+      position, size: tool === 'wordlist' ? 'fit-content' : 'half'
+    }))
   }, [])
 
   const handleDrawerClose = useCallback(() => {
@@ -46,6 +50,7 @@ export const OverlayManager = forwardRef(({ onBack, shardId = '' }, ref) => {
       // else open toolbar
       setXState(x => {
         if (wordCtx && !x.toolbar) {
+          x.size = 'half'
           return x.tool === 'dict' ? { ...x, wordCtx } :  { ...x, wordCtx, position, tool:'dict' }
         } else
           return { ...x, tool: null, toolbar: !(x.tool || x.toolbar) }
@@ -68,7 +73,7 @@ export const OverlayManager = forwardRef(({ onBack, shardId = '' }, ref) => {
         ref={drawerRef}
         onClose={handleDrawerClose}
         position={xState.position}
-        size="half"
+        size={xState.size}
       >
         {/* dict */}
         {xState.tool === 'dict' && xState.wordCtx  && (

@@ -257,7 +257,7 @@ export const ActionDrawer = forwardRef(({
         closingRef.current = null
       }
       setContent(children)  // Set content immediately
-      setTimeout(() => transform(0), 20)
+      setTimeout(() => transform(0), 100)
     } else if (content) {
       // If we have no valid children but still have content, close
       doClose()
