@@ -7,9 +7,9 @@ import { ExportContent } from './Export.jsx'
 import { WordListContent } from './Wordlist.jsx'
 import { BookmarkContent } from './Bookmark.jsx'
 import { ActionDrawer } from '../ActionDrawer.jsx'
-import { log } from '../../utils/logger.js'
+// import { log } from '../../utils/logger.js'
 
-export const OverlayManager = forwardRef(({ onBack, shardId = ''}, ref) => {
+export const OverlayManager = forwardRef(({ onBack, shardId = '' }, ref) => {
   // UI State
   const [xState, setXState] = useState({
     toolbar: false,

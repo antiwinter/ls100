@@ -15,7 +15,7 @@ import { fontStack } from '../../utils/font'
 
 export const FontContent = ({ shardId }) => {
   const { fontSize, fontFamily, setFontSize, setFontFamily } = useSettingStore('subtitle-shard')()
-  
+
   // Get session store data
   const sessionStore = useSessionStore(shardId)
   const { langMap, toggleLang } = sessionStore()

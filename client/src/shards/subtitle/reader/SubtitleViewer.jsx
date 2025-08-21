@@ -110,6 +110,7 @@ const SubtitleViewer_ = forwardRef(({
   const langMapRef = useRef(null)
 
   log.debug('!!VIEWER re-render', { entries:groups?.length, entry0: groups?.[0], seek })
+  onAnchored?.(1)
 
   // DOM applicators
   const applyWordlist = useCallback(() => {
@@ -149,7 +150,8 @@ const SubtitleViewer_ = forwardRef(({
 
   useImperativeHandle(ref, () => ({
     setWordlist: (words) => {
-      log.debug('viewer setWordlist', { count: Array.isArray(words) ? words.length : (words?.size || 0) })
+      // log.debug('viewer setWordlist', { count: Array.isArray(words)
+      //   ? words.length : (words?.size || 0) })
       const set = words instanceof Set ? words : new Set(words || [])
       wordlistRef.current = set
       applyWordlist()
@@ -197,7 +199,7 @@ const SubtitleViewer_ = forwardRef(({
           // final snap + reveal next frame to avoid visible adjustment
           requestAnimationFrame(() => {
             scrollerRef.current?.scrollToIndex(target, 'start')
-            requestAnimationFrame(() => onAnchored?.())
+            requestAnimationFrame(() => onAnchored?.(2))
           })
         }
       }

@@ -87,7 +87,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   const overlayRef = useRef(null)
 
   // Local state for viewer
-  const [viewerAnchored, setViewerAnchored] = useState(false)
+  const [viewerAnchored, setViewerAnchored] = useState(0)
   const [positionLoaded, setPositionLoaded] = useState(false)
   const [seek, setSeek] = useState(0)
 
@@ -98,7 +98,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   const [hintTrigger, setHintTrigger] = useState(0)
 
   const handleEmptyClick = useCallback(() => {
-    log.debug('handleEmptyClick')
+    // log.debug('handleEmptyClick')
 
     // Trigger hint saving side effect
     setHintTrigger(prev => prev + 1)
@@ -106,22 +106,6 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
     // If any overlay is open, close them all; otherwise show toolbar
     overlayRef.current?.toggleTools()
   }, [])
-
-  // Side effect for saving hint (triggered by handleEmptyClick)
-  useEffect(() => {
-    if (hintTrigger === 0) return
-
-    // Save hint to session store
-    if (groups && groups.length > 0 && position >= 0 && position < groups.length) {
-      const g = groups[position]
-      if (!g) return
-
-      const sec = g.sec || 0
-      const mainText = g.main?.[0]?.data?.text || ''
-      const hint = `${sec} - ${mainText}`
-      setHint(hint)
-    }
-  }, [hintTrigger, groups, position, setHint])
 
   // Load selected words and position (mount + shard change)
   useEffect(() => {
@@ -172,8 +156,23 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   const { groups, total, loading: groupsLoading } = useSubtitleGroups(languages)
   const groupReady = !groupsLoading && (groups?.length || 0) > 0
   const canRenderViewer = groupReady && positionLoaded
-  const showViewer = canRenderViewer && viewerAnchored
+  const showViewer = canRenderViewer && viewerAnchored === 2
 
+  // Side effect for saving hint (triggered by handleEmptyClick)
+  useEffect(() => {
+    if (hintTrigger === 0) return
+
+    // Save hint to session store
+    if (groups && groups.length > 0 && position >= 0 && position < groups.length) {
+      const g = groups[position]
+      if (!g) return
+
+      const sec = g.sec || 0
+      const mainText = g.main?.[0]?.data?.text || ''
+      const hint = `${sec} - ${mainText}`
+      setHint(hint)
+    }
+  }, [hintTrigger, groups, position, setHint])
 
   // Helper to create merged group context
   const mergeGroup = useCallback((word, groups) => {
@@ -211,9 +210,12 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   }, [groups, mergeGroup])
 
   // Reset anchored flag when shard/seek changes
-  useEffect(() => { setViewerAnchored(false) }, [shardId, seek])
+  useEffect(() => { setViewerAnchored(0) }, [shardId, seek])
 
-  const handleAnchored = useCallback(() => setViewerAnchored(true), [])
+  const handleAnchored = useCallback((ready) => {
+    log.debug('READER handleAnchored', ready)
+    setViewerAnchored(ready)
+  }, [])
 
   // log.debug('READER render state', {
   //   groupReady, positionLoaded, canRenderViewer, position, seek
@@ -226,7 +228,6 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
 
   // Handle word events with store handlers
   const handleWordEvent = useCallback((word, type, pos, gid) => {
-    log.info('SubtitleReader:handleWordEvent received', { word, type, pos, gid })
     log.debug('handleWordEvent', { word, type, pos, gid })
     if (type === 'long') {
       toggleWord(word) // From session store
@@ -237,16 +238,17 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
 
   // Update viewer when state changes
   useEffect(() => {
+    // log.debug('READER useEffect wordlist', { wordlist })
     viewerRef.current?.setWordlist(wordlist)
-  }, [wordlist])
+  }, [wordlist, viewerAnchored])
 
   useEffect(() => {
     viewerRef.current?.setLangMap(langMap)
-  }, [langMap])
+  }, [langMap, viewerAnchored])
 
   useEffect(() => {
     viewerRef.current?.setFont({ fontSize, fontFamily })
-  }, [fontSize, fontFamily])
+  }, [fontSize, fontFamily, viewerAnchored])
 
   // Handle review click (placeholder)
   const handleReviewClick = () => {
@@ -254,6 +256,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   }
 
   const handleGroupChange = useCallback((idx) => {
+    // log.debug('READER handleGroupChange', { idx })
     setPosition(idx)
     overlayRef.current?.closeTools()
   }, [setPosition])
@@ -290,12 +293,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
       <OverlayManager
         ref={overlayRef}
         onBack={onBack}
-        sessionStore={sessionStore}
-        wordlist={wordlist}
-        movieName={shardName}
         shardId={shardId}
-        currentLine={(position || 0) + 1}
-        lines={groups || []}
       />
 
       {/* SubtitleViewer - render after groups and position ready */}
