@@ -45,7 +45,7 @@ export const VirtualScrollerRW = forwardRef(({
     const ro = new ResizeObserver(([entry]) => {
       const cr = entry.contentRect
       setSize({ width: Math.ceil(cr.width), height: Math.ceil(cr.height) })
-      // log.debug('RW resize', { w: Math.ceil(cr.width), h: Math.ceil(cr.height) })
+      log.debug('RW resize', { w: Math.ceil(cr.width), h: Math.ceil(cr.height) })
     })
     ro.observe(el)
     return () => ro.disconnect()
@@ -70,6 +70,7 @@ export const VirtualScrollerRW = forwardRef(({
     anchorTriesRef.current = 0
     anchorStableRef.current = 0
     const run = () => {
+      log.debug('RW scroll TO: doReanchor', { index })
       listRef.current?.scrollToItem(index, 'start')
       didInitScrollRef.current = true
     }
@@ -113,6 +114,8 @@ export const VirtualScrollerRW = forwardRef(({
       }
       // Ensure target is recorded before anchoring
       initIdxRef.current = Number(initialTopMostItemIndex)
+      log.debug('RW scroll TO: initial', { initialTopMostItemIndex })
+
       listRef.current.scrollToItem(initialTopMostItemIndex, 'start')
       didInitScrollRef.current = true
     }
@@ -133,30 +136,18 @@ export const VirtualScrollerRW = forwardRef(({
       const h = box.scrollHeight || box.offsetHeight || box.getBoundingClientRect().height || 0
       if (!Number.isFinite(h) || h <= 0) return
       const prev = sizeMapRef.current.get(index)
+      log.debug('RW setMeasuredEl', { index, h, prev, el })
       if (prev !== h) {
         sizeMapRef.current.set(index, h)
         listRef.current?.resetAfterIndex(index, true)
         // if (index < 10) log.debug('RW measure', { index, h })
-
-        // One-time post-measure snap once a prior range is measured
-        const target = initIdxRef.current
-        if (Number.isFinite(target)
-          && index <= target
-          && didInitScrollRef.current
-          && !didSnapRef.current) {
-          didSnapRef.current = true
-          requestAnimationFrame(() => {
-            // log.debug('RW post-measure snap', { target })
-            listRef.current?.scrollToItem(target, 'start')
-          })
-        }
-
         // Keep estimated size fixed; no dynamic average to avoid drift during anchoring
       }
     }
     // Measure immediately and then observe for changes
     requestAnimationFrame(measure)
     const ro = new ResizeObserver(measure)
+    log.debug('RW observe', { index, el })
     ro.observe(el)
   }, [])
 
@@ -170,6 +161,7 @@ export const VirtualScrollerRW = forwardRef(({
 
   const handleItemsRendered = useCallback(({ visibleStartIndex, visibleStopIndex }) => {
     // Retry a few frames until the visible start equals target, then lock
+    log.debug('RW handleItemsRendered', { visibleStartIndex, visibleStopIndex })
     const target = initIdxRef.current
     const anchoring = didInitScrollRef.current && !anchorDoneRef.current
     const validTarget = Number.isFinite(target) && target > 0
@@ -185,6 +177,7 @@ export const VirtualScrollerRW = forwardRef(({
         anchorStableRef.current = 0
         // Retry next frame to stabilize anchoring
         requestAnimationFrame(() => {
+          log.debug('RW scroll TO: anchor retry', { target })
           listRef.current?.scrollToItem(target, 'start')
         })
       }

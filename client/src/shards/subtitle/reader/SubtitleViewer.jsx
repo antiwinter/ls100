@@ -95,26 +95,26 @@ const SubtitleViewer_ = forwardRef(({
   onAnchored
 }, ref) => {
   const viewerRef = useRef(null)
-  const scrollerRef = useRef(null)
-  const viewportSize = useRef({ top: 400, bottom: 400 })
-  const lastGroupId = useRef(-1)
-  const styleFilter = useRef(0)
-  const seekRef = useRef(0)
-  const anchoredDoneRef = useRef(false)
-  const anchoredScheduledRef = useRef(false)
-  const langAppliedRef = useRef(false)
-  const fontAppliedRef = useRef(false)
-  seekRef.current = Number(seek) || 0
+  const vsRef = useRef(null)
+  const layoutProtect = useRef(0)
 
   // caches to re-apply on viewport changes
+  const lastGidRef = useRef(-1)
   const wordlistRef = useRef(new Set())
   const langMapRef = useRef(null)
   const searchResultRef = useRef(new Set())
 
   log.debug('!!VIEWER re-render', { entries:groups?.length, entry0: groups?.[0], seek })
-  useEffect(() => {
+
+  const viewerInDOM = useCallback(ref => {
+    viewerRef.current = ref
     onAnchored?.(1)
   }, [onAnchored])
+
+  const vsInDOM = useCallback(ref => {
+    vsRef.current = ref
+    ref.seek(seek, true)
+  }, [seek])
 
   // DOM applicators
   const applyWordlist = useCallback(() => {
@@ -174,31 +174,27 @@ const SubtitleViewer_ = forwardRef(({
       applyWordlist()
     },
     setLangMap: (langMap) => {
-      const anchor = lastGroupId.current
+      const anchor = lastGidRef.current
       langMapRef.current = langMap || null
       log.debug('viewer setLangMap', { keys: langMap instanceof Map ? Array.from(langMap.keys()) : Object.keys(langMap || {}) })
       applyLangMap()
-      scrollerRef.current?.reanchorTo(anchor)
-      styleFilter.current = 2
-      langAppliedRef.current = true
+      vsRef.current?.seek(anchor, true)
+      layoutProtect.current = 2
     },
     setFont: (font) => {
-      const anchor = lastGroupId.current
+      const anchor = lastGidRef.current
       if (!viewerRef.current || !font) return
       const { fontFamily, fontSize } = font
       if (fontFamily) viewerRef.current.style.setProperty('--reader-font-family', fontFamily)
       if (Number.isFinite(fontSize)) viewerRef.current.style.setProperty('--reader-font-size', `${fontSize}px`)
       log.debug('viewer setFont', { font })
-      scrollerRef.current?.reanchorTo(anchor)
-      styleFilter.current = 2
-      fontAppliedRef.current = true
+      vsRef.current?.seek(anchor, true)
+      layoutProtect.current = 2
     },
     seek: (gid) => {
       log.debug('viewer seek', { gid })
-      styleFilter.current = 5
-      anchoredDoneRef.current = false
-      anchoredScheduledRef.current = false
-      scrollerRef.current?.scrollToIndex(gid, 'start')
+      layoutProtect.current = 2
+      vsRef.current?.seek(gid)
     },
     setSearchResult: (gids) => {
       const set = gids instanceof Set ? gids : new Set(gids || [])
@@ -208,33 +204,21 @@ const SubtitleViewer_ = forwardRef(({
   }))
 
   // Handle top item changes from intersection observer
-  const onTopItemChange = useCallback((id) => {
+  const handleRangeChange = useCallback(({ startId, stopId: _, end: __ }) => {
     // log.debug('viewer topItemChange', { id })
     applyWordlist()
     applyLangMap()
     applySearchResults()
-    if (id !== lastGroupId.current && styleFilter.current < 1)
-      onGroupChange?.(id || 0)
-    lastGroupId.current = id
-    styleFilter.current--
+    if (startId !== lastGidRef.current && layoutProtect.current < 1)
+      onGroupChange?.(startId || 0)
+    lastGidRef.current = startId
+    layoutProtect.current--
+  }, [applyWordlist, applyLangMap, applySearchResults, onGroupChange])
 
-    // Anchoring detection: consider near target sufficient to reveal
-    if (!anchoredDoneRef.current) {
-      const target = seekRef.current
-      const near = Number.isFinite(target) && target >= 0 && Math.abs(id - target) <= 1
-      if (near) {
-        anchoredDoneRef.current = true
-        if (!anchoredScheduledRef.current) {
-          anchoredScheduledRef.current = true
-          // final snap + reveal next frame to avoid visible adjustment
-          requestAnimationFrame(() => {
-            scrollerRef.current?.scrollToIndex(target, 'start')
-            requestAnimationFrame(() => onAnchored?.(2))
-          })
-        }
-      }
-    }
-  }, [applyWordlist, applyLangMap, applySearchResults, onGroupChange, onAnchored])
+  const handleAnchored = useCallback(() => {
+    log.debug('viewer handleAnchored', {  })
+    onAnchored?.(2)
+  }, [onAnchored])
 
   // Short/Long press helpers
   const getPressData = useCallback((e) => {
@@ -316,18 +300,7 @@ const SubtitleViewer_ = forwardRef(({
     })
   }, [])
 
-  // Row is rendered via memoized SubtitleRow
-
-  // Memoized functions for VirtualScroller props
-  const itemKeyMemo = useCallback((i) => {
-    const g = groups?.[i]
-    if (!g) return i
-    if (g.id != null) return g.id
-    const sec = g.sec
-    return Number.isFinite(sec) ? `${sec}-${i}` : i
-  }, [groups])
-
-  const itemContentMemo = useCallback(({ index }) => {
+  const renderItem = useCallback(({ index }) => {
     const group = groups?.[index]
     if (!group) return null
     return (
@@ -341,13 +314,13 @@ const SubtitleViewer_ = forwardRef(({
   useEffect(() => {
     if (Number.isFinite(seek)) {
       log.debug('viewer seek->scrollToIndex', { seek })
-      scrollerRef.current?.scrollToIndex(seek, 'start')
+      vsRef.current?.scrollToIndex(seek, 'start')
     }
   }, [seek])
 
   return (
     <Box
-      ref={viewerRef}
+      ref={viewerInDOM}
       {...handlers}
       className="subtitle-viewer"
       sx={{
@@ -375,13 +348,13 @@ const SubtitleViewer_ = forwardRef(({
       }}
     >
       <VS
-        ref={scrollerRef}
+        ref={vsInDOM}
+        name="subtitle-viewer"
         totalCount={groups?.length || 0}
-        itemKey={itemKeyMemo}
-        increaseViewportBy={viewportSize.current}
-        topItemIndex={onTopItemChange}
-        itemContent={itemContentMemo}
-        initialTopMostItemIndex={seek || 0}
+        overscan={50}
+        item={renderItem}
+        onRangeChange={handleRangeChange}
+        onAnchored={handleAnchored}
       />
     </Box>
   )

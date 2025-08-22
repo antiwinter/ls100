@@ -278,7 +278,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   }
 
   const handleGroupChange = useCallback((idx) => {
-    // log.debug('READER handleGroupChange', { idx })
+    log.debug('READER handleGroupChange', { idx })
     setPosition(idx)
     overlayRef.current?.closeTools()
   }, [setPosition])
