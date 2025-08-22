@@ -10,7 +10,7 @@ import {
 } from '@mui/joy'
 
 // import { VirtualScroller as VS } from '../../../components/VirtualScroller.jsx'
-import { VirtualScrollerRW as VS } from '../../../components/VirtualScrollerRW.jsx'
+import { VirtualScrollerRW as VS } from '../../../components/VirtualScrollerRWH.jsx'
 import { useLongPress } from '../../../utils/useLongPress'
 import { log } from '../../../utils/logger.js'
 
@@ -107,11 +107,15 @@ const SubtitleViewer_ = forwardRef(({
   log.debug('!!VIEWER re-render', { entries:groups?.length, entry0: groups?.[0], seek })
 
   const viewerInDOM = useCallback(ref => {
+    log.debug('VIEWER viewerInDOM', { ref })
+    if (!ref) return
     viewerRef.current = ref
     onAnchored?.(1)
   }, [onAnchored])
 
   const vsInDOM = useCallback(ref => {
+    log.debug('VIEWER vsInDOM', { ref })
+    if (!ref) return
     vsRef.current = ref
     ref.seek(seek, true)
   }, [seek])
@@ -309,14 +313,6 @@ const SubtitleViewer_ = forwardRef(({
       </Box>
     )
   }, [groups, cleanSrtText, renderMain])
-
-  // Monitor seek prop changes and scroll to index (only for dynamic changes)
-  useEffect(() => {
-    if (Number.isFinite(seek)) {
-      log.debug('viewer seek->scrollToIndex', { seek })
-      vsRef.current?.scrollToIndex(seek, 'start')
-    }
-  }, [seek])
 
   return (
     <Box

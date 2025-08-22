@@ -1,5 +1,6 @@
 import React, { forwardRef, useImperativeHandle,
-  useRef, useEffect, useCallback, useState, createPortal } from 'react'
+  useRef, useEffect, useCallback, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { VariableSizeList as List } from 'react-window'
 import { log } from '../utils/logger.js'
 
@@ -29,7 +30,7 @@ export const VirtualScrollerRW = forwardRef(({
     anchorRef.current = anchor
   }, [anchor])
 
-  log.debug('RW re-render', { name, totalCount, overscan })
+  log.debug('RWH re-render', { name, totalCount, overscan })
   // Resize observer to measure container
   useEffect(() => {
     const el = containerRef.current
@@ -37,7 +38,7 @@ export const VirtualScrollerRW = forwardRef(({
     const ro = new ResizeObserver(([entry]) => {
       const cr = entry.contentRect
       setSize({ width: Math.ceil(cr.width), height: Math.ceil(cr.height) })
-      log.debug('RW resize', { w: Math.ceil(cr.width), h: Math.ceil(cr.height) })
+      log.debug('RWH resize', { w: Math.ceil(cr.width), h: Math.ceil(cr.height) })
     })
     ro.observe(el)
     return () => ro.disconnect()
@@ -50,7 +51,7 @@ export const VirtualScrollerRW = forwardRef(({
       const prev = sizeMapRef.current.get(index)
       sizeMapRef.current.set(index, h)
 
-      log.debug('RW measure', mode, { index, h, prev, el })
+      log.debug('RWH measure', mode, { index, h, prev, el, w: el.getBoundingClientRect().width })
       if (index === anchorRef.current) {
         listRef.current?.resetAfterIndex(0, true)
         listRef.current?.scrollToItem(index, 'start')
@@ -62,7 +63,7 @@ export const VirtualScrollerRW = forwardRef(({
     requestAnimationFrame(_measure)
     // const ro = new ResizeObserver(measure)
     // ro.observe(el)
-  }, [])
+  }, [onAnchored])
 
   // Pre-calculate heights component
   const SilentMeasure = ({ update }) => {
@@ -80,10 +81,11 @@ export const VirtualScrollerRW = forwardRef(({
     if (index >= totalCount) return null
     return createPortal(
       <div style={{ position: 'absolute', top: -9999, left: -9999, width: size.width, visibility: 'hidden' }}>
-        <div ref={(el) => measure(index, el, 'silent')} style={{ overflow: 'hidden', maxWidth: '100%' }}>
-          <div>
-            {item?.({ index })}
-          </div>
+        <div ref={(el) => measure(index, el, 'silent')} style={{ overflow: 'hidden', maxWidth: '100%',
+          pointerEvents: 'none',
+          height: 'auto'
+        }}>
+          {item?.({ index })}
         </div>
       </div>,
       document.body
@@ -92,7 +94,7 @@ export const VirtualScrollerRW = forwardRef(({
 
   useImperativeHandle(ref, () => ({
     seek: (index, layoutChange = false) => {
-      log.debug('RW scrollToIndex', { index, layoutChange })
+      log.debug('RWH scrollToIndex', { index, layoutChange })
       if (layoutChange) {
         setAnchor(index)
         return
@@ -118,7 +120,7 @@ export const VirtualScrollerRW = forwardRef(({
   const handleItemsRendered = useCallback(({
     visibleStartIndex: startId, visibleStopIndex:  stopId }) => {
     // Retry a few frames until the visible start equals target, then lock
-    log.debug('RW handleItemsRendered', { startId, stopId })
+    log.debug('RWH handleItemsRendered', { startId, stopId })
     let end = startId <= 0 ? 'front' : stopId >= totalCount - 1 ? 'end' : null
     onRangeChange?.({ startId, stopId, end })
   }, [onRangeChange, totalCount])
@@ -146,7 +148,7 @@ export const VirtualScrollerRW = forwardRef(({
           {renderItem}
         </List>
       )}
-      {size.height > 0 && <SilentMeasure update={anchor} />}
+      {/* {size.height > 0 && <SilentMeasure update={anchor} />} */}
     </div>
   )
 })
