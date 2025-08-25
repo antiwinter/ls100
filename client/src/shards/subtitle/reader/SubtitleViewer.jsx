@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, memo,
+import { useRef, useCallback, memo,
   useImperativeHandle, forwardRef } from 'react'
 import dayjs from 'dayjs'
 import duration from 'dayjs/plugin/duration'
@@ -99,26 +99,19 @@ const SubtitleViewer_ = forwardRef(({
   const layoutProtect = useRef(0)
 
   // caches to re-apply on viewport changes
-  const lastGidRef = useRef(-1)
+  const lastGidRef = useRef(seek || 0)
   const wordlistRef = useRef(new Set())
   const langMapRef = useRef(null)
   const searchResultRef = useRef(new Set())
 
   log.debug('!!VIEWER re-render', { entries:groups?.length, entry0: groups?.[0], seek })
 
-  const viewerInDOM = useCallback(ref => {
-    log.debug('VIEWER viewerInDOM', { ref })
-    if (!ref) return
-    viewerRef.current = ref
-    onAnchored?.(1)
-  }, [onAnchored])
-
   const vsInDOM = useCallback(ref => {
     log.debug('VIEWER vsInDOM', { ref })
     if (!ref) return
     vsRef.current = ref
-    ref.seek(seek, true)
-  }, [seek])
+    // ref.seek(seek, true)
+  }, [])
 
   // DOM applicators
   const applyWordlist = useCallback(() => {
@@ -182,8 +175,8 @@ const SubtitleViewer_ = forwardRef(({
       langMapRef.current = langMap || null
       log.debug('viewer setLangMap', { keys: langMap instanceof Map ? Array.from(langMap.keys()) : Object.keys(langMap || {}) })
       applyLangMap()
-      vsRef.current?.seek(anchor, true)
       layoutProtect.current = 2
+      vsRef.current?.seek(anchor, true)
     },
     setFont: (font) => {
       const anchor = lastGidRef.current
@@ -192,8 +185,8 @@ const SubtitleViewer_ = forwardRef(({
       if (fontFamily) viewerRef.current.style.setProperty('--reader-font-family', fontFamily)
       if (Number.isFinite(fontSize)) viewerRef.current.style.setProperty('--reader-font-size', `${fontSize}px`)
       log.debug('viewer setFont', { font })
-      vsRef.current?.seek(anchor, true)
       layoutProtect.current = 2
+      vsRef.current?.seek(anchor, true)
     },
     seek: (gid) => {
       log.debug('viewer seek', { gid })
@@ -208,14 +201,14 @@ const SubtitleViewer_ = forwardRef(({
   }))
 
   // Handle top item changes from intersection observer
-  const handleRangeChange = useCallback(({ startId, stopId: _, end: __ }) => {
+  const handleRangeChange = useCallback(({ visibleStartIndex: start, end: __ }) => {
     // log.debug('viewer topItemChange', { id })
     applyWordlist()
     applyLangMap()
     applySearchResults()
-    if (startId !== lastGidRef.current && layoutProtect.current < 1)
-      onGroupChange?.(startId || 0)
-    lastGidRef.current = startId
+    if (start !== lastGidRef.current && layoutProtect.current < 1)
+      onGroupChange?.(start || 0)
+    lastGidRef.current = start
     layoutProtect.current--
   }, [applyWordlist, applyLangMap, applySearchResults, onGroupChange])
 
@@ -243,10 +236,12 @@ const SubtitleViewer_ = forwardRef(({
 
   // Unified press handler
   const handlePress = useCallback((e, type) => {
-    const data = getPressData(e)
-    if (!data && type === 'short') { onEmptyClick?.(); return }
     e.stopPropagation()
-    onWord?.(data.word, type === 'long' ? 'long' : 'short', getClickY(e), data.gid)
+    const data = getPressData(e)
+    if (data) return onWord?.(data.word,
+      type === 'long' ? 'long' : 'short', getClickY(e), data.gid)
+
+    if (type === 'short') { onEmptyClick?.(); return }
   }, [getPressData, onEmptyClick, onWord])
 
   const { handlers } = useLongPress(handlePress, { delay: 450 })
@@ -316,7 +311,7 @@ const SubtitleViewer_ = forwardRef(({
 
   return (
     <Box
-      ref={viewerInDOM}
+      ref={viewerRef}
       {...handlers}
       className="subtitle-viewer"
       sx={{

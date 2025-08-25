@@ -84,7 +84,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
 
   // Settings from store
   const { fontSize, fontFamily } = useSettingStore('subtitle-shard')()
-  const viewerRef = useRef(null)
+  const [viewer, setViewer] = useState(null)
   const overlayRef = useRef(null)
 
   // Local state for viewer
@@ -261,16 +261,22 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   // Update viewer when state changes
   useEffect(() => {
     // log.debug('READER useEffect wordlist', { wordlist })
-    viewerRef.current?.setWordlist(wordlist)
-  }, [wordlist, viewerAnchored])
+    viewer?.setWordlist(wordlist)
+  }, [wordlist, viewer])
 
   useEffect(() => {
-    viewerRef.current?.setLangMap(langMap)
-  }, [langMap, viewerAnchored])
+    viewer?.setLangMap(langMap)
+  }, [langMap, viewer])
 
   useEffect(() => {
-    viewerRef.current?.setFont({ fontSize, fontFamily })
-  }, [fontSize, fontFamily, viewerAnchored])
+    viewer?.setFont({ fontSize, fontFamily })
+  }, [fontSize, fontFamily, viewer])
+
+  const viewerInDOM = useCallback(ref => {
+    log.debug('READER viewerInDOM', { ref })
+    if (!ref) return
+    setViewer(ref)
+  }, [])
 
   // Handle review click (placeholder)
   const handleReviewClick = () => {
@@ -278,7 +284,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   }
 
   const handleGroupChange = useCallback((idx) => {
-    log.debug('READER handleGroupChange', { idx })
+    // log.debug('READER handleGroupChange', { idx })
     setPosition(idx)
     overlayRef.current?.closeTools()
   }, [setPosition])
@@ -287,7 +293,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   useEffect(() => {
     if (!fuse || !searchQuery?.trim()) {
       setSearchResults([])
-      viewerRef.current?.setSearchResult([])
+      viewer?.setSearchResult([])
       return
     }
 
@@ -297,13 +303,13 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
 
     // Send gids to viewer for highlighting
     const gids = searchResults.map(result => result.gid)
-    viewerRef.current?.setSearchResult(gids)
-  }, [fuse, searchQuery, setSearchResults])
+    viewer?.setSearchResult(gids)
+  }, [fuse, searchQuery, setSearchResults, viewer])
 
   const handleSeek = useCallback((gid) => {
-    viewerRef.current?.seek(gid)
+    viewer?.seek(gid)
     // setSeek(gid)
-  }, [])
+  }, [viewer])
 
   const shardName = shard?.name || ''
   if (loading) {
@@ -346,7 +352,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
         <Box sx={{ visibility: showViewer ? 'visible' : 'hidden', height: '100%', display: 'flex' }}>
           {canRenderViewer && (
             <SubtitleViewer
-              ref={viewerRef}
+              ref={viewerInDOM}
               groups={groups}
               seek={seek}
               onWord={handleWordEvent}
@@ -357,7 +363,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
           )}
         </Box>
         {!showViewer && (
-          <Box sx={{ position: 'absolute', inset: 0 }}>
+          <Box sx={{ position: 'absolute', inset: 0 }} onClick={handleEmptyClick}>
             <ViewerSkeleton />
           </Box>
         )}
