@@ -80,7 +80,8 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   const sessionStore = useSessionStore(shardId)
   const {
     position, wordlist, langMap, bookmarks, bookmarksLoaded, setPosition,
-    initWordlist, initBookmarks, toggleWord, setHint, searchQuery, setSearchResults
+    initWordlist, initBookmarks, toggleWord, setHint, searchQuery, setSearchResults,
+    setTotalGroups
   } = sessionStore()
 
   // Settings from store
@@ -170,6 +171,13 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   const groupReady = !groupsLoading && (groups?.length || 0) > 0
   const canRenderViewer = groupReady && positionLoaded
   const showViewer = canRenderViewer && viewerAnchored === 2
+
+  // Initialize totalGroups in session store when total changes
+  useEffect(() => {
+    if (total > 0) {
+      setTotalGroups(total)
+    }
+  }, [total, setTotalGroups])
 
   // Setup fuse for search
   const fuse = useMemo(() => {

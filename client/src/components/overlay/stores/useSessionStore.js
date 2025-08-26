@@ -45,6 +45,12 @@ export const useSessionStore = (shardId) => {
           state.shardName = name
         }),
 
+        // Total groups count
+        totalGroups: 0,
+        setTotalGroups: (count) => set((state) => {
+          state.totalGroups = count
+        }),
+
         // Selected words state (plain array for easy serialization)
         wordlist: [],
         initWordlist: (words) => set((state) => {

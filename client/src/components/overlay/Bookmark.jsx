@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react'
-import { Stack, Typography, Input, Button, Box, List, ListItem, ListItemButton, ListItemDecorator, ListItemContent } from '@mui/joy'
+import { useState, useCallback, useEffect } from 'react'
+import { Stack, Typography, Input, Button, Box, List, ListItem, ListItemButton, ListItemDecorator, ListItemContent, Slider } from '@mui/joy'
 import { BookmarkAdd } from '@mui/icons-material'
 import { AppDialog } from '../AppDialog.jsx'
 import {
@@ -16,15 +16,21 @@ import { log } from '../../utils/logger.js'
 import { useSessionStore } from './stores/useSessionStore.js'
 import { formatRelativeTime } from '../../utils/dateFormat.js'
 
-export const BookmarkContent = ({ shardId }) => {
+export const BookmarkContent = ({ shardId, onSeek }) => {
   const [showModal, setShowModal] = useState(false)
   const [note, setNote] = useState('')
+  const [seekPosition, setSeekPosition] = useState(0)
 
   const {
-    position, hint, shardName, bookmarks, addBookmark, removeBookmark
+    position, hint, shardName, bookmarks, totalGroups, addBookmark, removeBookmark
   } = useSessionStore(shardId)()
 
   log.debug('BookmarkContent re-render', { shardId, position, hint, shardName, bookmarks })
+
+  // Sync seekPosition with current position
+  useEffect(() => {
+    setSeekPosition(position || 0)
+  }, [position])
 
   // Check if bookmark already exists at current position
   const existingBookmark = bookmarks.find(b => b.position === position)
@@ -70,7 +76,7 @@ export const BookmarkContent = ({ shardId }) => {
   // Bookmark action handlers
   const handleGoToBookmark = (bookmark) => {
     log.debug('Go to bookmark', { bookmark })
-    // TODO: Implement seek functionality
+    onSeek?.(bookmark.position)
   }
 
   const handleDeleteBookmark = (bookmark) => {
@@ -93,6 +99,43 @@ export const BookmarkContent = ({ shardId }) => {
             }
           </Typography>
         </Stack>
+
+        {/* Seek Bar */}
+        {totalGroups > 0 && (
+          <Stack spacing={1} sx={{ mb: 3 }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Typography level="body-sm" color="neutral">
+                Position
+              </Typography>
+              <Typography level="body-sm" color="primary">
+                {seekPosition + 1} / {totalGroups}
+              </Typography>
+            </Stack>
+            <div data-allow-events="true">
+
+              <Slider
+                value={seekPosition}
+                onChange={(_, value) => setSeekPosition(value)}
+                onChangeCommitted={(_, value) => {
+                  log.debug('Seeking to position:', value)
+                  onSeek?.(value)
+                }}
+                min={0}
+                max={totalGroups - 1}
+                step={1}
+                valueLabelDisplay="auto"
+                valueLabelFormat={(value) => `Line ${value + 1}`}
+                sx={{
+                  '& .MuiSlider-thumb': {
+                    '&:hover, &.Mui-focusVisible': {
+                      boxShadow: '0 0 0 8px rgba(var(--joy-palette-primary-mainChannel) / 0.16)'
+                    }
+                  }
+                }}
+              />
+            </div>
+          </Stack>
+        )}
 
         {/* Action List */}
         <List sx={{ '--List-gap': '0px' }}>

@@ -91,7 +91,7 @@ const OverlayManager_ = forwardRef(({ onBack, shardId = '', onSeek }, ref) => {
         {xState.tool === 'search' && (<SearchContent shardId={shardId} onSeek={onSeek} />)}
         {xState.tool === 'wordlist' && (<WordListContent shardId={shardId} />)}
         {xState.tool === 'export' && (<ExportContent shardId={shardId} />)}
-        {xState.tool === 'bookmark' && (<BookmarkContent shardId={shardId} />)}
+        {xState.tool === 'bookmark' && (<BookmarkContent shardId={shardId} onSeek={onSeek} />)}
       </ActionDrawer>
     </Box>
   )
