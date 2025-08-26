@@ -25,7 +25,7 @@ const btnSx = {
 
 // right-side toolbar buttons in order
 const BUTTONS = [
-  { key: 'export', title: 'Export', Icon: IosShare },
+  // { key: 'export', title: 'Export', Icon: IosShare },
   { key: 'wordlist', title: 'Word list', Icon: ListAltOutlined },
   { key: 'bookmark', title: 'Bookmark', Icon: BookmarkBorder },
   { key: 'search', title: 'Search', Icon: Search },

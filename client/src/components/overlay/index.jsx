@@ -5,7 +5,7 @@ import { Toolbar } from './Toolbar.jsx'
 import { DictMainPageComponent, DictNotesPage, DictMorePage } from './Dict.jsx'
 import { FontContent } from './Font.jsx'
 import { SearchContent } from './Search.jsx'
-import { ExportContent } from './Export.jsx'
+// import { ExportContent } from './Export.jsx'
 import { WordListContent } from './Wordlist.jsx'
 import { BookmarkContent } from './Bookmark.jsx'
 import { ActionDrawer } from '../ActionDrawer.jsx'
@@ -90,7 +90,7 @@ const OverlayManager_ = forwardRef(({ onBack, shardId = '', onSeek }, ref) => {
         {xState.tool === 'font' && (<FontContent shardId={shardId} />)}
         {xState.tool === 'search' && (<SearchContent shardId={shardId} onSeek={onSeek} />)}
         {xState.tool === 'wordlist' && (<WordListContent shardId={shardId} />)}
-        {xState.tool === 'export' && (<ExportContent shardId={shardId} />)}
+        {/* {xState.tool === 'export' && (<ExportContent shardId={shardId} />)} */}
         {xState.tool === 'bookmark' && (<BookmarkContent shardId={shardId} onSeek={onSeek} />)}
       </ActionDrawer>
     </Box>
