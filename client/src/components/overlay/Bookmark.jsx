@@ -2,10 +2,19 @@ import { useState, useCallback } from 'react'
 import { Stack, Typography, Input, Button, Box, List, ListItem, ListItemButton, ListItemDecorator, ListItemContent } from '@mui/joy'
 import { BookmarkAdd } from '@mui/icons-material'
 import { AppDialog } from '../AppDialog.jsx'
+import {
+  SwipeableList,
+  SwipeableListItem,
+  SwipeAction,
+  TrailingActions,
+  LeadingActions,
+  Type as SwipeType
+} from 'react-swipeable-list'
+import 'react-swipeable-list/dist/styles.css'
 
 import { log } from '../../utils/logger.js'
 import { useSessionStore } from './stores/useSessionStore.js'
-import { SwipeableButton2 as SwipeableButton } from '../SwipeableButton2.jsx'
+import { formatRelativeTime } from '../../utils/dateFormat.js'
 
 export const BookmarkContent = ({ shardId }) => {
   const [showModal, setShowModal] = useState(false)
@@ -64,11 +73,6 @@ export const BookmarkContent = ({ shardId }) => {
     // TODO: Implement seek functionality
   }
 
-  const handleEditBookmark = (bookmark) => {
-    log.debug('Edit bookmark', { bookmark })
-    // TODO: Implement edit functionality
-  }
-
   const handleDeleteBookmark = (bookmark) => {
     log.debug('Delete bookmark', { bookmark })
     removeBookmark(bookmark.id)
@@ -121,7 +125,7 @@ export const BookmarkContent = ({ shardId }) => {
               "{existingBookmark.note || 'Bookmark'}"
             </Typography>
             <Typography level="body-xs" color="neutral">
-              Created {new Date(existingBookmark.timestamp).toLocaleDateString()}
+              Created {formatRelativeTime(existingBookmark.timestamp)}
             </Typography>
           </Box>
         )}
@@ -133,43 +137,60 @@ export const BookmarkContent = ({ shardId }) => {
               Bookmarks ({bookmarks.length})
             </Typography>
             <Box sx={{ px: 1 }}>
-              <Stack spacing={1}>
+              <SwipeableList type={SwipeType.IOS} fullSwipe={true} threshold={0.7}>
                 {[...bookmarks]
                   .sort((a, b) => a.position - b.position)
-                  .map(bookmark => (
-                    <SwipeableButton
-                      key={bookmark.id}
-                      actions={[
-                        {
-                          name: 'Delete',
-                          color: 'danger',
-                          action: () => handleDeleteBookmark(bookmark)
-                        },
-                        {
-                          name: 'Edit',
-                          color: 'neutral',
-                          action: () => handleEditBookmark(bookmark)
-                        },
-                        {
-                          name: 'Go',
-                          color: 'warning',
-                          action: () => handleGoToBookmark(bookmark)
-                        }
-                      ]}
-                      onClick={() => handleGoToBookmark(bookmark)}
-                    >
-                      <Stack spacing={0.5}>
-                        {bookmark.position}
-                        <Typography level="body-sm" sx={{ fontWeight: 500 }}>
-                          {bookmark.note || 'Bookmark'}
-                        </Typography>
-                        <Typography level="body-xs" color="neutral">
-                          Created {new Date(bookmark.timestamp).toLocaleDateString()}
-                        </Typography>
-                      </Stack>
-                    </SwipeableButton>
-                  ))}
-              </Stack>
+                  .map(bookmark => {
+                    const trailingActions = () => (
+                      <TrailingActions>
+                        <SwipeAction
+                          destructive={true}
+                          onClick={() => handleDeleteBookmark(bookmark)}
+                        >
+                          <Box sx={{
+                            bgcolor: 'danger.400',
+                            color: 'white',
+                            height: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            px: 2,
+                            fontFamily: 'var(--joy-fontFamily-body)',
+                            fontSize: '14px',
+                            fontWeight: 500,
+                            borderRadius: 'sm'
+                          }}>
+                            Delete
+                          </Box>
+                        </SwipeAction>
+                      </TrailingActions>
+                    )
+
+                    return (
+                      <SwipeableListItem
+                        key={bookmark.id}
+                        trailingActions={trailingActions()}
+                        onClick={() => handleGoToBookmark(bookmark)}
+                      >
+                        <Box sx={{ p: 2, bgcolor: 'background.surface', borderRadius: 'sm', mb: 1 }}>
+                          <Stack spacing={0.5}>
+                            <Stack direction="row" justifyContent="space-between" alignItems="center">
+                              <Typography level="body-sm" color="neutral">
+                                Line {bookmark.position}
+                              </Typography>
+                              <Typography level="body-xs" color="neutral">
+                                {formatRelativeTime(bookmark.timestamp)}
+                              </Typography>
+                            </Stack>
+                            <Typography level="body-sm" sx={{ fontWeight: 500 }}>
+                              {bookmark.note || 'Bookmark'}
+                            </Typography>
+                          </Stack>
+                        </Box>
+                      </SwipeableListItem>
+                    )
+                  })}
+              </SwipeableList>
             </Box>
           </>
         ) : (
