@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { motion, useMotionValue, useTransform } from 'framer-motion'
+import { useMotionValue, useTransform } from 'framer-motion'
 import { Box, Button } from '@mui/joy'
 
 export const SwipeableButton = ({
