@@ -3,19 +3,23 @@ import { Stack, Typography, Input, Button, Box, List, ListItem, ListItemButton, 
 import { BookmarkAdd } from '@mui/icons-material'
 import { AppDialog } from '../AppDialog.jsx'
 
-import { apiCall } from '../../config/api.js'
 import { log } from '../../utils/logger.js'
-import { formatSec } from '../../utils/dateFormat.js'
 import { useSessionStore } from './stores/useSessionStore.js'
-import { SwipeableButton } from '../SwipeableButton.jsx'
+import { SwipeableButton2 as SwipeableButton } from '../SwipeableButton2.jsx'
 
 export const BookmarkContent = ({ shardId }) => {
   const [showModal, setShowModal] = useState(false)
   const [note, setNote] = useState('')
 
-  const { position, hint, shardName } = useSessionStore(shardId)()
+  const {
+    position, hint, shardName, bookmarks, addBookmark, removeBookmark
+  } = useSessionStore(shardId)()
 
-  log.debug('BookmarkContent re-render', { shardId, position, hint, shardName })
+  log.debug('BookmarkContent re-render', { shardId, position, hint, shardName, bookmarks })
+
+  // Check if bookmark already exists at current position
+  const existingBookmark = bookmarks.find(b => b.position === position)
+  const hasBookmarkAtPosition = !!existingBookmark
 
   // Ref callback to focus input and position cursor at beginning
   const inputRef = useCallback((el) => {
@@ -38,20 +42,36 @@ export const BookmarkContent = ({ shardId }) => {
     setShowModal(true)
   }
 
-  const onSave = async () => {
+  const onSave = () => {
     try {
       log.debug('Adding bookmark', { position })
 
-      await apiCall(`/api/subtitle-shards/${shardId}/bookmarks`, {
-        method: 'POST',
-        body: JSON.stringify({ position, note: note.trim() })
+      addBookmark({
+        position,
+        note: note.trim()
       })
 
-      log.debug('Bookmark added')
+      log.debug('Bookmark added to sessionStore')
       setShowModal(false)
     } catch (error) {
       log.error('Failed to add bookmark', error)
     }
+  }
+
+  // Bookmark action handlers
+  const handleGoToBookmark = (bookmark) => {
+    log.debug('Go to bookmark', { bookmark })
+    // TODO: Implement seek functionality
+  }
+
+  const handleEditBookmark = (bookmark) => {
+    log.debug('Edit bookmark', { bookmark })
+    // TODO: Implement edit functionality
+  }
+
+  const handleDeleteBookmark = (bookmark) => {
+    log.debug('Delete bookmark', { bookmark })
+    removeBookmark(bookmark.id)
   }
 
   return (
@@ -63,57 +83,105 @@ export const BookmarkContent = ({ shardId }) => {
             {shardName}
           </Typography>
           <Typography level="body-sm" color="neutral">
-            Add bookmark at {formatSec(position)}
+            {hasBookmarkAtPosition ?
+              `Bookmark exists at line: ${position}` :
+              `Add bookmark to line: ${position}`
+            }
           </Typography>
         </Stack>
 
         {/* Action List */}
         <List sx={{ '--List-gap': '0px' }}>
           <ListItem>
-            <ListItemButton onClick={onBookmark}>
+            <ListItemButton
+              onClick={hasBookmarkAtPosition ? undefined : onBookmark}
+              disabled={hasBookmarkAtPosition}
+              sx={{
+                opacity: hasBookmarkAtPosition ? 0.5 : 1,
+                cursor: hasBookmarkAtPosition ? 'default' : 'pointer'
+              }}
+            >
               <ListItemDecorator>
                 <BookmarkAdd />
               </ListItemDecorator>
-              <ListItemContent>Add to Bookmark</ListItemContent>
+              <ListItemContent>
+                {hasBookmarkAtPosition ? 'Bookmark Already Exists' : 'Add to Bookmark'}
+              </ListItemContent>
             </ListItemButton>
           </ListItem>
         </List>
 
-        {/* Demo Swipeable Bookmark */}
-        <Typography level="title-sm" sx={{ mt: 2, mb: 1, px: 1, color: 'text.secondary' }}>
-          Demo Bookmark (Swipe Left ←)
-        </Typography>
-        <Box sx={{ px: 1 }}>
-          <SwipeableButton
-            actions={[
-              {
-                name: 'Delete',
-                color: 'danger',
-                action: () => log.debug('Delete bookmark clicked')
-              },
-              {
-                name: 'Edit',
-                color: 'neutral',
-                action: () => log.debug('Edit bookmark clicked')
-              },
-              {
-                name: 'Go',
-                color: 'warning',
-                action: () => log.debug('Share bookmark clicked')
-              }
-            ]}
-            onClick={() => log.debug('Bookmark content clicked')}
-          >
-            <Stack spacing={0.5}>
-              <Typography level="body-sm" sx={{ fontWeight: 500 }}>
-                {formatSec(1468)} - Demo Bookmark
-              </Typography>
-              <Typography level="body-xs" color="neutral">
-                "6759 - We've contacted each of your parents to explain the situation."
-              </Typography>
-            </Stack>
-          </SwipeableButton>
-        </Box>
+        {/* Show existing bookmark at current position */}
+        {hasBookmarkAtPosition && (
+          <Box sx={{ mt: 2, px: 1, py: 1, bgcolor: 'warning.softBg', borderRadius: 'sm' }}>
+            <Typography level="body-xs" color="warning" sx={{ fontWeight: 600, mb: 0.5 }}>
+              Existing bookmark at this position:
+            </Typography>
+            <Typography level="body-sm" sx={{ fontWeight: 500 }}>
+              "{existingBookmark.note || 'Bookmark'}"
+            </Typography>
+            <Typography level="body-xs" color="neutral">
+              Created {new Date(existingBookmark.timestamp).toLocaleDateString()}
+            </Typography>
+          </Box>
+        )}
+
+        {/* Existing Bookmarks */}
+        {bookmarks.length > 0 ? (
+          <>
+            <Typography level="title-sm" sx={{ mt: 2, mb: 1, px: 1, color: 'text.secondary' }}>
+              Bookmarks ({bookmarks.length})
+            </Typography>
+            <Box sx={{ px: 1 }}>
+              <Stack spacing={1}>
+                {[...bookmarks]
+                  .sort((a, b) => a.position - b.position)
+                  .map(bookmark => (
+                    <SwipeableButton
+                      key={bookmark.id}
+                      actions={[
+                        {
+                          name: 'Delete',
+                          color: 'danger',
+                          action: () => handleDeleteBookmark(bookmark)
+                        },
+                        {
+                          name: 'Edit',
+                          color: 'neutral',
+                          action: () => handleEditBookmark(bookmark)
+                        },
+                        {
+                          name: 'Go',
+                          color: 'warning',
+                          action: () => handleGoToBookmark(bookmark)
+                        }
+                      ]}
+                      onClick={() => handleGoToBookmark(bookmark)}
+                    >
+                      <Stack spacing={0.5}>
+                        {bookmark.position}
+                        <Typography level="body-sm" sx={{ fontWeight: 500 }}>
+                          {bookmark.note || 'Bookmark'}
+                        </Typography>
+                        <Typography level="body-xs" color="neutral">
+                          Created {new Date(bookmark.timestamp).toLocaleDateString()}
+                        </Typography>
+                      </Stack>
+                    </SwipeableButton>
+                  ))}
+              </Stack>
+            </Box>
+          </>
+        ) : (
+          <Box sx={{ mt: 2, px: 1, py: 2, textAlign: 'center' }}>
+            <Typography level="body-sm" color="neutral">
+              No bookmarks yet
+            </Typography>
+            <Typography level="body-xs" color="neutral" sx={{ mt: 0.5 }}>
+              Add your first bookmark using the button above
+            </Typography>
+          </Box>
+        )}
       </Box>
 
       {/* Bookmark Note Modal */}
@@ -125,7 +193,7 @@ export const BookmarkContent = ({ shardId }) => {
       >
         <Stack spacing={2}>
           <Typography level="body-sm" color="neutral">
-            Note for {formatSec(position)}:
+            Note for {position}:
           </Typography>
 
           <Input

@@ -135,7 +135,7 @@ export const getBookmarks = (userId, shardId) => {
   }
 }
 
-export const updateBookmarks = (userId, shardId, bookmarks) => {
+const saveBookmarks = (userId, shardId, bookmarks) => {
   const validBookmarks = bookmarks.filter(b => b && typeof b === 'object' && Number.isFinite(b.position))
   const bookmarksJson = JSON.stringify(validBookmarks)
   const now = new Date().toISOString()
@@ -165,8 +165,39 @@ export const addBookmark = (userId, shardId, bookmark) => {
     note: (bookmark.note || '').trim(),
     timestamp: new Date().toISOString()
   }
-  
-  const updated = [...bookmarks, newBookmark]
-  updateBookmarks(userId, shardId, updated)
+  // Idempotency: if a bookmark already exists at the same position, do not duplicate
+  const existsAtPosition = bookmarks.some(b => Number.isFinite(b.position) && b.position === newBookmark.position)
+  const updated = existsAtPosition ? bookmarks : [...bookmarks, newBookmark]
+  saveBookmarks(userId, shardId, updated)
   return updated
+}
+
+export const removeBookmarks = (userId, shardId, bookmarkIds) => {
+  const bookmarks = getBookmarks(userId, shardId)
+  const idsToRemove = Array.isArray(bookmarkIds) ? bookmarkIds : [bookmarkIds]
+  const updated = bookmarks.filter(b => !idsToRemove.includes(b.id))
+  saveBookmarks(userId, shardId, updated)
+  return updated
+}
+
+export const updateBookmarks = (userId, shardId, updates) => {
+  const bookmarks = getBookmarks(userId, shardId)
+  const updatesArray = Array.isArray(updates) ? updates : [updates]
+  
+  const updated = bookmarks.map(bookmark => {
+    const update = updatesArray.find(u => u.id === bookmark.id)
+    return update ? { ...bookmark, ...update } : bookmark
+  })
+  
+  saveBookmarks(userId, shardId, updated)
+  return updated
+}
+
+// Keep single versions for backwards compatibility
+export const removeBookmark = (userId, shardId, bookmarkId) => {
+  return removeBookmarks(userId, shardId, [bookmarkId])
+}
+
+export const updateBookmark = (userId, shardId, bookmarkId, updates) => {
+  return updateBookmarks(userId, shardId, [{ id: bookmarkId, ...updates }])
 }

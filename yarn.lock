@@ -4404,6 +4404,11 @@ react-router@7.7.0:
     cookie "^1.0.1"
     set-cookie-parser "^2.6.0"
 
+react-swipeable-list@^1.10.0:
+  version "1.10.0"
+  resolved "https://registry.yarnpkg.com/react-swipeable-list/-/react-swipeable-list-1.10.0.tgz#766bf84f87aeaac6a438cfc6ad7c88b70c01be8a"
+  integrity sha512-Ap85a3c5sgvglZBlaansfT6VfwuMad5U4puxFW4sJbUU6alE7epzW39CHvs5AohUZi7wjlP1KFunpXoD+iUyGQ==
+
 react-transition-group@^4.4.5:
   version "4.4.5"
   resolved "https://registry.yarnpkg.com/react-transition-group/-/react-transition-group-4.4.5.tgz#e53d4e3f3344da8521489fbef8f2581d42becdd1"

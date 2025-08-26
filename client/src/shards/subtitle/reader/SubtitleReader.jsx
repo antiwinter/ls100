@@ -79,8 +79,8 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   // log.debug('SUBTITLE READER RENDER', shard, shardId)
   const sessionStore = useSessionStore(shardId)
   const {
-    position, wordlist, langMap, setPosition,
-    initWordlist, toggleWord, setHint, searchQuery, setSearchResults
+    position, wordlist, langMap, bookmarks, bookmarksLoaded, setPosition,
+    initWordlist, initBookmarks, toggleWord, setHint, searchQuery, setSearchResults
   } = sessionStore()
 
   // Settings from store
@@ -94,7 +94,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   const [seek, setSeek] = useState(0)
 
   // Setup sync loop with store state
-  const { syncNow } = useSync(shardId, wordlist, position, 10000)
+  const { syncNow } = useSync(shardId, wordlist, position, bookmarks, 10000, { bookmarksLoaded })
 
   // log.debug('READER re-render', { position })
   const [hintTrigger, setHintTrigger] = useState(0)
@@ -147,9 +147,20 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
         setPositionLoaded(true)
       }
     })()
+    ;(async () => {
+      try {
+        const data = await apiCall(`/api/subtitle-shards/${shardId}/bookmarks`)
+        const bookmarks = data.bookmarks || []
+        if (!alive) return
+        initBookmarks(bookmarks)
+        log.debug(`📌 Loaded ${bookmarks.length} bookmarks`)
+      } catch (error) {
+        log.error('Failed to load bookmarks:', error)
+      }
+    })()
 
     return () => { alive = false }
-  }, [shardId, initWordlist, setPosition, sessionStore, setSeek])
+  }, [shardId, initWordlist, initBookmarks, setPosition, sessionStore, setSeek])
 
   // Use languages directly from shard data
   const languages = shard?.data?.languages || []

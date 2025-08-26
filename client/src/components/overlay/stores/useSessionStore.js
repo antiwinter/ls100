@@ -62,6 +62,39 @@ export const useSessionStore = (shardId) => {
           state.wordlist = []
         }),
 
+        // Bookmarks state (plain array for easy serialization)
+        bookmarks: [],
+        // Loaded flag is set when initial bookmarks are fetched/initialized
+        bookmarksLoaded: false,
+        initBookmarks: (bookmarks) => set((state) => {
+          state.bookmarks = bookmarks || []
+          state.bookmarksLoaded = true
+        }),
+        addBookmark: (bookmark) => set((state) => {
+          const newBookmark = {
+            id: bookmark.id || crypto.randomUUID(),
+            position: bookmark.position,
+            note: bookmark.note || '',
+            timestamp: bookmark.timestamp || new Date().toISOString()
+          }
+          state.bookmarks.push(newBookmark)
+        }),
+        removeBookmark: (bookmarkId) => set((state) => {
+          const idx = state.bookmarks.findIndex(b => b.id === bookmarkId)
+          if (idx >= 0) {
+            state.bookmarks.splice(idx, 1)
+          }
+        }),
+        updateBookmark: (bookmarkId, updates) => set((state) => {
+          const bookmark = state.bookmarks.find(b => b.id === bookmarkId)
+          if (bookmark) {
+            Object.assign(bookmark, updates)
+          }
+        }),
+        clearBookmarks: () => set((state) => {
+          state.bookmarks = []
+        }),
+
         // Search state (non-persistent)
         searchResults: [],
         searchQuery: '',

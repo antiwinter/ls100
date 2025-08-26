@@ -2,9 +2,10 @@ import { useRef, useCallback, useEffect } from 'react'
 import { apiCall } from '../../../config/api'
 import { log } from '../../../utils/logger'
 
-// General reader sync: words + index in one 10s loop (auto-baseline)
+// General reader sync: words + index + bookmarks in one 10s loop (auto-baseline)
 // index is 0-based current group index
-export const useSync = (shardId, words, index, intervalMs = 10000) => {
+export const useSync = (shardId, words, index, bookmarks, intervalMs = 10000, options = {}) => {
+  const { bookmarksLoaded = false } = options
   const wordsRef = useRef(new Set())
   const lastWordsRef = useRef(new Set())
   const syncingRef = useRef(false)
@@ -13,6 +14,9 @@ export const useSync = (shardId, words, index, intervalMs = 10000) => {
   const indexRef = useRef(0)
   const lastIndexRef = useRef(0)
   const indexReadyRef = useRef(false)
+  const bookmarksRef = useRef([])
+  const lastBookmarksRef = useRef([])
+  const bookmarksReadyRef = useRef(false)
 
   // keep internal ref updated without forcing re-subscriptions
   useEffect(() => {
@@ -34,6 +38,11 @@ export const useSync = (shardId, words, index, intervalMs = 10000) => {
     }
   }, [index])
 
+  // keep bookmarks current; baseline on first observe
+  useEffect(() => {
+    bookmarksRef.current = Array.isArray(bookmarks) ? bookmarks : []
+  }, [bookmarks])
+
   const diff = useCallback((current, last) => {
     const adds = []
     const rems = []
@@ -42,14 +51,30 @@ export const useSync = (shardId, words, index, intervalMs = 10000) => {
     return { adds, rems }
   }, [])
 
+  const diffBookmarks = useCallback((current, last) => {
+    const additions = current.filter(b => !last.find(l => l.id === b.id))
+    const removals = last.filter(b => !current.find(c => c.id === b.id))
+    const updates = current.filter(b => {
+      const old = last.find(l => l.id === b.id)
+      return old && (old.note !== b.note || old.position !== b.position)
+    })
+    return { additions, removals, updates }
+  }, [])
+
   const doSync = useCallback(async () => {
     if (!shardId || syncingRef.current) return
     const curWords = wordsRef.current
     const curIndex = Number.isFinite(indexRef.current) ? indexRef.current : 0
+    const curBookmarks = bookmarksRef.current
     const { adds, rems } = curWords ? diff(curWords, lastWordsRef.current) : { adds: [], rems: [] }
+    const { additions, removals, updates } = bookmarksReadyRef.current ?
+      diffBookmarks(curBookmarks, lastBookmarksRef.current) :
+      { additions: [], removals: [], updates: [] }
     const indexChanged = indexReadyRef.current && curIndex !== lastIndexRef.current
     const needWords = wordsReadyRef.current && (adds.length || rems.length)
-    if (!needWords && !indexChanged) return
+    const needBookmarks = bookmarksReadyRef.current &&
+      (additions.length || removals.length || updates.length)
+    if (!needWords && !indexChanged && !needBookmarks) return
 
     syncingRef.current = true
     try {
@@ -69,18 +94,55 @@ export const useSync = (shardId, words, index, intervalMs = 10000) => {
         })
         lastIndexRef.current = curIndex
       }
+      if (needBookmarks) {
+        // Sync bookmark additions
+        if (additions.length > 0) {
+          for (const bookmark of additions) {
+            log.trace('sync bookmark addition', { shardId, bookmark })
+            await apiCall(`/api/subtitle-shards/${shardId}/bookmarks`, {
+              method: 'POST',
+              body: JSON.stringify({ position: bookmark.position, note: bookmark.note })
+            })
+          }
+        }
+        // Sync bookmark removals (batch)
+        if (removals.length > 0) {
+          log.trace('sync bookmark removals', { shardId, count: removals.length })
+          await apiCall(`/api/subtitle-shards/${shardId}/bookmarks`, {
+            method: 'DELETE',
+            body: JSON.stringify({ bookmarkIds: removals.map(b => b.id) })
+          })
+        }
+        // Sync bookmark updates (batch)
+        if (updates.length > 0) {
+          log.trace('sync bookmark updates', { shardId, count: updates.length })
+          await apiCall(`/api/subtitle-shards/${shardId}/bookmarks`, {
+            method: 'PUT',
+            body: JSON.stringify({
+              updates: updates.map(b => ({
+                id: b.id,
+                position: b.position,
+                note: b.note
+              }))
+            })
+          })
+        }
+        lastBookmarksRef.current = [...curBookmarks]
+      }
     } catch (e) {
       log.error('sync failed', e)
     } finally {
       syncingRef.current = false
     }
-  }, [shardId, diff])
+  }, [shardId, diff, diffBookmarks])
 
   useEffect(() => {
     wordsReadyRef.current = false
     lastWordsRef.current = new Set()
     indexReadyRef.current = false
     lastIndexRef.current = 0
+    bookmarksReadyRef.current = false
+    lastBookmarksRef.current = []
   }, [shardId])
 
   useEffect(() => {
@@ -97,6 +159,15 @@ export const useSync = (shardId, words, index, intervalMs = 10000) => {
       log.debug('words baseline auto-ack', { count: lastWordsRef.current.size, shardId })
     }
   }, [shardId, words])
+
+  // Auto-baseline bookmarks only after initial load is complete
+  useEffect(() => {
+    if (!bookmarksReadyRef.current && bookmarksLoaded) {
+      lastBookmarksRef.current = [...bookmarksRef.current]
+      bookmarksReadyRef.current = true
+      log.debug('bookmarks baseline auto-ack', { count: lastBookmarksRef.current.length, shardId })
+    }
+  }, [shardId, bookmarks, bookmarksLoaded])
 
   const syncNow = useCallback(() => { doSync() }, [doSync])
 

@@ -155,4 +155,45 @@ router.post('/:shardId/bookmarks', requireAuth, validateShardAccess, async (req,
   }
 })
 
+// DELETE /api/subtitle-shards/:shardId/bookmarks - Batch delete bookmarks
+router.delete('/:shardId/bookmarks', requireAuth, validateShardAccess, async (req, res) => {
+  try {
+    const { bookmarkIds } = req.body
+    
+    if (!Array.isArray(bookmarkIds) || bookmarkIds.length === 0) {
+      return res.status(400).json({ error: 'Bookmark IDs array is required' })
+    }
+    
+    const bookmarks = subtitleData.removeBookmarks(req.userId, req.params.shardId, bookmarkIds)
+    res.json({ bookmarks })
+  } catch (error) {
+    log.error({ error, shardId: req.params.shardId, bookmarkIds: req.body.bookmarkIds }, 'Failed to delete bookmarks')
+    res.status(500).json({ error: 'Failed to delete bookmarks' })
+  }
+})
+
+// PUT /api/subtitle-shards/:shardId/bookmarks - Batch update bookmarks
+router.put('/:shardId/bookmarks', requireAuth, validateShardAccess, async (req, res) => {
+  try {
+    const { updates } = req.body
+    
+    if (!Array.isArray(updates) || updates.length === 0) {
+      return res.status(400).json({ error: 'Updates array is required' })
+    }
+    
+    // Validate each update has id and valid fields
+    for (const update of updates) {
+      if (!update.id) {
+        return res.status(400).json({ error: 'Each update must have an id' })
+      }
+    }
+    
+    const bookmarks = subtitleData.updateBookmarks(req.userId, req.params.shardId, updates)
+    res.json({ bookmarks })
+  } catch (error) {
+    log.error({ error, shardId: req.params.shardId, updates: req.body.updates }, 'Failed to update bookmarks')
+    res.status(500).json({ error: 'Failed to update bookmarks' })
+  }
+})
+
 export default router
