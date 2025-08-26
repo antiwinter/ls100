@@ -1,4 +1,5 @@
 import { db } from '../../utils/dbc.js'
+import crypto from 'crypto'
 
 // Link subtitle to shard with main language flag
 export const linkSubtitle = (shardId, subtitleId, isMain = false) => {
@@ -117,4 +118,55 @@ export const setPosition = (userId, shardId, line) => {
       VALUES (?, ?, ?, ?, ?)
     `).run(userId, shardId, now, now, line)
   }
+}
+
+// Bookmark helpers
+export const getBookmarks = (userId, shardId) => {
+  const result = db.prepare(`
+    SELECT bookmarks FROM subtitle_progress WHERE user_id = ? AND shard_id = ?
+  `).get(userId, shardId)
+  
+  if (!result) return []
+  
+  try {
+    return JSON.parse(result.bookmarks || '[]')
+  } catch {
+    return []
+  }
+}
+
+export const updateBookmarks = (userId, shardId, bookmarks) => {
+  const validBookmarks = bookmarks.filter(b => b && typeof b === 'object' && Number.isFinite(b.position))
+  const bookmarksJson = JSON.stringify(validBookmarks)
+  const now = new Date().toISOString()
+  
+  const existing = db.prepare(`
+    SELECT id FROM subtitle_progress WHERE user_id = ? AND shard_id = ?
+  `).get(userId, shardId)
+  
+  if (existing) {
+    return db.prepare(`
+      UPDATE subtitle_progress SET bookmarks = ?, updated_at = ? 
+      WHERE user_id = ? AND shard_id = ?
+    `).run(bookmarksJson, now, userId, shardId)
+  } else {
+    return db.prepare(`
+      INSERT INTO subtitle_progress (user_id, shard_id, bookmarks, timestamp, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(userId, shardId, bookmarksJson, now, now)
+  }
+}
+
+export const addBookmark = (userId, shardId, bookmark) => {
+  const bookmarks = getBookmarks(userId, shardId)
+  const newBookmark = {
+    id: crypto.randomUUID(),
+    position: Number.isFinite(bookmark.position) ? bookmark.position : 0,
+    note: (bookmark.note || '').trim(),
+    timestamp: new Date().toISOString()
+  }
+  
+  const updated = [...bookmarks, newBookmark]
+  updateBookmarks(userId, shardId, updated)
+  return updated
 }

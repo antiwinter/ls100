@@ -4,6 +4,7 @@ import ViewerSkeleton from './ViewerSkeleton.jsx'
 import { Bolt } from '@mui/icons-material'
 import { apiCall } from '../../../config/api'
 import { log } from '../../../utils/logger'
+import { formatSec } from '../../../utils/dateFormat.js'
 import { useSync } from './sync.js'
 import { OverlayManager } from '../../../components/overlay/index.jsx'
 import { SubtitleViewer } from './SubtitleViewer.jsx'
@@ -191,7 +192,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
 
       const sec = g.sec || 0
       const mainText = g.main?.[0]?.data?.text || ''
-      const hint = `${sec} - ${mainText}`
+      const hint = `${formatSec(sec)} - ${mainText}`
       setHint(hint)
     }
   }, [hintTrigger, groups, position, setHint])

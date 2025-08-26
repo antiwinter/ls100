@@ -1,3 +1,16 @@
+import dayjs from 'dayjs'
+import duration from 'dayjs/plugin/duration'
+dayjs.extend(duration)
+
+// Format seconds to time string (HH:MM:SS or MM:SS)
+export const formatSec = s => {
+  const d = dayjs.duration(s, 'seconds')
+  return [d.hours(), d.minutes(), d.seconds()]
+    .filter((v, i) => v !== 0 || i > 0)       // drop leading zero hours
+    .map((v, i) => !i ? v : String(v).padStart(2, '0'))
+    .join(':')
+}
+
 // Human-readable relative time formatting
 export const formatRelativeTime = (dateString) => {
   if (!dateString) return 'Unknown date'

@@ -1,8 +1,5 @@
 import { useRef, useCallback, memo,
   useImperativeHandle, forwardRef } from 'react'
-import dayjs from 'dayjs'
-import duration from 'dayjs/plugin/duration'
-dayjs.extend(duration)
 import {
   Box,
   Stack,
@@ -13,16 +10,9 @@ import {
 import { VirtualScrollerRW as VS } from '../../../components/VirtualScrollerRWH.jsx'
 import { useLongPress } from '../../../utils/useLongPress'
 import { log } from '../../../utils/logger.js'
+import { formatSec } from '../../../utils/dateFormat.js'
 
 // Multi-language subtitle display - gets state from split contexts
-
-const formatSec = s => {
-  const d = dayjs.duration(s, 'seconds')
-  return [d.hours(), d.minutes(), d.seconds()]
-    .filter((v, i) => v !== 0 || i > 0)       // drop leading zero hours
-    .map((v, i) => !i ? v : String(v).padStart(2, '0'))
-    .join(':')
-}
 
 const SubtitleRow = memo(({ group, clean, renderMain }) => {
   const mainBucket = group.main
