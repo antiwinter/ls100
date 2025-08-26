@@ -1,3 +1,6 @@
+// Ensure dev mode for this test (to test dev middleware functionality)
+process.env.NODE_ENV = 'development'
+
 import { runMigrations, db } from '../utils/dbc.js'
 import * as userModel from '../modules/auth/data.js'
 import { requireAuth, JWT_SECRET } from '../utils/auth-middleware.js'
@@ -11,9 +14,12 @@ try {
   runMigrations()
   console.log('✅ Module-based migrations completed')
 
-  // Clear users table for clean test
+  // Clear tables for clean test (order matters due to foreign keys)
+  db.pragma('foreign_keys = OFF')
+  db.prepare('DELETE FROM invite_codes').run()
   db.prepare('DELETE FROM users').run()
-  console.log('✅ Users table cleared for testing\n')
+  db.pragma('foreign_keys = ON')
+  console.log('✅ Tables cleared for testing\n')
 
   // Test 2: User creation
   console.log('2. Testing user creation...')

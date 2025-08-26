@@ -9,7 +9,7 @@ const router = express.Router()
 // Register
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, name } = req.body
+    const { email, password, name, inviteCode } = req.body
 
     if (!email || !password || !name) {
       return res.status(400).json({ error: 'Email, password, and name required' })
@@ -21,12 +21,31 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'User already exists' })
     }
 
+    // Validate invite code if provided
+    if (inviteCode) {
+      const validation = userModel.validateInviteCode(inviteCode)
+      if (!validation.valid) {
+        return res.status(400).json({ error: `Invalid invite code: ${validation.reason}` })
+      }
+    }
+
     // Create user
     const user = await userModel.create({ email, password, name })
 
+    // Use invite code if provided
+    if (inviteCode) {
+      try {
+        await userModel.useInviteCode(inviteCode, user.id)
+        log.info({ userId: user.id, inviteCode }, 'Invite code used successfully')
+      } catch (error) {
+        log.error({ error, userId: user.id, inviteCode }, 'Failed to use invite code')
+        // Don't fail registration if invite code usage fails
+      }
+    }
+
     // Return user without password
     const { password_hash: __drop, ...userInfo } = user
-    res.json({ user: userInfo })
+    res.json({ user: userInfo, inviteUsed: !!inviteCode })
   } catch (error) {
     log.error({ error, email: req.body?.email }, 'Registration failed')
     res.status(500).json({ error: 'Registration failed' })
@@ -84,6 +103,81 @@ router.get('/me', requireAuth, async (req, res) => {
   } catch (error) {
     log.error({ error }, 'Auth me endpoint failed')
     res.status(500).json({ error: 'Server error' })
+  }
+})
+
+// Validate invite code
+router.post('/invite/validate', async (req, res) => {
+  try {
+    const { code } = req.body
+
+    if (!code) {
+      return res.status(400).json({ error: 'Invite code required' })
+    }
+
+    const validation = userModel.validateInviteCode(code)
+    
+    if (validation.valid) {
+      const { invite } = validation
+      const creator = userModel.findById(invite.created_by)
+      
+      res.json({ 
+        valid: true, 
+        createdBy: creator?.name || 'Unknown',
+        createdAt: invite.created_at,
+        maxUses: invite.max_uses,
+        currentUses: invite.current_uses,
+        expiresAt: invite.expires_at
+      })
+    } else {
+      res.json({ valid: false, reason: validation.reason })
+    }
+  } catch (error) {
+    log.error({ error }, 'Invite code validation failed')
+    res.status(500).json({ error: 'Validation failed' })
+  }
+})
+
+// Generate invite code (protected route)
+router.post('/invite/generate', requireAuth, async (req, res) => {
+  try {
+    const { maxUses = 1, expiresAt = null } = req.body
+
+    if (maxUses < 1 || maxUses > 100) {
+      return res.status(400).json({ error: 'Max uses must be between 1 and 100' })
+    }
+
+    const inviteCode = userModel.createInviteCode(req.userId, {
+      maxUses,
+      expiresAt
+    })
+
+    res.json({ 
+      code: inviteCode.code,
+      id: inviteCode.id,
+      maxUses: inviteCode.max_uses,
+      expiresAt: inviteCode.expires_at,
+      createdAt: inviteCode.created_at
+    })
+  } catch (error) {
+    log.error({ error, userId: req.userId }, 'Invite code generation failed')
+    res.status(500).json({ error: 'Generation failed' })
+  }
+})
+
+// Get user's invite codes (protected route)
+router.get('/invite/my-codes', requireAuth, async (req, res) => {
+  try {
+    const inviteCodes = userModel.getInviteCodesByUser(req.userId)
+    const stats = userModel.getInviteCodeStats(req.userId)
+
+    res.json({ 
+      codes: inviteCodes,
+      stats
+    })
+  } catch (error) {
+    log.error({ error, userId: req.userId }, 'Failed to get invite codes')
+    res.status(500).json({ error: 'Failed to retrieve codes' })
   }
 })
 
