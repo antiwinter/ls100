@@ -89,11 +89,6 @@ const AuthFlow = () => {
   const [isLogin, setIsLogin] = useState(true)
   const { user, loading } = useAuth()
 
-  // In dev mode, bypass authentication
-  if (isDev) {
-    return <MainApp />
-  }
-
   if (loading) {
     return (
       <Box

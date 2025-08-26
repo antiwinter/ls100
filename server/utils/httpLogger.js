@@ -2,18 +2,19 @@ import morgan from 'morgan'
 
 // Add custom tokens for user information
 morgan.token('user-id', (req) => {
-  return req.user ? req.user.id : 'anonymous'
+  return req.user ? (req.user.userId || req.user.id) : 'anonymous'
 })
 
 morgan.token('user-name', (req) => {
   if (!req.user) return 'anonymous'
-  return req.user.name || req.user.email || 'unknown'
+  return req.user.username || req.user.name || req.user.email || 'unknown'
 })
 
 morgan.token('user-info', (req) => {
   if (!req.user) return 'anonymous'
-  const name = req.user.name || req.user.email || 'unknown'
-  return `${name}(${req.user.id})`
+  const name = req.user.username || req.user.name || req.user.email || 'unknown'
+  const id = req.user.userId || req.user.id || 'unknown'
+  return `${name}(${id})`
 })
 
 // Different formats for different environments
