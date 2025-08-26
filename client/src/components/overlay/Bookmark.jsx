@@ -7,6 +7,7 @@ import { apiCall } from '../../config/api.js'
 import { log } from '../../utils/logger.js'
 import { formatSec } from '../../utils/dateFormat.js'
 import { useSessionStore } from './stores/useSessionStore.js'
+import { SwipeableButton } from '../SwipeableButton.jsx'
 
 export const BookmarkContent = ({ shardId }) => {
   const [showModal, setShowModal] = useState(false)
@@ -77,6 +78,42 @@ export const BookmarkContent = ({ shardId }) => {
             </ListItemButton>
           </ListItem>
         </List>
+
+        {/* Demo Swipeable Bookmark */}
+        <Typography level="title-sm" sx={{ mt: 2, mb: 1, px: 1, color: 'text.secondary' }}>
+          Demo Bookmark (Swipe Left ←)
+        </Typography>
+        <Box sx={{ px: 1 }}>
+          <SwipeableButton
+            actions={[
+              {
+                name: 'Delete',
+                color: 'danger',
+                action: () => log.debug('Delete bookmark clicked')
+              },
+              {
+                name: 'Edit',
+                color: 'neutral',
+                action: () => log.debug('Edit bookmark clicked')
+              },
+              {
+                name: 'Go',
+                color: 'warning',
+                action: () => log.debug('Share bookmark clicked')
+              }
+            ]}
+            onClick={() => log.debug('Bookmark content clicked')}
+          >
+            <Stack spacing={0.5}>
+              <Typography level="body-sm" sx={{ fontWeight: 500 }}>
+                {formatSec(1468)} - Demo Bookmark
+              </Typography>
+              <Typography level="body-xs" color="neutral">
+                "6759 - We've contacted each of your parents to explain the situation."
+              </Typography>
+            </Stack>
+          </SwipeableButton>
+        </Box>
       </Box>
 
       {/* Bookmark Note Modal */}
