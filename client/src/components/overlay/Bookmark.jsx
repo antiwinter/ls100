@@ -7,34 +7,31 @@ import {
   SwipeableListItem,
   SwipeAction,
   TrailingActions,
-  LeadingActions,
   Type as SwipeType
 } from 'react-swipeable-list'
 import 'react-swipeable-list/dist/styles.css'
 
-import { log } from '../../utils/logger.js'
+import { log } from '../../utils/logger'
 import { useSessionStore } from './stores/useSessionStore.js'
 import { formatRelativeTime } from '../../utils/dateFormat.js'
 
 export const BookmarkContent = ({ shardId, onSeek }) => {
   const [showModal, setShowModal] = useState(false)
   const [note, setNote] = useState('')
-  const [seekPosition, setSeekPosition] = useState(0)
+  const [seek, setSeek] = useState(0)
 
   const {
     position, hint, shardName, bookmarks, totalGroups, addBookmark, removeBookmark
   } = useSessionStore(shardId)()
 
-  log.debug('BookmarkContent re-render', { shardId, position, hint, shardName, bookmarks })
+  log.debug('BookmarkContent re-render', { shardId, position, hint, shardName, bookmarksCount: bookmarks.length })
 
-  // Sync seekPosition with current position
   useEffect(() => {
-    setSeekPosition(position || 0)
+    setSeek(position || 0)
   }, [position])
 
-  // Check if bookmark already exists at current position
-  const existingBookmark = bookmarks.find(b => b.position === position)
-  const hasBookmarkAtPosition = !!existingBookmark
+  const existing = bookmarks.find(b => b.position === position)
+  const hasBookmark = !!existing
 
   // Ref callback to focus input and position cursor at beginning
   const inputRef = useCallback((el) => {
@@ -59,29 +56,70 @@ export const BookmarkContent = ({ shardId, onSeek }) => {
 
   const onSave = () => {
     try {
-      log.debug('Adding bookmark', { position })
-
-      addBookmark({
-        position,
-        note: note.trim()
-      })
-
-      log.debug('Bookmark added to sessionStore')
+      log.debug('Adding bookmark', { position, note: note.trim() })
+      addBookmark({ position, note: note.trim() })
       setShowModal(false)
     } catch (error) {
       log.error('Failed to add bookmark', error)
     }
   }
 
-  // Bookmark action handlers
-  const handleGoToBookmark = (bookmark) => {
-    log.debug('Go to bookmark', { bookmark })
+  const goTo = (bookmark) => {
+    log.debug('Go to bookmark', { id: bookmark.id, position: bookmark.position })
     onSeek?.(bookmark.position)
   }
 
-  const handleDeleteBookmark = (bookmark) => {
-    log.debug('Delete bookmark', { bookmark })
+  const deleteBookmark = (bookmark) => {
+    log.debug('Delete bookmark', { id: bookmark.id, position: bookmark.position })
     removeBookmark(bookmark.id)
+  }
+
+  const renderBookmarkItem = (bookmark) => {
+    const actions = () => (
+      <TrailingActions>
+        <SwipeAction destructive={true} onClick={() => deleteBookmark(bookmark)}>
+          <Box sx={{
+            bgcolor: 'danger.400',
+            color: 'white',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            px: 2,
+            fontFamily: 'var(--joy-fontFamily-body)',
+            fontSize: '14px',
+            fontWeight: 500,
+            borderRadius: 'sm'
+          }}>
+            Delete
+          </Box>
+        </SwipeAction>
+      </TrailingActions>
+    )
+
+    return (
+      <SwipeableListItem
+        key={bookmark.id}
+        trailingActions={actions()}
+        onClick={() => goTo(bookmark)}
+      >
+        <Box sx={{ p: 2, bgcolor: 'background.surface', borderRadius: 'sm', mb: 1 }}>
+          <Stack spacing={0.5}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Typography level="body-sm" color="neutral">
+                Line {bookmark.position}
+              </Typography>
+              <Typography level="body-xs" color="neutral">
+                {formatRelativeTime(bookmark.timestamp)}
+              </Typography>
+            </Stack>
+            <Typography level="body-sm" sx={{ fontWeight: 500 }}>
+              {bookmark.note || 'Bookmark'}
+            </Typography>
+          </Stack>
+        </Box>
+      </SwipeableListItem>
+    )
   }
 
   return (
@@ -93,7 +131,7 @@ export const BookmarkContent = ({ shardId, onSeek }) => {
             {shardName}
           </Typography>
           <Typography level="body-sm" color="neutral">
-            {hasBookmarkAtPosition ?
+            {hasBookmark ?
               `Bookmark exists at line: ${position}` :
               `Add bookmark to line: ${position}`
             }
@@ -108,16 +146,15 @@ export const BookmarkContent = ({ shardId, onSeek }) => {
                 Position
               </Typography>
               <Typography level="body-sm" color="primary">
-                {seekPosition + 1} / {totalGroups}
+                {seek + 1} / {totalGroups}
               </Typography>
             </Stack>
             <div data-allow-events="true">
-
               <Slider
-                value={seekPosition}
-                onChange={(_, value) => setSeekPosition(value)}
+                value={seek}
+                onChange={(_, value) => setSeek(value)}
                 onChangeCommitted={(_, value) => {
-                  log.debug('Seeking to position:', value)
+                  log.debug('Seeking to position', { value })
                   onSeek?.(value)
                 }}
                 min={0}
@@ -141,34 +178,34 @@ export const BookmarkContent = ({ shardId, onSeek }) => {
         <List sx={{ '--List-gap': '0px' }}>
           <ListItem>
             <ListItemButton
-              onClick={hasBookmarkAtPosition ? undefined : onBookmark}
-              disabled={hasBookmarkAtPosition}
+              onClick={hasBookmark ? undefined : onBookmark}
+              disabled={hasBookmark}
               sx={{
-                opacity: hasBookmarkAtPosition ? 0.5 : 1,
-                cursor: hasBookmarkAtPosition ? 'default' : 'pointer'
+                opacity: hasBookmark ? 0.5 : 1,
+                cursor: hasBookmark ? 'default' : 'pointer'
               }}
             >
               <ListItemDecorator>
                 <BookmarkAdd />
               </ListItemDecorator>
               <ListItemContent>
-                {hasBookmarkAtPosition ? 'Bookmark Already Exists' : 'Add to Bookmark'}
+                {hasBookmark ? 'Bookmark Already Exists' : 'Add to Bookmark'}
               </ListItemContent>
             </ListItemButton>
           </ListItem>
         </List>
 
         {/* Show existing bookmark at current position */}
-        {hasBookmarkAtPosition && (
+        {hasBookmark && (
           <Box sx={{ mt: 2, px: 1, py: 1, bgcolor: 'warning.softBg', borderRadius: 'sm' }}>
             <Typography level="body-xs" color="warning" sx={{ fontWeight: 600, mb: 0.5 }}>
               Existing bookmark at this position:
             </Typography>
             <Typography level="body-sm" sx={{ fontWeight: 500 }}>
-              "{existingBookmark.note || 'Bookmark'}"
+              "{existing.note || 'Bookmark'}"
             </Typography>
             <Typography level="body-xs" color="neutral">
-              Created {formatRelativeTime(existingBookmark.timestamp)}
+              Created {formatRelativeTime(existing.timestamp)}
             </Typography>
           </Box>
         )}
@@ -181,58 +218,7 @@ export const BookmarkContent = ({ shardId, onSeek }) => {
             </Typography>
             <Box sx={{ px: 1 }}>
               <SwipeableList type={SwipeType.IOS} fullSwipe={true} threshold={0.7}>
-                {[...bookmarks]
-                  .sort((a, b) => a.position - b.position)
-                  .map(bookmark => {
-                    const trailingActions = () => (
-                      <TrailingActions>
-                        <SwipeAction
-                          destructive={true}
-                          onClick={() => handleDeleteBookmark(bookmark)}
-                        >
-                          <Box sx={{
-                            bgcolor: 'danger.400',
-                            color: 'white',
-                            height: '100%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            px: 2,
-                            fontFamily: 'var(--joy-fontFamily-body)',
-                            fontSize: '14px',
-                            fontWeight: 500,
-                            borderRadius: 'sm'
-                          }}>
-                            Delete
-                          </Box>
-                        </SwipeAction>
-                      </TrailingActions>
-                    )
-
-                    return (
-                      <SwipeableListItem
-                        key={bookmark.id}
-                        trailingActions={trailingActions()}
-                        onClick={() => handleGoToBookmark(bookmark)}
-                      >
-                        <Box sx={{ p: 2, bgcolor: 'background.surface', borderRadius: 'sm', mb: 1 }}>
-                          <Stack spacing={0.5}>
-                            <Stack direction="row" justifyContent="space-between" alignItems="center">
-                              <Typography level="body-sm" color="neutral">
-                                Line {bookmark.position}
-                              </Typography>
-                              <Typography level="body-xs" color="neutral">
-                                {formatRelativeTime(bookmark.timestamp)}
-                              </Typography>
-                            </Stack>
-                            <Typography level="body-sm" sx={{ fontWeight: 500 }}>
-                              {bookmark.note || 'Bookmark'}
-                            </Typography>
-                          </Stack>
-                        </Box>
-                      </SwipeableListItem>
-                    )
-                  })}
+                {[...bookmarks].sort((a, b) => a.position - b.position).map(renderBookmarkItem)}
               </SwipeableList>
             </Box>
           </>
