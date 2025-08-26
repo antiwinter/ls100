@@ -10,7 +10,7 @@ import { BottomNav } from './components/BottomNav'
 import { detectPlatform } from './utils/useDetectPlatform'
 import { APP } from './config/constants'
 
-const isDev = window?.location?.hostname?.match(/localhost|127\.0\.0\.1/)
+const isDev = false //  window?.location?.hostname?.match(/localhost|127\.0\.0\.1/)
 
 const MainApp = () => {
   const [homeEditMode, setHomeEditMode] = useState(false)

@@ -1,5 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="4" fill="#1976d2"/>
-  <text x="16" y="14" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="8" font-weight="bold">LS</text>
-  <text x="16" y="22" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="6" font-weight="bold">100</text>
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g transform="translate(16, 16) scale(0.13, 0.13)">
+<path d="M33.69 -60.41C39.69 -60.41 44.59 -55.51 44.59 -49.51L44.59 -9.1C44.59 7.99 31.09 21.49 13.99 21.49C-3.11 21.49 -16.61 7.99 -16.61 -9.1L-16.61 -33.64C-16.61 -50.74 -3.11 -64.24 13.99 -64.24C31.09 -64.24 44.59 -50.74 44.59 -33.64ZM16.59 -98.64C27.69 -98.64 36.79 -89.54 36.79 -78.44V-76.11C36.79 -65.01 27.69 -55.91 16.59 -55.91C5.49 -55.91 -3.61 -65.01 -3.61 -76.11L-3.61 -78.44C-3.61 -89.54 5.49 -98.64 16.59 -98.64Z" fill="url(#paint0_linear_9_15)"/>
+</g>
+<defs>
+<linearGradient id="paint0_linear_9_15" x1="16" y1="4" x2="16" y2="28" gradientUnits="userSpaceOnUse">
+<stop stop-color="#C382F6"/>
+<stop offset="1" stop-color="#7934B1"/>
+</linearGradient>
+</defs>
 </svg>
