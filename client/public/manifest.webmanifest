@@ -1,6 +1,6 @@
 {
-  "name": "LS100 - Learn English with Movies",
-  "short_name": "LS100",
+  "name": "Loci - Memorize with force",
+  "short_name": "Loci",
   "description": "Interactive English learning using movie subtitles",
   "start_url": "/",
   "display": "standalone",

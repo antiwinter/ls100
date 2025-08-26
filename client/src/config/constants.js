@@ -7,10 +7,10 @@ const VERSION = (typeof __APP_VERSION__ !== 'undefined'
 const BUILD_ID = (typeof __BUILD_ID__ !== 'undefined' ? __BUILD_ID__ : '')
 
 export const APP = {
-  name: 'LS100 - Learn English with Movies',
-  short: 'LS100',
+  name: 'Loci - Memorize everything',
+  short: 'Loci',
   desc: 'Interactive English learning using movie subtitles',
-  tagline: 'Learn English with movie subtitles',
+  tagline: 'Memorize everything',
   version: VERSION,
   build: BUILD_ID,
 
@@ -23,10 +23,10 @@ export const APP = {
   },
 
   storage: {
-    auth: 'ls100-auth',
-    theme: 'ls100-mode',
-    colors: 'ls100-color-scheme',
-    sort: 'ls100-shard-sort',
-    prefs: 'ls100-prefs'
+    auth: 'Loci-auth',
+    theme: 'Loci-mode',
+    colors: 'Loci-color-scheme',
+    sort: 'Loci-shard-sort',
+    prefs: 'Loci-prefs'
   }
 }
