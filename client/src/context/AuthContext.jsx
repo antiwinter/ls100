@@ -50,10 +50,10 @@ export const AuthProvider = ({ children }) => {
     return data
   }
 
-  const register = async (name, email, password) => {
+  const register = async (name, email, password, inviteCode) => {
     return await apiCall('/api/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ name, email, password })
+      body: JSON.stringify({ name, email, password, inviteCode })
     })
   }
 

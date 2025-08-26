@@ -7,6 +7,7 @@ const Register = ({ onSwitchToLogin }) => {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [inviteCode, setInviteCode] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -18,6 +19,13 @@ const Register = ({ onSwitchToLogin }) => {
     setError('')
     setLoading(true)
 
+    // Validation
+    if (!inviteCode.trim()) {
+      setError('Invite code is required')
+      setLoading(false)
+      return
+    }
+
     if (password.length < 6) {
       setError('Password must be at least 6 characters')
       setLoading(false)
@@ -25,7 +33,7 @@ const Register = ({ onSwitchToLogin }) => {
     }
 
     try {
-      await register(name, email, password)
+      await register(name, email, password, inviteCode.trim())
       setSuccess(true)
       setTimeout(() => {
         onSwitchToLogin()
@@ -72,7 +80,7 @@ const Register = ({ onSwitchToLogin }) => {
           Create your account
         </Typography>
         <Typography level="body-md" textAlign="center" mb={3} color="neutral">
-          Join {APP.short} and start learning
+          Join {APP.short} with your invite code
         </Typography>
 
         <form onSubmit={handleSubmit}>
@@ -82,6 +90,21 @@ const Register = ({ onSwitchToLogin }) => {
                 {error}
               </Alert>
             )}
+
+            <Input
+              type="text"
+              placeholder="Invite code (required)"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+              autoComplete="off"
+              required
+              sx={{
+                '& input': {
+                  fontFamily: 'monospace',
+                  letterSpacing: '0.1em'
+                }
+              }}
+            />
 
             <Input
               type="text"
