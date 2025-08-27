@@ -30,19 +30,17 @@ const ShareButton = () => {
 }
 
 // Menu item component
-const MenuItem = ({ icon, title, isFirst = false, isLast = false, isSpecial = false }) => {
+const MenuItem = ({ icon, title, isFirst = false, isLast = false }) => {
   const [displayText, setDisplayText] = useState(title)
 
   const handlePressStart = () => {
-    if (isSpecial) {
-      setDisplayText('Welcome to Loci')
-    }
+    const options = ['Add to Home Screen', 'Welcome to Loci']
+    const nextText = options[Math.random() < 0.8 ? 0 : 1]
+    setDisplayText(nextText)
   }
 
   const handlePressEnd = () => {
-    if (isSpecial) {
-      setDisplayText(title)
-    }
+    setDisplayText(title)
   }
 
   return (
@@ -123,7 +121,6 @@ const MenuGroup = () => {
           title="Add to Quick Note"
           icon={<Edit sx={{ fontSize: '20px' }} />}
           isLast={true}
-          isSpecial={true}
         />
       </Box>
 
@@ -149,6 +146,13 @@ const MenuGroup = () => {
 export const Hint = () => {
   return (
     <Box
+      className="no-select"
+      onContextMenu={e => e.preventDefault()}
+      onMouseDown={e => e.preventDefault()}
+      onMouseUp={e => e.preventDefault()}
+      onMouseLeave={e => e.preventDefault()}
+      onTouchStart={e => e.preventDefault()}
+      onTouchEnd={e => e.preventDefault()}
       sx={{
         minHeight: '80vh',
         // bgcolor: 'background.level1', // Joy UI level1 background
@@ -162,12 +166,10 @@ export const Hint = () => {
         transition: 'opacity 0.3s ease-out',
         cursor: 'pointer',
         transform: 'scaleY(-1)', // Mirror flip top to bottom
-        userSelect: 'none',
-        WebkitUserSelect: 'none',
-        MozUserSelect: 'none',
-        msUserSelect: 'none',
-        WebkitTouchCallout: 'none',
-        WebkitTapHighlightColor: 'transparent'
+        WebkitTapHighlightColor: 'transparent',
+        touchAction: 'none',
+        WebkitUserDrag: 'none',
+        WebkitTouchCallout: 'none'
       }}
     >
       {/* Pure Share Icon */}

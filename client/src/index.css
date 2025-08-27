@@ -63,3 +63,13 @@ input, textarea, [contenteditable], p, h1, h2, h3, h4, h5, h6, span, div {
 :focus {
   outline: none;
 }
+
+/* Utility: force-disable selection in a subtree (fixes iOS Safari long-press) */
+.no-select,
+.no-select * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
