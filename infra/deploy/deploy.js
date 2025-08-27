@@ -106,6 +106,23 @@ async function deploy() {
     }
     execSync(`mv "${ENV_DIR}/staging" "${ENV_DIR}/current"`)
 
+    // Link persistent data directory
+    console.log('🔗 Linking persistent data directory...')
+    try {
+      const DATA_SRC = path.join(ROOT, 'data')
+      const DATA_DST = path.join(ENV_DIR, 'current', 'server', 'data')
+      // Ensure source exists
+      if (!existsSync(DATA_SRC)) {
+        mkdirSync(DATA_SRC, { recursive: true })
+      }
+      // Remove any existing data directory and create symlink
+      execSync(`rm -rf "${DATA_DST}"`)
+      execSync(`ln -s "${DATA_SRC}" "${DATA_DST}"`)
+      console.log(`✅ Linked ${DATA_SRC} → ${DATA_DST}`)
+    } catch (e) {
+      console.warn(`⚠️ Failed to link persistent data directory: ${e.message}`)
+    }
+
     // Restart app with PM2
     console.log(`🔄 Restarting ${appName}...`)
     try {
