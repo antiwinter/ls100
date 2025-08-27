@@ -5,3 +5,4 @@ node_modules
 *.mdd
 cmudict.txt
 .gemini-clipboard/
+server/data
