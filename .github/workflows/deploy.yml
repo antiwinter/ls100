@@ -79,7 +79,7 @@ jobs:
             chmod +x infra/deploy/deploy.js
             if [ "${{ github.event_name }}" = "release" ]; then
               node infra/deploy/deploy.js production
-            elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            elif [[ "${{ github.ref }}" == refs/tags/rev* ]]; then
               node infra/deploy/deploy.js production
             elif [ "${{ github.event.inputs.environment }}" = "production" ]; then
               node infra/deploy/deploy.js production
