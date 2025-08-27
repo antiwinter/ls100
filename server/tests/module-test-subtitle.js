@@ -28,7 +28,7 @@ console.log('🧪 Testing Subtitle Module...\n')
 try {
   // Test 1: Database initialization
   console.log('1. Testing database initialization...')
-  runMigrations()
+  await migrator.migrate()
   console.log('✅ Module-based migrations completed')
 
   // Clear subtitles table for clean test

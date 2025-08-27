@@ -11,7 +11,7 @@ console.log('🧪 Testing Auth Module...\n')
 try {
   // Test 1: Database initialization
   console.log('1. Testing database initialization...')
-  runMigrations()
+  await migrator.migrate()
   console.log('✅ Module-based migrations completed')
 
   // Clear tables for clean test (order matters due to foreign keys)

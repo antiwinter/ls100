@@ -12,7 +12,7 @@ console.log('🔄 Importing users from users.json to SQLite...\n')
 try {
   // Initialize database
   console.log('1. Initializing database...')
-  runMigrations()
+  await migrator.migrate()
   console.log('✅ Module-based migrations completed\n')
 
   // Read users.json

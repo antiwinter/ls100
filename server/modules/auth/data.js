@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs'
 import crypto from 'crypto'
-import { db } from '../../utils/dbc/index.js'
+import { q } from '../../utils/dbc/index.js'
 
 export const create = async (userData) => {
   const hash = await bcrypt.hash(userData.password, 10)
@@ -13,27 +13,30 @@ export const create = async (userData) => {
     created_at: new Date().toISOString()
   }
 
-  db.prepare(`
-    INSERT INTO users VALUES (?, ?, ?, ?, ?)
-  `).run(user.id, user.email, user.name, user.password_hash, user.created_at)
+  await q('INSERT INTO users (id, email, name, password_hash, created_at) VALUES ($1, $2, $3, $4, $5)', [
+    user.id, user.email, user.name, user.password_hash, user.created_at
+  ])
 
   return user
 }
 
-export const findByEmail = (email) => {
-  return db.prepare('SELECT * FROM users WHERE email = ?').get(email)
+export const findByEmail = async (email) => {
+  const r = await q('SELECT * FROM users WHERE email = $1', [email])
+  return r.rows?.[0] || null
 }
 
-export const findById = (id) => {
-  return db.prepare('SELECT * FROM users WHERE id = ?').get(id)
+export const findById = async (id) => {
+  const r = await q('SELECT * FROM users WHERE id = $1', [id])
+  return r.rows?.[0] || null
 }
 
 export const verifyPassword = async (user, password) => {
   return await bcrypt.compare(password, user.password_hash)
 }
 
-export const findAll = () => {
-  return db.prepare('SELECT * FROM users ORDER BY created_at DESC').all()
+export const findAll = async () => {
+  const r = await q('SELECT * FROM users ORDER BY created_at DESC')
+  return r.rows
 }
 
 // Invite Code Functions
@@ -44,7 +47,7 @@ const generateInviteCode = () => {
 }
 
 // Create a new invite code
-export const createInviteCode = (createdBy, options = {}) => {
+export const createInviteCode = async (createdBy, options = {}) => {
   const {
     maxUses = 1,
     expiresAt = null
@@ -62,9 +65,7 @@ export const createInviteCode = (createdBy, options = {}) => {
     current_uses: 0
   }
 
-  db.prepare(`
-    INSERT INTO invite_codes VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
+  await q('INSERT INTO invite_codes (id, code, created_by, created_at, used_by, used_at, expires_at, max_uses, current_uses) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)', [
     inviteCode.id,
     inviteCode.code,
     inviteCode.created_by,
@@ -74,19 +75,20 @@ export const createInviteCode = (createdBy, options = {}) => {
     inviteCode.expires_at,
     inviteCode.max_uses,
     inviteCode.current_uses
-  )
+  ])
 
   return inviteCode
 }
 
 // Find invite code by code string
-export const findInviteByCode = (code) => {
-  return db.prepare('SELECT * FROM invite_codes WHERE code = ?').get(code)
+export const findInviteByCode = async (code) => {
+  const r = await q('SELECT * FROM invite_codes WHERE code = $1', [code])
+  return r.rows?.[0] || null
 }
 
 // Validate if invite code can be used
-export const validateInviteCode = (code) => {
-  const invite = findInviteByCode(code)
+export const validateInviteCode = async (code) => {
+  const invite = await findInviteByCode(code)
   
   if (!invite) {
     return { valid: false, reason: 'Code not found' }
@@ -106,7 +108,7 @@ export const validateInviteCode = (code) => {
 }
 
 // Use an invite code (mark as used)
-export const useInviteCode = (code, usedBy) => {
+export const useInviteCode = async (code, usedBy) => {
   const validation = validateInviteCode(code)
   
   if (!validation.valid) {
@@ -117,11 +119,7 @@ export const useInviteCode = (code, usedBy) => {
   const now = new Date().toISOString()
 
   // Update invite code
-  db.prepare(`
-    UPDATE invite_codes 
-    SET used_by = ?, used_at = ?, current_uses = current_uses + 1
-    WHERE code = ?
-  `).run(usedBy, now, code)
+  await q('UPDATE invite_codes SET used_by = $1, used_at = $2, current_uses = current_uses + 1 WHERE code = $3', [usedBy, now, code])
 
   return {
     ...invite,
@@ -132,26 +130,28 @@ export const useInviteCode = (code, usedBy) => {
 }
 
 // Get invite codes created by a user
-export const getInviteCodesByUser = (userId) => {
-  return db.prepare(`
+export const getInviteCodesByUser = async (userId) => {
+  const r = await q(`
     SELECT ic.*, u.name as used_by_name 
     FROM invite_codes ic
     LEFT JOIN users u ON ic.used_by = u.id
-    WHERE ic.created_by = ?
+    WHERE ic.created_by = $1
     ORDER BY ic.created_at DESC
-  `).all(userId)
+  `, [userId])
+  return r.rows
 }
 
 // Get invite code usage stats
-export const getInviteCodeStats = (userId) => {
-  const stats = db.prepare(`
+export const getInviteCodeStats = async (userId) => {
+  const r = await q(`
     SELECT 
       COUNT(*) as total_codes,
       COUNT(used_by) as used_codes,
       SUM(current_uses) as total_uses
     FROM invite_codes 
-    WHERE created_by = ?
-  `).get(userId)
+    WHERE created_by = $1
+  `, [userId])
+  const stats = r.rows?.[0] || {}
 
   return {
     totalCodes: stats.total_codes || 0,

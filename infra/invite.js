@@ -3,7 +3,7 @@
   invite.js — Simple CLI tool to manage invite codes
 */
 
-import { migrator, db } from '../server/utils/dbc/index.js'
+import { migrator, q } from '../server/utils/dbc/index.js'
 import * as userModel from '../server/modules/auth/data.js'
 import { Command } from 'commander'
 
@@ -35,7 +35,7 @@ function formatTable(codes) {
 
 async function generateCodes(count = 1, options = {}) {
   console.log('🔧 Initializing database...')
-  runMigrations()
+  await migrator.migrate()
   
   // Use a default admin user ID - you can change this
   const adminUserId = '1753068359234' // antiwinter's ID for now
@@ -44,7 +44,7 @@ async function generateCodes(count = 1, options = {}) {
   
   const generated = []
   for (let i = 0; i < count; i++) {
-    const inviteCode = userModel.createInviteCode(adminUserId, {
+    const inviteCode = await userModel.createInviteCode(adminUserId, {
       maxUses: options.maxUses || 1,
       expiresAt: options.expires || null
     })
@@ -61,15 +61,16 @@ async function generateCodes(count = 1, options = {}) {
 
 async function listCodes(options = {}) {
   console.log('🔧 Initializing database...')
-  runMigrations()
+  await migrator.migrate()
   
-  const codes = db.prepare(`
+  const r = await q(`
     SELECT ic.*, u.name as creator_name
     FROM invite_codes ic
     LEFT JOIN users u ON ic.created_by = u.id
     ORDER BY ic.created_at DESC
     LIMIT 50
-  `).all()
+  `)
+  const codes = r.rows
   
   console.log(`\n📋 Found ${codes.length} invite codes:\n`)
   formatTable(codes)
@@ -81,14 +82,14 @@ async function revokeCodes(codeList) {
   }
   
   console.log('🔧 Initializing database...')
-  runMigrations()
+  await migrator.migrate()
   
   console.log(`🗑️  Revoking ${codeList.length} code(s)...`)
   
   let revokedCount = 0
   for (const code of codeList) {
-    const result = db.prepare('DELETE FROM invite_codes WHERE code = ?').run(code)
-    if (result.changes > 0) {
+    const result = await q('DELETE FROM invite_codes WHERE code = $1', [code])
+    if (result.rowCount > 0) {
       console.log(`   ✅ Revoked: ${code}`)
       revokedCount++
     } else {

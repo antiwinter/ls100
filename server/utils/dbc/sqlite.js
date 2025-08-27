@@ -14,33 +14,45 @@ export const db = new Database(dbPath)
 db.pragma('foreign_keys = ON')
 db.pragma('journal_mode = WAL')
 
-export const q = (sql, params = []) => {
-  // Minimal wrapper for compatibility: mimic pg's q() shape
-  // Detect query type
-  const trimmed = sql.trim().toLowerCase()
+const fromPgPlaceholders = (sql, params = []) => {
+  const matches = [...sql.matchAll(/\$([1-9][0-9]*)/g)]
+  if (matches.length === 0) return { text: sql, params }
+  const newParams = []
+  const text = sql.replace(/\$([1-9][0-9]*)/g, (_m, idx) => {
+    const i = parseInt(idx, 10) - 1
+    newParams.push(params[i])
+    return '?'
+  })
+  return { text, params: newParams }
+}
+
+export const q = async (sql, params = []) => {
+  const { text, params: mapped } = fromPgPlaceholders(sql, params)
+  const trimmed = text.trim().toLowerCase()
   if (trimmed.startsWith('select')) {
-    const stmt = db.prepare(sql)
-    const rows = stmt.all(...params)
+    const stmt = db.prepare(text)
+    const rows = stmt.all(...mapped)
     return { rows, rowCount: rows.length }
   } else {
-    const stmt = db.prepare(sql)
-    const info = stmt.run(...params)
+    const stmt = db.prepare(text)
+    const info = stmt.run(...mapped)
     return { rows: [], rowCount: info.changes || 0 }
   }
 }
 
-export const tx = fn => {
+export const tx = async fn => {
   const wrap = db.transaction((cb) => cb(db))
   return wrap((c) => fn({
-    query: (text, params = []) => {
-      const trimmed = text.trim().toLowerCase()
+    query: async (text, params = []) => {
+      const { text: t, params: mapped } = fromPgPlaceholders(text, params)
+      const trimmed = t.trim().toLowerCase()
       if (trimmed.startsWith('select')) {
-        const stmt = c.prepare(text)
-        const rows = stmt.all(...params)
+        const stmt = c.prepare(t)
+        const rows = stmt.all(...mapped)
         return { rows, rowCount: rows.length }
       } else {
-        const stmt = c.prepare(text)
-        const info = stmt.run(...params)
+        const stmt = c.prepare(t)
+        const info = stmt.run(...mapped)
         return { rows: [], rowCount: info.changes || 0 }
       }
     }
