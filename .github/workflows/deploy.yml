@@ -28,39 +28,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'yarn'
-      
-      - name: Install and build
-        run: |
-          yarn install --frozen-lockfile
-          yarn lint
-          cd client && yarn build && cd -
-      
-      - name: Create deployment package
-        run: |
-          mkdir -p deploy
-          cp -r server deploy/
-          mkdir -p deploy/client
-          cp -r client/dist deploy/client/
-          cp -r infra deploy/
-          cp package.json deploy/
-          cp yarn.lock deploy/
-          rm -rf deploy/server/node_modules
-          rm -rf deploy/server/tests
-          tar -czf deployment.tar.gz -C deploy .
-          ls -lh deployment.tar.gz
-      
-      - name: Upload to server
+      - name: Upload infra deploy scripts
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
-          source: "deployment.tar.gz,infra/deploy/deploy.js"
+          source: "infra/deploy"
           target: "/tmp/ls100-deploy"
       
       - name: Deploy
@@ -70,12 +44,49 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            cd /tmp/ls100-deploy
-            chmod +x infra/deploy/deploy.js
+            # refresh infra scripts to /home/ls100/infra
+            rm -rf /home/ls100/infra
+            mkdir -p /home/ls100
+            cp -r /tmp/ls100-deploy/infra /home/ls100/
+            chmod +x /home/ls100/infra/deploy/deploy.js
             if [ "${{ github.event_name }}" = "release" ]; then
-              node infra/deploy/deploy.js production
+              node /home/ls100/infra/deploy/deploy.js production "${{ github.sha }}" "git@github.com:${{ github.repository }}.git"
             elif [ "${{ github.event.inputs.environment }}" = "production" ]; then
-              node infra/deploy/deploy.js production
+              node /home/ls100/infra/deploy/deploy.js production "${{ github.sha }}" "git@github.com:${{ github.repository }}.git"
             else
-              node infra/deploy/deploy.js staging
+              node /home/ls100/infra/deploy/deploy.js staging "${{ github.sha }}" "git@github.com:${{ github.repository }}.git"
+            fi
+
+      - name: Verify server build and status
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            # determine environment
+            if [ "${{ github.event_name }}" = "release" ]; then
+              ENV=production
+              APP=ls100-production
+            elif [ "${{ github.event.inputs.environment }}" = "production" ]; then
+              ENV=production
+              APP=ls100-production
+            else
+              ENV=staging
+              APP=ls100-staging
+            fi
+            CURR="/home/ls100/$ENV/current"
+            echo "Current symlink: $CURR -> $(readlink -f "$CURR")"
+            echo -n "REV: "; cat "$CURR/REV" || true
+            # verify client build artifact exists
+            if [ -f "$CURR/client/dist/index.html" ]; then
+              ls -lh "$CURR/client/dist/index.html"
+            else
+              echo "client/dist/index.html missing" && exit 1
+            fi
+            # verify pm2 app is online
+            if pm2 describe "$APP" | grep -q online; then
+              echo "PM2 $APP online"
+            else
+              echo "PM2 $APP not online" && exit 1
             fi
