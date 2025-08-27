@@ -25,7 +25,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 9667,
-        DOMAIN: 'vm.flj.icu',
+        DOMAIN: 'loci.flj.icu',
         PROXY_API: 'http://localhost:6000'
       },
       max_memory_restart: '500M',

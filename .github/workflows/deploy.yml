@@ -52,6 +52,7 @@ jobs:
           rm -rf deploy/server/node_modules
           rm -rf deploy/server/tests
           tar -czf deployment.tar.gz -C deploy .
+          ls -lh deployment.tar.gz
       
       - name: Upload to server
         uses: appleboy/scp-action@v0.1.7
