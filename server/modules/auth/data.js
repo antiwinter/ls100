@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs'
 import crypto from 'crypto'
-import { db } from '../../utils/dbc.js'
+import { db } from '../../utils/dbc/index.js'
 
 export const create = async (userData) => {
   const hash = await bcrypt.hash(userData.password, 10)

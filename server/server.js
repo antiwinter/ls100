@@ -8,7 +8,7 @@ import shardsRoutes from './modules/shard/api.js'
 import subtitleRoutes from './modules/subtitle/api.js'
 import dictRoutes from './modules/dict/api.js'
 import subtitleShardsRoutes from './shards/subtitle/api.js'
-import { runMigrations } from './utils/dbc.js'
+import { migrator } from './utils/dbc/index.js'
 import { log, loggerMiddleware } from './utils/logger.js'
 import { httpLogger } from './utils/httpLogger.js'
 
@@ -29,8 +29,8 @@ const isDev = process.env.NODE_ENV === 'development'
 
 // Initialize database
 try {
-  runMigrations()
-  log.info('Database initialized')
+  await migrator.migrate()
+  log.info('db migrations done')
 } catch (error) {
   log.error({ error }, 'Database initialization failed')
   process.exit(1)

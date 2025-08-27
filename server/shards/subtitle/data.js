@@ -1,4 +1,4 @@
-import { db } from '../../utils/dbc.js'
+import { db } from '../../utils/dbc/index.js'
 import crypto from 'crypto'
 
 // Link subtitle to shard with main language flag

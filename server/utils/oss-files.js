@@ -1,4 +1,4 @@
-import { db } from './dbc.js'
+import { db } from './dbc/index.js'
 
 // Create OSS file record (for new content)
 export const create = (oss_id, file_size, meta_data = null) => {

@@ -1,4 +1,4 @@
-import { db } from '../../utils/dbc.js'
+import { db } from '../../utils/dbc/index.js'
 
 const generateId = () => {
   return `sub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`

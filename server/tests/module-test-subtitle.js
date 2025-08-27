@@ -1,4 +1,4 @@
-import { runMigrations, db } from '../utils/dbc.js'
+import { migrator, db } from '../utils/dbc/index.js'
 import * as subtitleModel from '../modules/subtitle/data.js'
 import { computeHash, parseSrt, uploadSubtitle, getSubtitle } from '../modules/subtitle/storage.js'
 import fs from 'fs/promises'

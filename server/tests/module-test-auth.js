@@ -1,7 +1,7 @@
 // Ensure dev mode for this test (to test dev middleware functionality)
 process.env.NODE_ENV = 'development'
 
-import { runMigrations, db } from '../utils/dbc.js'
+import { migrator, db } from '../utils/dbc/index.js'
 import * as userModel from '../modules/auth/data.js'
 import { requireAuth, JWT_SECRET } from '../utils/auth-middleware.js'
 import jwt from 'jsonwebtoken'

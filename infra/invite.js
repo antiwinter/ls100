@@ -3,7 +3,7 @@
   invite.js — Simple CLI tool to manage invite codes
 */
 
-import { runMigrations, db } from '../server/utils/dbc.js'
+import { migrator, db } from '../server/utils/dbc/index.js'
 import * as userModel from '../server/modules/auth/data.js'
 import { Command } from 'commander'
 
