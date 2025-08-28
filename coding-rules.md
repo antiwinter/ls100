@@ -11,6 +11,9 @@
 * prefer short var/func names to long. e.g. db better then dbModule
 * take advantage of object member names to eliminate intermediate variables. e.g. instead of `fooBar = 5; a = {foo: fooBar}` use `foo = 5; a = {foo}`
 
+# CSS
+* use JOY color names instead of hard code
+
 # Logging
 * Backend: use `import { log } from '../utils/logger.js'` (Pino with auto file detection + user context)
 * Frontend: use `import { log } from '../utils/logger'` (loglevel with env-based levels)

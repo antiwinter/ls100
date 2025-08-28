@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import React, { useMemo } from 'react'
 import {
   Stack,
   Typography,
@@ -7,10 +7,49 @@ import {
   Sheet,
   Switch
 } from '@mui/joy'
+import { styled } from '@mui/joy/styles'
 import { useSettingStore } from './stores/useSettingStore'
 import { useSessionStore } from './stores/useSessionStore'
 import { getAvailableFonts } from '../../utils/font'
 // import { log } from '../../utils/logger'
+
+const PrettoSlider = styled(Slider)(({ theme }) => ({
+  color: theme.palette.primary[300],
+  height: 10,
+  '& .MuiSlider-track': {
+    backgroundColor: theme.palette.primary[500],
+    border: 'none',
+    height: 10
+  },
+  '& .MuiSlider-rail': {
+    backgroundColor: theme.vars.palette.background.level2,
+    opacity: 1,
+    height: 10
+  },
+  '& .MuiSlider-thumb': {
+    height: 24,
+    width: 24,
+    backgroundColor: '#fff',
+    border: '2px solid currentColor',
+    borderRadius: '50%',
+    '&:focus, &:hover, &.Mui-active, &.Mui-focusVisible': {
+      boxShadow: 'inherit'
+    },
+    '&::before': {
+      display: 'none'
+    }
+  },
+  '& .MuiSlider-valueLabel': {
+    lineHeight: 1.2,
+    fontSize: 12,
+    background: theme.vars.palette.background.level1,
+    padding: '4px 8px',
+    borderRadius: '4px',
+    color: theme.palette.primary[500],
+    // fontWeight: 'bold',
+    '&::before': { display: 'none' }
+  }
+}))
 
 export const FontContent = ({ shardId }) => {
   const { fontSize, selectedFont, setFontSize, setSelectedFont } = useSettingStore('subtitle-shard')()
@@ -31,15 +70,7 @@ export const FontContent = ({ shardId }) => {
     return getAvailableFonts(mainLangCode)
   }, [mainLangCode])
 
-  const marks = useMemo(
-    () => [
-      { value: 12, label: '12' },
-      { value: 16, label: '16' },
-      { value: 20, label: '20' },
-      { value: 24, label: '24' }
-    ],
-    []
-  )
+
 
   // Get ref languages from langMap (plain object)
   const refLanguages = useMemo(
@@ -53,7 +84,12 @@ export const FontContent = ({ shardId }) => {
 
   return (
     <Stack spacing={2} sx={{ px: 1, pb: 1 }}>
-      <Typography level='title-sm'>Font {availableFonts.os}</Typography>
+      <Stack direction='row' spacing={1} alignItems='center'>
+        <Typography level='title-sm' sx={{ color: 'neutral.500' }}>Font</Typography>
+        <Chip variant='soft' size='sm' color='neutral' sx={{ fontSize: '0.75rem', color: 'neutral.400', px: 1 }}>
+          {availableFonts.os?.toUpperCase()}
+        </Chip>
+      </Stack>
       <Stack direction='row' spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
         {availableFonts.fonts.map((font) => (
           <Chip
@@ -64,9 +100,7 @@ export const FontContent = ({ shardId }) => {
             sx={{
               fontFamily: font.fontName,
               cursor: 'pointer',
-              '&:hover': {
-                backgroundColor: 'primary.softHoverBg'
-              }
+              px: 1.5
             }}
           >
             {font.fontName === 'system-ui' ? 'System' : font.fontName}
@@ -74,14 +108,14 @@ export const FontContent = ({ shardId }) => {
         ))}
       </Stack>
 
-      <Typography level='title-sm'>Size</Typography>
+      <Typography level='title-sm' sx={{ mb: 0.5, color: 'neutral.500' }}>Size</Typography>
       <div data-allow-events="true">
-        <Slider
+        <PrettoSlider
           value={fontSize}
           min={14}
-          max={20}
+          max={24}
           step={1}
-          marks={marks}
+          valueLabelDisplay="auto"
           onChange={(_, v) => {
             setFontSize(v)
           }}
@@ -89,47 +123,76 @@ export const FontContent = ({ shardId }) => {
       </div>
 
 
-      {refLanguages?.length > 0 && (
-        <>
-          <Typography level='title-sm'>Languages</Typography>
-          <Sheet variant='soft' sx={{ p: 1, borderRadius: 'sm' }}>
-            <Stack spacing={1}>
-              {refLanguages.filter(l => !l.isMain).map((lang) => {
-                return (
-                  <Stack
-                    key={lang.code}
-                    direction='row'
-                    alignItems='center'
-                    justifyContent='space-between'
-                    spacing={1}
+      <Typography level='title-sm' sx={{ color: 'neutral.500' }}>Ref langs</Typography>
+      <Sheet variant='soft' sx={(theme) => ({ p: 1, borderRadius: 'sm',
+        backgroundColor: theme.vars.palette.background.level1 })}>
+        <Stack spacing={1}>
+          {refLanguages?.filter(l => !l.isMain)?.length > 0 ? (
+            refLanguages.filter(l => !l.isMain).map((lang) => {
+              return (
+                <Stack
+                  key={lang.code}
+                  direction='row'
+                  alignItems='center'
+                  spacing={2}
+                >
+                  <Switch
+                    checked={!!lang.visible}
+                    onChange={() => toggleLang(lang.code)}
+                    size='sm'
+                    slotProps={{
+                      track: {
+                        children: (
+                          <React.Fragment>
+                            <Typography component="span" level="inherit" sx={{ ml: '9px', mt: '2px', fontSize: '10px' }}>
+                              {lang.code.toUpperCase()}
+                            </Typography>
+                            <Typography component="span" level="inherit" sx={(theme) => ({ mr: '9px',
+                              mt: '2px', fontSize: '10px',
+                              color: theme.vars.palette.neutral[400] })}>
+                              {lang.code.toUpperCase()}
+                            </Typography>
+                          </React.Fragment>
+                        )
+                      }
+                    }}
+                    sx={(theme) => ({
+                      '--Switch-thumbSize': '22px',
+                      '--Switch-trackWidth': '50px',
+                      '--Switch-trackHeight': '20px',
+                      '--Switch-trackBackground': theme.vars.palette.background.level2
+                    })}
+                  />
+                  <Typography
+                    level='body-sm'
+                    sx={(theme) => ({
+                      // maxWidth: 220,
+                      overflow: 'hidden',
+                      whiteSpace: 'nowrap',
+                      textOverflow: 'ellipsis',
+                      color: lang.visible ? 'inherit' : theme.vars.palette.neutral[400]
+                    })}
                   >
-                    <Stack direction='row' spacing={1} sx={{ minWidth: 0 }}>
-                      <Typography
-                        level='body-sm'
-                        sx={{
-                          maxWidth: 220,
-                          overflow: 'hidden',
-                          whiteSpace: 'nowrap',
-                          textOverflow: 'ellipsis'
-                        }}
-                      >
-                        {lang.filename || 'Untitled subtitle'}
-                      </Typography>
-                      <Chip variant='outlined' size='sm'>
-                        {lang.code.toUpperCase()}
-                      </Chip>
-                    </Stack>
-                    <Switch
-                      checked={!!lang.visible}
-                      onChange={() => toggleLang(lang.code)}
-                    />
-                  </Stack>
-                )
-              })}
-            </Stack>
-          </Sheet>
-        </>
-      )}
+                    {lang.filename || 'Untitled subtitle'}
+                  </Typography>
+                </Stack>
+              )
+            })
+          ) : (
+            <Typography
+              level='body-sm'
+              sx={{
+                color: 'neutral.400',
+                // fontStyle: 'italic',
+                textAlign: 'center',
+                py: 0.5
+              }}
+            >
+              Import a ref lang in Shard Editor page
+            </Typography>
+          )}
+        </Stack>
+      </Sheet>
     </Stack>
   )
 }
