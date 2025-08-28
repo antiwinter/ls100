@@ -64,10 +64,10 @@ export const uploadSubtitle = async (oss_id, buffer, metadata) => {
     await storage.put(filename, buffer)
     
     // Create OSS file record (keep meta_data for future use, but don't populate for now)
-    ossFile = ossModel.create(oss_id, buffer.length)
+    ossFile = await ossModel.create(oss_id, buffer.length)
   } else {
     // File content exists, increment reference
-    ossFile = ossModel.incrementRef(oss_id)
+    ossFile = await ossModel.incrementRef(oss_id)
   }
 
   // Parse subtitle content for duration

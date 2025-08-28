@@ -16,9 +16,9 @@ router.get('/', requireAuth, async (req, res) => {
     
     let shards
     if (type === 'public') {
-      shards = shardModel.findPublic()
+      shards = await shardModel.findPublic()
     } else {
-      shards = shardModel.findByOwnerWithProgress(req.userId, sort)
+      shards = await shardModel.findByOwnerWithProgress(req.userId, sort)
     }
     
     // Include engine-specific data for each shard

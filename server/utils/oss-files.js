@@ -19,14 +19,14 @@ export const findById = async (oss_id) => {
 export const incrementRef = async (oss_id) => {
   const now = new Date().toISOString()
   await q('UPDATE oss_files SET ref_count = ref_count + 1, updated_at = $1 WHERE oss_id = $2', [now, oss_id])
-  return findById(oss_id)
+  return await findById(oss_id)
 }
 
 // Decrement reference count (when subtitle is deleted)
 export const decrementRef = async (oss_id) => {
   const now = new Date().toISOString()
   await q('UPDATE oss_files SET ref_count = ref_count - 1, updated_at = $1 WHERE oss_id = $2', [now, oss_id])
-  const file = findById(oss_id)
+  const file = await findById(oss_id)
   
   // Return whether file should be deleted (ref_count = 0)
   return {
