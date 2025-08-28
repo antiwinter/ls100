@@ -1,4 +1,4 @@
-import { runMigrations, db } from '../utils/dbc.js'
+import { migrator, db } from '../utils/dbc/index.js'
 import * as subtitleModel from '../modules/subtitle/data.js'
 import { computeHash, parseSrt, uploadSubtitle, getSubtitle } from '../modules/subtitle/storage.js'
 import fs from 'fs/promises'
@@ -28,7 +28,7 @@ console.log('🧪 Testing Subtitle Module...\n')
 try {
   // Test 1: Database initialization
   console.log('1. Testing database initialization...')
-  runMigrations()
+  await migrator.migrate()
   console.log('✅ Module-based migrations completed')
 
   // Clear subtitles table for clean test

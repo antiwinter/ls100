@@ -1,10 +1,10 @@
-import { db } from '../../utils/dbc.js'
+import { q } from '../../utils/dbc/index.js'
 
 const generateId = () => {
   return `shard_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 }
 
-export const create = (data) => {
+export const create = async (data) => {
   const shard = {
     id: generateId(),
     type: data.type, // Type should be provided by caller (API layer handles defaults)
@@ -18,26 +18,24 @@ export const create = (data) => {
     updated_at: new Date().toISOString()
   }
   
-  db.prepare(`
-    INSERT INTO shards VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    shard.id, shard.type, shard.name, shard.owner_id, 
-    shard.description, shard.cover, shard.metadata, 
-    shard.public, shard.created_at, shard.updated_at
-  )
+  await q('INSERT INTO shards (id, type, name, owner_id, description, cover, metadata, public, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)', [
+    shard.id, shard.type, shard.name, shard.owner_id, shard.description, shard.cover, shard.metadata, shard.public, shard.created_at, shard.updated_at
+  ])
 
   return shard
 }
 
-export const findById = (id) => {
-  return db.prepare('SELECT * FROM shards WHERE id = ?').get(id)
+export const findById = async (id) => {
+  const r = await q('SELECT * FROM shards WHERE id = $1', [id])
+  return r.rows?.[0] || null
 }
 
-export const findByOwner = (userId) => {
-  return db.prepare('SELECT * FROM shards WHERE owner_id = ?').all(userId)
+export const findByOwner = async (userId) => {
+  const r = await q('SELECT * FROM shards WHERE owner_id = $1', [userId])
+  return r.rows
 }
 
-export const findByOwnerWithProgress = (userId, sortBy = 'last_used') => {
+export const findByOwnerWithProgress = async (userId, sortBy = 'last_used') => {
   let orderClause = 'ORDER BY COALESCE(p.updated_at, s.created_at) DESC'
   
   if (sortBy === 'name') {
@@ -46,7 +44,7 @@ export const findByOwnerWithProgress = (userId, sortBy = 'last_used') => {
     orderClause = 'ORDER BY COALESCE(p.completion_rate, 0) DESC, COALESCE(p.updated_at, s.created_at) DESC'
   }
   
-  return db.prepare(`
+  const r = await q(`
     SELECT s.*, 
            p.updated_at as last_used,
            COALESCE(p.completion_rate, 0) as completion_rate,
@@ -55,26 +53,28 @@ export const findByOwnerWithProgress = (userId, sortBy = 'last_used') => {
     LEFT JOIN progress p ON s.id = p.shard_id AND p.user_id = ?
     WHERE s.owner_id = ?
     ${orderClause}
-  `).all(userId, userId)
+  `, [userId, userId])
+  return r.rows
 }
 
-export const updateProgress = (userId, shardId) => {
+export const updateProgress = async (userId, shardId) => {
   const now = new Date().toISOString()
   
-  return db.prepare(`
+  await q(`
     INSERT INTO progress (user_id, shard_id, timestamp, updated_at)
-    VALUES (?, ?, ?, ?)
+    VALUES ($1, $2, $3, $4)
     ON CONFLICT(user_id, shard_id) DO UPDATE SET
-      updated_at = ?,
-      timestamp = ?
-  `).run(userId, shardId, now, now, now, now)
+      updated_at = $5,
+      timestamp = $6
+  `, [userId, shardId, now, now, now, now])
 }
 
-export const findPublic = () => {
-  return db.prepare('SELECT * FROM shards WHERE public = TRUE').all()
+export const findPublic = async () => {
+  const r = await q('SELECT * FROM shards WHERE public = TRUE')
+  return r.rows
 }
 
-export const update = (id, updates) => {
+export const update = async (id, updates) => {
   const updateFields = []
   const values = []
   
@@ -103,24 +103,24 @@ export const update = (id, updates) => {
   values.push(new Date().toISOString())
   values.push(id)
   
-  return db.prepare(`
-    UPDATE shards SET ${updateFields.join(', ')} WHERE id = ?
-  `).run(...values)
+  const setClause = updateFields.join(', ').replaceAll('?', (_, i) => `$${i + 1}`)
+  const sql = `UPDATE shards SET ${setClause} WHERE id = $${values.length}`
+  await q(sql, values)
 }
 
-export const remove = (id) => {
-  return db.prepare('DELETE FROM shards WHERE id = ?').run(id)
+export const remove = async (id) => {
+  await q('DELETE FROM shards WHERE id = $1', [id])
 }
 
 // Note: Subtitle-specific functions moved to server/shards/subtitle/data.js
 
-export const getStats = () => {
-  const result = db.prepare(`
+export const getStats = async () => {
+  const r = await q(`
     SELECT 
       COUNT(*) as total_shards,
       SUM(CASE WHEN public = TRUE THEN 1 ELSE 0 END) as public_shards,
       SUM(CASE WHEN public = FALSE THEN 1 ELSE 0 END) as private_shards
     FROM shards
-  `).get()
-  return result
-} 
+  `)
+  return r.rows?.[0] || { total_shards: 0, public_shards: 0, private_shards: 0 }
+}

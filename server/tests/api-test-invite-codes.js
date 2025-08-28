@@ -3,7 +3,7 @@ process.env.NODE_ENV = 'production'
 
 import express from 'express'
 import request from 'supertest'
-import { runMigrations, db } from '../utils/dbc.js'
+import { migrator, db } from '../utils/dbc/index.js'
 import authRoutes from '../modules/auth/api.js'
 import * as userModel from '../modules/auth/data.js'
 

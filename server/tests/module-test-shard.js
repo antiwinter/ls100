@@ -1,4 +1,4 @@
-import { runMigrations, db } from '../utils/dbc.js'
+import { migrator, db } from '../utils/dbc/index.js'
 import * as userModel from '../modules/auth/data.js'
 import * as shardModel from '../modules/shard/data.js'
 
@@ -7,7 +7,7 @@ console.log('🧪 Testing Shard Module...\n')
 try {
   // Test 1: Database initialization
   console.log('1. Testing database initialization...')
-  runMigrations()
+  await migrator.migrate()
   console.log('✅ Module-based migrations completed')
 
   // Clear tables for clean test

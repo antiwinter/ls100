@@ -1,4 +1,4 @@
-import { runMigrations, db } from '../utils/dbc.js'
+import { migrator, db } from '../utils/dbc/index.js'
 import * as userModel from '../modules/auth/data.js'
 import fs from 'fs/promises'
 import path from 'path'
@@ -12,7 +12,7 @@ console.log('🔄 Importing users from users.json to SQLite...\n')
 try {
   // Initialize database
   console.log('1. Initializing database...')
-  runMigrations()
+  await migrator.migrate()
   console.log('✅ Module-based migrations completed\n')
 
   // Read users.json

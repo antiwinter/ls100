@@ -1,10 +1,10 @@
-import { db } from '../../utils/dbc.js'
+import { q } from '../../utils/dbc/index.js'
 
 const generateId = () => {
   return `sub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 }
 
-export const create = (subtitleData) => {
+export const create = async (subtitleData) => {
   const subtitle = {
     subtitle_id: generateId(),
     filename: subtitleData.filename,
@@ -16,9 +16,7 @@ export const create = (subtitleData) => {
     updated_at: new Date().toISOString()
   }
   
-  db.prepare(`
-    INSERT INTO subtitles VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
+  await q('INSERT INTO subtitles (subtitle_id, filename, movie_name, language, duration, oss_id, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)', [
     subtitle.subtitle_id,
     subtitle.filename,
     subtitle.movie_name,
@@ -27,36 +25,38 @@ export const create = (subtitleData) => {
     subtitle.oss_id,
     subtitle.created_at,
     subtitle.updated_at
-  )
+  ])
   
   return subtitle
 }
 
-export const findById = (subtitle_id) => {
-  return db.prepare('SELECT * FROM subtitles WHERE subtitle_id = ?').get(subtitle_id)
+export const findById = async (subtitle_id) => {
+  const r = await q('SELECT * FROM subtitles WHERE subtitle_id = $1', [subtitle_id])
+  return r.rows?.[0] || null
 }
 
-export const findByOssId = (oss_id) => {
-  return db.prepare('SELECT * FROM subtitles WHERE oss_id = ?').all(oss_id)
+export const findByOssId = async (oss_id) => {
+  const r = await q('SELECT * FROM subtitles WHERE oss_id = $1', [oss_id])
+  return r.rows
 }
 
 // Check if exact same metadata already exists for this content
-export const findDuplicate = (filename, movie_name, language, oss_id) => {
-  return db.prepare(`
-    SELECT * FROM subtitles 
-    WHERE filename = ? AND movie_name = ? AND language = ? AND oss_id = ?
-  `).get(filename, movie_name, language, oss_id)
+export const findDuplicate = async (filename, movie_name, language, oss_id) => {
+  const r = await q('SELECT * FROM subtitles WHERE filename = $1 AND movie_name = $2 AND language = $3 AND oss_id = $4', [filename, movie_name, language, oss_id])
+  return r.rows?.[0] || null
 }
 
-export const findAll = () => {
-  return db.prepare('SELECT * FROM subtitles ORDER BY created_at DESC').all()
+export const findAll = async () => {
+  const r = await q('SELECT * FROM subtitles ORDER BY created_at DESC')
+  return r.rows
 }
 
-export const findByMovieName = (movieName) => {
-  return db.prepare('SELECT * FROM subtitles WHERE movie_name LIKE ?').all(`%${movieName}%`)
+export const findByMovieName = async (movieName) => {
+  const r = await q('SELECT * FROM subtitles WHERE movie_name LIKE $1', [`%${movieName}%`])
+  return r.rows
 }
 
-export const update = (subtitle_id, updates) => {
+export const update = async (subtitle_id, updates) => {
   const updateFields = []
   const values = []
   
@@ -77,22 +77,22 @@ export const update = (subtitle_id, updates) => {
   values.push(new Date().toISOString())
   values.push(subtitle_id)
   
-  return db.prepare(`
-    UPDATE subtitles SET ${updateFields.join(', ')} WHERE subtitle_id = ?
-  `).run(...values)
+  const setClause = updateFields.join(', ').replaceAll('?', (_, i) => `$${i + 1}`)
+  const sql = `UPDATE subtitles SET ${setClause} WHERE subtitle_id = $${values.length}`
+  await q(sql, values)
 }
 
-export const remove = (subtitle_id) => {
-  return db.prepare('DELETE FROM subtitles WHERE subtitle_id = ?').run(subtitle_id)
+export const remove = async (subtitle_id) => {
+  await q('DELETE FROM subtitles WHERE subtitle_id = $1', [subtitle_id])
 }
 
-export const getStats = () => {
-  const result = db.prepare(`
+export const getStats = async () => {
+  const r = await q(`
     SELECT 
       COUNT(*) as total_subtitles,
       COUNT(DISTINCT oss_id) as unique_files,
       COUNT(DISTINCT movie_name) as unique_movies
     FROM subtitles
-  `).get()
-  return result
-} 
+  `)
+  return r.rows?.[0] || { total_subtitles: 0, unique_files: 0, unique_movies: 0 }
+}

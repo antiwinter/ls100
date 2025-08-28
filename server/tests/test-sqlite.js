@@ -1,4 +1,4 @@
-import { runMigrations, db } from '../utils/dbc.js'
+import { migrator, db } from '../utils/dbc/index.js'
 import * as userModel from './modules/auth/user.js'
 import * as shardModel from './modules/shard/shard.js'
 import * as subtitleModel from './modules/subtitle/subtitle.js'
