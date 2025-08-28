@@ -2,7 +2,6 @@ import Database from 'better-sqlite3'
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
-import { getEngineTypes } from '../../shards/engines.js'
 import { log } from '../logger.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -12,7 +11,7 @@ const envPath = process.env.DATABASE
 const dbPath = envPath && (envPath.includes('/') || /\.sqlite$|\.db$/i.test(envPath))
   ? envPath
   : path.join(__dirname, '../../data/database.sqlite')
-export const db = new Database(dbPath)
+const db = new Database(dbPath)
 
 db.pragma('foreign_keys = ON')
 db.pragma('journal_mode = WAL')
@@ -124,7 +123,7 @@ const splitConcurrent = sql => {
   return { regular }
 }
 
-const migrateSqlite = () => {
+const migrateSqlite = async () => {
   ensureMigTable()
   const files = listSqlFiles()
   const applied = readApplied()
@@ -135,7 +134,19 @@ const migrateSqlite = () => {
     const sql = fs.readFileSync(f, 'utf8')
     const { regular } = splitConcurrent(sql)
     const trx = db.transaction(() => {
-      for (const stmt of regular) db.exec(stmt)
+      for (const stmt of regular) {
+        try {
+          db.exec(stmt)
+        } catch (stmtError) {
+          // Ignore "duplicate column" errors for ALTER TABLE ADD COLUMN
+          if (stmtError.code === 'SQLITE_ERROR' && 
+              stmtError.message.includes('duplicate column name') &&
+              stmt.trim().toUpperCase().includes('ADD COLUMN')) {
+            continue
+          }
+          throw stmtError
+        }
+      }
       db.prepare(`INSERT INTO ${MIG_TABLE} (version) VALUES (?)`).run(ver)
     })
     trx()

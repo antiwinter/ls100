@@ -39,7 +39,7 @@ try {
 
   // Test 3: Generate invite code
   console.log('3. Testing invite code generation...')
-  const inviteCode1 = userModel.createInviteCode(testUser1.id)
+  const inviteCode1 = await userModel.createInviteCode(testUser1.id)
   
   if (inviteCode1 && inviteCode1.code && inviteCode1.code.length === 8) {
     console.log('✅ Invite code generated successfully')
@@ -56,7 +56,7 @@ try {
   const futureDate = new Date()
   futureDate.setDate(futureDate.getDate() + 7) // 7 days from now
   
-  const inviteCode2 = userModel.createInviteCode(testUser2.id, {
+  const inviteCode2 = await userModel.createInviteCode(testUser2.id, {
     maxUses: 3,
     expiresAt: futureDate.toISOString()
   })
@@ -72,7 +72,7 @@ try {
 
   // Test 5: Find invite code by code
   console.log('\n5. Testing findInviteByCode...')
-  const foundCode = userModel.findInviteByCode(inviteCode1.code)
+  const foundCode = await userModel.findInviteByCode(inviteCode1.code)
   
   if (foundCode && foundCode.code === inviteCode1.code) {
     console.log('✅ Invite code found successfully')
@@ -84,7 +84,7 @@ try {
 
   // Test 6: Validate unused invite code
   console.log('\n6. Testing invite code validation (unused)...')
-  const validation1 = userModel.validateInviteCode(inviteCode1.code)
+  const validation1 = await userModel.validateInviteCode(inviteCode1.code)
   
   if (validation1.valid === true && validation1.invite) {
     console.log('✅ Unused invite code validation passed')
@@ -96,7 +96,7 @@ try {
 
   // Test 7: Validate non-existent invite code
   console.log('\n7. Testing validation of non-existent code...')
-  const validation2 = userModel.validateInviteCode('INVALID1')
+  const validation2 = await userModel.validateInviteCode('INVALID1')
   
   if (validation2.valid === false && validation2.reason === 'Code not found') {
     console.log('✅ Non-existent code validation passed')
@@ -114,7 +114,7 @@ try {
     name: 'New User'
   })
 
-  const usedCode = userModel.useInviteCode(inviteCode1.code, newUser.id)
+  const usedCode = await userModel.useInviteCode(inviteCode1.code, newUser.id)
   
   if (usedCode && usedCode.used_by === newUser.id && usedCode.current_uses === 1) {
     console.log('✅ Invite code used successfully')
@@ -127,7 +127,7 @@ try {
 
   // Test 9: Validate used invite code (single use)
   console.log('\n9. Testing validation of used code (single use)...')
-  const validation3 = userModel.validateInviteCode(inviteCode1.code)
+  const validation3 = await userModel.validateInviteCode(inviteCode1.code)
   
   if (validation3.valid === false && validation3.reason === 'Code already used') {
     console.log('✅ Used code validation passed')
@@ -145,7 +145,7 @@ try {
     name: 'New User 2'
   })
 
-  const usedCode2 = userModel.useInviteCode(inviteCode2.code, newUser2.id)
+  const usedCode2 = await userModel.useInviteCode(inviteCode2.code, newUser2.id)
   
   if (usedCode2 && usedCode2.current_uses === 1) {
     console.log('✅ Multi-use code first usage successful')
@@ -163,7 +163,7 @@ try {
     name: 'New User 3'
   })
 
-  const usedCode3 = userModel.useInviteCode(inviteCode2.code, newUser3.id)
+  const usedCode3 = await userModel.useInviteCode(inviteCode2.code, newUser3.id)
   
   if (usedCode3 && usedCode3.current_uses === 2) {
     console.log('✅ Multi-use code second usage successful')
@@ -175,7 +175,7 @@ try {
 
   // Test 12: Validate multi-use code (still valid)
   console.log('\n12. Testing validation of partially used multi-use code...')
-  const validation4 = userModel.validateInviteCode(inviteCode2.code)
+  const validation4 = await userModel.validateInviteCode(inviteCode2.code)
   
   if (validation4.valid === true) {
     console.log('✅ Partially used multi-use code validation passed')
@@ -190,11 +190,11 @@ try {
   const pastDate = new Date()
   pastDate.setDate(pastDate.getDate() - 1) // Yesterday
   
-  const expiredCode = userModel.createInviteCode(testUser1.id, {
+  const expiredCode = await userModel.createInviteCode(testUser1.id, {
     expiresAt: pastDate.toISOString()
   })
 
-  const validation5 = userModel.validateInviteCode(expiredCode.code)
+  const validation5 = await userModel.validateInviteCode(expiredCode.code)
   
   if (validation5.valid === false && validation5.reason === 'Code expired') {
     console.log('✅ Expired code validation passed')
@@ -207,7 +207,7 @@ try {
   // Test 14: Try to use expired code
   console.log('\n14. Testing usage of expired code...')
   try {
-    userModel.useInviteCode(expiredCode.code, newUser.id)
+    await userModel.useInviteCode(expiredCode.code, newUser.id)
     throw new Error('Should have failed with expired code')
   } catch (error) {
     if (error.message === 'Code expired') {
@@ -220,7 +220,7 @@ try {
 
   // Test 15: Get invite codes by user
   console.log('\n15. Testing getInviteCodesByUser...')
-  const user1Codes = userModel.getInviteCodesByUser(testUser1.id)
+  const user1Codes = await userModel.getInviteCodesByUser(testUser1.id)
   
   if (user1Codes && user1Codes.length >= 2) {
     console.log('✅ User invite codes retrieved successfully')
@@ -234,8 +234,8 @@ try {
 
   // Test 16: Get invite code stats
   console.log('\n16. Testing getInviteCodeStats...')
-  const stats1 = userModel.getInviteCodeStats(testUser1.id)
-  const stats2 = userModel.getInviteCodeStats(testUser2.id)
+  const stats1 = await userModel.getInviteCodeStats(testUser1.id)
+  const stats2 = await userModel.getInviteCodeStats(testUser2.id)
   
   if (stats1 && stats1.totalCodes >= 2) {
     console.log('✅ Invite code stats retrieved successfully')
@@ -249,10 +249,10 @@ try {
   console.log('\n17. Testing registration with invite code...')
   
   // Create a fresh invite code for registration test
-  const regInviteCode = userModel.createInviteCode(testUser1.id)
+  const regInviteCode = await userModel.createInviteCode(testUser1.id)
   
   // Validate code before registration
-  const regValidation = userModel.validateInviteCode(regInviteCode.code)
+  const regValidation = await userModel.validateInviteCode(regInviteCode.code)
   if (!regValidation.valid) {
     throw new Error('Registration invite code validation failed')
   }
@@ -265,7 +265,7 @@ try {
   })
 
   // Use the code during registration
-  const regUsage = userModel.useInviteCode(regInviteCode.code, regUser.id)
+  const regUsage = await userModel.useInviteCode(regInviteCode.code, regUser.id)
   
   if (regUsage && regUsage.used_by === regUser.id) {
     console.log('✅ Registration with invite code successful')

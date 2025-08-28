@@ -107,7 +107,7 @@ router.post('/analyze', requireAuth, upload.single('subtitle'), async (req, res)
     
     // Compute hash for duplicate check
     const hash = computeHash(req.file.buffer)
-    const existingFiles = subtitleModel.findByOssId(hash)
+    const existingFiles = await subtitleModel.findByOssId(hash)
     
     res.json({
       filename: filename,
@@ -125,9 +125,9 @@ router.post('/analyze', requireAuth, upload.single('subtitle'), async (req, res)
 })
 
 // Get subtitle metadata by ID
-router.get('/:id', requireAuth, (req, res) => {
+router.get('/:id', requireAuth, async (req, res) => {
   try {
-    const subtitle = subtitleModel.findById(req.params.id)
+    const subtitle = await subtitleModel.findById(req.params.id)
     if (!subtitle) {
       return res.status(404).json({ message: 'Subtitle not found' })
     }
@@ -140,7 +140,7 @@ router.get('/:id', requireAuth, (req, res) => {
 // Get subtitle file content by ID
 router.get('/:id/content', requireAuth, async (req, res) => {
   try {
-    const subtitle = subtitleModel.findById(req.params.id)
+    const subtitle = await subtitleModel.findById(req.params.id)
     if (!subtitle) {
       return res.status(404).json({ message: 'Subtitle not found' })
     }
@@ -156,7 +156,7 @@ router.get('/:id/content', requireAuth, async (req, res) => {
 // Get parsed subtitle lines by ID with line-based pagination support
 router.get('/:id/lines', requireAuth, async (req, res) => {
   try {
-    const subtitle = subtitleModel.findById(req.params.id)
+    const subtitle = await subtitleModel.findById(req.params.id)
     if (!subtitle) {
       return res.status(404).json({ message: 'Subtitle not found' })
     }

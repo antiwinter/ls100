@@ -48,38 +48,7 @@ export const end = async () => {
   await pool.end()
 }
 
-// db shim to support existing sqlite-like API on pg
-const toDollar = sql => {
-  let i = 0
-  return sql.replace(/\?/g, () => `$${++i}`)
-}
 
-export const db = {
-  prepare(sql) {
-    const text = toDollar(sql)
-    return {
-      get: async (...params) => {
-        const r = await q(text, params)
-        return r.rows[0]
-      },
-      all: async (...params) => {
-        const r = await q(text, params)
-        return r.rows
-      },
-      run: async (...params) => {
-        const r = await q(text, params)
-        return { changes: r.rowCount }
-      }
-    }
-  },
-  exec: async (sql) => {
-    // split by semicolon and run sequentially
-    const parts = sql.split(/;\s*\n?/).map(s => s.trim()).filter(Boolean)
-    for (const p of parts) {
-      await q(p)
-    }
-  }
-}
 
 // pg migrator (SQL-first)
 const __filename = fileURLToPath(import.meta.url)

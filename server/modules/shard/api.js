@@ -22,10 +22,10 @@ router.get('/', requireAuth, async (req, res) => {
     }
     
     // Include engine-specific data for each shard
-    const shardsWithData = shards.map(shard => ({
+    const shardsWithData = await Promise.all(shards.map(async shard => ({
       ...shard,
-      data: engineGetData(shard.type, shard.id)
-    }))
+      data: await engineGetData(shard.type, shard.id)
+    })))
     
     res.json({ shards: shardsWithData })
   } catch (error) {
@@ -37,7 +37,7 @@ router.get('/', requireAuth, async (req, res) => {
 // GET /api/shards/:id - Get specific shard
 router.get('/:id', requireAuth, async (req, res) => {
   try {
-    const shard = shardModel.findById(req.params.id)
+    const shard = await shardModel.findById(req.params.id)
     
     if (!shard) {
       return res.status(404).json({ error: 'Shard not found' })
@@ -49,7 +49,7 @@ router.get('/:id', requireAuth, async (req, res) => {
     }
     
     // Get engine-specific data
-    const data = engineGetData(shard.type, shard.id)
+    const data = await engineGetData(shard.type, shard.id)
     
     log.debug({ shardId: req.params.id, data }, 'Fetching shard data')
     
@@ -98,7 +98,7 @@ router.post('/', requireAuth, async (req, res) => {
     log.info({ type: finalType, data }, 'Creating shard with engine processing')
     
     // Create basic shard record
-    const shard = shardModel.create({
+    const shard = await shardModel.create({
       type: finalType,
       name,
       description,
@@ -126,7 +126,7 @@ router.post('/', requireAuth, async (req, res) => {
 // PUT /api/shards/:id - Update shard
 router.put('/:id', requireAuth, async (req, res) => {
   try {
-    const shard = shardModel.findById(req.params.id)
+    const shard = await shardModel.findById(req.params.id)
     
     if (!shard) {
       return res.status(404).json({ error: 'Shard not found' })
@@ -154,8 +154,8 @@ router.put('/:id', requireAuth, async (req, res) => {
     if (metadata !== undefined) updates.metadata = metadata
     if (isPublic !== undefined) updates.public = isPublic
     
-    shardModel.update(req.params.id, updates)
-    const updated = shardModel.findById(req.params.id)
+    await shardModel.update(req.params.id, updates)
+    const updated = await shardModel.findById(req.params.id)
     
     // Process with engine-specific logic if data provided
     let processedShard = updated
@@ -179,7 +179,7 @@ router.put('/:id', requireAuth, async (req, res) => {
 // DELETE /api/shards/:id - Delete shard
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
-    const shard = shardModel.findById(req.params.id)
+    const shard = await shardModel.findById(req.params.id)
     
     if (!shard) {
       return res.status(404).json({ error: 'Shard not found' })

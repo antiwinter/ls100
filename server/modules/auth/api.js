@@ -16,14 +16,14 @@ router.post('/register', async (req, res) => {
     }
 
     // Check if user exists
-    const existingUser = userModel.findByEmail(email)
+    const existingUser = await userModel.findByEmail(email)
     if (existingUser) {
       return res.status(400).json({ error: 'User already exists' })
     }
 
     // Validate invite code if provided
     if (inviteCode) {
-      const validation = userModel.validateInviteCode(inviteCode)
+      const validation = await userModel.validateInviteCode(inviteCode)
       if (!validation.valid) {
         return res.status(400).json({ error: `Invalid invite code: ${validation.reason}` })
       }
@@ -61,7 +61,7 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password required' })
     }
 
-    const user = userModel.findByEmail(email)
+    const user = await userModel.findByEmail(email)
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' })
     }
@@ -91,7 +91,7 @@ router.post('/login', async (req, res) => {
 // Get current user (protected route)
 router.get('/me', requireAuth, async (req, res) => {
   try {
-    const user = userModel.findById(req.userId)
+    const user = await userModel.findById(req.userId)
 
     if (!user) {
       return res.status(401).json({ error: 'User not found' })
@@ -115,11 +115,11 @@ router.post('/invite/validate', async (req, res) => {
       return res.status(400).json({ error: 'Invite code required' })
     }
 
-    const validation = userModel.validateInviteCode(code)
+    const validation = await userModel.validateInviteCode(code)
     
     if (validation.valid) {
       const { invite } = validation
-      const creator = userModel.findById(invite.created_by)
+      const creator = await userModel.findById(invite.created_by)
       
       res.json({ 
         valid: true, 
@@ -147,7 +147,7 @@ router.post('/invite/generate', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Max uses must be between 1 and 100' })
     }
 
-    const inviteCode = userModel.createInviteCode(req.userId, {
+    const inviteCode = await userModel.createInviteCode(req.userId, {
       maxUses,
       expiresAt
     })
@@ -168,8 +168,8 @@ router.post('/invite/generate', requireAuth, async (req, res) => {
 // Get user's invite codes (protected route)
 router.get('/invite/my-codes', requireAuth, async (req, res) => {
   try {
-    const inviteCodes = userModel.getInviteCodesByUser(req.userId)
-    const stats = userModel.getInviteCodeStats(req.userId)
+    const inviteCodes = await userModel.getInviteCodesByUser(req.userId)
+    const stats = await userModel.getInviteCodeStats(req.userId)
 
     res.json({ 
       codes: inviteCodes,

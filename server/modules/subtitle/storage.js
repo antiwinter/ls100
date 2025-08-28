@@ -44,7 +44,7 @@ export const parseSrt = (content) => {
 
 export const uploadSubtitle = async (oss_id, buffer, metadata) => {
   // Check for exact duplicate (same content + same metadata)
-  const duplicate = subtitleModel.findDuplicate(
+  const duplicate = await subtitleModel.findDuplicate(
     metadata.filename,
     metadata.movie_name,
     metadata.language,
@@ -83,7 +83,7 @@ export const uploadSubtitle = async (oss_id, buffer, metadata) => {
     oss_id: oss_id
   }
 
-  const subtitle = subtitleModel.create(subtitleData)
+  const subtitle = await subtitleModel.create(subtitleData)
   
   // Lightning if file content existed (but different metadata)
   const isLightning = ossFile.ref_count > 1
@@ -103,5 +103,5 @@ export const getSubtitle = async (hash) => {
 export const deleteSubtitle = async (hash) => {
   const filename = `${hash}.srt`
   await storage.delete(filename)
-  subtitleModel.remove(hash)
+  await subtitleModel.remove(hash)
 } 

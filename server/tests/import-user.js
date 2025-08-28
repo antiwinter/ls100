@@ -37,7 +37,7 @@ try {
   for (const user of usersData) {
     try {
       // Check if user already exists
-      const existing = userModel.findByEmail(user.email)
+      const existing = await userModel.findByEmail(user.email)
       if (existing) {
         console.log(`⚠️  User ${user.email} already exists, skipping`)
         skipped++
@@ -68,11 +68,12 @@ try {
   console.log('\n📊 Import Summary:')
   console.log(`✅ Imported: ${imported} users`)
   console.log(`⚠️  Skipped: ${skipped} users`)
-  console.log(`📁 Total in database: ${userModel.findAll().length} users`)
+  const totalUsers = await userModel.findAll()
+  console.log(`📁 Total in database: ${totalUsers.length} users`)
 
   // Verify import
   console.log('\n4. Verifying imported data...')
-  const allUsers = userModel.findAll()
+  const allUsers = await userModel.findAll()
   allUsers.forEach(user => {
     console.log(`👤 ${user.email} (ID: ${user.id}, Created: ${user.created_at})`)
   })

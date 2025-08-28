@@ -10,7 +10,7 @@ const router = express.Router()
 const validateShardAccess = async (req, res, next) => {
   try {
     const shardId = req.params.shardId
-    const shard = shardModel.findById(shardId)
+    const shard = await shardModel.findById(shardId)
     
     if (!shard) {
       return res.status(404).json({ error: 'Shard not found' })
@@ -35,7 +35,7 @@ const validateShardAccess = async (req, res, next) => {
 // GET /api/subtitle-shards/:shardId/words - Get selected words
 router.get('/:shardId/words', requireAuth, validateShardAccess, async (req, res) => {
   try {
-    const words = subtitleData.getWords(req.userId, req.params.shardId)
+    const words = await subtitleData.getWords(req.userId, req.params.shardId)
     res.json({ words })
   } catch (error) {
     log.error({ error, shardId: req.params.shardId }, 'Failed to get selected words')
@@ -52,7 +52,7 @@ router.post('/:shardId/words', requireAuth, validateShardAccess, async (req, res
       return res.status(400).json({ error: 'Word is required' })
     }
     
-    const words = subtitleData.addWords(req.userId, req.params.shardId, [word.toLowerCase()])
+    const words = await subtitleData.addWords(req.userId, req.params.shardId, [word.toLowerCase()])
     res.json({ words })
   } catch (error) {
     log.error({ error, shardId: req.params.shardId }, 'Failed to add selected word')
@@ -64,7 +64,7 @@ router.post('/:shardId/words', requireAuth, validateShardAccess, async (req, res
 router.delete('/:shardId/words/:word', requireAuth, validateShardAccess, async (req, res) => {
   try {
     const word = req.params.word
-    const words = subtitleData.removeWords(req.userId, req.params.shardId, [word.toLowerCase()])
+    const words = await subtitleData.removeWords(req.userId, req.params.shardId, [word.toLowerCase()])
     res.json({ words })
   } catch (error) {
     log.error({ error, shardId: req.params.shardId }, 'Failed to remove selected word')
@@ -87,15 +87,15 @@ router.put('/:shardId/words', requireAuth, validateShardAccess, async (req, res)
     
     // Add words
     if (cleanAdditions.length > 0) {
-      subtitleData.addWords(req.userId, req.params.shardId, cleanAdditions)
+      await subtitleData.addWords(req.userId, req.params.shardId, cleanAdditions)
     }
     
     // Remove words  
     if (cleanRemovals.length > 0) {
-      subtitleData.removeWords(req.userId, req.params.shardId, cleanRemovals)
+      await subtitleData.removeWords(req.userId, req.params.shardId, cleanRemovals)
     }
     
-    const words = subtitleData.getWords(req.userId, req.params.shardId)
+    const words = await subtitleData.getWords(req.userId, req.params.shardId)
     res.json({ words })
   } catch (error) {
     log.error({ error, shardId: req.params.shardId }, 'Failed to batch update selected words')
@@ -106,7 +106,7 @@ router.put('/:shardId/words', requireAuth, validateShardAccess, async (req, res)
 // GET /api/subtitle-shards/:shardId/position - Get current viewing position
 router.get('/:shardId/position', requireAuth, validateShardAccess, async (req, res) => {
   try {
-    const position = subtitleData.getPosition(req.userId, req.params.shardId)
+    const position = await subtitleData.getPosition(req.userId, req.params.shardId)
     res.json({ position })
   } catch (error) {
     log.error({ error, shardId: req.params.shardId }, 'Failed to get position')
@@ -119,7 +119,7 @@ router.put('/:shardId/position', requireAuth, validateShardAccess, async (req, r
   try {
     const { position } = req.body
     const line = Number.isFinite(position) ? Math.max(0, Math.floor(position)) : 0
-    subtitleData.setPosition(req.userId, req.params.shardId, line)
+    await subtitleData.setPosition(req.userId, req.params.shardId, line)
     res.json({ position: line })
   } catch (error) {
     log.error({ error, shardId: req.params.shardId }, 'Failed to update position')
@@ -130,7 +130,7 @@ router.put('/:shardId/position', requireAuth, validateShardAccess, async (req, r
 // GET /api/subtitle-shards/:shardId/bookmarks - Get bookmarks
 router.get('/:shardId/bookmarks', requireAuth, validateShardAccess, async (req, res) => {
   try {
-    const bookmarks = subtitleData.getBookmarks(req.userId, req.params.shardId)
+    const bookmarks = await subtitleData.getBookmarks(req.userId, req.params.shardId)
     res.json({ bookmarks })
   } catch (error) {
     log.error({ error, shardId: req.params.shardId }, 'Failed to get bookmarks')
@@ -147,7 +147,7 @@ router.post('/:shardId/bookmarks', requireAuth, validateShardAccess, async (req,
       return res.status(400).json({ error: 'Position is required' })
     }
     
-    const bookmarks = subtitleData.addBookmark(req.userId, req.params.shardId, { position, note })
+    const bookmarks = await subtitleData.addBookmark(req.userId, req.params.shardId, { position, note })
     res.json({ bookmarks })
   } catch (error) {
     log.error({ error, shardId: req.params.shardId }, 'Failed to add bookmark')
@@ -164,7 +164,7 @@ router.delete('/:shardId/bookmarks', requireAuth, validateShardAccess, async (re
       return res.status(400).json({ error: 'Bookmark IDs array is required' })
     }
     
-    const bookmarks = subtitleData.removeBookmarks(req.userId, req.params.shardId, bookmarkIds)
+    const bookmarks = await subtitleData.removeBookmarks(req.userId, req.params.shardId, bookmarkIds)
     res.json({ bookmarks })
   } catch (error) {
     log.error({ error, shardId: req.params.shardId, bookmarkIds: req.body.bookmarkIds }, 'Failed to delete bookmarks')
@@ -188,7 +188,7 @@ router.put('/:shardId/bookmarks', requireAuth, validateShardAccess, async (req, 
       }
     }
     
-    const bookmarks = subtitleData.updateBookmarks(req.userId, req.params.shardId, updates)
+    const bookmarks = await subtitleData.updateBookmarks(req.userId, req.params.shardId, updates)
     res.json({ bookmarks })
   } catch (error) {
     log.error({ error, shardId: req.params.shardId, updates: req.body.updates }, 'Failed to update bookmarks')

@@ -35,7 +35,7 @@ try {
     metadata: { movie: 'The Matrix', year: 1999 }
   }
 
-  const createdShard = shardModel.create(shardData)
+  const createdShard = await shardModel.create(shardData)
   console.log('✅ Shard created')
   console.log(`   ID: ${createdShard.id}`)
   console.log(`   Name: ${createdShard.name}`)
@@ -45,7 +45,7 @@ try {
 
   // Test 4: Find shard by ID
   console.log('4. Testing findById...')
-  const foundShard = shardModel.findById(createdShard.id)
+  const foundShard = await shardModel.findById(createdShard.id)
   if (foundShard && foundShard.name === createdShard.name) {
     console.log('✅ Shard found by ID')
     console.log(`   Found: ${foundShard.name}`)
@@ -56,7 +56,7 @@ try {
 
   // Test 5: Find shards by owner
   console.log('\n5. Testing findByOwner...')
-  const userShards = shardModel.findByOwner(testUser.id)
+  const userShards = await shardModel.findByOwner(testUser.id)
   console.log(`✅ Found ${userShards.length} shards for user`)
   userShards.forEach(shard => {
     console.log(`   📁 ${shard.name} (${shard.type}, public: ${shard.public})`)
@@ -74,14 +74,14 @@ try {
     metadata: { level: 'beginner' }
   }
 
-  shardModel.create(publicShardData)
+  await shardModel.create(publicShardData)
   console.log('✅ Public shard created')
   console.log(`   Name: ${publicShardData.name}`)
   console.log(`   Public: ${publicShardData.public}\n`)
 
   // Test 7: Find public shards
   console.log('7. Testing findPublic...')
-  const publicShards = shardModel.findPublic()
+  const publicShards = await shardModel.findPublic()
   console.log(`✅ Found ${publicShards.length} public shards`)
   publicShards.forEach(shard => {
     console.log(`   🌐 ${shard.name} by ${shard.owner_id}`)
@@ -95,12 +95,12 @@ try {
     public: true
   }
   
-  const updateResult = shardModel.update(createdShard.id, updateData)
+  const updateResult = await shardModel.update(createdShard.id, updateData)
   if (updateResult.changes > 0) {
     console.log('✅ Shard updated successfully')
     
     // Verify update
-    const updatedShard = shardModel.findById(createdShard.id)
+    const updatedShard = await shardModel.findById(createdShard.id)
     console.log(`   New name: ${updatedShard.name}`)
     console.log(`   New description: ${updatedShard.description}`)
     console.log(`   Now public: ${updatedShard.public}`)
@@ -110,7 +110,7 @@ try {
 
   // Test 9: Shard statistics
   console.log('\n9. Testing shard statistics...')
-  const stats = shardModel.getStats()
+  const stats = await shardModel.getStats()
   console.log('✅ Shard statistics:')
   console.log(`   Total shards: ${stats.total_shards}`)
   console.log(`   Public shards: ${stats.public_shards}`)
@@ -118,12 +118,12 @@ try {
 
   // Test 10: Delete shard
   console.log('\n10. Testing shard deletion...')
-  const deleteResult = shardModel.remove(createdShard.id)
+  const deleteResult = await shardModel.remove(createdShard.id)
   if (deleteResult.changes > 0) {
     console.log('✅ Shard deleted successfully')
     
     // Verify deletion
-    const deletedShard = shardModel.findById(createdShard.id)
+    const deletedShard = await shardModel.findById(createdShard.id)
     if (!deletedShard) {
       console.log('✅ Shard confirmed deleted from database')
     } else {

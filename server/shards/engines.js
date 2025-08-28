@@ -64,12 +64,12 @@ export const engineValidateData = (shardType, data) => {
 }
 
 // Get engine-specific shard data
-export const engineGetData = (shardType, shardId) => {
+export const engineGetData = async (shardType, shardId) => {
   const engine = getEngine(shardType)
   
   if (!engine || !engine.getData) {
     return {}
   }
   
-  return engine.getData(shardId)
+  return await engine.getData(shardId)
 } 
