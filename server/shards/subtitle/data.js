@@ -34,8 +34,8 @@ export const getShardsForSubtitle = async (subtitleId) => {
 }
 
 // Subtitle-specific word selection management
-export const getWords = (userId, shardId) => {
-  const r = q('SELECT words FROM subtitle_progress WHERE user_id = $1 AND shard_id = $2', [userId, shardId])
+export const getWords = async (userId, shardId) => {
+  const r = await q('SELECT words FROM subtitle_progress WHERE user_id = $1 AND shard_id = $2', [userId, shardId])
   const result = r.rows?.[0]
   
   if (!result) return []
@@ -53,19 +53,20 @@ export const updateWords = async (userId, shardId, words) => {
   const wordsJson = JSON.stringify(uniqueWords)
   const now = new Date().toISOString()
   
-  const existing = q('SELECT id FROM subtitle_progress WHERE user_id = $1 AND shard_id = $2', [userId, shardId]).rows?.[0]
+  const r = await q('SELECT id FROM subtitle_progress WHERE user_id = $1 AND shard_id = $2', [userId, shardId])
+  const existing = r.rows?.[0]
   
   if (existing) {
     // Update existing record
-    return q('UPDATE subtitle_progress SET words = $1, updated_at = $2 WHERE user_id = $3 AND shard_id = $4', [wordsJson, now, userId, shardId])
+    return await q('UPDATE subtitle_progress SET words = $1, updated_at = $2 WHERE user_id = $3 AND shard_id = $4', [wordsJson, now, userId, shardId])
   } else {
     // Create new record
-    return q('INSERT INTO subtitle_progress (user_id, shard_id, words, timestamp, updated_at) VALUES ($1, $2, $3, $4, $5)', [userId, shardId, wordsJson, now, now])
+    return await q('INSERT INTO subtitle_progress (user_id, shard_id, words, timestamp, updated_at) VALUES ($1, $2, $3, $4, $5)', [userId, shardId, wordsJson, now, now])
   }
 }
 
 export const addWords = async (userId, shardId, newWords) => {
-  const words = getWords(userId, shardId)
+  const words = await getWords(userId, shardId)
   // Add new words that aren't already present
   const wordsToAdd = Array.isArray(newWords) ? newWords : [newWords]
   const updated = [...words, ...wordsToAdd.filter(w => !words.includes(w))]
@@ -74,7 +75,7 @@ export const addWords = async (userId, shardId, newWords) => {
 }
 
 export const removeWords = async (userId, shardId, wordsToRemove) => {
-  const words = getWords(userId, shardId)
+  const words = await getWords(userId, shardId)
   const removeList = Array.isArray(wordsToRemove) ? wordsToRemove : [wordsToRemove]
   const filtered = words.filter(w => !removeList.includes(w))
   await updateWords(userId, shardId, filtered)
@@ -91,12 +92,13 @@ export const getPosition = async (userId, shardId) => {
 
 export const setPosition = async (userId, shardId, line) => {
   const now = new Date().toISOString()
-  const existing = q('SELECT id FROM subtitle_progress WHERE user_id = $1 AND shard_id = $2', [userId, shardId]).rows?.[0]
+  const r = await q('SELECT id FROM subtitle_progress WHERE user_id = $1 AND shard_id = $2', [userId, shardId])
+  const existing = r.rows?.[0]
 
   if (existing) {
-    return q('UPDATE subtitle_progress SET current_line = $1, updated_at = $2 WHERE user_id = $3 AND shard_id = $4', [line, now, userId, shardId])
+    return await q('UPDATE subtitle_progress SET current_line = $1, updated_at = $2 WHERE user_id = $3 AND shard_id = $4', [line, now, userId, shardId])
   } else {
-    return q('INSERT INTO subtitle_progress (user_id, shard_id, timestamp, updated_at, current_line) VALUES ($1, $2, $3, $4, $5)', [userId, shardId, now, now, line])
+    return await q('INSERT INTO subtitle_progress (user_id, shard_id, timestamp, updated_at, current_line) VALUES ($1, $2, $3, $4, $5)', [userId, shardId, now, now, line])
   }
 }
 
@@ -114,22 +116,23 @@ export const getBookmarks = async (userId, shardId) => {
   }
 }
 
-const saveBookmarks = (userId, shardId, bookmarks) => {
+const saveBookmarks = async (userId, shardId, bookmarks) => {
   const validBookmarks = bookmarks.filter(b => b && typeof b === 'object' && Number.isFinite(b.position))
   const bookmarksJson = JSON.stringify(validBookmarks)
   const now = new Date().toISOString()
   
-  const existing = q('SELECT id FROM subtitle_progress WHERE user_id = $1 AND shard_id = $2', [userId, shardId]).rows?.[0]
+  const r = await q('SELECT id FROM subtitle_progress WHERE user_id = $1 AND shard_id = $2', [userId, shardId])
+  const existing = r.rows?.[0]
   
   if (existing) {
-    return q('UPDATE subtitle_progress SET bookmarks = $1, updated_at = $2 WHERE user_id = $3 AND shard_id = $4', [bookmarksJson, now, userId, shardId])
+    return await q('UPDATE subtitle_progress SET bookmarks = $1, updated_at = $2 WHERE user_id = $3 AND shard_id = $4', [bookmarksJson, now, userId, shardId])
   } else {
-    return q('INSERT INTO subtitle_progress (user_id, shard_id, bookmarks, timestamp, updated_at) VALUES ($1,$2,$3,$4,$5)', [userId, shardId, bookmarksJson, now, now])
+    return await q('INSERT INTO subtitle_progress (user_id, shard_id, bookmarks, timestamp, updated_at) VALUES ($1,$2,$3,$4,$5)', [userId, shardId, bookmarksJson, now, now])
   }
 }
 
-export const addBookmark = (userId, shardId, bookmark) => {
-  const bookmarks = getBookmarks(userId, shardId)
+export const addBookmark = async (userId, shardId, bookmark) => {
+  const bookmarks = await getBookmarks(userId, shardId)
   const newBookmark = {
     id: crypto.randomUUID(),
     position: Number.isFinite(bookmark.position) ? bookmark.position : 0,
@@ -139,20 +142,20 @@ export const addBookmark = (userId, shardId, bookmark) => {
   // Idempotency: if a bookmark already exists at the same position, do not duplicate
   const existsAtPosition = bookmarks.some(b => Number.isFinite(b.position) && b.position === newBookmark.position)
   const updated = existsAtPosition ? bookmarks : [...bookmarks, newBookmark]
-  saveBookmarks(userId, shardId, updated)
+  await saveBookmarks(userId, shardId, updated)
   return updated
 }
 
-export const removeBookmarks = (userId, shardId, bookmarkIds) => {
-  const bookmarks = getBookmarks(userId, shardId)
+export const removeBookmarks = async (userId, shardId, bookmarkIds) => {
+  const bookmarks = await getBookmarks(userId, shardId)
   const idsToRemove = Array.isArray(bookmarkIds) ? bookmarkIds : [bookmarkIds]
   const updated = bookmarks.filter(b => !idsToRemove.includes(b.id))
-  saveBookmarks(userId, shardId, updated)
+  await saveBookmarks(userId, shardId, updated)
   return updated
 }
 
-export const updateBookmarks = (userId, shardId, updates) => {
-  const bookmarks = getBookmarks(userId, shardId)
+export const updateBookmarks = async (userId, shardId, updates) => {
+  const bookmarks = await getBookmarks(userId, shardId)
   const updatesArray = Array.isArray(updates) ? updates : [updates]
   
   const updated = bookmarks.map(bookmark => {
@@ -160,15 +163,15 @@ export const updateBookmarks = (userId, shardId, updates) => {
     return update ? { ...bookmark, ...update } : bookmark
   })
   
-  saveBookmarks(userId, shardId, updated)
+  await saveBookmarks(userId, shardId, updated)
   return updated
 }
 
 // Keep single versions for backwards compatibility
-export const removeBookmark = (userId, shardId, bookmarkId) => {
-  return removeBookmarks(userId, shardId, [bookmarkId])
+export const removeBookmark = async (userId, shardId, bookmarkId) => {
+  return await removeBookmarks(userId, shardId, [bookmarkId])
 }
 
-export const updateBookmark = (userId, shardId, bookmarkId, updates) => {
-  return updateBookmarks(userId, shardId, [{ id: bookmarkId, ...updates }])
+export const updateBookmark = async (userId, shardId, bookmarkId, updates) => {
+  return await updateBookmarks(userId, shardId, [{ id: bookmarkId, ...updates }])
 }
