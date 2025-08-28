@@ -7,7 +7,7 @@ import { log } from '../logger.js'
 const { Pool } = pg
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: process.env.DATABASE,
   max: parseInt(process.env.DB_POOL_MAX || '20'),
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000

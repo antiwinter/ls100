@@ -2,7 +2,8 @@ import { log } from '../logger.js'
 import * as pg from './pg.js'
 import * as sqlite from './sqlite.js'
 
-const usePg = process.env.USE_POSTGRES === 'true'
+const dbEnv = process.env.DATABASE || ''
+const usePg = dbEnv.startsWith('postgres://') || dbEnv.startsWith('postgresql://')
 
 const impl = usePg ? pg : sqlite
 
@@ -13,6 +14,6 @@ export const migrator = impl.migrator
 // Expose raw sqlite db for legacy callers; undefined on pg
 export const db = impl.db
 
-log.debug({ usePg }, 'dbc selected')
+log.debug({ usePg, dbEnv }, 'dbc selected')
 
 

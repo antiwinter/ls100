@@ -109,7 +109,7 @@ export const validateInviteCode = async (code) => {
 
 // Use an invite code (mark as used)
 export const useInviteCode = async (code, usedBy) => {
-  const validation = validateInviteCode(code)
+  const validation = await validateInviteCode(code)
   
   if (!validation.valid) {
     throw new Error(validation.reason)

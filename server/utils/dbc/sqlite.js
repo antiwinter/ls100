@@ -8,7 +8,10 @@ import { log } from '../logger.js'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const dbPath = path.join(__dirname, '../../data/database.sqlite')
+const envPath = process.env.DATABASE
+const dbPath = envPath && (envPath.includes('/') || /\.sqlite$|\.db$/i.test(envPath))
+  ? envPath
+  : path.join(__dirname, '../../data/database.sqlite')
 export const db = new Database(dbPath)
 
 db.pragma('foreign_keys = ON')
