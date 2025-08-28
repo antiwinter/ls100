@@ -19,18 +19,20 @@ const SubtitleRow = memo(({ group, clean, renderMain }) => {
   const refMap = group.refs || new Map()
   // log.debug('VIEWER renderEntry', { sec: group.sec })
   return (
-    <Box sx={{ py: 0.1, mb: 1, backgroundColor: 'transparent', borderRadius: 'sm' }}>
+    <Box sx={{ py: 0.5, backgroundColor: 'transparent', borderRadius: 'lg' }}>
       <Stack direction="row" spacing={1} alignItems="flex-start">
         <Typography
           level="body-xs"
           color="neutral"
           sx={{
+            fontFamily: 'monospace',
             minWidth: '40px',
             fontSize: '10px',
             lineHeight: 1.2,
-            pt: 0.5,
+            pt: 0.8,
             flexShrink: 0,
-            textAlign: 'right'
+            textAlign: 'right',
+            color: 'neutral.400'
           }}
         >
           {formatSec(group.sec)}
@@ -59,7 +61,10 @@ const SubtitleRow = memo(({ group, clean, renderMain }) => {
             return (
               <Box key={code} data-ref-lang={code} style={{ display: 'none' }}>
                 {refEntries.map((entry, i) => (
-                  <Typography key={`r-${code}-${i}`} level="body-sm" sx={{ lineHeight: 1.3, color: 'neutral.700' }}>
+                  <Typography key={`r-${code}-${i}`} level="body-sm" sx={{
+                    lineHeight: 1.3,
+                    color: 'neutral.500'
+                  }}>
                     {clean(entry.data?.text)}
                   </Typography>
                 ))}

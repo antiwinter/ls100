@@ -18,8 +18,8 @@ import { log } from '../../utils/logger'
 const btnSx = {
   minHeight: 'auto',
   p: 0.5,
-  '&:hover': {
-    bgcolor: 'neutral.100'
+  '&:active': {
+    bgcolor: 'transparent'
   }
 }
 
@@ -80,10 +80,7 @@ export const Toolbar = ({
             size="sm"
             sx={{
               minHeight: 'auto',
-              p: 0.5,
-              '&:hover': {
-                bgcolor: 'neutral.100'
-              }
+              p: 0.5
             }}
           >
             <ArrowBack />

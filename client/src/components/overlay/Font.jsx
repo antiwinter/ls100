@@ -2,54 +2,15 @@ import React, { useMemo } from 'react'
 import {
   Stack,
   Typography,
-  Slider,
   Chip,
   Sheet,
   Switch
 } from '@mui/joy'
-import { styled } from '@mui/joy/styles'
 import { useSettingStore } from './stores/useSettingStore'
 import { useSessionStore } from './stores/useSessionStore'
 import { getAvailableFonts } from '../../utils/font'
+import { PrettoSlider } from '../Keyparts'
 // import { log } from '../../utils/logger'
-
-const PrettoSlider = styled(Slider)(({ theme }) => ({
-  color: theme.palette.primary[300],
-  height: 10,
-  '& .MuiSlider-track': {
-    backgroundColor: theme.palette.primary[500],
-    border: 'none',
-    height: 10
-  },
-  '& .MuiSlider-rail': {
-    backgroundColor: theme.vars.palette.background.level2,
-    opacity: 1,
-    height: 10
-  },
-  '& .MuiSlider-thumb': {
-    height: 24,
-    width: 24,
-    backgroundColor: '#fff',
-    border: '2px solid currentColor',
-    borderRadius: '50%',
-    '&:focus, &:hover, &.Mui-active, &.Mui-focusVisible': {
-      boxShadow: 'inherit'
-    },
-    '&::before': {
-      display: 'none'
-    }
-  },
-  '& .MuiSlider-valueLabel': {
-    lineHeight: 1.2,
-    fontSize: 12,
-    background: theme.vars.palette.background.level1,
-    padding: '4px 8px',
-    borderRadius: '4px',
-    color: theme.palette.primary[500],
-    // fontWeight: 'bold',
-    '&::before': { display: 'none' }
-  }
-}))
 
 export const FontContent = ({ shardId }) => {
   const { fontSize, selectedFont, setFontSize, setSelectedFont } = useSettingStore('subtitle-shard')()
