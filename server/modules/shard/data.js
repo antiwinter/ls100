@@ -103,7 +103,8 @@ export const update = async (id, updates) => {
   values.push(new Date().toISOString())
   values.push(id)
   
-  const setClause = updateFields.join(', ').replaceAll('?', (_, i) => `$${i + 1}`)
+  let paramIndex = 1
+  const setClause = updateFields.join(', ').replaceAll('?', () => `$${paramIndex++}`)
   const sql = `UPDATE shards SET ${setClause} WHERE id = $${values.length}`
   await q(sql, values)
 }

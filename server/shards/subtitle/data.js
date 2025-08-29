@@ -2,6 +2,11 @@ import { q } from '../../utils/dbc/index.js'
 
 // Link subtitle to shard with main language flag
 export const linkSubtitle = async (shardId, subtitleId, isMain = false) => {
+  // If setting as main, first clear all other main flags for this shard
+  if (isMain) {
+    await q('UPDATE shard_subtitles SET is_main = 0 WHERE shard_id = $1', [shardId])
+  }
+  
   await q('INSERT OR REPLACE INTO shard_subtitles (shard_id, subtitle_id, is_main) VALUES ($1, $2, $3)', [shardId, subtitleId, isMain ? 1 : 0])
 }
 

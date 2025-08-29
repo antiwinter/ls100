@@ -115,7 +115,7 @@ const parseMovieInfo = (filename) => {
     }
   }
 
-  log.debug('🔍 Movie title:', movieTitle)
+  // log.debug('🔍 Movie title:', movieTitle)
   // Clean up the movie title
   let movieName = movieTitle
     // Replace dots, underscores, and dashes with spaces
@@ -126,7 +126,7 @@ const parseMovieInfo = (filename) => {
     // Remove extra spaces
     .replace(/\s+/g, ' ')
     .trim()
-  log.debug({ movieName })
+  // log.debug({ movieName })
 
   // Capitalize words properly
   movieName = movieName
