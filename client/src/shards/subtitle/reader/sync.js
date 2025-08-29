@@ -52,12 +52,15 @@ export const useSync = (shardId, words, index, bookmarks, intervalMs = 10000, op
   }, [])
 
   const diffBookmarks = useCallback((current, last) => {
-    const additions = current.filter(b => !last.find(l => l.id === b.id))
-    const removals = last.filter(b => !current.find(c => c.id === b.id))
+    const additions = current.filter(b => !last.find(l => l.gid === b.gid))
+    const removals = last.filter(b => !current.find(c => c.gid === b.gid))
     const updates = current.filter(b => {
-      const old = last.find(l => l.id === b.id)
-      return old && (old.note !== b.note || old.position !== b.position)
+      const old = last.find(l => l.gid === b.gid)
+      return old && (
+        old.sec !== b.sec || old.line !== b.line
+      )
     })
+    log.debug('diff bookmarks', { last, current, additions, removals, updates })
     return { additions, removals, updates }
   }, [])
 
@@ -98,10 +101,14 @@ export const useSync = (shardId, words, index, bookmarks, intervalMs = 10000, op
         // Sync bookmark additions
         if (additions.length > 0) {
           for (const bookmark of additions) {
-            log.trace('sync bookmark addition', { shardId, bookmark })
+            log.debug('sync bookmark addition', { shardId, bookmark })
             await apiCall(`/api/subtitle-shards/${shardId}/bookmarks`, {
               method: 'POST',
-              body: JSON.stringify({ position: bookmark.position, note: bookmark.note })
+              body: JSON.stringify({
+                gid: bookmark.gid,
+                sec: bookmark.sec,
+                line: bookmark.line
+              })
             })
           }
         }
@@ -110,7 +117,7 @@ export const useSync = (shardId, words, index, bookmarks, intervalMs = 10000, op
           log.trace('sync bookmark removals', { shardId, count: removals.length })
           await apiCall(`/api/subtitle-shards/${shardId}/bookmarks`, {
             method: 'DELETE',
-            body: JSON.stringify({ bookmarkIds: removals.map(b => b.id) })
+            body: JSON.stringify({ gids: removals.map(b => b.gid) })
           })
         }
         // Sync bookmark updates (batch)
@@ -120,9 +127,9 @@ export const useSync = (shardId, words, index, bookmarks, intervalMs = 10000, op
             method: 'PUT',
             body: JSON.stringify({
               updates: updates.map(b => ({
-                id: b.id,
-                position: b.position,
-                note: b.note
+                gid: b.gid,
+                sec: b.sec,
+                line: b.line
               }))
             })
           })

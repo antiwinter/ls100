@@ -1,4 +1,5 @@
 import {
+  Box,
   Stack,
   Typography,
   Input,
@@ -7,7 +8,7 @@ import {
   ListItemButton,
   IconButton
 } from '@mui/joy'
-import { Search as SearchIcon, Clear as ClearIcon } from '@mui/icons-material'
+import { Search as SearchIcon, Clear as ClearIcon, TipsAndUpdates } from '@mui/icons-material'
 import { useSessionStore } from './stores/useSessionStore'
 import { formatSec } from '../../utils/dateFormat'
 
@@ -52,6 +53,24 @@ export const SearchContent = ({ shardId, onSeek }) => {
           bgcolor: 'background.body'
         }}
       />
+
+      {!searchQuery && (
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flex: 1,
+            opacity: 0.3
+          }}
+        >
+          <TipsAndUpdates sx={{ fontSize: '4rem', mb: 1, mt: 7 }} />
+          <Typography level='body-sm' sx={{ textAlign: 'center' }}>
+            What's on your mind?
+          </Typography>
+        </Box>
+      )}
 
       {searchResults?.length > 0 && (
         <List

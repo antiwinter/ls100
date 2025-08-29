@@ -1,7 +1,7 @@
-import { useState, useCallback, useEffect } from 'react'
-import { Stack, Typography, Input, Button, Box, List, ListItem, ListItemButton, ListItemDecorator, ListItemContent, Slider } from '@mui/joy'
-import { BookmarkAdd } from '@mui/icons-material'
-import { AppDialog } from '../AppDialog.jsx'
+import { useState, useEffect } from 'react'
+import { Stack, Typography, Button, Box } from '@mui/joy'
+import { BookmarkAdd, BookmarkBorder } from '@mui/icons-material'
+import { PrettoSlider } from '../Keyparts'
 import {
   SwipeableList,
   SwipeableListItem,
@@ -13,65 +13,48 @@ import 'react-swipeable-list/dist/styles.css'
 
 import { log } from '../../utils/logger'
 import { useSessionStore } from './stores/useSessionStore.js'
-import { formatRelativeTime } from '../../utils/dateFormat.js'
+import { formatSec, formatRelativeTime } from '../../utils/dateFormat.js'
 
 export const BookmarkContent = ({ shardId, onSeek }) => {
-  const [showModal, setShowModal] = useState(false)
-  const [note, setNote] = useState('')
-  const [seek, setSeek] = useState(0)
-
   const {
     position, hint, shardName, bookmarks, totalGroups, addBookmark, removeBookmark
   } = useSessionStore(shardId)()
 
+  const [seek, setSeek] = useState(position || 0)
+
   log.debug('BookmarkContent re-render', { shardId, position, hint, shardName, bookmarksCount: bookmarks.length })
 
+  // Only initialize seek from position once on mount, not on every position change
+  // This prevents circular dependency: position -> seek -> onSeek -> position
   useEffect(() => {
     setSeek(position || 0)
-  }, [position])
+  }, [shardId]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Intentionally NOT including 'position' to break circular dependency
 
-  const existing = bookmarks.find(b => b.position === position)
+  const existing = bookmarks.find(b => b.gid === hint?.gid)
   const hasBookmark = !!existing
 
-  // Ref callback to focus input and position cursor at beginning
-  const inputRef = useCallback((el) => {
-    if (!el) return
-
-    const input = el.querySelector ? el.querySelector('input') : el
-    if (input) {
-      // Small delay to ensure DOM is ready
-      setTimeout(() => {
-        input.focus()
-        if (note && input.setSelectionRange) {
-          input.setSelectionRange(0, note.length)
-        }
-      }, 50)
-    }
-  }, [note])
-
   const onBookmark = () => {
-    setNote(hint || 'Bookmark')
-    setShowModal(true)
-  }
-
-  const onSave = () => {
     try {
-      log.debug('Adding bookmark', { position, note: note.trim() })
-      addBookmark({ position, note: note.trim() })
-      setShowModal(false)
+      log.debug('Adding bookmark', { gid: hint?.gid, sec: hint?.sec, line: hint?.line })
+      addBookmark({
+        gid: hint?.gid || position,
+        sec: hint?.sec || 0,
+        line: hint?.line || 'Bookmark'
+      })
     } catch (error) {
       log.error('Failed to add bookmark', error)
     }
   }
 
   const goTo = (bookmark) => {
-    log.debug('Go to bookmark', { id: bookmark.id, position: bookmark.position })
-    onSeek?.(bookmark.position)
+    log.debug('Go to bookmark', { gid: bookmark.gid })
+    onSeek?.(bookmark.gid)
   }
 
   const deleteBookmark = (bookmark) => {
-    log.debug('Delete bookmark', { id: bookmark.id, position: bookmark.position })
-    removeBookmark(bookmark.id)
+    log.debug('Delete bookmark', { gid: bookmark.gid })
+    removeBookmark(bookmark.gid)
   }
 
   const renderBookmarkItem = (bookmark) => {
@@ -99,22 +82,56 @@ export const BookmarkContent = ({ shardId, onSeek }) => {
 
     return (
       <SwipeableListItem
-        key={bookmark.id}
+        key={bookmark.gid}
         trailingActions={actions()}
         onClick={() => goTo(bookmark)}
       >
-        <Box sx={{ p: 2, bgcolor: 'background.surface', borderRadius: 'sm', mb: 1 }}>
-          <Stack spacing={0.5}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
-              <Typography level="body-sm" color="neutral">
-                Line {bookmark.position}
-              </Typography>
-              <Typography level="body-xs" color="neutral">
+        <Box sx={{
+          p: 1,
+          bgcolor: 'background.surface',
+          borderRadius: 'sm',
+          mb: 1,
+          width: '100%',
+          maxWidth: '100%',
+          overflow: 'hidden'
+        }}>
+          <Stack spacing={0.5} sx={{ width: '100%', minWidth: 0 }}>
+            <Stack direction='row' justifyContent='space-between' alignItems='center' sx={{ width: '100%' }}>
+              <Stack direction='row' alignItems='center' spacing={0.5}>
+                <BookmarkBorder sx={{ fontSize: '0.8rem', color: 'neutral.400' }} />
+                <Typography
+                  level='body-xs'
+                  sx={{
+                    color: 'neutral.400',
+                    fontFamily: 'monospace',
+                    fontSize: '0.7rem'
+                  }}
+                >
+                  {bookmark.gid + 1} - {formatSec(bookmark.sec || 0)}
+                </Typography>
+              </Stack>
+              <Typography
+                level='body-xs'
+                sx={{
+                  color: 'neutral.400',
+                  fontSize: '0.7rem'
+                }}
+              >
                 {formatRelativeTime(bookmark.timestamp)}
               </Typography>
             </Stack>
-            <Typography level="body-sm" sx={{ fontWeight: 500 }}>
-              {bookmark.note || 'Bookmark'}
+            <Typography
+              level='body-md'
+              sx={{
+                color: 'neutral.500',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                width: '100%',
+                maxWidth: '100%'
+              }}
+            >
+              {bookmark.line || 'Bookmark'}
             </Typography>
           </Stack>
         </Box>
@@ -124,155 +141,82 @@ export const BookmarkContent = ({ shardId, onSeek }) => {
 
   return (
     <>
-      <Box sx={{ px: 1, pb: 1 }}>
-        {/* Title Section */}
-        <Stack spacing={0.5} sx={{ mb: 2 }}>
-          <Typography level="title-md" sx={{ fontWeight: 600 }}>
-            {shardName}
-          </Typography>
-          <Typography level="body-sm" color="neutral">
-            {hasBookmark ?
-              `Bookmark exists at line: ${position}` :
-              `Add bookmark to line: ${position}`
-            }
-          </Typography>
-        </Stack>
-
-        {/* Seek Bar */}
-        {totalGroups > 0 && (
-          <Stack spacing={1} sx={{ mb: 3 }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
-              <Typography level="body-sm" color="neutral">
-                Position
-              </Typography>
-              <Typography level="body-sm" color="primary">
-                {seek + 1} / {totalGroups}
-              </Typography>
+      <Stack sx={{ height: '100%' }}>
+        <Box sx={{ px: 1, flex: 1, overflow: 'auto', width: '100%', maxWidth: '100%' }}>
+          {/* Seek Bar */}
+          {totalGroups > 0 && (
+            <Stack spacing={1} sx={{ mb: 2 }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Typography level='title-sm' sx={{ color: 'neutral.500' }}>
+                  Position
+                </Typography>
+              </Stack>
+              <div data-allow-events="true">
+                <PrettoSlider
+                  value={seek}
+                  onChange={(_, value) => setSeek(value)}
+                  onChangeCommitted={(_, value) => {
+                    log.debug('Seeking to position', { value })
+                    onSeek?.(value)
+                  }}
+                  min={0}
+                  max={totalGroups - 1}
+                  step={1}
+                  valueLabelDisplay="auto"
+                  valueLabelFormat={(value) => `#${value + 1}`}
+                />
+              </div>
             </Stack>
-            <div data-allow-events="true">
-              <Slider
-                value={seek}
-                onChange={(_, value) => setSeek(value)}
-                onChangeCommitted={(_, value) => {
-                  log.debug('Seeking to position', { value })
-                  onSeek?.(value)
-                }}
-                min={0}
-                max={totalGroups - 1}
-                step={1}
-                valueLabelDisplay="auto"
-                valueLabelFormat={(value) => `Line ${value + 1}`}
-                sx={{
-                  '& .MuiSlider-thumb': {
-                    '&:hover, &.Mui-focusVisible': {
-                      boxShadow: '0 0 0 8px rgba(var(--joy-palette-primary-mainChannel) / 0.16)'
-                    }
-                  }
-                }}
-              />
-            </div>
-          </Stack>
-        )}
+          )}
 
-        {/* Action List */}
-        <List sx={{ '--List-gap': '0px' }}>
-          <ListItem>
-            <ListItemButton
-              onClick={hasBookmark ? undefined : onBookmark}
-              disabled={hasBookmark}
-              sx={{
-                opacity: hasBookmark ? 0.5 : 1,
-                cursor: hasBookmark ? 'default' : 'pointer'
-              }}
-            >
-              <ListItemDecorator>
-                <BookmarkAdd />
-              </ListItemDecorator>
-              <ListItemContent>
-                {hasBookmark ? 'Bookmark Already Exists' : 'Add to Bookmark'}
-              </ListItemContent>
-            </ListItemButton>
-          </ListItem>
-        </List>
-
-        {/* Show existing bookmark at current position */}
-        {hasBookmark && (
-          <Box sx={{ mt: 2, px: 1, py: 1, bgcolor: 'warning.softBg', borderRadius: 'sm' }}>
-            <Typography level="body-xs" color="warning" sx={{ fontWeight: 600, mb: 0.5 }}>
-              Existing bookmark at this position:
-            </Typography>
-            <Typography level="body-sm" sx={{ fontWeight: 500 }}>
-              "{existing.note || 'Bookmark'}"
-            </Typography>
-            <Typography level="body-xs" color="neutral">
-              Created {formatRelativeTime(existing.timestamp)}
-            </Typography>
-          </Box>
-        )}
-
-        {/* Existing Bookmarks */}
-        {bookmarks.length > 0 ? (
-          <>
-            <Typography level="title-sm" sx={{ mt: 2, mb: 1, px: 1, color: 'text.secondary' }}>
+          {/* Bookmarks Section */}
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 2, mb: 1 }}>
+            <Typography level='title-sm' sx={{ color: 'neutral.500' }}>
               Bookmarks ({bookmarks.length})
             </Typography>
-            <Box sx={{ px: 1 }}>
-              <SwipeableList type={SwipeType.IOS} fullSwipe={true} threshold={0.7}>
-                {[...bookmarks].sort((a, b) => a.position - b.position).map(renderBookmarkItem)}
-              </SwipeableList>
-            </Box>
-          </>
-        ) : (
-          <Box sx={{ mt: 2, px: 1, py: 2, textAlign: 'center' }}>
-            <Typography level="body-sm" color="neutral">
-              No bookmarks yet
-            </Typography>
-            <Typography level="body-xs" color="neutral" sx={{ mt: 0.5 }}>
-              Add your first bookmark using the button above
-            </Typography>
-          </Box>
-        )}
-      </Box>
-
-      {/* Bookmark Note Modal */}
-      <AppDialog
-        open={showModal}
-        onClose={() => setShowModal(false)}
-        title="Add Bookmark"
-        maxWidth={400}
-      >
-        <Stack spacing={2}>
-          <Typography level="body-sm" color="neutral">
-            Note for {position}:
-          </Typography>
-
-          <Input
-            ref={inputRef}
-            placeholder="Enter bookmark note..."
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            sx={{ fontSize: '14px' }}
-          />
-
-          <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
             <Button
-              variant="outlined"
-              onClick={() => setShowModal(false)}
-              sx={{ flex: 1 }}
+              startDecorator={<BookmarkAdd />}
+              onClick={hasBookmark ? undefined : onBookmark}
+              disabled={hasBookmark}
+              variant="plain"
+              size="sm"
+              sx={{
+                fontSize: 'sm',
+                fontWeight: 'normal',
+                minHeight: 'auto',
+                p: 0.5,
+                opacity: hasBookmark ? 0.5 : 1,
+                '&:hover': {
+                  bgcolor: 'transparent'
+                },
+                '&:active': {
+                  bgcolor: 'transparent'
+                }
+              }}
             >
-              Cancel
-            </Button>
-            <Button
-              variant="solid"
-              onClick={onSave}
-              disabled={!note.trim()}
-              sx={{ flex: 1 }}
-            >
-              Save
+              Add to bookmark
             </Button>
           </Stack>
-        </Stack>
-      </AppDialog>
+
+          {/* Existing Bookmarks */}
+          {bookmarks.length > 0 ? (
+            <Box sx={{ width: '100%', overflow: 'hidden' }}>
+              <SwipeableList type={SwipeType.IOS} fullSwipe={true} threshold={0.7}>
+                {[...bookmarks].sort((a, b) => b.gid - a.gid).map(renderBookmarkItem)}
+              </SwipeableList>
+            </Box>
+          ) : (
+            <Box sx={{ py: 2, textAlign: 'center' }}>
+              <Typography level="body-sm" color="neutral">
+                No bookmarks yet
+              </Typography>
+              <Typography level="body-xs" color="neutral" sx={{ mt: 0.5 }}>
+                Add your first bookmark using the button above
+              </Typography>
+            </Box>
+          )}
+        </Box>
+      </Stack>
     </>
   )
 }

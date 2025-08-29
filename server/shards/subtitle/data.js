@@ -1,5 +1,4 @@
 import { q } from '../../utils/dbc/index.js'
-import crypto from 'crypto'
 
 // Link subtitle to shard with main language flag
 export const linkSubtitle = async (shardId, subtitleId, isMain = false) => {
@@ -117,7 +116,7 @@ export const getBookmarks = async (userId, shardId) => {
 }
 
 const saveBookmarks = async (userId, shardId, bookmarks) => {
-  const validBookmarks = bookmarks.filter(b => b && typeof b === 'object' && Number.isFinite(b.position))
+  const validBookmarks = bookmarks.filter(b => b && typeof b === 'object' && Number.isFinite(b.gid))
   const bookmarksJson = JSON.stringify(validBookmarks)
   const now = new Date().toISOString()
   
@@ -134,22 +133,22 @@ const saveBookmarks = async (userId, shardId, bookmarks) => {
 export const addBookmark = async (userId, shardId, bookmark) => {
   const bookmarks = await getBookmarks(userId, shardId)
   const newBookmark = {
-    id: crypto.randomUUID(),
-    position: Number.isFinite(bookmark.position) ? bookmark.position : 0,
-    note: (bookmark.note || '').trim(),
+    gid: Number.isFinite(bookmark.gid) ? bookmark.gid : 0,
+    sec: Number.isFinite(bookmark.sec) ? bookmark.sec : 0,
+    line: bookmark.line || '',
     timestamp: new Date().toISOString()
   }
-  // Idempotency: if a bookmark already exists at the same position, do not duplicate
-  const existsAtPosition = bookmarks.some(b => Number.isFinite(b.position) && b.position === newBookmark.position)
-  const updated = existsAtPosition ? bookmarks : [...bookmarks, newBookmark]
+  // Idempotency: if a bookmark already exists at the same gid, do not duplicate
+  const existsAtGid = bookmarks.some(b => Number.isFinite(b.gid) && b.gid === newBookmark.gid)
+  const updated = existsAtGid ? bookmarks : [...bookmarks, newBookmark]
   await saveBookmarks(userId, shardId, updated)
   return updated
 }
 
-export const removeBookmarks = async (userId, shardId, bookmarkIds) => {
+export const removeBookmarks = async (userId, shardId, gids) => {
   const bookmarks = await getBookmarks(userId, shardId)
-  const idsToRemove = Array.isArray(bookmarkIds) ? bookmarkIds : [bookmarkIds]
-  const updated = bookmarks.filter(b => !idsToRemove.includes(b.id))
+  const gidsToRemove = Array.isArray(gids) ? gids : [gids]
+  const updated = bookmarks.filter(b => !gidsToRemove.includes(b.gid))
   await saveBookmarks(userId, shardId, updated)
   return updated
 }
@@ -159,7 +158,7 @@ export const updateBookmarks = async (userId, shardId, updates) => {
   const updatesArray = Array.isArray(updates) ? updates : [updates]
   
   const updated = bookmarks.map(bookmark => {
-    const update = updatesArray.find(u => u.id === bookmark.id)
+    const update = updatesArray.find(u => u.gid === bookmark.gid)
     return update ? { ...bookmark, ...update } : bookmark
   })
   
@@ -168,10 +167,10 @@ export const updateBookmarks = async (userId, shardId, updates) => {
 }
 
 // Keep single versions for backwards compatibility
-export const removeBookmark = async (userId, shardId, bookmarkId) => {
-  return await removeBookmarks(userId, shardId, [bookmarkId])
+export const removeBookmark = async (userId, shardId, gid) => {
+  return await removeBookmarks(userId, shardId, [gid])
 }
 
-export const updateBookmark = async (userId, shardId, bookmarkId, updates) => {
-  return await updateBookmarks(userId, shardId, [{ id: bookmarkId, ...updates }])
+export const updateBookmark = async (userId, shardId, gid, updates) => {
+  return await updateBookmarks(userId, shardId, [{ gid, ...updates }])
 }

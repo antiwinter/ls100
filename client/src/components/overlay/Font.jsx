@@ -115,6 +115,11 @@ export const FontContent = ({ shardId }) => {
                             </Typography>
                           </React.Fragment>
                         )
+                      },
+                      thumb: {
+                        sx: (theme) => ({
+                          backgroundColor: theme.vars.palette.background.body
+                        })
                       }
                     }}
                     sx={(theme) => ({

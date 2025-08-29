@@ -27,7 +27,7 @@ const OverlayManager_ = forwardRef(({ onBack, shardId = '', onSeek }, ref) => {
   // toggle tool with toolbar open
   const toggleTool = useCallback((tool, position = 'bottom') => {
     setXState(x => ({ ...x, tool: x.tool === tool ? null : tool,
-      position, size: tool === 'search' ? '45vh' : null
+      position, size: '45vh'
     }))
   }, [])
 

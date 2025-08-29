@@ -141,13 +141,13 @@ router.get('/:shardId/bookmarks', requireAuth, validateShardAccess, async (req, 
 // POST /api/subtitle-shards/:shardId/bookmarks - Add bookmark
 router.post('/:shardId/bookmarks', requireAuth, validateShardAccess, async (req, res) => {
   try {
-    const { position, note } = req.body
+    const { gid, sec, line } = req.body
     
-    if (!Number.isFinite(position)) {
-      return res.status(400).json({ error: 'Position is required' })
+    if (!Number.isFinite(gid)) {
+      return res.status(400).json({ error: 'gid is required' })
     }
     
-    const bookmarks = await subtitleData.addBookmark(req.userId, req.params.shardId, { position, note })
+    const bookmarks = await subtitleData.addBookmark(req.userId, req.params.shardId, { gid, sec, line })
     res.json({ bookmarks })
   } catch (error) {
     log.error({ error, shardId: req.params.shardId }, 'Failed to add bookmark')
@@ -158,16 +158,16 @@ router.post('/:shardId/bookmarks', requireAuth, validateShardAccess, async (req,
 // DELETE /api/subtitle-shards/:shardId/bookmarks - Batch delete bookmarks
 router.delete('/:shardId/bookmarks', requireAuth, validateShardAccess, async (req, res) => {
   try {
-    const { bookmarkIds } = req.body
+    const { gids } = req.body
     
-    if (!Array.isArray(bookmarkIds) || bookmarkIds.length === 0) {
-      return res.status(400).json({ error: 'Bookmark IDs array is required' })
+    if (!Array.isArray(gids) || gids.length === 0) {
+      return res.status(400).json({ error: 'Bookmark gids array is required' })
     }
     
-    const bookmarks = await subtitleData.removeBookmarks(req.userId, req.params.shardId, bookmarkIds)
+    const bookmarks = await subtitleData.removeBookmarks(req.userId, req.params.shardId, gids)
     res.json({ bookmarks })
   } catch (error) {
-    log.error({ error, shardId: req.params.shardId, bookmarkIds: req.body.bookmarkIds }, 'Failed to delete bookmarks')
+    log.error({ error, shardId: req.params.shardId, gids: req.body.gids }, 'Failed to delete bookmarks')
     res.status(500).json({ error: 'Failed to delete bookmarks' })
   }
 })
@@ -181,10 +181,10 @@ router.put('/:shardId/bookmarks', requireAuth, validateShardAccess, async (req, 
       return res.status(400).json({ error: 'Updates array is required' })
     }
     
-    // Validate each update has id and valid fields
+    // Validate each update has gid and valid fields
     for (const update of updates) {
-      if (!update.id) {
-        return res.status(400).json({ error: 'Each update must have an id' })
+      if (!Number.isFinite(update.gid)) {
+        return res.status(400).json({ error: 'Each update must have a valid gid' })
       }
     }
     

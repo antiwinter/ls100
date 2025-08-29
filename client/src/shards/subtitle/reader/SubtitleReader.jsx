@@ -4,7 +4,6 @@ import ViewerSkeleton from './ViewerSkeleton.jsx'
 import { Bolt } from '@mui/icons-material'
 import { apiCall } from '../../../config/api'
 import { log } from '../../../utils/logger'
-import { formatSec } from '../../../utils/dateFormat.js'
 import { useSync } from './sync.js'
 import { OverlayManager } from '../../../components/overlay/index.jsx'
 import { SubtitleViewer } from './SubtitleViewer.jsx'
@@ -98,14 +97,8 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   const { syncNow } = useSync(shardId, wordlist, position, bookmarks, 10000, { bookmarksLoaded })
 
   // log.debug('READER re-render', { position })
-  const [hintTrigger, setHintTrigger] = useState(0)
-
   const handleEmptyClick = useCallback(() => {
     // log.debug('handleEmptyClick')
-
-    // Trigger hint saving side effect
-    setHintTrigger(prev => prev + 1)
-
     // If any overlay is open, close them all; otherwise show toolbar
     overlayRef.current?.toggleTools()
   }, [])
@@ -153,6 +146,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
         const data = await apiCall(`/api/subtitle-shards/${shardId}/bookmarks`)
         const bookmarks = data.bookmarks || []
         if (!alive) return
+        log.debug('Loaded bookmarks', { bookmarks })
         initBookmarks(bookmarks)
         log.debug(`📌 Loaded ${bookmarks.length} bookmarks`)
       } catch (error) {
@@ -202,8 +196,6 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
 
   // Side effect for saving hint (triggered by handleEmptyClick)
   useEffect(() => {
-    if (hintTrigger === 0) return
-
     // Save hint to session store
     if (groups && groups.length > 0 && position >= 0 && position < groups.length) {
       const g = groups[position]
@@ -211,10 +203,14 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
 
       const sec = g.sec || 0
       const mainText = g.main?.[0]?.data?.text || ''
-      const hint = `${formatSec(sec)} - ${mainText}`
+      const hint = {
+        gid: position,
+        sec: sec || 0,
+        line: mainText
+      }
       setHint(hint)
     }
-  }, [hintTrigger, groups, position, setHint])
+  }, [groups, position, setHint])
 
   // Helper to create merged group context
   const mergeGroup = useCallback((word, groups) => {
@@ -328,8 +324,9 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
 
   const handleSeek = useCallback((gid) => {
     viewer?.seek(gid)
+    setPosition(gid)
     // setSeek(gid)
-  }, [viewer])
+  }, [viewer, setPosition])
 
   const shardName = shard?.name || ''
   if (loading) {

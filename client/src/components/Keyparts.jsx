@@ -17,8 +17,8 @@ export const PrettoSlider = styled(Slider)(({ theme }) => ({
   '& .MuiSlider-thumb': {
     height: 24,
     width: 24,
-    backgroundColor: '#fff',
-    border: '2px solid currentColor',
+    backgroundColor: theme.vars.palette.background.body,
+    border: '1px solid currentColor',
     borderRadius: '50%',
     '&:focus, &:hover, &.Mui-active, &.Mui-focusVisible': {
       boxShadow: 'inherit'
