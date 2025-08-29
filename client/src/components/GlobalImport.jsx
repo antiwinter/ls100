@@ -121,7 +121,8 @@ export const GlobalImport = ({ onConfigure, onCancel }) => {
           <input
             id="file-input"
             type="file"
-            accept=".srt,.vtt,.ass,.ssa,.sub"
+            // accept=".srt,.vtt,.ass,.ssa,.sub,text/srt,text/vtt,text/plain,application/x-subrip"
+            accept="*"
             onChange={handleFileSelect}
             style={{ display: 'none' }}
           />
