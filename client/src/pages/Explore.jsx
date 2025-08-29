@@ -8,7 +8,7 @@ import {
 export const Explore = () => (
   <Stack spacing={3}>
     <Card sx={{ p: 3 }}>
-      <Typography level="h3" mb={2}>🎭 Popular Movies</Typography>
+      <Typography level="h3" mb={2}>Popular Movies</Typography>
       <Typography>
         Discover popular movies and download their subtitles for learning.
       </Typography>
@@ -17,7 +17,7 @@ export const Explore = () => (
       </Button>
     </Card>
     <Card sx={{ p: 3 }}>
-      <Typography level="h3" mb={2}>📚 Vocabulary Lists</Typography>
+      <Typography level="h3" mb={2}>Vocabulary Lists</Typography>
       <Typography>
         Browse curated vocabulary lists from popular movies.
       </Typography>

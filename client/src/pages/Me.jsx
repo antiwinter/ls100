@@ -5,6 +5,7 @@ import {
   Button,
   Chip
 } from '@mui/joy'
+import { Person, Settings, Info, ExitToApp } from '@mui/icons-material'
 import { useAuth } from '../context/AuthContext'
 import { APP } from '../config/constants'
 import { useState } from 'react'
@@ -16,7 +17,10 @@ export const Me = () => {
   return (
     <Stack spacing={3}>
       <Card sx={{ p: 3 }}>
-        <Typography level="h3" mb={2}>👤 {user.name}</Typography>
+        <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+          <Person sx={{ fontSize: '2rem' }} />
+          <Typography level="h3">{user.name}</Typography>
+        </Stack>
         <Typography level="body-sm" color="neutral" mb={2}>
           {user.email}
         </Typography>
@@ -26,7 +30,10 @@ export const Me = () => {
       </Card>
 
       <Card sx={{ p: 3 }}>
-        <Typography level="h3" mb={2}>⚙️ Settings</Typography>
+        <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+          <Settings sx={{ fontSize: '2rem' }} />
+          <Typography level="h3">Settings</Typography>
+        </Stack>
         <Stack spacing={2}>
           <Button variant="outlined" fullWidth disabled>
             Language Preferences
@@ -41,7 +48,10 @@ export const Me = () => {
       </Card>
 
       <Card sx={{ p: 3 }}>
-        <Typography level="h3" mb={2}>ℹ️ App Information</Typography>
+        <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+          <Info sx={{ fontSize: '2rem' }} />
+          <Typography level="h3">App Information</Typography>
+        </Stack>
         <Stack spacing={2}>
           <Typography level="body-sm" color="neutral">
             <strong>{APP.name}</strong>
@@ -62,7 +72,10 @@ export const Me = () => {
       </Card>
 
       <Card sx={{ p: 3 }}>
-        <Typography level="h3" mb={2} color="danger">🚪 Account</Typography>
+        <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+          <ExitToApp sx={{ color: 'danger.500', fontSize: '2rem' }} />
+          <Typography level="h3" color="danger">Account</Typography>
+        </Stack>
         <Button onClick={logout} color="danger" variant="soft" fullWidth>
           Logout
         </Button>
