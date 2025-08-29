@@ -1,12 +1,14 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from 'react'
 import { Box, Stack, Typography, IconButton, Input, Chip } from '@mui/joy'
-import { Close, Delete, Search, Edit } from '@mui/icons-material'
+import { Close, Search, KeyboardReturn } from '@mui/icons-material'
 import { useLongPress } from '../../utils/useLongPress.js'
 import { log } from '../../utils/logger.js'
 import { useSessionStore } from './stores/useSessionStore.js'
 
 // Container for word tile with long press handling
-const WordTileContainer = ({ word, editMode, onWordDelete, onLongPress, isHighlighted }) => {
+const WordTileContainer = ({
+  word, editMode, onWordDelete, onLongPress, isHighlighted, onWordClick, isClicked
+}) => {
   const { handlers } = useLongPress(onLongPress, { delay: 450 })
 
   return (
@@ -16,41 +18,63 @@ const WordTileContainer = ({ word, editMode, onWordDelete, onLongPress, isHighli
         editMode={editMode}
         onWordDelete={onWordDelete}
         isHighlighted={isHighlighted}
+        onWordClick={onWordClick}
+        isClicked={isClicked}
       />
     </Box>
   )
 }
 
 // Individual word tile component
-const WordTile = ({ word, editMode, onWordDelete, isHighlighted }) => {
+const WordTile = ({ word, editMode, onWordDelete, isHighlighted, onWordClick, isClicked }) => {
+  const lastTouchRef = useRef(0)
+
   const handleDelete = useCallback((e) => {
     e.stopPropagation()
     onWordDelete?.(word)
   }, [word, onWordDelete])
 
+  const triggerWordClick = useCallback(() => {
+    if (!editMode) {
+      onWordClick?.(word)
+    }
+  }, [editMode, onWordClick, word])
+
+  const handleClick = useCallback((e) => {
+    e.preventDefault()
+    const now = Date.now()
+    if (now - lastTouchRef.current > 300) { // Avoid double-firing with touch
+      triggerWordClick()
+    }
+  }, [triggerWordClick])
+
+  const handleTouchEnd = useCallback((e) => {
+    e.preventDefault()
+    lastTouchRef.current = Date.now()
+    triggerWordClick()
+  }, [triggerWordClick])
+
   return (
     <Box
+      className='no-select'
+      onClick={handleClick}
+      onTouchEnd={handleTouchEnd}
       sx={{
         position: 'relative',
-        p: 1.5,
-        border: 1,
-        borderColor: isHighlighted ? 'primary.500' : 'neutral.300',
-        borderRadius: 'sm',
-        bgcolor: isHighlighted ? 'primary.50' : 'background.surface',
+        px: 1.5,
+        py: 0.75,
+        borderRadius: 'lg',
+        bgcolor: isClicked ? 'background.level2' : (isHighlighted ? 'background.level2' : 'background.level1'),
         cursor: 'pointer',
         transition: 'all 0.2s ease',
-        minHeight: '48px',
-        display: 'flex',
+        display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
+        width: 'fit-content',
+        gap: 0.5,
         '&:hover': {
-          borderColor: 'primary.400',
           bgcolor: 'primary.25'
-        },
-        ...(editMode && {
-          borderColor: 'danger.300',
-          bgcolor: 'danger.25'
-        })
+        }
       }}
     >
       <Typography
@@ -65,58 +89,27 @@ const WordTile = ({ word, editMode, onWordDelete, isHighlighted }) => {
       </Typography>
 
       {editMode && (
-        <IconButton
-          size="sm"
-          variant="solid"
-          color="danger"
+        <Close
           onClick={handleDelete}
           sx={{
-            position: 'absolute',
-            top: '-8px',
-            right: '-8px',
-            minHeight: '24px',
-            minWidth: '24px',
-            p: 0
+            fontSize: '16px',
+            color: 'neutral.500',
+            cursor: 'pointer',
+            '&:hover': {
+              color: 'danger.500'
+            }
           }}
-        >
-          <Delete sx={{ fontSize: '14px' }} />
-        </IconButton>
+        />
       )}
     </Box>
-  )
-}
-
-// Search bar component
-const SearchBar = ({ searchTerm, onSearchChange, onClear }) => {
-  return (
-    <Input
-      placeholder='Search words...'
-      value={searchTerm}
-      onChange={(e) => onSearchChange(e.target.value)}
-      startDecorator={<Search sx={{ fontSize: '18px' }} />}
-      endDecorator={
-        searchTerm && (
-          <IconButton
-            size='sm'
-            variant='plain'
-            onClick={onClear}
-            sx={{ p: 0.5 }}
-          >
-            <Close sx={{ fontSize: '16px' }} />
-          </IconButton>
-        )
-      }
-      sx={{
-        mb: 2,
-        '--Input-focusedThickness': '2px'
-      }}
-    />
   )
 }
 
 export const WordListContent = ({ shardId }) => {
   const [searchTerm, setSearchTerm] = useState('')
   const [editMode, setEditMode] = useState(false)
+  const [searchExpanded, setSearchExpanded] = useState(false)
+  const [clickedWord, setClickedWord] = useState(null)
   const gridRef = useRef(null)
 
   // Get session store data
@@ -163,16 +156,70 @@ export const WordListContent = ({ shardId }) => {
 
   const handleSearchClear = useCallback(() => {
     setSearchTerm('')
+    setSearchExpanded(false)
   }, [])
+
+  const handleSearchExpand = useCallback(() => {
+    setSearchExpanded(true)
+  }, [])
+
+  const handleSearchCollapse = useCallback(() => {
+    if (!searchTerm) {
+      setSearchExpanded(false)
+    }
+  }, [searchTerm])
 
   const handleWordDelete = useCallback((word) => {
     log.debug('Deleting word:', word)
     toggleWord(word)
   }, [toggleWord])
 
-  const toggleEditMode = useCallback(() => {
-    setEditMode(prev => !prev)
+  const handleQuitEdit = useCallback(() => {
+    setEditMode(false)
+    log.debug('Edit mode deactivated')
   }, [])
+
+  const copyToClipboard = useCallback(async (text) => {
+    try {
+      // Try modern clipboard API first
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text)
+        return true
+      }
+
+      // Fallback for iOS and older browsers
+      const textArea = document.createElement('textarea')
+      textArea.value = text
+      textArea.style.position = 'fixed'
+      textArea.style.left = '-999999px'
+      textArea.style.top = '-999999px'
+      document.body.appendChild(textArea)
+      textArea.focus()
+      textArea.select()
+
+      const result = document.execCommand('copy')
+      document.body.removeChild(textArea)
+      return result
+    } catch (error) {
+      log.error('Failed to copy to clipboard:', error)
+      return false
+    }
+  }, [])
+
+  const handleWordClick = useCallback(async (word) => {
+    if (editMode) return // Don't copy in edit mode
+
+    const success = await copyToClipboard(word)
+    if (success) {
+      setClickedWord(word)
+      log.debug('Word copied to clipboard:', word)
+
+      // Reset visual feedback after 2 seconds
+      setTimeout(() => {
+        setClickedWord(null)
+      }, 1000)
+    }
+  }, [editMode, copyToClipboard])
 
   // Long press handler for tiles to activate edit mode
   const handleTileLongPress = useCallback((e, type) => {
@@ -183,33 +230,82 @@ export const WordListContent = ({ shardId }) => {
   }, [editMode])
 
   return (
-    <Stack spacing={2} sx={{ height: '100%' }}>
-      <Stack direction='row' spacing={1} alignItems='center'>
-        <Box sx={{ flex: 1 }}>
-          <SearchBar
-            searchTerm={searchTerm}
-            onSearchChange={handleSearchChange}
-            onClear={handleSearchClear}
-          />
-        </Box>
-        <IconButton
-          variant={editMode ? 'solid' : 'outlined'}
-          color={editMode ? 'danger' : 'neutral'}
-          onClick={toggleEditMode}
-          sx={{ flexShrink: 0 }}
-        >
-          <Edit />
-        </IconButton>
-      </Stack>
-
-      <Stack direction='row' justifyContent='space-between' alignItems='center'>
-        <Typography level='body-sm' color='neutral'>
-          {filteredWords.length} of {wordsArray.length} words
-        </Typography>
-        {editMode && (
-          <Chip size='sm' color='danger' variant='soft'>
-            Edit Mode
+    <Stack spacing={2} sx={{ height: '100%', pb: '50px' }}>
+      <Stack direction='row' spacing={1} alignItems='center' justifyContent='space-between'>
+        <Stack direction='row' spacing={1} alignItems='center'>
+          <Typography level='title-sm' sx={{ color: 'neutral.500' }}>Wordlist</Typography>
+          <Chip variant='soft' size='sm' color='neutral' sx={{ fontSize: '0.75rem', color: 'neutral.400', px: 1 }}>
+            {wordsArray.length}
           </Chip>
+          {editMode && (
+            <Stack
+              direction='row'
+              alignItems='center'
+              spacing={0.5}
+              onClick={handleQuitEdit}
+              sx={{
+                color: 'primary.500',
+                cursor: 'pointer',
+                pl: 1.5,
+                '&:hover': {
+                  color: 'primary.600'
+                }
+              }}
+            >
+              <Typography level='body-sm'>
+                Quit edit
+              </Typography>
+              <KeyboardReturn sx={{ fontSize: '16px' }} />
+            </Stack>
+          )}
+          {clickedWord && (
+            <Typography
+              level='body-sm'
+              sx={{
+                color: 'neutral.400',
+                pl: 1.5
+              }}
+            >
+              copied to clipboard
+            </Typography>
+          )}
+        </Stack>
+
+        {searchExpanded ? (
+          <Input
+            placeholder='Filter...'
+            value={searchTerm}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            onBlur={handleSearchCollapse}
+            autoFocus
+            startDecorator={<Search sx={{ fontSize: '16px' }} />}
+            endDecorator={
+              searchTerm && (
+                <IconButton
+                  size='sm'
+                  variant='plain'
+                  onClick={handleSearchClear}
+                  sx={{ p: 0.5 }}
+                >
+                  <Close sx={{ fontSize: '14px' }} />
+                </IconButton>
+              )
+            }
+            sx={{
+              maxWidth: '150px',
+              borderRadius: 'lg',
+              '--Input-focusedThickness': '1px'
+            }}
+          />
+        ) : (
+          <IconButton
+            size='sm'
+            variant='plain'
+            onClick={handleSearchExpand}
+            sx={{ color: 'neutral.500' }}
+          >
+            <Search sx={{ fontSize: '18px' }} />
+          </IconButton>
         )}
       </Stack>
 
@@ -218,10 +314,11 @@ export const WordListContent = ({ shardId }) => {
         sx={{
           flex: 1,
           overflow: 'auto',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
-          gap: 1.5,
-          p: 0.5
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 1,
+          p: 0.5,
+          alignContent: 'flex-start'
         }}
       >
         {filteredWords.length > 0 ? (
@@ -232,13 +329,15 @@ export const WordListContent = ({ shardId }) => {
               editMode={editMode}
               onWordDelete={handleWordDelete}
               onLongPress={handleTileLongPress}
+              onWordClick={handleWordClick}
               isHighlighted={searchTerm.trim() &&
                 word.toLowerCase().includes(searchTerm.toLowerCase())}
+              isClicked={clickedWord === word}
             />
           ))
         ) : (
           <Box sx={{
-            gridColumn: '1 / -1',
+            width: '100%',
             textAlign: 'center',
             py: 4
           }}>
