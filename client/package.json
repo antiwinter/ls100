@@ -1,7 +1,7 @@
 {
   "name": "client",
   "private": true,
-  "version": "0.1.10",
+  "version": "0.1.11",
   "type": "module",
   "scripts": {
     "dev": "BUILD_ID=$(git describe --tags --always --dirty 2>/dev/null || echo) vite",
