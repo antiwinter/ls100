@@ -95,7 +95,7 @@ export const SearchContent = ({ shardId, onSeek }) => {
                       level='body-xs'
                       sx={{
                         color: 'neutral.400',
-                        fontFamily: 'monospace',
+                        // fontFamily: 'monospace',
                         fontSize: '0.7rem'
                       }}
                     >

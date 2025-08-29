@@ -21,6 +21,7 @@ export const BookmarkContent = ({ shardId, onSeek }) => {
   } = useSessionStore(shardId)()
 
   const [seek, setSeek] = useState(position || 0)
+  const [activeBookmark, setActiveBookmark] = useState(null)
 
   log.debug('BookmarkContent re-render', { shardId, position, hint, shardName, bookmarksCount: bookmarks.length })
 
@@ -49,7 +50,13 @@ export const BookmarkContent = ({ shardId, onSeek }) => {
 
   const goTo = (bookmark) => {
     log.debug('Go to bookmark', { gid: bookmark.gid })
+    setActiveBookmark(bookmark.gid)
     onSeek?.(bookmark.gid)
+
+    // Reset elevated state after 2 seconds
+    setTimeout(() => {
+      setActiveBookmark(null)
+    }, 2000)
   }
 
   const deleteBookmark = (bookmark) => {
@@ -88,12 +95,13 @@ export const BookmarkContent = ({ shardId, onSeek }) => {
       >
         <Box sx={{
           p: 1,
-          bgcolor: 'background.surface',
+          bgcolor: activeBookmark === bookmark.gid ? 'background.level2' : 'background.surface',
           borderRadius: 'sm',
           mb: 1,
           width: '100%',
           maxWidth: '100%',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          transition: 'background-color 0.2s ease'
         }}>
           <Stack spacing={0.5} sx={{ width: '100%', minWidth: 0 }}>
             <Stack direction='row' justifyContent='space-between' alignItems='center' sx={{ width: '100%' }}>
