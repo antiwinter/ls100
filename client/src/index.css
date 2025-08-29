@@ -73,3 +73,22 @@ input, textarea, [contenteditable], p, h1, h2, h3, h4, h5, h6, span, div {
   -ms-user-select: none !important;
   -webkit-touch-callout: none !important;
 }
+
+/* Prevent zoom on inputs - ensures 16px minimum to avoid iOS zoom */
+input, textarea, select {
+  font-size: max(16px, 1em) !important;
+}
+
+/* Additional zoom prevention for all elements */
+* {
+  -webkit-text-size-adjust: 100% !important;
+  -moz-text-size-adjust: 100% !important;
+  text-size-adjust: 100% !important;
+}
+
+/* Ensure Joy UI components inherit proper font size */
+.MuiInput-root input,
+.Joy-input,
+[class*="Joy"] input {
+  font-size: max(16px, 1em) !important;
+}
