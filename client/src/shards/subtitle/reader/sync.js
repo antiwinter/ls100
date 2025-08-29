@@ -60,7 +60,7 @@ export const useSync = (shardId, words, index, bookmarks, intervalMs = 10000, op
         old.sec !== b.sec || old.line !== b.line
       )
     })
-    log.debug('diff bookmarks', { last, current, additions, removals, updates })
+    // log.debug('diff bookmarks', { last, current, additions, removals, updates })
     return { additions, removals, updates }
   }, [])
 
@@ -101,7 +101,7 @@ export const useSync = (shardId, words, index, bookmarks, intervalMs = 10000, op
         // Sync bookmark additions
         if (additions.length > 0) {
           for (const bookmark of additions) {
-            log.debug('sync bookmark addition', { shardId, bookmark })
+            // log.debug('sync bookmark addition', { shardId, bookmark })
             await apiCall(`/api/subtitle-shards/${shardId}/bookmarks`, {
               method: 'POST',
               body: JSON.stringify({

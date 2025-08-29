@@ -214,7 +214,7 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
       <AppDialog
         open={showImport}
         onClose={() => setShowImport(false)}
-        title="Select Learning Content"
+        title="Import anything"
         maxWidth={500}
       >
         <GlobalImport

@@ -210,7 +210,7 @@ export const EditShard = () => {
           color="neutral"
           size="sm"
           onClick={handleBack}
-          sx={{ borderRadius: '50%' }}
+          sx={{ border: 'none' }}
         >
           <ArrowBack />
         </IconButton>

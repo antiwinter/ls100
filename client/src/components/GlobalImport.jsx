@@ -110,12 +110,12 @@ export const GlobalImport = ({ onConfigure, onCancel }) => {
           onDragOver={(e) => e.preventDefault()}
           onClick={() => document.getElementById('file-input').click()}
         >
-          <CloudUpload sx={{ fontSize: 48, color: 'neutral.400', mb: 2 }} />
+          {/* <CloudUpload sx={{ fontSize: 48, color: 'neutral.400', mb: 2 }} /> */}
           <Typography level="h4" sx={{ mb: 1 }}>
             Drop file here or click to browse
           </Typography>
           <Typography color="neutral">
-            Supports: SRT, VTT subtitle files
+            A shard, or raw materials such as subtitle files
           </Typography>
 
           <input
