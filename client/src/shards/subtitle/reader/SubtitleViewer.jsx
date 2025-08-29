@@ -153,7 +153,7 @@ const SubtitleViewer_ = forwardRef(({
     const allGroups = root.querySelectorAll('[data-index]')
     allGroups.forEach(el => {
       const gid = Number(el.getAttribute('data-index'))
-      el.style.backgroundColor = set.has(gid) ? 'rgba(255, 235, 59, 0.3)' : ''
+      el.style.backgroundColor = set.has(gid) ? 'var(--joy-palette-background-level1)' : ''
     })
   }, [])
 
@@ -185,7 +185,7 @@ const SubtitleViewer_ = forwardRef(({
     },
     seek: (gid) => {
       log.debug('viewer seek', { gid })
-      layoutProtect.current = 2
+      layoutProtect.current = 5
       vsRef.current?.seek(gid)
     },
     setSearchResult: (gids) => {
@@ -298,7 +298,7 @@ const SubtitleViewer_ = forwardRef(({
     const group = groups?.[index]
     if (!group) return null
     return (
-      <Box data-index={index}>
+      <Box data-index={index} sx={{ borderRadius: 'md', px: 1 }}>
         <SubtitleRow group={group} clean={cleanSrtText} renderMain={renderMain} />
       </Box>
     )

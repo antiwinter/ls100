@@ -8,13 +8,6 @@ import { useDrag } from '@use-gesture/react'
 // import { useSpring } from '@react-spring/web'
 
 const ANIMATION = 300
-// Preset size configurations
-const SIZES = {
-  full: { h: '99vh', mh: '99vh' },
-  half: { h: 'min(60vh, 300px)', mh: 'min(60vh, 300px)' },
-  'fit-content': { h: 'auto', mh: '99vh' }
-}
-
 // Helper to prevent all pointer events from bubbling
 const stopAllEvents = () => {
   const res = {}
@@ -163,7 +156,7 @@ Slider.displayName = 'Slider'
 
 // ActionDrawer: lite version with unified gesture handling and imperative API
 export const ActionDrawer = forwardRef(({
-  size = 'half',
+  size,
   position = 'bottom',
   title,
   onPageChange,
@@ -192,7 +185,6 @@ export const ActionDrawer = forwardRef(({
   const closingRef = useRef(null)
 
   const bottom = position === 'bottom'
-  const sz = SIZES[size] || SIZES.half
 
   const dY = useRef(null)
   const transform = useCallback((dy) => {
@@ -362,8 +354,8 @@ export const ActionDrawer = forwardRef(({
           borderRadius: bottom ? '24px 24px 0 0' : '0 0 24px 24px',
           width: 'calc(100% - 8px)',
           maxWidth: '500px',
-          height: sz.h,
-          maxHeight: sz.mh,
+          height: size || 'min(60vh, 300px)',
+          maxHeight: '90vh',
           transition: 'transform 0.28s ease',
           transform: transform(),
           boxShadow: t => (

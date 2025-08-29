@@ -18,7 +18,7 @@ const OverlayManager_ = forwardRef(({ onBack, shardId = '', onSeek }, ref) => {
     tool: null,
     wordCtx: '',
     position: 'bottom',
-    size: 'half'
+    size: null
   })
   log.debug('OverlayManager re-render', { xState })
 
@@ -27,7 +27,7 @@ const OverlayManager_ = forwardRef(({ onBack, shardId = '', onSeek }, ref) => {
   // toggle tool with toolbar open
   const toggleTool = useCallback((tool, position = 'bottom') => {
     setXState(x => ({ ...x, tool: x.tool === tool ? null : tool,
-      position, size: 'fit-content'
+      position, size: tool === 'search' ? '45vh' : null
     }))
   }, [])
 
@@ -53,7 +53,7 @@ const OverlayManager_ = forwardRef(({ onBack, shardId = '', onSeek }, ref) => {
       // else open toolbar
       setXState(x => {
         if (wordCtx && !x.toolbar) {
-          x.size = 'half'
+          x.size = null
           return x.tool === 'dict' ? { ...x, wordCtx } :  { ...x, wordCtx, position, tool:'dict' }
         } else
           return { ...x, tool: null, toolbar: !(x.tool || x.toolbar) }

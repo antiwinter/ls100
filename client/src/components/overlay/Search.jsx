@@ -9,6 +9,7 @@ import {
 } from '@mui/joy'
 import { Search as SearchIcon, Clear as ClearIcon } from '@mui/icons-material'
 import { useSessionStore } from './stores/useSessionStore'
+import { formatSec } from '../../utils/dateFormat'
 
 export const SearchContent = ({ shardId, onSeek }) => {
   const sessionStore = useSessionStore(shardId)
@@ -28,16 +29,8 @@ export const SearchContent = ({ shardId, onSeek }) => {
     onSeek?.(Math.max(0, result.gid - 3))
   }
 
-  const formatTime = (sec) => {
-    const minutes = Math.floor(sec / 60)
-    const seconds = Math.floor(sec % 60)
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`
-  }
-
   return (
-    <Stack spacing={2} sx={{ px: 1, pb: 1 }}>
-      <Typography level='title-sm'>Search</Typography>
-
+    <Stack sx={{ height: '100%' }}>
       <Input
         value={searchQuery}
         onChange={handleSearchChange}
@@ -50,26 +43,60 @@ export const SearchContent = ({ shardId, onSeek }) => {
             </IconButton>
           )
         }
+        sx={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 1,
+          mx: 1,
+          mt: 1,
+          bgcolor: 'background.body'
+        }}
       />
 
       {searchResults?.length > 0 && (
-        <List size='sm' sx={{ maxHeight: '300px', overflow: 'auto' }}>
+        <List
+          size='sm'
+          sx={{
+            flex: 1,
+            overflow: 'auto',
+            mx: 1,
+            mt: 1,
+            mb: 1
+          }}
+        >
           {searchResults.map((result, idx) => (
             <ListItem key={idx}>
-              <ListItemButton onClick={() => handleResultClick(result)}>
+              <ListItemButton
+                onClick={() => handleResultClick(result)}
+                sx={{ borderRadius: 'md' }}
+              >
                 <Stack spacing={0.5} sx={{ width: '100%' }}>
                   <Stack direction='row' justifyContent='space-between' alignItems='center'>
-                    <Typography level='body-sm' sx={{ fontWeight: 500 }}>
-                      {formatTime(result.sec)}
+                    <Typography
+                      level='body-xs'
+                      sx={{
+                        color: 'neutral.400',
+                        fontFamily: 'monospace',
+                        fontSize: '0.7rem'
+                      }}
+                    >
+                      {formatSec(result.sec)}
                     </Typography>
-                    <Typography level='body-xs' sx={{ opacity: 0.7 }}>
+                    <Typography
+                      level='body-xs'
+                      sx={{
+                        color: 'neutral.400',
+                        fontFamily: 'monospace',
+                        fontSize: '0.7rem'
+                      }}
+                    >
                       #{result.gid + 1}
                     </Typography>
                   </Stack>
                   <Typography
-                    level='body-sm'
+                    level='body-md'
                     sx={{
-                      opacity: 0.8,
+                      color: 'neutral.500',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap'
@@ -85,7 +112,15 @@ export const SearchContent = ({ shardId, onSeek }) => {
       )}
 
       {searchQuery && (!searchResults || searchResults.length === 0) && (
-        <Typography level='body-sm' sx={{ opacity: 0.6, textAlign: 'center', py: 2 }}>
+        <Typography
+          level='body-sm'
+          sx={{
+            opacity: 0.6,
+            textAlign: 'center',
+            py: 2,
+            mx: 1
+          }}
+        >
           No results found
         </Typography>
       )}

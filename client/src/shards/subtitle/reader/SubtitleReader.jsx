@@ -317,7 +317,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
       return
     }
 
-    const results = fuse.search(searchQuery, { limit: 10 })
+    const results = fuse.search(searchQuery, { limit: 20 })
     const searchResults = results.map(result => result.item).sort((a, b) => a.sec - b.sec)
     setSearchResults(searchResults)
 
