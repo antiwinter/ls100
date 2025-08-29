@@ -3,7 +3,8 @@ import {
   Stack,
   Typography,
   IconButton,
-  Box
+  Box,
+  Chip
 } from '@mui/joy'
 import { VolumeUp } from '@mui/icons-material'
 import { log } from '../../utils/logger.js'
@@ -30,8 +31,8 @@ const DictMainPage = memo(function DictMainPage ({
             top: 0,
             zIndex: 2,
             bgcolor: 'background.body',
-            borderBottom: 1,
-            borderColor: 'divider',
+            // borderBottom: 1,
+            // borderColor: 'divider',
             py: 0.5
           }}
         >
@@ -153,43 +154,30 @@ export const DictNotesPage = ({ wordCtx }) => {
     )
   }
 
-  const formatTime = (sec) => {
-    if (!Number.isFinite(sec) || sec < 0) return '--:--'
-    const minutes = Math.floor(sec / 60)
-    const seconds = Math.floor(sec % 60)
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`
-  }
-
   const extractText = (line) => line?.data?.text || line?.text || ''
 
   return (
-    <Box sx={{ p: 2 }}>
+    <Box>
       <Stack spacing={2}>
-        {/* Word and Timestamp */}
-        <Stack spacing={0.5}>
-          <Typography level="title-lg" sx={{ fontWeight: 'bold' }}>
+        {/* Word and Context Chip */}
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography level="h4">
             {wordCtx.word}
           </Typography>
-          <Typography level="body-xs" color="neutral">
-            {formatTime(wordCtx.sec)}
-          </Typography>
+          <Chip variant='soft' size='sm' color='neutral' sx={{ fontSize: '0.75rem', color: 'neutral.400', px: 1 }}>
+            Context
+          </Chip>
         </Stack>
 
         {/* Main Language Context */}
         {wordCtx.main && wordCtx.main.length > 0 && (
           <Box>
-            <Typography level="title-sm" sx={{ mb: 1, fontWeight: 600 }}>
-              Context
-            </Typography>
             <Stack spacing={0.5}>
               {wordCtx.main.map((line, idx) => (
                 <Typography
                   key={idx}
                   level="body-sm"
                   sx={{
-                    p: 1,
-                    bgcolor: 'background.level1',
-                    borderRadius: 'sm',
                     lineHeight: 1.4
                   }}
                 >
@@ -203,9 +191,6 @@ export const DictNotesPage = ({ wordCtx }) => {
         {/* Reference Languages */}
         {wordCtx.refs && wordCtx.refs.size > 0 && (
           <Box>
-            <Typography level="title-sm" sx={{ mb: 1, fontWeight: 600 }}>
-              References
-            </Typography>
             <Stack spacing={1.5}>
               {Array.from(wordCtx.refs.entries()).map(([langCode, lines]) => (
                 lines.length > 0 && (
@@ -213,17 +198,15 @@ export const DictNotesPage = ({ wordCtx }) => {
                     <Typography level="body-xs" color="primary" sx={{ mb: 0.5, fontWeight: 600 }}>
                       {langCode.toUpperCase()}
                     </Typography>
-                    <Stack spacing={0.5}>
+                    <Stack spacing={0.5} sx={{ bgcolor: 'background.level1'
+                      , px: 2, py: 1, borderRadius: 'md' }}>
                       {lines.map((line, idx) => (
                         <Typography
                           key={idx}
                           level="body-sm"
                           sx={{
-                            p: 1,
-                            bgcolor: 'background.level2',
-                            borderRadius: 'sm',
                             lineHeight: 1.4,
-                            color: 'neutral.700'
+                            color: 'secondary.400'
                           }}
                         >
                           {extractText(line)}
@@ -246,13 +229,29 @@ export const DictMorePage = () => {
   return (
     <Box sx={{
       height: '100%',
+      position: 'relative',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center'
     }}>
       <Typography level="body-md" sx={{ color: 'neutral.500' }}>
-        Third page placeholder
+        Have a mind refresh...
       </Typography>
+      <Box
+        component="img"
+        src="/freshpig.png"
+        alt="Fresh pig"
+        sx={{
+          position: 'absolute',
+          bottom: -250,
+          left: '50%',
+          // transform: 'translateX(-10%)',
+          maxWidth: '30%',
+          height: 'auto',
+          objectFit: 'contain',
+          opacity: 0.2
+        }}
+      />
     </Box>
   )
 }
