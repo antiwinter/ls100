@@ -75,7 +75,27 @@ export const detectLanguageFromContent = (content) => {
   log.debug('🔍 Language scores:', sortedLangs.slice(0, 3))
 
   const topLang = sortedLangs[0]?.[0]
-  const result = topLang && langScores > 1 ? topLang : 'en'
+  const secondLang = sortedLangs[1]?.[0]
+
+  // Handle Chinese/Japanese confusion (both use Kanji characters)
+  if ((topLang === 'zh' && secondLang === 'ja') || (topLang === 'ja' && secondLang === 'zh')) {
+    const hasHiragana = /[\u3040-\u309f]/.test(combinedText)
+    const hasKatakana = /[\u30a0-\u30ff]/.test(combinedText)
+
+    if (hasHiragana || hasKatakana) {
+      log.debug('🔍 Detected Japanese-specific characters (Hiragana/Katakana), selecting Japanese')
+      const result = 'ja'
+      log.debug('🔍 Selected language:', result, '(resolved ZH/JA conflict)')
+      return result
+    } else {
+      log.debug('🔍 No Japanese-specific characters found, selecting Chinese')
+      const result = 'zh'
+      log.debug('🔍 Selected language:', result, '(resolved ZH/JA conflict)')
+      return result
+    }
+  }
+
+  const result = topLang && langScores[topLang] > 1 ? topLang : 'en'
 
   log.debug('🔍 Selected language:', result, `(top score: ${langScores[topLang]?.toFixed(2) || 'N/A'})`)
 

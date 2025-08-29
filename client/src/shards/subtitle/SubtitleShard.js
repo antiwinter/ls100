@@ -115,13 +115,18 @@ const parseMovieInfo = (filename) => {
     }
   }
 
+  log.debug('🔍 Movie title:', movieTitle)
   // Clean up the movie title
   let movieName = movieTitle
     // Replace dots, underscores, and dashes with spaces
     .replace(/[._-]/g, ' ')
+    // Remove brackets and their contents (both complete pairs and dangling ones)
+    .replace(/\([^)]*\)/g, '')  // Remove complete parentheses pairs
+    .replace(/[()]/g, '')       // Remove any remaining dangling parentheses
     // Remove extra spaces
     .replace(/\s+/g, ' ')
     .trim()
+  log.debug({ movieName })
 
   // Capitalize words properly
   movieName = movieName
