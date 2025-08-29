@@ -29,6 +29,8 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
 
   const loadShards = useCallback(async () => {
     try {
+      // 5 second artificial delay
+      // await new Promise(resolve => setTimeout(resolve, 5000))
       const data = await apiCall(`/api/shards?sort=${sortBy}`)
       setShards(data.shards || [])
     } catch (error) {
