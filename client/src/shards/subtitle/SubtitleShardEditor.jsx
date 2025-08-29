@@ -293,7 +293,7 @@ export const SubtitleShardEditor = ({
         <input
           ref={fileInputRef}
           type="file"
-          accept=".srt,.vtt,.ass,.ssa,.sub"
+          accept="*"
           style={{ display: 'none' }}
           onChange={handleLanguageFileSelect}
         />
