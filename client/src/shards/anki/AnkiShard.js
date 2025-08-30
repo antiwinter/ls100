@@ -1,7 +1,7 @@
-// import { readAnkiPackage } from 'anki-reader' // Temporarily disabled due to browser compatibility
 import { AnkiShardEditor } from './AnkiShardEditor.jsx'
 import { AnkiReader as AnkiReaderComponent } from './reader/AnkiReader.jsx'
 import { deckStorage as _deckStorage } from './storage/storageManager.js'
+import { parseApkgFile } from './parser/apkgParser.js'
 import { log } from '../../utils/logger'
 
 // Anki Shard Engine
@@ -40,11 +40,126 @@ export const parseAnkiFile = async (file, filename) => {
   try {
     log.info('Parsing .apkg file:', filename)
 
-    // Temporary fallback - anki-reader disabled due to browser compatibility issues
-    throw new Error('Anki file parsing is temporarily disabled due to browser compatibility issues. Please check the console for updates on when this will be fixed.')
+    // Use browser-compatible sql.js + jszip parser
+    const { collection, noteTypes, decks, notes: _notes, cards, media } = await parseApkgFile(file)
+
+    log.debug('Parsed data:', {
+      decksCount: Object.keys(decks).length,
+      deckIds: Object.keys(decks),
+      cardsCount: cards.length,
+      cardDeckIds: [...new Set(cards.map(c => c.did))]
+    })
+
+    // Convert to our internal format
+    let deckList = Object.values(decks).map(deck => {
+      const deckCards = cards.filter(card => card.did === deck.id)
+
+      return {
+        id: deck.id,
+        name: deck.name,
+        description: deck.desc || '',
+        cards: deckCards.map(card => ({
+          id: card.id,
+          nid: card.nid,
+          question: generateCardSide(card, card.noteType, 'front'),
+          answer: generateCardSide(card, card.noteType, 'back'),
+          tags: card.note?.tags || [],
+          due: card.due,
+          interval: card.ivl,
+          factor: card.factor,
+          reps: card.reps,
+          lapses: card.lapses,
+          type: card.type,
+          queue: card.queue
+        })),
+        noteTypes: noteTypes,
+        totalCards: deckCards.length,
+        newCards: deckCards.filter(c => c.type === 0).length,
+        learningCards: deckCards.filter(c => c.type === 1).length,
+        reviewCards: deckCards.filter(c => c.type === 2).length
+      }
+    })
+
+    // Fallback: if no decks found but cards exist, create a default deck
+    if (deckList.length === 0 && cards.length > 0) {
+      log.info('No decks found, creating default deck with all cards')
+      const defaultDeck = {
+        id: 1, // Default deck ID in Anki
+        name: filename.replace(/\.apkg$/i, ''), // Use filename as deck name
+        description: 'Imported from .apkg file',
+        cards: cards.map(card => ({
+          id: card.id,
+          nid: card.nid,
+          question: generateCardSide(card, card.noteType, 'front'),
+          answer: generateCardSide(card, card.noteType, 'back'),
+          tags: card.note?.tags || [],
+          due: card.due,
+          interval: card.ivl,
+          factor: card.factor,
+          reps: card.reps,
+          lapses: card.lapses,
+          type: card.type,
+          queue: card.queue
+        })),
+        noteTypes: noteTypes,
+        totalCards: cards.length,
+        newCards: cards.filter(c => c.type === 0).length,
+        learningCards: cards.filter(c => c.type === 1).length,
+        reviewCards: cards.filter(c => c.type === 2).length
+      }
+      deckList = [defaultDeck]
+    }
+
+    // Store media files
+    for (const [filename, mediaInfo] of Object.entries(media)) {
+      // Media will be stored separately in IndexedDB
+      log.debug('Media file found:', filename, mediaInfo.size + ' bytes')
+    }
+
+    const result = {
+      id: `deck_${Date.now()}`,
+      name: filename.replace(/\.apkg$/i, ''),
+      decks: deckList,
+      media: media,
+      collection: collection,
+      importedAt: new Date().toISOString()
+    }
+
+    log.info('Successfully parsed .apkg file:', result.name, `(${deckList.length} decks, ${cards.length} cards)`)
+    return result
+
   } catch (error) {
     log.error('Failed to parse .apkg file:', error)
     throw new Error(`Failed to parse Anki deck: ${error.message}`)
+  }
+}
+
+// Generate card side content from templates
+const generateCardSide = (card, noteType, side) => {
+  try {
+    if (!noteType || !card.note) return 'Content unavailable'
+
+    const template = noteType.tmpls?.[card.ord]
+    if (!template) return 'Template not found'
+
+    const templateContent = side === 'front' ? template.qfmt : template.afmt
+    const fields = card.note.flds
+    const fieldNames = noteType.flds?.map(f => f.name) || []
+
+    // Simple template substitution (basic implementation)
+    let content = templateContent || ''
+
+    // Replace field placeholders {{FieldName}}
+    fieldNames.forEach((fieldName, index) => {
+      const fieldValue = fields[index] || ''
+      const regex = new RegExp(`{{${fieldName}}}`, 'g')
+      content = content.replace(regex, fieldValue)
+    })
+
+    return content || 'No content'
+  } catch (error) {
+    log.warn('Failed to generate card side:', error)
+    return 'Error generating content'
   }
 }
 
@@ -96,13 +211,36 @@ export const shardTypeInfo = {
 }
 
 // Process shard data (no-op for frontend-only storage)
-export const processData = async (_shard, _apiCall) => {
-  // Since we're using frontend-only storage, we don't process data on backend
-  // All .apkg parsing and storage happens in the browser
-  log.debug('Anki shard processData called - using frontend storage')
+export const processData = async (shard, _apiCall) => {
+  log.debug('Anki shard processData called - updating shard with deck IDs')
 
-  // The shard data is already processed and stored in browser storage
-  // via the AnkiShardEditor component, so no backend processing needed
+  try {
+    // Get available deck IDs from IndexedDB storage
+    const availableDecks = _deckStorage.listDecks()
+    const deckIds = Object.keys(availableDecks).map(id => parseInt(id, 10))
+
+    log.debug('Available deck IDs for shard:', deckIds)
+
+    // Update shard data with deck IDs so the reader can find them
+    if (!shard.data) {
+      shard.data = {}
+    }
+
+    shard.data.deckIds = deckIds
+    shard.data.totalDecks = deckIds.length
+    shard.data.totalCards = Object.values(availableDecks)
+      .reduce((sum, deck) => sum + (deck.totalCards || 0), 0)
+
+    log.info('Updated shard data:', {
+      deckIds: shard.data.deckIds,
+      totalDecks: shard.data.totalDecks,
+      totalCards: shard.data.totalCards
+    })
+
+  } catch (error) {
+    log.error('Failed to process Anki shard data:', error)
+    throw new Error(`Failed to process Anki shard: ${error.message}`)
+  }
 }
 
 // Engine components

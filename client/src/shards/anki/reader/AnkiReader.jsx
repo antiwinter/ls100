@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Box, Typography, ToggleButtonGroup, Button, Stack, Alert } from '@mui/joy'
-import { MenuBook, School } from '@mui/icons-material'
+import { Box, Typography, ToggleButtonGroup, Button, Stack, Alert, IconButton } from '@mui/joy'
+import { MenuBook, School, ArrowBack } from '@mui/icons-material'
 import { BrowseMode } from './BrowseMode.jsx'
 import { StudyMode } from './StudyMode.jsx'
 import { deckStorage } from '../storage/storageManager.js'
 import { StudyEngine } from '../engine/studyEngine.js'
+import { apiCall } from '../../../config/api.js'
 import { log } from '../../../utils/logger'
 
-export const AnkiReader = ({ shard }) => {
+const AnkiReaderContent = ({ shard, onBack }) => {
   const [mode, setMode] = useState('browse')
   const [decks, setDecks] = useState([])
   const [selectedDeck, setSelectedDeck] = useState(null)
@@ -15,24 +16,37 @@ export const AnkiReader = ({ shard }) => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  // Load decks on mount
-  useEffect(() => {
-    loadDecks()
-  }, [shard, loadDecks])
-
+  // Define loadDecks BEFORE useEffect that uses it
   const loadDecks = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
 
-      const deckIds = shard.data?.deckIds || []
+      let deckIds = shard?.data?.deckIds || []
+      const availableDecks = deckStorage.listDecks()
+
+      // Fallback: if no deckIds in shard but decks exist in storage, use all available decks
+      if (deckIds.length === 0 && Object.keys(availableDecks).length > 0) {
+        deckIds = Object.keys(availableDecks).map(id => parseInt(id, 10))
+        log.info('No deckIds in shard data, using all available decks:', deckIds)
+      }
+
       const loadedDecks = []
+
+      log.debug('AnkiReader loading decks:', {
+        deckIds,
+        shardData: shard?.data,
+        availableDecks: availableDecks
+      })
 
       for (const deckId of deckIds) {
         try {
           const deck = await deckStorage.loadDeck(deckId)
           if (deck) {
             loadedDecks.push(deck)
+            log.debug('Deck loaded successfully:', deckId, deck.name)
+          } else {
+            log.warn('Deck not found:', deckId)
           }
         } catch (err) {
           log.warn('Failed to load deck:', deckId, err)
@@ -51,7 +65,12 @@ export const AnkiReader = ({ shard }) => {
     } finally {
       setLoading(false)
     }
-  }, [shard.data?.deckIds, selectedDeck])
+  }, [shard?.data, selectedDeck])
+
+  // Load decks on mount
+  useEffect(() => {
+    loadDecks()
+  }, [shard, loadDecks])
 
   const handleModeChange = (newMode) => {
     if (newMode !== mode) {
@@ -97,6 +116,15 @@ export const AnkiReader = ({ shard }) => {
     setMode('browse')
   }
 
+  // Guard clause for missing shard
+  if (!shard) {
+    return (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <Typography color="danger">No shard data provided</Typography>
+      </Box>
+    )
+  }
+
   if (loading) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
@@ -138,6 +166,14 @@ export const AnkiReader = ({ shard }) => {
         bgcolor: 'background.surface'
       }}>
         <Stack direction="row" spacing={2} alignItems="center">
+          <IconButton
+            variant="plain"
+            size="sm"
+            onClick={onBack}
+            sx={{ mr: 1 }}
+          >
+            <ArrowBack />
+          </IconButton>
           <Typography level="title-md" sx={{ flex: 1 }}>
             {selectedDeck?.name || 'Anki Deck'}
           </Typography>
@@ -188,4 +224,48 @@ export const AnkiReader = ({ shard }) => {
       </Box>
     </Box>
   )
+}
+
+export const AnkiReader = ({ shardId, onBack }) => {
+  const [shard, setShard] = useState(undefined)
+  const [loading, setLoading] = useState(true)
+
+  // Load shard data
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      try {
+        const data = await apiCall(`/api/shards/${shardId}`)
+        if (!alive) return
+        setShard(data.shard || null)
+      } catch (error) {
+        log.error('Failed to load shard:', error)
+        if (alive) setShard(null)
+      } finally {
+        if (alive) setLoading(false)
+      }
+    })()
+
+    return () => {
+      alive = false
+    }
+  }, [shardId])
+
+  if (loading) {
+    return (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <Typography color="neutral">Loading shard...</Typography>
+      </Box>
+    )
+  }
+
+  if (!shard) {
+    return (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <Typography color="danger">Failed to load shard data</Typography>
+      </Box>
+    )
+  }
+
+  return <AnkiReaderContent shard={shard} onBack={onBack} />
 }

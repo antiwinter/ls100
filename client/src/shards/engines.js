@@ -59,7 +59,7 @@ export const engineGetReader = (shardType) => {
 // File detection across all engines
 export const engineDetect = async (filename, buffer) => {
   const results = []
-  
+
   // Run detection on all registered engines
   for (const [shardType, engine] of Object.entries(SHARD_ENGINES)) {
     if (engine?.detect) {
@@ -71,10 +71,10 @@ export const engineDetect = async (filename, buffer) => {
       })
     }
   }
-  
+
   // Sort by confidence (highest first)
   results.sort((a, b) => b.confidence - a.confidence)
-  
+
   // Return highest confidence result
   const winner = results[0]
   return winner?.match && winner.confidence >= 0.5 ? winner : null

@@ -152,6 +152,58 @@ export const AnkiShardEditor = ({
   const [decks, setDecks] = useState({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const importedFilesRef = useRef(new Set())
+
+  // Define handleFileImport BEFORE useEffect that uses it
+  const handleFileImport = useCallback(async (file, filename) => {
+    // Prevent importing the same file multiple times
+    const fileKey = `${filename}_${file.size || 0}`
+    if (importedFilesRef.current.has(fileKey)) {
+      log.debug('File already imported, skipping:', filename)
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      log.info('Importing Anki deck:', filename)
+      importedFilesRef.current.add(fileKey)
+
+      // Parse .apkg file
+      const deckData = await parseAnkiFile(file, filename)
+
+      // Save each deck to storage (deckData.decks is an array of decks)
+      const updatedDecks = { ...decks }
+
+      for (const deck of deckData.decks || []) {
+        await deckStorage.saveDeck(deck)
+
+        // Update local state for each deck
+        updatedDecks[deck.id] = {
+          name: deck.name,
+          totalCards: deck.cards.length,
+          studiedCards: 0,
+          lastStudied: null
+        }
+      }
+
+      setDecks(updatedDecks)
+
+      // Notify parent component
+      onChange?.({
+        deckIds: Object.keys(updatedDecks)
+      })
+
+      log.info('Anki file imported successfully:', deckData.name, `(${deckData.decks?.length || 0} decks)`)
+
+    } catch (err) {
+      log.error('Failed to import deck:', err)
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [decks, onChange])
 
   // Initialize decks from storage or detected file
   useEffect(() => {
@@ -175,52 +227,13 @@ export const AnkiShardEditor = ({
       // Load existing decks for selection
       setDecks(deckStorage.listDecks())
     }
-  }, [mode, shardData, detectedInfo, onChange, handleFileImport])
+  }, [mode, shardData, detectedInfo, onChange]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Note: handleFileImport excluded to prevent infinite loop
+  // (it updates decks which recreates itself)
 
   const handleFileSelect = async (file) => {
     await handleFileImport(file, file.name)
   }
-
-  const handleFileImport = useCallback(async (file, filename) => {
-    setLoading(true)
-    setError(null)
-
-    try {
-      log.info('Importing Anki deck:', filename)
-
-      // Parse .apkg file
-      const deckData = await parseAnkiFile(file, filename)
-
-      // Save to storage
-      await deckStorage.saveDeck(deckData)
-
-      // Update local state
-      const updatedDecks = {
-        ...decks,
-        [deckData.id]: {
-          name: deckData.name,
-          totalCards: deckData.cards.length,
-          studiedCards: 0,
-          lastStudied: null
-        }
-      }
-
-      setDecks(updatedDecks)
-
-      // Notify parent component
-      onChange?.({
-        deckIds: Object.keys(updatedDecks)
-      })
-
-      log.info('Deck imported successfully:', deckData.name)
-
-    } catch (err) {
-      log.error('Failed to import deck:', err)
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }, [decks, onChange])
 
   const handleDeckDelete = async (deckId) => {
     try {

@@ -16,7 +16,7 @@ import {
   Divider
 } from '@mui/joy'
 import { Search, PlayArrow, Collections, Style } from '@mui/icons-material'
-import { parseTemplate } from '../parser/templateParser.js'
+
 import { StudyEngine } from '../engine/studyEngine.js'
 import { log } from '../../../utils/logger'
 
@@ -30,20 +30,15 @@ const CardPreview = ({ card, deck: _deck }) => {
     )
   }
 
-  const { template, fields } = card
-
-  // Parse templates
-  const questionHtml = parseTemplate(template.qfmt, fields, { mode: 'question' })
-  const answerHtml = parseTemplate(template.afmt, fields, {
-    mode: 'answer',
-    frontSide: questionHtml
-  })
+  // Use directly parsed question/answer from our simplified card structure
+  const questionHtml = card.question || ''
+  const answerHtml = card.answer || ''
 
   return (
     <Stack spacing={2} sx={{ p: 2, height: '100%' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <Style color="primary" fontSize="small" />
-        <Typography level="title-sm">{template.name}</Typography>
+        <Typography level="title-sm">Card {card.id}</Typography>
         {card.tags.length > 0 && (
           <Stack direction="row" spacing={0.5} sx={{ ml: 'auto' }}>
             {card.tags.slice(0, 3).map((tag, i) => (
@@ -107,11 +102,10 @@ const CardPreview = ({ card, deck: _deck }) => {
 }
 
 const CardListItem = ({ card, isSelected, onClick }) => {
-  const { template, fields } = card
-
-  // Get first field for preview text
-  const firstField = Object.values(fields)[0] || ''
-  const previewText = firstField.replace(/<[^>]*>/g, '').substring(0, 100)
+  // Use question as preview text (our simplified card structure)
+  const previewText = (card.question || '')
+    .replace(/<[^>]*>/g, '')  // Remove HTML tags
+    .substring(0, 100)       // Limit length
 
   return (
     <ListItem>
@@ -126,7 +120,7 @@ const CardListItem = ({ card, isSelected, onClick }) => {
         }}
       >
         <Typography level="body-sm" sx={{ fontWeight: isSelected ? 'bold' : 'normal' }}>
-          {template.name}
+          Card {card.id}
         </Typography>
         <Typography
           level="body-xs"
@@ -188,7 +182,7 @@ export const BrowseMode = ({ decks, selectedDeck, onDeckSelect, onStartStudy }) 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
       cards = cards.filter(card => {
-        const searchText = Object.values(card.fields).join(' ').toLowerCase()
+        const searchText = `${card.question || ''} ${card.answer || ''}`.toLowerCase()
         const tagText = card.tags.join(' ').toLowerCase()
         return searchText.includes(query) || tagText.includes(query)
       })
