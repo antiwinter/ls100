@@ -21,6 +21,7 @@
     "@mui/material": "^7.2.0",
     "@tailwindcss/forms": "^0.5.10",
     "@use-gesture/react": "^10.3.1",
+    "anki-reader": "^0.3.0",
     "autoprefixer": "^10.4.21",
     "dayjs": "^1.11.13",
     "framer-motion": "^12.23.12",
@@ -35,6 +36,7 @@
     "react-virtuoso": "^4.14.0",
     "react-window": "^1.8.10",
     "tailwindcss": "^4.1.11",
+    "ts-fsrs": "^5.2.2",
     "zustand": "^5.0.7"
   },
   "devDependencies": {

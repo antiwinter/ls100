@@ -11,16 +11,8 @@ import { CloudUpload } from '@mui/icons-material'
 
 
 
-// Import all shard detectors
-import * as subtitle from '../shards/subtitle'
-// Future: import * as deck from '../shards/deck'
-// Future: import * as book from '../shards/book'
-
-const detectors = [
-  { name: 'subtitle', ...subtitle }
-  // Future: { name: 'deck', ...deck },
-  // Future: { name: 'book', ...book }
-]
+// Use engine registry for file detection
+import { engineDetect } from '../shards/engines.js'
 
 export const GlobalImport = ({ onConfigure, onCancel }) => {
   const [file, setFile] = useState(null) // eslint-disable-line no-unused-vars
@@ -50,17 +42,10 @@ export const GlobalImport = ({ onConfigure, onCancel }) => {
     try {
       const buffer = await file.arrayBuffer()
 
-      // Run all detectors
-      const results = detectors.map(d => ({
-        name: d.name,
-        processor: d,
-        ...d.detect(file.name, buffer)
-      }))
+      // Use centralized engine detection
+      const winner = await engineDetect(file.name, buffer)
 
-      // Pick highest confidence match
-      const winner = results.sort((a, b) => b.confidence - a.confidence)[0]
-
-      if (!winner?.match || winner.confidence < 0.5) {
+      if (!winner) {
         setError('Unsupported file type')
         setProcessing(false)
         return
@@ -74,7 +59,6 @@ export const GlobalImport = ({ onConfigure, onCancel }) => {
         processor: winner.processor,
         filename: file.name
       }
-
 
       onConfigure?.(detectedInfo)
 

@@ -1,9 +1,10 @@
 import * as subtitleEngine from './subtitle/SubtitleShard.js'
+import * as ankiEngine from './anki/AnkiShard.js'
 
 // Registry of shard engines by type
 const SHARD_ENGINES = {
-  subtitle: subtitleEngine
-  // Future: audio: audioEngine, image: imageEngine, etc.
+  subtitle: subtitleEngine,
+  anki: ankiEngine
 }
 
 // Get engine for a shard type
@@ -53,6 +54,30 @@ export const engineGetEditor = (shardType) => {
 export const engineGetReader = (shardType) => {
   const engine = getEngine(shardType)
   return engine?.ReaderComponent || null
+}
+
+// File detection across all engines
+export const engineDetect = async (filename, buffer) => {
+  const results = []
+  
+  // Run detection on all registered engines
+  for (const [shardType, engine] of Object.entries(SHARD_ENGINES)) {
+    if (engine?.detect) {
+      const result = engine.detect(filename, buffer)
+      results.push({
+        name: shardType,
+        processor: engine,
+        ...result
+      })
+    }
+  }
+  
+  // Sort by confidence (highest first)
+  results.sort((a, b) => b.confidence - a.confidence)
+  
+  // Return highest confidence result
+  const winner = results[0]
+  return winner?.match && winner.confidence >= 0.5 ? winner : null
 }
 
 // Save data processing - handles uploads and converts shardData to backend format

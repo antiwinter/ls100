@@ -1,0 +1,324 @@
+import { useState, useRef, useEffect, useCallback } from 'react'
+import {
+  Box,
+  Typography,
+  Stack,
+  Chip,
+  IconButton,
+  Modal,
+  ModalDialog,
+  DialogTitle,
+  DialogContent,
+  Button,
+  CircularProgress,
+  Alert,
+  Card,
+  CardContent
+} from '@mui/joy'
+import { Close, Upload, Collections } from '@mui/icons-material'
+import { parseAnkiFile } from './AnkiShard.js'
+import { deckStorage } from './storage/storageManager.js'
+import { log } from '../../utils/logger'
+
+const DeckCard = ({ deck, onDelete }) => (
+  <Card variant="outlined" sx={{ position: 'relative' }}>
+    <CardContent>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+        <Collections color="primary" />
+        <Typography level="title-md" sx={{ flex: 1 }}>
+          {deck.name}
+        </Typography>
+        <IconButton
+          size="sm"
+          variant="plain"
+          color="danger"
+          onClick={onDelete}
+          sx={{ '&:hover': { bgcolor: 'danger.100' } }}
+        >
+          <Close />
+        </IconButton>
+      </Box>
+
+      <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
+        <Chip size="sm" variant="soft" color="primary">
+          {deck.totalCards} cards
+        </Chip>
+        {deck.studiedCards > 0 && (
+          <Chip size="sm" variant="soft" color="success">
+            {deck.studiedCards} studied
+          </Chip>
+        )}
+      </Stack>
+
+      {deck.lastStudied && (
+        <Typography level="body-xs" color="neutral">
+          Last studied: {new Date(deck.lastStudied).toLocaleDateString()}
+        </Typography>
+      )}
+    </CardContent>
+  </Card>
+)
+
+const UploadArea = ({ onFileSelect, loading }) => {
+  const fileInputRef = useRef(null)
+
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    const files = Array.from(e.dataTransfer.files)
+    const ankiFile = files.find(file => file.name.toLowerCase().endsWith('.apkg'))
+
+    if (ankiFile) {
+      onFileSelect(ankiFile)
+    }
+  }
+
+  const handleClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      onFileSelect(file)
+    }
+    // Clear input to allow selecting same file again
+    e.target.value = ''
+  }
+
+  return (
+    <Box
+      onClick={handleClick}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      sx={{
+        border: '2px dashed',
+        borderColor: 'neutral.300',
+        borderRadius: 'md',
+        p: 3,
+        textAlign: 'center',
+        cursor: loading ? 'default' : 'pointer',
+        bgcolor: 'background.level1',
+        transition: 'all 0.2s',
+        '&:hover': loading ? {} : {
+          borderColor: 'primary.400',
+          bgcolor: 'primary.50'
+        }
+      }}
+    >
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".apkg"
+        style={{ display: 'none' }}
+        onChange={handleFileChange}
+        disabled={loading}
+      />
+
+      {loading ? (
+        <Stack spacing={2} alignItems="center">
+          <CircularProgress size="lg" />
+          <Typography color="neutral">Processing deck...</Typography>
+        </Stack>
+      ) : (
+        <Stack spacing={2} alignItems="center">
+          <Upload sx={{ fontSize: '2rem', color: 'neutral.500' }} />
+          <div>
+            <Typography level="title-md" color="neutral">
+              Drop .apkg file here or click to browse
+            </Typography>
+            <Typography level="body-sm" color="neutral">
+              Import Anki deck files
+            </Typography>
+          </div>
+        </Stack>
+      )}
+    </Box>
+  )
+}
+
+export const AnkiShardEditor = ({
+  mode = 'create',
+  shardData = null,
+  detectedInfo = null,
+  onChange
+}) => {
+  const [decks, setDecks] = useState({})
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  // Initialize decks from storage or detected file
+  useEffect(() => {
+    if (mode === 'edit' && shardData?.data?.deckIds) {
+      // Edit mode: load deck references
+      const deckList = {}
+      const storedDecks = deckStorage.listDecks()
+
+      shardData.data.deckIds.forEach(deckId => {
+        if (storedDecks[deckId]) {
+          deckList[deckId] = storedDecks[deckId]
+        }
+      })
+
+      setDecks(deckList)
+      onChange?.({ deckIds: Object.keys(deckList) })
+    } else if (mode === 'create' && detectedInfo?.metadata?.file) {
+      // Create mode with detected .apkg file
+      handleFileImport(detectedInfo.metadata.file, detectedInfo.filename)
+    } else {
+      // Load existing decks for selection
+      setDecks(deckStorage.listDecks())
+    }
+  }, [mode, shardData, detectedInfo, onChange, handleFileImport])
+
+  const handleFileSelect = async (file) => {
+    await handleFileImport(file, file.name)
+  }
+
+  const handleFileImport = useCallback(async (file, filename) => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      log.info('Importing Anki deck:', filename)
+
+      // Parse .apkg file
+      const deckData = await parseAnkiFile(file, filename)
+
+      // Save to storage
+      await deckStorage.saveDeck(deckData)
+
+      // Update local state
+      const updatedDecks = {
+        ...decks,
+        [deckData.id]: {
+          name: deckData.name,
+          totalCards: deckData.cards.length,
+          studiedCards: 0,
+          lastStudied: null
+        }
+      }
+
+      setDecks(updatedDecks)
+
+      // Notify parent component
+      onChange?.({
+        deckIds: Object.keys(updatedDecks)
+      })
+
+      log.info('Deck imported successfully:', deckData.name)
+
+    } catch (err) {
+      log.error('Failed to import deck:', err)
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [decks, onChange])
+
+  const handleDeckDelete = async (deckId) => {
+    try {
+      await deckStorage.deleteDeck(deckId)
+
+      const updatedDecks = { ...decks }
+      delete updatedDecks[deckId]
+
+      setDecks(updatedDecks)
+      onChange?.({
+        deckIds: Object.keys(updatedDecks)
+      })
+
+      log.info('Deck deleted:', deckId)
+
+    } catch (err) {
+      log.error('Failed to delete deck:', err)
+      setError('Failed to delete deck')
+    }
+  }
+
+  const deckList = Object.entries(decks)
+  const totalCards = deckList.reduce((sum, [, deck]) => sum + deck.totalCards, 0)
+
+  return (
+    <Stack spacing={3}>
+      <Box>
+        <Typography level="body-sm" sx={{ mb: 1, fontWeight: 'bold', color: 'text.secondary' }}>
+          Anki Decks
+        </Typography>
+
+        {error && (
+          <Alert color="danger" sx={{ mb: 2 }}>
+            <Typography level="body-sm">{error}</Typography>
+          </Alert>
+        )}
+
+        {deckList.length > 0 && (
+          <Stack spacing={1} sx={{ mb: 2 }}>
+            {deckList.map(([deckId, deck]) => (
+              <DeckCard
+                key={deckId}
+                deck={deck}
+                onDelete={() => handleDeckDelete(deckId)}
+              />
+            ))}
+          </Stack>
+        )}
+
+        <UploadArea onFileSelect={handleFileSelect} loading={loading} />
+
+        {deckList.length > 0 && (
+          <Box sx={{ mt: 2, p: 2, bgcolor: 'background.level1', borderRadius: 'md' }}>
+            <Typography level="body-sm" color="neutral">
+              Total: {deckList.length} deck{deckList.length !== 1 ? 's' : ''} • {totalCards} cards
+            </Typography>
+          </Box>
+        )}
+
+        <Typography level="body-xs" sx={{ mt: 1, color: 'text.tertiary' }}>
+          Import .apkg files exported from Anki. Decks are stored locally in your browser.
+        </Typography>
+      </Box>
+
+      <Box>
+        <Typography level="body-sm" sx={{ mb: 2, color: 'primary.500', fontWeight: 'bold' }}>
+          Study Settings
+        </Typography>
+
+        <Stack spacing={2}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography level="body-sm" color="neutral">
+              New cards per day
+            </Typography>
+            <Typography level="body-sm" color="primary">
+              20 (default)
+            </Typography>
+          </Box>
+
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography level="body-sm" color="neutral">
+              Review cards per day
+            </Typography>
+            <Typography level="body-sm" color="primary">
+              200 (default)
+            </Typography>
+          </Box>
+
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography level="body-sm" color="neutral">
+              Spaced repetition algorithm
+            </Typography>
+            <Chip size="sm" variant="soft" color="success">
+              FSRS (Modern)
+            </Chip>
+          </Box>
+        </Stack>
+      </Box>
+    </Stack>
+  )
+}

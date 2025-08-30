@@ -1751,6 +1751,11 @@
     "@types/babel__core" "^7.20.5"
     react-refresh "^0.17.0"
 
+"@zip.js/zip.js@^2.7.30":
+  version "2.7.72"
+  resolved "https://registry.yarnpkg.com/@zip.js/zip.js/-/zip.js-2.7.72.tgz#2c53887c2a3b79e9d9f1c63f048bc0cf485703c3"
+  integrity sha512-3/A4JwrgkvGBlCxtItjxs8HrNbuTAAl/zlGkV6tC5Fb5k5nk4x2Dqxwl/YnUys5Ch+QB01eJ8Q5K/J2uXfy9Vw==
+
 abort-controller@^3.0.0:
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/abort-controller/-/abort-controller-3.0.0.tgz#eaf54d53b62bae4138e809ca225c8439a6efb392"
@@ -1795,6 +1800,15 @@ ajv@^8.6.0:
     fast-uri "^3.0.1"
     json-schema-traverse "^1.0.0"
     require-from-string "^2.0.2"
+
+anki-reader@^0.3.0:
+  version "0.3.0"
+  resolved "https://registry.yarnpkg.com/anki-reader/-/anki-reader-0.3.0.tgz#9ef4e893bb8c596ecf014ac6804595df10bc7a6e"
+  integrity sha512-hBlTKZkpYybWxdKv+8vKyfaXk8U+2Dtb6DJ6Sw/55XTECYW6ldqh7FRJyc2TKVIoO+Wd7fcmeDlv6mNAbFXO5Q==
+  dependencies:
+    "@zip.js/zip.js" "^2.7.30"
+    node-fetch "2.6.1"
+    sql.js "^1.8.0"
 
 ansi-regex@^5.0.1:
   version "5.0.1"
@@ -4054,6 +4068,11 @@ node-abi@^3.3.0:
   dependencies:
     semver "^7.3.5"
 
+node-fetch@2.6.1:
+  version "2.6.1"
+  resolved "https://registry.yarnpkg.com/node-fetch/-/node-fetch-2.6.1.tgz#045bd323631f76ed2e2b55573394416b639a0052"
+  integrity sha512-V4aYg89jEoVRxRb2fJdAg8FHvI7cEyYdVAh94HH0UIK8oJxUfkjlDQN9RbMx+bEjP7+ggMiFRprSti032Oipxw==
+
 node-releases@^2.0.19:
   version "2.0.19"
   resolved "https://registry.yarnpkg.com/node-releases/-/node-releases-2.0.19.tgz#9e445a52950951ec4d177d843af370b411caf314"
@@ -5072,6 +5091,11 @@ split2@^4.0.0, split2@^4.1.0:
   resolved "https://registry.yarnpkg.com/split2/-/split2-4.2.0.tgz#c9c5920904d148bab0b9f67145f245a86aadbfa4"
   integrity sha512-UcjcJOWknrNkF6PLX83qcHM6KHgVKNkV62Y8a5uYDVv9ydGQVwAHMKqHdJje1VTWpljG0WYpCDhrCdAOYH4TWg==
 
+sql.js@^1.8.0:
+  version "1.13.0"
+  resolved "https://registry.yarnpkg.com/sql.js/-/sql.js-1.13.0.tgz#f73cba7eaba0bc881f466c9149e00cf598fb01e0"
+  integrity sha512-RJbVP1HRDlUUXahJ7VMTcu9Rm1Nzw+EBpoPr94vnbD4LwR715F3CcxE2G2k45PewcaZ57pjetYa+LoSJLAASgA==
+
 statuses@2.0.1:
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/statuses/-/statuses-2.0.1.tgz#55cb000ccf1d48728bd23c685a063998cf1a1b63"
@@ -5360,6 +5384,11 @@ tree-kill@^1.2.2:
   version "1.2.2"
   resolved "https://registry.yarnpkg.com/tree-kill/-/tree-kill-1.2.2.tgz#4ca09a9092c88b73a7cdc5e8a01b507b0790a0cc"
   integrity sha512-L0Orpi8qGpRG//Nd+H90vFB+3iHnue1zSSGmNOOCh1GLJ7rUKVwV2HvijphGQS2UmhUZewS9VgvxYIdgr+fG1A==
+
+ts-fsrs@^5.2.2:
+  version "5.2.2"
+  resolved "https://registry.yarnpkg.com/ts-fsrs/-/ts-fsrs-5.2.2.tgz#e3d0d17181b1a1da25521d5969b1eda128e8c238"
+  integrity sha512-cF9yLgz3P+kFYd0rF1YG2753SWFFdamEx8fgCXXCtW2H2cIowx1dxq9k8ZZnBdqE4MaaLcGYBzPbUW6ls0vluQ==
 
 tslib@^2.1.0, tslib@^2.4.0:
   version "2.8.1"
