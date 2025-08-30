@@ -43,11 +43,53 @@ export const parseApkgFile = async (file) => {
 
     log.debug('SQLite database loaded successfully')
 
+    // Debug: Check what tables exist in the database
+    const tablesStmt = db.prepare('SELECT name FROM sqlite_master WHERE type=\'table\'')
+    const tables = []
+    while (tablesStmt.step()) {
+      tables.push(tablesStmt.getAsObject())
+    }
+    tablesStmt.free()
+
+    log.debug('Available SQLite tables:', {
+      tables: tables.map(t => t.name),
+      totalTables: tables.length
+    })
+
+    // Debug: Check if there's a separate models table
+    if (tables.some(t => t.name === 'models')) {
+      const modelsTableStmt = db.prepare('SELECT * FROM models LIMIT 5')
+      const modelsTableData = []
+      while (modelsTableStmt.step()) {
+        modelsTableData.push(modelsTableStmt.getAsObject())
+      }
+      modelsTableStmt.free()
+      log.debug('Found separate models table:', modelsTableData)
+    }
+
+    // Debug: Check all columns and sample data from col table
+    const colSampleStmt = db.prepare('SELECT * FROM col LIMIT 1')
+    const colSample = colSampleStmt.step() ? colSampleStmt.getAsObject() : null
+    colSampleStmt.free()
+
+    if (colSample) {
+      log.debug('Col table sample data:', {
+        allColumns: Object.keys(colSample),
+        modelsFieldType: typeof colSample.models,
+        modelsFieldValue: colSample.models,
+        confFieldType: typeof colSample.conf,
+        confFieldExists: !!colSample.conf
+      })
+    }
+
     // Parse collection info
     const collection = parseCollection(db)
 
-    // Parse note types (card templates)
-    const noteTypes = parseNoteTypes(db)
+    // TEMPORARY FIX: Use the models data we already extracted
+    log.debug('Using models data from colSample for noteTypes')
+    const noteTypes = colSample && colSample.models
+      ? JSON.parse(colSample.models)
+      : parseNoteTypes(db)
 
     // Parse decks
     const decks = parseDecks(db)
@@ -120,14 +162,50 @@ const parseCollection = (db) => {
 // Parse note types (templates)
 const parseNoteTypes = (db) => {
   try {
+    log.debug('parseNoteTypes: Starting to parse note types')
+
     const stmt = db.prepare('SELECT * FROM col')
     const row = stmt.getAsObject()
     stmt.free()
 
-    const models = JSON.parse(row.models || '{}')
+    log.debug('parseNoteTypes - Raw row data:', {
+      availableColumns: Object.keys(row),
+      hasModels: !!row.models,
+      modelsType: typeof row.models,
+      modelsLength: row.models ? row.models.length : 0,
+      modelsPreview: row.models ? row.models.substring(0, 200) : null,
+      rawModelsValue: row.models
+    })
+
+    if (!row.models) {
+      log.warn('parseNoteTypes: No models field in database row')
+      return {}
+    }
+
+    let models
+    try {
+      models = JSON.parse(row.models)
+      log.debug('parseNoteTypes - JSON parsing successful:', {
+        modelCount: Object.keys(models).length,
+        modelIds: Object.keys(models),
+        sampleModel: Object.keys(models).length > 0 ? {
+          id: Object.keys(models)[0],
+          name: Object.values(models)[0]?.name,
+          fieldCount: Object.values(models)[0]?.flds?.length,
+          templateCount: Object.values(models)[0]?.tmpls?.length
+        } : null
+      })
+    } catch (jsonError) {
+      log.error('parseNoteTypes: JSON parsing failed:', {
+        error: jsonError.message,
+        modelsString: row.models?.substring(0, 500)
+      })
+      return {}
+    }
+
     return models
   } catch (error) {
-    log.warn('Failed to parse note types:', error)
+    log.warn('parseNoteTypes: Failed to parse note types:', error)
     return {}
   }
 }
@@ -191,6 +269,18 @@ const parseCards = (db, notes, noteTypes) => {
 
       if (note) {
         const noteType = noteTypes[note.mid]
+
+        // Debug noteType lookup
+        if (!noteType) {
+          const hasNoteTypes = Object.keys(noteTypes).length > 0
+          const firstNoteType = hasNoteTypes ? Object.values(noteTypes)[0] : null
+          log.debug('NoteType lookup failed:', {
+            noteMid: note.mid,
+            noteTypesKeys: Object.keys(noteTypes),
+            noteTypesStructure: firstNoteType ? Object.keys(firstNoteType) : []
+          })
+        }
+
         cards.push({
           id: row.id,
           nid: row.nid, // note id

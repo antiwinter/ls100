@@ -6,8 +6,7 @@
   "scripts": {
     "dev": "BUILD_ID=$(git describe --tags --always --dirty 2>/dev/null || echo) vite",
     "build": "BUILD_ID=$(git describe --tags --always --dirty 2>/dev/null || echo) vite build",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
+    "lint": "eslint . --fix",
     "preview": "vite preview"
   },
   "dependencies": {

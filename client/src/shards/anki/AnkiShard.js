@@ -2,6 +2,7 @@ import { AnkiShardEditor } from './AnkiShardEditor.jsx'
 import { AnkiReader as AnkiReaderComponent } from './reader/AnkiReader.jsx'
 import { deckStorage as _deckStorage } from './storage/storageManager.js'
 import { parseApkgFile } from './parser/apkgParser.js'
+import { parseTemplate } from './parser/templateParser.js'
 import { log } from '../../utils/logger'
 
 // Anki Shard Engine
@@ -134,74 +135,95 @@ export const parseAnkiFile = async (file, filename) => {
   }
 }
 
-// Generate card side content from templates
+// Generate card side content using Anki templates
 const generateCardSide = (card, noteType, side) => {
   try {
-    log.debug('Generating card side:', {
-      cardId: card.id,
-      side,
-      hasNoteType: !!noteType,
-      hasNote: !!card.note,
-      cardKeys: Object.keys(card),
-      cardStructure: card,
-      noteStructure: card.note ? Object.keys(card.note) : null,
-      noteHasFlds: card.note ? !!card.note.flds : false,
-      noteFlds: card.note ? card.note.flds : null
-    })
-
     if (!card.note || !card.note.flds) {
-      log.warn('Card missing note data:', {
+      log.warn('Card missing note or fields:', {
         cardId: card.id,
         hasNote: !!card.note,
-        noteKeys: card.note ? Object.keys(card.note) : null
+        hasFlds: card.note ? !!card.note.flds : false
       })
-      return 'Missing note data'
+      return 'Missing card data'
     }
 
-    const fields = card.note.flds
-    log.debug('Card fields detail:', {
-      cardId: card.id,
-      fields: fields.map((f, i) => `Field ${i}: ${f?.substring(0, 50)}...`),
-      fieldsLength: fields.length
+    // Fallback: if no noteType, create a basic template based on field count
+    if (!noteType) {
+      log.debug('No noteType found, creating fallback template for card:', card.id)
+
+      const fieldCount = card.note.flds.length
+      const fields = card.note.flds
+      // Simple fallback logic based on field count and content
+      if (side === 'front') {
+        // For front: show first field, or combine first few fields if they're short
+        if (fieldCount >= 2) {
+          const field1 = fields[0] || ''
+          const field2 = fields[1] || ''
+          // If both fields are short, combine them
+          if (field1.length < 50 && field2.length < 50) {
+            return `<div><strong>${field1}</strong></div><div>${field2}</div>`
+          }
+        }
+        return fields[0] || 'No question'
+      } else {
+        // For back: show remaining fields
+        if (fieldCount >= 3) {
+          return fields.slice(2).filter(f => f.trim()).map(f => `<div>${f}</div>`).join('')
+        } else if (fieldCount >= 2) {
+          return fields[1] || fields[0] || 'No answer'
+        }
+        return fields[0] || 'No answer'
+      }
+    }
+
+    // Get the template for this card (card.ord is the template index)
+    const cardTemplates = noteType.tmpls || []
+    const template = cardTemplates[card.ord] || cardTemplates[0]
+
+    if (!template) {
+      log.warn('No template found for card:', {
+        cardId: card.id,
+        cardOrd: card.ord,
+        availableTemplates: cardTemplates.length
+      })
+      return 'No template available'
+    }
+
+    // Build field map from note type field definitions and note field values
+    const noteTypeFields = noteType.flds || []
+    const noteFieldValues = card.note.flds || []
+
+    const fieldMap = {}
+    noteTypeFields.forEach((fieldDef, index) => {
+      const fieldName = fieldDef.name
+      const fieldValue = noteFieldValues[index] || ''
+      fieldMap[fieldName] = fieldValue
     })
 
-    // Based on Anki screenshots, the structure should be:
-    // Field 0: Category (e.g., "2×2 PBL")
-    // Field 1: Case (e.g., "Diag Adj")
-    // Field 2: Algorithm (e.g., "R2 U R2 U' R2 U R2 U' R2")
-    // Field 3: Image (HTML img tag)
-    // Field 4: Description (e.g., "2×2 PBL case. 2 algorithm(s) available...")
+    log.debug('Template parsing:', {
+      cardId: card.id,
+      side,
+      templateName: template.name,
+      fieldMap: Object.keys(fieldMap),
+      fieldCount: Object.keys(fieldMap).length
+    })
 
-    const category = fields[0] || ''
-    const caseName = fields[1] || ''
-    const algorithm = fields[2] || ''
-    const image = fields[3] || ''
-    const description = fields[4] || ''
+    // Use the appropriate template format
+    const templateFormat = side === 'front' ? template.qfmt : template.afmt
 
-    if (side === 'front') {
-      // Front: Category + Case + Image + Question
-      let frontContent = ''
-      if (category) frontContent += `<div><strong>${category}</strong></div>`
-      if (caseName) frontContent += `<div>${caseName}</div>`
-      if (image) frontContent += `<div>${image}</div>`
-      frontContent += '<div><em>What is the algorithm?</em></div>'
-      return frontContent || 'No question content'
-    } else {
-      // Back: Category + Case + Image + Algorithm + Description
-      let backContent = ''
-      if (category) backContent += `<div><strong>${category}</strong></div>`
-      if (caseName) backContent += `<div>${caseName}</div>`
-      if (image) backContent += `<div>${image}</div>`
-      if (algorithm) {
-        const algorithmStyle = 'background: #f0f0f0; padding: 10px; margin: 10px 0; font-family: monospace;'
-        backContent += `<div style="${algorithmStyle}">${algorithm}</div>`
-      }
-      if (description) {
-        const descStyle = 'margin-top: 10px; font-size: 0.9em; color: #666;'
-        backContent += `<div style="${descStyle}">${description}</div>`
-      }
-      return backContent || 'No answer content'
+    // For back side, we might need the front side content
+    let frontSideContent = undefined
+    if (side === 'back' && template.afmt && template.afmt.includes('{{FrontSide}}')) {
+      // Recursively generate front side for {{FrontSide}} substitution
+      frontSideContent = generateCardSide(card, noteType, 'front')
     }
+
+    const result = parseTemplate(templateFormat, fieldMap, {
+      mode: side === 'front' ? 'question' : 'answer',
+      frontSide: frontSideContent
+    })
+
+    return result || `No ${side} content`
   } catch (error) {
     log.warn('Failed to generate card side:', error)
     return `Error: ${error.message}`

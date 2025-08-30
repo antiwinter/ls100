@@ -15,8 +15,7 @@
   "scripts": {
     "dev": "yarn lint &&concurrently \"yarn workspace server dev\" \"yarn workspace client dev --host 0.0.0.0\"",
     "start": "yarn workspace client build && NODE_ENV=production yarn workspace server start",
-    "lint": "yarn workspace client lint && yarn workspace server lint",
-    "lint:fix": "yarn workspace client lint:fix && yarn workspace server lint:fix",
+    "lint": "yarn workspace client lint:fix && yarn workspace server lint:fix",
     "rev": "node infra/rev.js"
   },
   "devDependencies": {
