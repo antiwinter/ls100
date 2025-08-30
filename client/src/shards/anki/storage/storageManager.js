@@ -179,6 +179,12 @@ export const deckStorage = {
     if (!deck) return null
 
     const cards = await idb.query(STORES.cards, 'deckId', deckId)
+    log.debug('LoadDeck - loaded cards from IndexedDB:', {
+      deckId,
+      cardCount: cards.length,
+      sampleCard: cards[0],
+      cardStructure: cards[0] ? Object.keys(cards[0]) : []
+    })
     return { ...deck, cards }
   },
 

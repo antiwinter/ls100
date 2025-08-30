@@ -137,29 +137,74 @@ export const parseAnkiFile = async (file, filename) => {
 // Generate card side content from templates
 const generateCardSide = (card, noteType, side) => {
   try {
-    if (!noteType || !card.note) return 'Content unavailable'
-
-    const template = noteType.tmpls?.[card.ord]
-    if (!template) return 'Template not found'
-
-    const templateContent = side === 'front' ? template.qfmt : template.afmt
-    const fields = card.note.flds
-    const fieldNames = noteType.flds?.map(f => f.name) || []
-
-    // Simple template substitution (basic implementation)
-    let content = templateContent || ''
-
-    // Replace field placeholders {{FieldName}}
-    fieldNames.forEach((fieldName, index) => {
-      const fieldValue = fields[index] || ''
-      const regex = new RegExp(`{{${fieldName}}}`, 'g')
-      content = content.replace(regex, fieldValue)
+    log.debug('Generating card side:', {
+      cardId: card.id,
+      side,
+      hasNoteType: !!noteType,
+      hasNote: !!card.note,
+      cardKeys: Object.keys(card),
+      cardStructure: card,
+      noteStructure: card.note ? Object.keys(card.note) : null,
+      noteHasFlds: card.note ? !!card.note.flds : false,
+      noteFlds: card.note ? card.note.flds : null
     })
 
-    return content || 'No content'
+    if (!card.note || !card.note.flds) {
+      log.warn('Card missing note data:', {
+        cardId: card.id,
+        hasNote: !!card.note,
+        noteKeys: card.note ? Object.keys(card.note) : null
+      })
+      return 'Missing note data'
+    }
+
+    const fields = card.note.flds
+    log.debug('Card fields detail:', {
+      cardId: card.id,
+      fields: fields.map((f, i) => `Field ${i}: ${f?.substring(0, 50)}...`),
+      fieldsLength: fields.length
+    })
+
+    // Based on Anki screenshots, the structure should be:
+    // Field 0: Category (e.g., "2×2 PBL")
+    // Field 1: Case (e.g., "Diag Adj")
+    // Field 2: Algorithm (e.g., "R2 U R2 U' R2 U R2 U' R2")
+    // Field 3: Image (HTML img tag)
+    // Field 4: Description (e.g., "2×2 PBL case. 2 algorithm(s) available...")
+
+    const category = fields[0] || ''
+    const caseName = fields[1] || ''
+    const algorithm = fields[2] || ''
+    const image = fields[3] || ''
+    const description = fields[4] || ''
+
+    if (side === 'front') {
+      // Front: Category + Case + Image + Question
+      let frontContent = ''
+      if (category) frontContent += `<div><strong>${category}</strong></div>`
+      if (caseName) frontContent += `<div>${caseName}</div>`
+      if (image) frontContent += `<div>${image}</div>`
+      frontContent += '<div><em>What is the algorithm?</em></div>'
+      return frontContent || 'No question content'
+    } else {
+      // Back: Category + Case + Image + Algorithm + Description
+      let backContent = ''
+      if (category) backContent += `<div><strong>${category}</strong></div>`
+      if (caseName) backContent += `<div>${caseName}</div>`
+      if (image) backContent += `<div>${image}</div>`
+      if (algorithm) {
+        const algorithmStyle = 'background: #f0f0f0; padding: 10px; margin: 10px 0; font-family: monospace;'
+        backContent += `<div style="${algorithmStyle}">${algorithm}</div>`
+      }
+      if (description) {
+        const descStyle = 'margin-top: 10px; font-size: 0.9em; color: #666;'
+        backContent += `<div style="${descStyle}">${description}</div>`
+      }
+      return backContent || 'No answer content'
+    }
   } catch (error) {
     log.warn('Failed to generate card side:', error)
-    return 'Error generating content'
+    return `Error: ${error.message}`
   }
 }
 

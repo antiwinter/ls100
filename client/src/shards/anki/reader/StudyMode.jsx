@@ -11,7 +11,7 @@ import {
   Alert
 } from '@mui/joy'
 import { Close, Refresh } from '@mui/icons-material'
-import { parseTemplate } from '../parser/templateParser.js'
+
 import { RATINGS, formatInterval, getRatingLabel } from '../engine/studyEngine.js'
 import { log } from '../../../utils/logger'
 
@@ -62,13 +62,9 @@ const ProgressHeader = ({ progress, onExit }) => {
 const CardDisplay = ({ card, showAnswer, onShowAnswer }) => {
   if (!card) return null
 
-  const { template, fields } = card
-
-  const questionHtml = parseTemplate(template.qfmt, fields, { mode: 'question' })
-  const answerHtml = parseTemplate(template.afmt, fields, {
-    mode: 'answer',
-    frontSide: questionHtml
-  })
+  // Use simplified card structure with direct question/answer
+  const questionHtml = card.question || 'No question'
+  const answerHtml = card.answer || 'No answer'
 
   return (
     <Card sx={{
@@ -79,9 +75,9 @@ const CardDisplay = ({ card, showAnswer, onShowAnswer }) => {
       minHeight: 300
     }}>
       <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {/* Template name */}
+        {/* Card info */}
         <Typography level="body-sm" color="neutral" sx={{ mb: 2, textAlign: 'center' }}>
-          {template.name}
+          Card {card.id}
         </Typography>
 
         {/* Question */}
@@ -256,32 +252,7 @@ export const StudyMode = ({ deck, studyEngine, onEndStudy }) => {
   const [intervals, setIntervals] = useState(null)
   const [error, setError] = useState(null)
 
-  // Load next card on mount and after rating
-  useEffect(() => {
-    loadNextCard()
-  }, [studyEngine, loadNextCard])
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyPress = (e) => {
-      if (!showAnswer) {
-        if (e.key === ' ' || e.key === 'Enter') {
-          e.preventDefault()
-          setShowAnswer(true)
-        }
-      } else {
-        const ratings = { '1': RATINGS.AGAIN, '2': RATINGS.HARD, '3': RATINGS.GOOD, '4': RATINGS.EASY }
-        if (ratings[e.key]) {
-          e.preventDefault()
-          handleRate(ratings[e.key])
-        }
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyPress)
-    return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [showAnswer, handleRate])
-
+  // Define functions before useEffects that use them
   const loadNextCard = useCallback(() => {
     if (!studyEngine) return
 
@@ -320,10 +291,6 @@ export const StudyMode = ({ deck, studyEngine, onEndStudy }) => {
     }
   }, [studyEngine])
 
-  const handleShowAnswer = () => {
-    setShowAnswer(true)
-  }
-
   const handleRate = useCallback(async (rating) => {
     if (!studyEngine || !currentCard) return
 
@@ -341,6 +308,36 @@ export const StudyMode = ({ deck, studyEngine, onEndStudy }) => {
       setError('Failed to rate card')
     }
   }, [studyEngine, currentCard, loadNextCard])
+
+  const handleShowAnswer = () => {
+    setShowAnswer(true)
+  }
+
+  // Load next card on mount and after rating
+  useEffect(() => {
+    loadNextCard()
+  }, [studyEngine, loadNextCard])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      if (!showAnswer) {
+        if (e.key === ' ' || e.key === 'Enter') {
+          e.preventDefault()
+          setShowAnswer(true)
+        }
+      } else {
+        const ratings = { '1': RATINGS.AGAIN, '2': RATINGS.HARD, '3': RATINGS.GOOD, '4': RATINGS.EASY }
+        if (ratings[e.key]) {
+          e.preventDefault()
+          handleRate(ratings[e.key])
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyPress)
+    return () => window.removeEventListener('keydown', handleKeyPress)
+  }, [showAnswer, handleRate])
 
   const handleRestart = () => {
     setSessionComplete(false)

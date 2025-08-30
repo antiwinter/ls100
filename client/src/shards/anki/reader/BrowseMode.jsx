@@ -5,185 +5,146 @@ import {
   Input,
   Select,
   Option,
-  Card,
-  CardContent,
   Button,
   Stack,
   Chip,
-  List,
-  ListItem,
-  ListItemButton,
-  Divider
+  Table,
+  Sheet
 } from '@mui/joy'
-import { Search, PlayArrow, Collections, Style } from '@mui/icons-material'
+import { Search, PlayArrow, Collections } from '@mui/icons-material'
 
 import { StudyEngine } from '../engine/studyEngine.js'
 import { log } from '../../../utils/logger'
 
-const CardPreview = ({ card, deck: _deck }) => {
-  if (!card) {
+const CardTable = ({ cards, onStartStudy: _onStartStudy }) => {
+  if (!cards || cards.length === 0) {
     return (
-      <Box sx={{ p: 3, textAlign: 'center', color: 'neutral.500' }}>
-        <Collections sx={{ fontSize: '3rem', mb: 1 }} />
-        <Typography>Select a card to preview</Typography>
+      <Box sx={{ p: 4, textAlign: 'center' }}>
+        <Collections sx={{ fontSize: 48, color: 'neutral.400', mb: 2 }} />
+        <Typography color="neutral">No cards found</Typography>
       </Box>
     )
   }
 
-  // Use directly parsed question/answer from our simplified card structure
-  const questionHtml = card.question || ''
-  const answerHtml = card.answer || ''
-
   return (
-    <Stack spacing={2} sx={{ p: 2, height: '100%' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Style color="primary" fontSize="small" />
-        <Typography level="title-sm">Card {card.id}</Typography>
-        {card.tags.length > 0 && (
-          <Stack direction="row" spacing={0.5} sx={{ ml: 'auto' }}>
-            {card.tags.slice(0, 3).map((tag, i) => (
-              <Chip key={i} size="sm" variant="soft">
-                {tag}
-              </Chip>
-            ))}
-          </Stack>
-        )}
-      </Box>
-
-      <Box sx={{ flex: 1, overflow: 'auto' }}>
-        {/* Question side */}
-        <Card variant="outlined" sx={{ mb: 2 }}>
-          <CardContent>
-            <Typography level="body-sm" color="primary" sx={{ mb: 1, fontWeight: 'bold' }}>
-              Question
-            </Typography>
-            <Box
-              sx={{
-                '& img': { maxWidth: '100%', height: 'auto' },
-                '& .cloze-deletion': {
-                  bgcolor: 'warning.100',
-                  color: 'warning.800',
-                  px: 1,
-                  py: 0.5,
-                  borderRadius: 'sm',
-                  fontWeight: 'bold'
-                }
-              }}
-              dangerouslySetInnerHTML={{ __html: questionHtml }}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Answer side */}
-        <Card variant="outlined">
-          <CardContent>
-            <Typography level="body-sm" color="success" sx={{ mb: 1, fontWeight: 'bold' }}>
-              Answer
-            </Typography>
-            <Box
-              sx={{
-                '& img': { maxWidth: '100%', height: 'auto' },
-                '& .cloze-answer': {
-                  bgcolor: 'success.100',
-                  color: 'success.800',
-                  px: 1,
-                  py: 0.5,
-                  borderRadius: 'sm',
-                  fontWeight: 'bold'
-                }
-              }}
-              dangerouslySetInnerHTML={{ __html: answerHtml }}
-            />
-          </CardContent>
-        </Card>
-      </Box>
-    </Stack>
+    <Sheet variant="outlined" sx={{ borderRadius: 'sm' }}>
+      <Table hoverRow stickyHeader>
+        <thead>
+          <tr>
+            <th style={{ width: '80px' }}>#</th>
+            <th style={{ width: '45%' }}>Question</th>
+            <th style={{ width: '45%' }}>Answer</th>
+            <th style={{ width: '120px' }}>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {cards.map((card, index) => (
+            <tr key={card.id}>
+              <td>
+                <Typography level="body-sm" fontWeight="bold">
+                  {index + 1}
+                </Typography>
+              </td>
+              <td>
+                <Box sx={{ maxWidth: '100%', overflow: 'hidden' }}>
+                  <Typography
+                    level="body-sm"
+                    sx={{
+                      display: '-webkit-box',
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}
+                  >
+                    {(() => {
+                      const questionText = card.question || 'Content unavailable'
+                      log.debug('Card question rendering:', {
+                        cardId: card.id,
+                        hasQuestion: !!card.question,
+                        questionValue: card.question,
+                        questionType: typeof card.question,
+                        cardStructure: Object.keys(card)
+                      })
+                      return questionText.replace(/<[^>]*>/g, '')
+                    })()}
+                  </Typography>
+                </Box>
+              </td>
+              <td>
+                <Box sx={{ maxWidth: '100%', overflow: 'hidden' }}>
+                  <Typography
+                    level="body-sm"
+                    sx={{
+                      display: '-webkit-box',
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}
+                  >
+                    {(() => {
+                      const answerText = card.answer || 'Content unavailable'
+                      log.debug('Card answer rendering:', {
+                        cardId: card.id,
+                        hasAnswer: !!card.answer,
+                        answerValue: card.answer,
+                        answerType: typeof card.answer,
+                        fullCard: card
+                      })
+                      return answerText.replace(/<[^>]*>/g, '')
+                    })()}
+                  </Typography>
+                </Box>
+              </td>
+              <td>
+                <Chip
+                  size="sm"
+                  color={card.type === 0 ? 'primary' : card.type === 1 ? 'warning' : 'success'}
+                  variant="soft"
+                >
+                  {card.type === 0 ? 'New' : card.type === 1 ? 'Learning' : 'Review'}
+                </Chip>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+    </Sheet>
   )
 }
 
-const CardListItem = ({ card, isSelected, onClick }) => {
-  // Use question as preview text (our simplified card structure)
-  const previewText = (card.question || '')
-    .replace(/<[^>]*>/g, '')  // Remove HTML tags
-    .substring(0, 100)       // Limit length
-
-  return (
-    <ListItem>
-      <ListItemButton
-        selected={isSelected}
-        onClick={onClick}
-        sx={{
-          flexDirection: 'column',
-          alignItems: 'flex-start',
-          gap: 0.5,
-          py: 1
-        }}
-      >
-        <Typography level="body-sm" sx={{ fontWeight: isSelected ? 'bold' : 'normal' }}>
-          Card {card.id}
-        </Typography>
-        <Typography
-          level="body-xs"
-          color="neutral"
-          sx={{
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical'
-          }}
-        >
-          {previewText}
-        </Typography>
-        {card.tags.length > 0 && (
-          <Stack direction="row" spacing={0.5}>
-            {card.tags.slice(0, 2).map((tag, i) => (
-              <Chip key={i} size="sm" variant="outlined">
-                {tag}
-              </Chip>
-            ))}
-          </Stack>
-        )}
-      </ListItemButton>
-    </ListItem>
-  )
-}
-
-const DeckStats = ({ deck, cards }) => {
-  const studyEngine = new StudyEngine(deck.id)
-  const stats = studyEngine.getStudyStats(cards)
-  const dueCards = studyEngine.getDueCards(cards)
-
-  return (
-    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-      <Chip size="sm" color="primary">{stats.total} total</Chip>
-      <Chip size="sm" color="success">{stats.new} new</Chip>
-      <Chip size="sm" color="warning">{stats.learning} learning</Chip>
-      <Chip size="sm" color="neutral">{stats.review} review</Chip>
-      {dueCards.length > 0 && (
-        <Chip size="sm" color="danger">{dueCards.length} due</Chip>
-      )}
-    </Stack>
-  )
-}
-
-export const BrowseMode = ({ decks, selectedDeck, onDeckSelect, onStartStudy }) => {
+export const BrowseMode = ({
+  decks: _decks = [],
+  selectedDeck = null,
+  onStartStudy
+}) => {
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedCard, setSelectedCard] = useState(null)
-  const [sortBy, setSortBy] = useState('created') // created, modified, random
+  const [sortBy, setSortBy] = useState('created')
 
-  // Filter and sort cards
-  const filteredCards = useMemo(() => {
-    if (!selectedDeck?.cards) return []
+  // Get cards from selected deck
+  const cards = useMemo(() => {
+    const deckCards = selectedDeck?.cards || []
+    log.debug('BrowseMode cards:', {
+      deckName: selectedDeck?.name,
+      cardCount: deckCards.length,
+      sampleCard: deckCards[0],
+      cardKeys: deckCards[0] ? Object.keys(deckCards[0]) : [],
+      allCards: deckCards
+    })
+    return deckCards
+  }, [selectedDeck])
 
-    let cards = selectedDeck.cards
+  // Process and filter cards
+  const processedCards = useMemo(() => {
+    let filteredCards = [...cards]
 
     // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
-      cards = cards.filter(card => {
+      filteredCards = filteredCards.filter(card => {
         const searchText = `${card.question || ''} ${card.answer || ''}`.toLowerCase()
-        const tagText = card.tags.join(' ').toLowerCase()
+        const tagText = card.tags?.join(' ').toLowerCase() || ''
         return searchText.includes(query) || tagText.includes(query)
       })
     }
@@ -191,135 +152,111 @@ export const BrowseMode = ({ decks, selectedDeck, onDeckSelect, onStartStudy }) 
     // Sort cards
     switch (sortBy) {
     case 'modified':
-      return [...cards].sort((a, b) => new Date(b.modified) - new Date(a.modified))
-    case 'random':
-      return [...cards].sort(() => Math.random() - 0.5)
+      return [...filteredCards].sort((a, b) => new Date(b.modified) - new Date(a.modified))
     case 'created':
+      return [...filteredCards].sort((a, b) => a.id - b.id)
+    case 'due':
+      return [...filteredCards].sort((a, b) => a.due - b.due)
     default:
-      return [...cards].sort((a, b) => new Date(b.created) - new Date(a.created))
+      return filteredCards
     }
-  }, [selectedDeck, searchQuery, sortBy])
+  }, [cards, searchQuery, sortBy])
 
   const handleStartStudy = () => {
-    if (!selectedDeck) return
+    if (!selectedDeck || processedCards.length === 0) return
 
-    const studyEngine = new StudyEngine(selectedDeck.id)
-    const dueCards = studyEngine.getDueCards(selectedDeck.cards)
-
-    if (dueCards.length === 0) {
-      log.warn('No cards due for study')
-      return
+    try {
+      const studyEngine = new StudyEngine(selectedDeck)
+      onStartStudy?.(selectedDeck, studyEngine)
+      log.info('Started study session for deck:', selectedDeck.name)
+    } catch (error) {
+      log.error('Failed to start study session:', error)
     }
+  }
 
-    onStartStudy(selectedDeck, {
-      maxCards: Math.min(20, dueCards.length),
-      maxTime: 30 * 60 * 1000 // 30 minutes
-    })
+  if (!selectedDeck) {
+    return (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <Typography color="neutral">Select a deck to browse cards</Typography>
+      </Box>
+    )
+  }
+
+  const deckStats = {
+    total: cards.length,
+    new: cards.filter(c => c.type === 0).length,
+    learning: cards.filter(c => c.type === 1).length,
+    review: cards.filter(c => c.type === 2).length,
+    due: cards.filter(c => c.due <= Date.now()).length
   }
 
   return (
-    <Box sx={{ height: '100%', display: 'flex' }}>
-      {/* Left sidebar - deck selection and card list */}
-      <Box sx={{
-        width: 320,
-        borderRight: '1px solid',
-        borderColor: 'divider',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
-        {/* Deck selection */}
-        {decks.length > 1 && (
-          <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-            <Select
-              value={selectedDeck?.id || ''}
-              onChange={(_, value) => {
-                const deck = decks.find(d => d.id === value)
-                if (deck) {
-                  onDeckSelect(deck)
-                  setSelectedCard(null)
-                }
-              }}
-              placeholder="Select deck"
-              size="sm"
-            >
-              {decks.map(deck => (
-                <Option key={deck.id} value={deck.id}>
-                  {deck.name} ({deck.cards.length} cards)
-                </Option>
-              ))}
-            </Select>
-          </Box>
-        )}
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
+      {/* Deck Header */}
+      <Box sx={{ mb: 3 }}>
+        <Typography level="h4" sx={{ mb: 1 }}>
+          {selectedDeck.name}
+        </Typography>
+        {/* Stats */}
+        <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+          <Chip color="neutral" variant="soft">
+            {deckStats.total} total
+          </Chip>
+          <Chip color="primary" variant="soft">
+            {deckStats.new} new
+          </Chip>
+          <Chip color="warning" variant="soft">
+            {deckStats.learning} learning
+          </Chip>
+          <Chip color="success" variant="soft">
+            {deckStats.review} review
+          </Chip>
+          <Chip color="danger" variant="soft">
+            {deckStats.due} due
+          </Chip>
+        </Stack>
 
-        {selectedDeck && (
-          <>
-            {/* Deck stats */}
-            <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-              <Typography level="title-sm" sx={{ mb: 1 }}>
-                {selectedDeck.name}
-              </Typography>
-              <DeckStats deck={selectedDeck} cards={selectedDeck.cards} />
-              <Button
-                startDecorator={<PlayArrow />}
-                size="sm"
-                sx={{ mt: 2, width: '100%' }}
-                onClick={handleStartStudy}
-              >
-                Start Study Session
-              </Button>
-            </Box>
-
-            {/* Search and filters */}
-            <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-              <Input
-                placeholder="Search cards..."
-                startDecorator={<Search />}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                size="sm"
-                sx={{ mb: 1 }}
-              />
-              <Select
-                value={sortBy}
-                onChange={(_, value) => setSortBy(value)}
-                size="sm"
-              >
-                <Option value="created">Created (newest)</Option>
-                <Option value="modified">Modified (newest)</Option>
-                <Option value="random">Random</Option>
-              </Select>
-            </Box>
-
-            {/* Card list */}
-            <Box sx={{ flex: 1, overflow: 'auto' }}>
-              <List size="sm">
-                {filteredCards.map((card, index) => (
-                  <div key={card.id}>
-                    <CardListItem
-                      card={card}
-                      isSelected={selectedCard?.id === card.id}
-                      onClick={() => setSelectedCard(card)}
-                    />
-                    {index < filteredCards.length - 1 && <Divider />}
-                  </div>
-                ))}
-              </List>
-
-              {filteredCards.length === 0 && (
-                <Box sx={{ p: 2, textAlign: 'center', color: 'neutral.500' }}>
-                  <Typography level="body-sm">
-                    {searchQuery ? 'No cards match your search' : 'No cards available'}
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-          </>
-        )}
+        {/* Study Button */}
+        <Button
+          startDecorator={<PlayArrow />}
+          onClick={handleStartStudy}
+          disabled={processedCards.length === 0}
+          sx={{ mb: 2 }}
+        >
+          Start Study Session
+        </Button>
       </Box>
 
-      {/* Right panel - card preview */}
-      <Box sx={{ flex: 1, overflow: 'hidden' }}>
-        <CardPreview card={selectedCard} deck={selectedDeck} />
+      {/* Controls */}
+      <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+        <Input
+          placeholder="Search cards..."
+          startDecorator={<Search />}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          sx={{ flex: 1 }}
+        />
+        <Select
+          value={sortBy}
+          onChange={(_, value) => setSortBy(value)}
+          sx={{ minWidth: 140 }}
+        >
+          <Option value="created">Created (newest)</Option>
+          <Option value="modified">Modified</Option>
+          <Option value="due">Due date</Option>
+        </Select>
+      </Stack>
+
+      {/* Results Count */}
+      {searchQuery && (
+        <Typography level="body-sm" color="neutral" sx={{ mb: 1 }}>
+          {processedCards.length} cards found
+        </Typography>
+      )}
+
+      {/* Cards Table */}
+      <Box sx={{ flex: 1, overflow: 'auto' }}>
+        <CardTable cards={processedCards} onStartStudy={onStartStudy} />
       </Box>
     </Box>
   )
