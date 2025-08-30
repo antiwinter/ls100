@@ -14,7 +14,7 @@
 
 ### Core Concept
 - **Subtitle Shard**: Movie/TV subtitle learning (Phase 1)
-- **Deck Shard**: Flashcard collections (Future)
+- **Anki Shard**: Spaced repetition flashcard learning (Phase 2) - [Documentation](./docs/shard-anki/anki.md)
 - **Book Shard**: Reading materials (Future)
 
 ### Module System
@@ -182,13 +182,20 @@ Based on completed research, we have validated free APIs for:
 
 ### Phase 4: Cards Module & Review System (Week 6)
 
-**Goal**: Spaced repetition review system
+**Goal**: Spaced repetition review system with Anki integration
 
 **Tasks**:
-- Implement spaced repetition algorithm
-- Create review UI components
+- Implement Anki Shard for .apkg file import ([docs](./docs/shard-anki/anki.md))
+- Integrate FSRS spaced repetition algorithm  
+- Create review UI components with browse/study modes
 - Generate cards from selected words
 - Add export functionality (Anki, Eudic)
+
+**Components**:
+- AnkiShard engine with frontend-only storage
+- Card template parser for browser rendering
+- Study engine with progress tracking
+- Storage manager using IndexedDB + localStorage
 
 ### Phase 5: Content Discovery (Week 7)
 
