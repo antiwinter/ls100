@@ -12,7 +12,7 @@ import { BrowserEditBar } from '../components/BrowserEditBar'
 import { ShardBrowser } from '../components/ShardBrowser'
 import { AppDialog } from '../components/AppDialog'
 import { apiCall } from '../config/api'
-import { engineGetReader } from '../shards/engines.js'
+import { engineGetReader, engineCleanup } from '../shards/engines.js'
 import { log } from '../utils/logger'
 import { APP } from '../config/constants'
 
@@ -118,6 +118,14 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
     if (selected.length === 0) return
 
     try {
+      // Get full shard objects for the selected IDs
+      const shardsToDelete = shards.filter(shard => selected.includes(shard.id))
+
+      // Call engine cleanup for each shard BEFORE deleting from backend
+      log.info('Cleaning up engine data for shards:', shardsToDelete.map(s => ({ id: s.id, type: s.type })))
+      await Promise.all(shardsToDelete.map(shard => engineCleanup(shard, shards)))
+
+      // Now delete from backend
       await Promise.all(selected.map(id => apiCall(`/api/shards/${id}`, { method: 'DELETE' })))
       const data = await apiCall(`/api/shards?sort=${sortBy}`)
       const updatedShards = data.shards || []
@@ -130,6 +138,7 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
       }
 
       setSelected([])
+      log.info('Shard deletion completed successfully')
     } catch (error) {
       log.error('Failed to delete shards:', error)
     }

@@ -307,3 +307,8 @@ export const processData = async (shard, apiCall) => {
 
   // No conversion needed - keep { languages: [...] } format
 }
+
+// Cleanup function called when shard is deleted
+export const cleanup = async (_shard, _allShards) => {
+  // No cleanup needed for subtitle shards - files are managed server-side
+}

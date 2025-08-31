@@ -22,34 +22,44 @@ const AnkiReaderContent = ({ shard, onBack }) => {
       setLoading(true)
       setError(null)
 
-      let deckIds = shard?.data?.deckIds || []
-      const availableDecks = deckStorage.listDecks()
+      // Check for any remaining temporary shard associations and migrate them
+      if (shard?.id) {
+        try {
+          const allDecks = deckStorage.listDecks()
+          const tempShardPattern = /^temp_\d+_[a-z0-9]+$/
 
-      // Fallback: if no deckIds in shard but decks exist in storage, use all available decks
-      if (deckIds.length === 0 && Object.keys(availableDecks).length > 0) {
-        deckIds = Object.keys(availableDecks).map(id => parseInt(id, 10))
-        log.info('No deckIds in shard data, using all available decks:', deckIds)
+          for (const [, deckData] of Object.entries(allDecks)) {
+            if (deckData.shardId && tempShardPattern.test(deckData.shardId)) {
+              log.info('Fallback migration in AnkiReader:', {
+                tempId: deckData.shardId,
+                actualId: shard.id
+              })
+              await deckStorage.updateDeckShardAssociation(deckData.shardId, shard.id)
+              break
+            }
+          }
+        } catch (migrationError) {
+          log.error('Fallback migration failed:', migrationError)
+        }
       }
 
-      const loadedDecks = []
+      const availableDecks = deckStorage.listDecksByShardId(shard.id)
+      const deckIds = Object.keys(availableDecks)
 
-      log.debug('AnkiReader loading decks:', {
-        deckIds,
-        shardData: shard?.data,
-        availableDecks: availableDecks
-      })
+      const loadedDecks = []
+      log.info('Loading decks:', { count: deckIds.length })
 
       for (const deckId of deckIds) {
         try {
           const deck = await deckStorage.loadDeck(deckId)
           if (deck) {
             loadedDecks.push(deck)
-            log.debug('Deck loaded successfully:', deckId, deck.name)
+            log.info('✅ Loaded:', deck.name, `(${deck.cards?.length || 0} cards)`)
           } else {
-            log.warn('Deck not found:', deckId)
+            log.warn('❌ Not found:', deckId)
           }
         } catch (err) {
-          log.warn('Failed to load deck:', deckId, err)
+          log.warn('Failed to load:', deckId, err)
         }
       }
 
@@ -65,7 +75,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
     } finally {
       setLoading(false)
     }
-  }, [shard?.data, selectedDeck])
+  }, [shard?.id, selectedDeck])
 
   // Load decks on mount
   useEffect(() => {

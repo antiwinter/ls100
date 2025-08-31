@@ -59,13 +59,6 @@ const CardTable = ({ cards, onStartStudy: _onStartStudy }) => {
                   >
                     {(() => {
                       const questionText = card.question || 'Content unavailable'
-                      log.debug('Card question rendering:', {
-                        cardId: card.id,
-                        hasQuestion: !!card.question,
-                        questionValue: card.question,
-                        questionType: typeof card.question,
-                        cardStructure: Object.keys(card)
-                      })
                       return questionText.replace(/<[^>]*>/g, '')
                     })()}
                   </Typography>
@@ -85,13 +78,6 @@ const CardTable = ({ cards, onStartStudy: _onStartStudy }) => {
                   >
                     {(() => {
                       const answerText = card.answer || 'Content unavailable'
-                      log.debug('Card answer rendering:', {
-                        cardId: card.id,
-                        hasAnswer: !!card.answer,
-                        answerValue: card.answer,
-                        answerType: typeof card.answer,
-                        fullCard: card
-                      })
                       return answerText.replace(/<[^>]*>/g, '')
                     })()}
                   </Typography>
@@ -125,13 +111,7 @@ export const BrowseMode = ({
   // Get cards from selected deck
   const cards = useMemo(() => {
     const deckCards = selectedDeck?.cards || []
-    log.debug('BrowseMode cards:', {
-      deckName: selectedDeck?.name,
-      cardCount: deckCards.length,
-      sampleCard: deckCards[0],
-      cardKeys: deckCards[0] ? Object.keys(deckCards[0]) : [],
-      allCards: deckCards
-    })
+    // Cards available for browsing
     return deckCards
   }, [selectedDeck])
 

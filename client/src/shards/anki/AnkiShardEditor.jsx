@@ -154,6 +154,22 @@ export const AnkiShardEditor = ({
   const [error, setError] = useState(null)
   const importedFilesRef = useRef(new Set())
 
+  // Generate consistent temporary shard ID for create mode
+  const tempShardId = useRef(null)
+
+  const getShardId = useCallback(() => {
+    // In edit mode, use the actual shard ID
+    if (mode === 'edit' && shardData?.id) {
+      return shardData.id
+    }
+
+    // In create mode, generate and reuse a consistent temporary ID
+    if (!tempShardId.current) {
+      tempShardId.current = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    }
+    return tempShardId.current
+  }, [mode, shardData?.id])
+
   // Define handleFileImport BEFORE useEffect that uses it
   const handleFileImport = useCallback(async (file, filename) => {
     // Prevent importing the same file multiple times
@@ -177,7 +193,7 @@ export const AnkiShardEditor = ({
       const updatedDecks = { ...decks }
 
       for (const deck of deckData.decks || []) {
-        await deckStorage.saveDeck(deck)
+        await deckStorage.saveDeck(deck, getShardId())
 
         // Update local state for each deck
         updatedDecks[deck.id] = {
@@ -203,14 +219,14 @@ export const AnkiShardEditor = ({
     } finally {
       setLoading(false)
     }
-  }, [decks, onChange])
+  }, [decks, onChange, getShardId])
 
   // Initialize decks from storage or detected file
   useEffect(() => {
     if (mode === 'edit' && shardData?.data?.deckIds) {
-      // Edit mode: load deck references
+      // Edit mode: load deck references for this shard only
       const deckList = {}
-      const storedDecks = deckStorage.listDecks()
+      const storedDecks = deckStorage.listDecksByShardId(getShardId())
 
       shardData.data.deckIds.forEach(deckId => {
         if (storedDecks[deckId]) {
@@ -224,8 +240,8 @@ export const AnkiShardEditor = ({
       // Create mode with detected .apkg file
       handleFileImport(detectedInfo.metadata.file, detectedInfo.filename)
     } else {
-      // Load existing decks for selection
-      setDecks(deckStorage.listDecks())
+      // Load existing decks for this shard only
+      setDecks(deckStorage.listDecksByShardId(getShardId()))
     }
   }, [mode, shardData, detectedInfo, onChange]) // eslint-disable-line react-hooks/exhaustive-deps
   // Note: handleFileImport excluded to prevent infinite loop

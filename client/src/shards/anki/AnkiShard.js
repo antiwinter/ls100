@@ -8,6 +8,29 @@ import { log } from '../../utils/logger'
 // Anki Shard Engine
 // Handles .apkg file detection, parsing, and integration with shard system
 
+// Replace image src references with data URLs for browser access
+const replaceMediaUrls = (html, media) => {
+  if (!html || !media || Object.keys(media).length === 0) {
+    return html
+  }
+
+  let result = html
+  // Replace img src attributes with data URLs
+  for (const [filename, mediaData] of Object.entries(media)) {
+    if (mediaData.dataUrl) {
+      // Replace both quoted and unquoted src references
+      const patterns = [
+        new RegExp(`src=["']${filename}["']`, 'gi'),
+        new RegExp(`src=${filename}`, 'gi')
+      ]
+      for (const pattern of patterns) {
+        result = result.replace(pattern, `src="${mediaData.dataUrl}"`)
+      }
+    }
+  }
+  return result
+}
+
 // File detection with confidence scoring
 export const detect = (filename, buffer) => {
   log.debug('Detecting Anki file:', filename, 'size:', buffer.byteLength || buffer.length)
@@ -62,8 +85,8 @@ export const parseAnkiFile = async (file, filename) => {
         cards: deckCards.map(card => ({
           id: card.id,
           nid: card.nid,
-          question: generateCardSide(card, card.noteType, 'front'),
-          answer: generateCardSide(card, card.noteType, 'back'),
+          question: replaceMediaUrls(generateCardSide(card, card.noteType, 'front'), media),
+          answer: replaceMediaUrls(generateCardSide(card, card.noteType, 'back'), media),
           tags: card.note?.tags || [],
           due: card.due,
           interval: card.ivl,
@@ -91,8 +114,8 @@ export const parseAnkiFile = async (file, filename) => {
         cards: cards.map(card => ({
           id: card.id,
           nid: card.nid,
-          question: generateCardSide(card, card.noteType, 'front'),
-          answer: generateCardSide(card, card.noteType, 'back'),
+          question: replaceMediaUrls(generateCardSide(card, card.noteType, 'front'), media),
+          answer: replaceMediaUrls(generateCardSide(card, card.noteType, 'back'), media),
           tags: card.note?.tags || [],
           due: card.due,
           interval: card.ivl,
@@ -200,14 +223,6 @@ const generateCardSide = (card, noteType, side) => {
       fieldMap[fieldName] = fieldValue
     })
 
-    log.debug('Template parsing:', {
-      cardId: card.id,
-      side,
-      templateName: template.name,
-      fieldMap: Object.keys(fieldMap),
-      fieldCount: Object.keys(fieldMap).length
-    })
-
     // Use the appropriate template format
     const templateFormat = side === 'front' ? template.qfmt : template.afmt
 
@@ -277,36 +292,55 @@ export const shardTypeInfo = {
   color: '#3f51b5' // Anki blue
 }
 
-// Process shard data (no-op for frontend-only storage)
+// Process shard data - update deck counts
 export const processData = async (shard, _apiCall) => {
-  log.debug('Anki shard processData called - updating shard with deck IDs')
+  if (!shard.id) {
+    log.debug('Pre-creation, skipping deck count')
+    shard.data = { totalDecks: 0, totalCards: 0 }
+    return
+  }
 
   try {
-    // Get available deck IDs from IndexedDB storage
-    const availableDecks = _deckStorage.listDecks()
-    const deckIds = Object.keys(availableDecks).map(id => parseInt(id, 10))
+    const decks = _deckStorage.listDecksByShardId(shard.id)
+    const totalCards = Object.values(decks).reduce((sum, deck) => sum + (deck.totalCards || 0), 0)
 
-    log.debug('Available deck IDs for shard:', deckIds)
-
-    // Update shard data with deck IDs so the reader can find them
-    if (!shard.data) {
-      shard.data = {}
+    shard.data = {
+      totalDecks: Object.keys(decks).length,
+      totalCards
     }
 
-    shard.data.deckIds = deckIds
-    shard.data.totalDecks = deckIds.length
-    shard.data.totalCards = Object.values(availableDecks)
-      .reduce((sum, deck) => sum + (deck.totalCards || 0), 0)
-
-    log.info('Updated shard data:', {
-      deckIds: shard.data.deckIds,
-      totalDecks: shard.data.totalDecks,
-      totalCards: shard.data.totalCards
-    })
-
+    log.info('Shard data updated:', shard.data)
   } catch (error) {
-    log.error('Failed to process Anki shard data:', error)
-    throw new Error(`Failed to process Anki shard: ${error.message}`)
+    log.error('Failed to process shard data:', error)
+    throw error
+  }
+}
+
+// Cleanup function called when shard is deleted
+export const cleanup = async (shard, allShards = []) => {
+  try {
+    log.info('Cleaning up Anki shard:', shard.id)
+
+    // Clean up this shard's data
+    await _deckStorage.cleanupShard(shard.id)
+
+    // Clean up any orphaned data from previously deleted shards
+    const validAnkiShardIds = allShards
+      .filter(s => s.type === 'anki' && s.id !== shard.id) // Exclude current shard being deleted
+      .map(s => s.id)
+
+    const orphansRemoved = await _deckStorage.cleanupOrphans(validAnkiShardIds)
+
+    if (orphansRemoved > 0) {
+      log.info('Anki shard cleanup completed:', {
+        deletedShard: shard.id,
+        orphansRemoved
+      })
+    } else {
+      log.info('Anki shard cleanup completed:', shard.id)
+    }
+  } catch (error) {
+    log.error('Failed to cleanup Anki shard:', error)
   }
 }
 

@@ -88,3 +88,12 @@ export const engineSaveData = async (shard, apiCall) => {
   }
   await engine.processData(shard, apiCall)
 }
+
+// Cleanup engine-specific data when shard is deleted
+export const engineCleanup = async (shard, allShards = []) => {
+  const engine = getEngine(shard.type)
+  if (!engine?.cleanup) {
+    return
+  }
+  await engine.cleanup(shard, allShards)
+}

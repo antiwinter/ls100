@@ -143,6 +143,49 @@ export const EditShard = () => {
       log.info(`✅ Shard ${isCreate ? 'created' : 'updated'}:`,
         isCreate ? result.shard.id : shardId)
 
+      // Handle post-creation migration for Anki shards
+      if (isCreate && shardData.type === 'anki' && result.shard?.id) {
+        try {
+          // Import the migration function
+          const { deckStorage } = await import('../shards/anki/storage/storageManager.js')
+
+          // Find temp shard IDs and migrate them to the actual shard ID
+          const allDecks = deckStorage.listDecks()
+          const tempShardPattern = /^temp_\d+_[a-z0-9]+$/
+
+          for (const [, deckData] of Object.entries(allDecks)) {
+            if (deckData.shardId && tempShardPattern.test(deckData.shardId)) {
+              log.info('Post-creation migration:', {
+                tempId: deckData.shardId,
+                actualId: result.shard.id
+              })
+              await deckStorage.updateDeckShardAssociation(deckData.shardId, result.shard.id)
+
+              // Update the shard data with deck IDs after migration
+              try {
+                const { processData } = await import('../shards/anki/AnkiShard.js')
+                const shardWithId = { ...result.shard, id: result.shard.id }
+                await processData(shardWithId, apiCall)
+
+                // Save updated shard data back to the server
+                await apiCall(`/api/shards/${result.shard.id}`, {
+                  method: 'PUT',
+                  body: JSON.stringify(shardWithId)
+                })
+
+                log.info('Shard deck IDs updated after migration')
+              } catch (processError) {
+                log.error('Failed to update shard deck IDs after migration:', processError)
+              }
+
+              break // Only need to migrate once per shard
+            }
+          }
+        } catch (error) {
+          log.error('Failed to migrate deck associations:', error)
+        }
+      }
+
       // Navigate back to home
       navigate('/')
     } catch (error) {
