@@ -1,5 +1,6 @@
 import noteManager from './noteManager'
 import cardGen from './cardGen'
+import mediaManager from './mediaManager'
 import { log } from '../../../utils/logger'
 
 // Main API for Anki operations
@@ -86,24 +87,37 @@ export class AnkiApi {
     return await this.cardGen.getCardsForShard(shardId)
   }
 
-  // Cleanup all data for a shard
+    // Cleanup all data for a shard
   async cleanupShard(shardId) {
     // Get all cards for this shard
     const cards = await this.cardGen.getCardsForShard(shardId)
     const noteIds = [...new Set(cards.map(c => c.noteId))]
-
+    
     // Delete all cards for this shard
     for (const card of cards) {
       await this.cardGen.deleteCard(card.id)
     }
-
+    
     // Remove note refs and cleanup orphaned notes
     for (const noteId of noteIds) {
       await this.noteManager.removeRef(noteId, shardId)
     }
-
-    log.debug('Shard cleanup completed:', { shardId, cards: cards.length, notes: noteIds.length })
-    return { cardsRemoved: cards.length, notesProcessed: noteIds.length }
+    
+    // Clean up media files for this shard
+    const mediaFilesRemoved = await mediaManager.removeShardMedia(shardId)
+    
+    log.debug('Shard cleanup completed:', { 
+      shardId, 
+      cards: cards.length, 
+      notes: noteIds.length,
+      mediaFiles: mediaFilesRemoved
+    })
+    
+    return { 
+      cardsRemoved: cards.length, 
+      notesProcessed: noteIds.length,
+      mediaFilesRemoved
+    }
   }
 
   // Batch operations for import
@@ -123,6 +137,11 @@ export class AnkiApi {
 
     log.debug('Batch import completed:', { count: results.length, deckId, shardId })
     return results
+  }
+
+  // Get media statistics for a shard
+  async getMediaStats(shardId) {
+    return await mediaManager.getMediaStats(shardId)
   }
 
   // Setup basic note types and templates

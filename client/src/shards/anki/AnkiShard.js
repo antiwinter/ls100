@@ -7,26 +7,7 @@ import { log } from '../../utils/logger'
 // Anki Shard Engine
 // Handles .apkg file detection, parsing, and integration with shard system
 
-// Media URL replacement - simplified for new architecture
-const _replaceMediaUrls = (html, media) => {
-  if (!html || !media || Object.keys(media).length === 0) {
-    return html
-  }
-
-  let result = html
-  for (const [filename, mediaData] of Object.entries(media)) {
-    if (mediaData.dataUrl) {
-      const patterns = [
-        new RegExp(`src=["']${filename}["']`, 'gi'),
-        new RegExp(`src=${filename}`, 'gi')
-      ]
-      for (const pattern of patterns) {
-        result = result.replace(pattern, `src="${mediaData.dataUrl}"`)
-      }
-    }
-  }
-  return result
-}
+// Media URL replacement now handled by MediaManager in TemplateRenderer
 
 // File detection with confidence scoring
 export const detect = (filename, buffer) => {

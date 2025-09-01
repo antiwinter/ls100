@@ -6,7 +6,8 @@ export {
   shardTypeInfo,
   EditorComponent,
   ReaderComponent,
-  processData
+  processData,
+  cleanup
 } from './AnkiShard.js'
 
 export { AnkiReader } from './reader/AnkiReader.jsx'
@@ -14,22 +15,26 @@ export { AnkiShardEditor } from './AnkiShardEditor.jsx'
 export { BrowseMode } from './reader/BrowseMode.jsx'
 export { StudyMode } from './reader/StudyMode.jsx'
 
+// Core API and modules
+export { default as ankiApi } from './core/ankiApi.js'
+export { default as noteManager } from './core/noteManager.js'
+export { default as cardGen } from './core/cardGen.js'
+export { default as mediaManager } from './core/mediaManager.js'
+export { default as TemplateRenderer } from './core/templateEngine.js'
+
 // Storage utilities
 export {
-  deckStorage,
+  idb,
+  storage,
   progressStorage,
-  sessionStorage,
   getStorageInfo
 } from './storage/storageManager.js'
 
-// Template parser utilities
+// Parser utilities
 export {
-  parseTemplate,
-  hasCloze,
-  getClozeNumbers,
-  getFieldNames,
-  validateTemplate
-} from './parser/templateParser.js'
+  parseApkgFile,
+  importApkgData
+} from './parser/apkgParser.js'
 
 // Study engine utilities
 export {
@@ -39,3 +44,11 @@ export {
   formatInterval,
   getRatingLabel
 } from './engine/studyEngine.js'
+
+// Demo utilities
+export {
+  setupDemo,
+  demoMultiCard,
+  demoMedia,
+  cleanupDemo
+} from './demo/setupDemo.js'

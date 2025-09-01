@@ -3,84 +3,84 @@ import { Box, Typography, ToggleButtonGroup, Button, Stack, Alert, IconButton } 
 import { MenuBook, School, ArrowBack } from '@mui/icons-material'
 import { BrowseMode } from './BrowseMode.jsx'
 import { StudyMode } from './StudyMode.jsx'
-import { deckStorage } from '../storage/storageManager.js'
+import ankiApi from '../core/ankiApi'
 import { StudyEngine } from '../engine/studyEngine.js'
 import { apiCall } from '../../../config/api.js'
 import { log } from '../../../utils/logger'
 
 const AnkiReaderContent = ({ shard, onBack }) => {
   const [mode, setMode] = useState('browse')
-  const [decks, setDecks] = useState([])
-  const [selectedDeck, setSelectedDeck] = useState(null)
+  const [shardData, setShardData] = useState(null)
   const [studyEngine, setStudyEngine] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  // Define loadDecks BEFORE useEffect that uses it
-  const loadDecks = useCallback(async () => {
+  // Load shard data using new architecture
+  const loadShardData = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
 
-      // Check for any remaining temporary shard associations and migrate them
-      if (shard?.id) {
-        try {
-          const allDecks = deckStorage.listDecks()
-          const tempShardPattern = /^temp_\d+_[a-z0-9]+$/
+      if (!shard?.id) {
+        setError('No shard ID provided')
+        return
+      }
 
-          for (const [, deckData] of Object.entries(allDecks)) {
-            if (deckData.shardId && tempShardPattern.test(deckData.shardId)) {
-              log.info('Fallback migration in AnkiReader:', {
-                tempId: deckData.shardId,
-                actualId: shard.id
-              })
-              await deckStorage.updateDeckShardAssociation(deckData.shardId, shard.id)
-              break
-            }
+      // Get cards for this shard
+      const cards = await ankiApi.getCardsForShard(shard.id)
+      
+      // Get unique notes from cards
+      const noteIds = [...new Set(cards.map(c => c.noteId))]
+      const notes = await Promise.all(
+        noteIds.map(async (id) => {
+          try {
+            return await ankiApi.noteManager.get(id)
+          } catch (err) {
+            log.warn('Failed to load note:', id, err)
+            return null
           }
-        } catch (migrationError) {
-          log.error('Fallback migration failed:', migrationError)
+        })
+      )
+      const validNotes = notes.filter(Boolean)
+
+      // Get media stats
+      const mediaStats = await ankiApi.getMediaStats(shard.id)
+
+      const data = {
+        id: shard.id,
+        name: shard.name || 'Anki Shard',
+        cards,
+        notes: validNotes,
+        stats: {
+          totalCards: cards.length,
+          totalNotes: validNotes.length,
+          newCards: cards.filter(c => c.reps === 0).length,
+          dueCards: cards.filter(c => c.due <= Date.now()).length,
+          mediaFiles: mediaStats.fileCount,
+          mediaSize: mediaStats.totalSizeMB
         }
       }
 
-      const availableDecks = deckStorage.listDecksByShardId(shard.id)
-      const deckIds = Object.keys(availableDecks)
-
-      const loadedDecks = []
-      log.info('Loading decks:', { count: deckIds.length })
-
-      for (const deckId of deckIds) {
-        try {
-          const deck = await deckStorage.loadDeck(deckId)
-          if (deck) {
-            loadedDecks.push(deck)
-            log.info('✅ Loaded:', deck.name, `(${deck.cards?.length || 0} cards)`)
-          } else {
-            log.warn('❌ Not found:', deckId)
-          }
-        } catch (err) {
-          log.warn('Failed to load:', deckId, err)
-        }
-      }
-
-      setDecks(loadedDecks)
-
-      if (loadedDecks.length > 0 && !selectedDeck) {
-        setSelectedDeck(loadedDecks[0])
-      }
+      setShardData(data)
+      log.info('✅ Loaded shard data:', {
+        shardId: shard.id,
+        cards: data.stats.totalCards,
+        notes: data.stats.totalNotes,
+        media: data.stats.mediaFiles
+      })
 
     } catch (err) {
-      log.error('Failed to load decks:', err)
-      setError('Failed to load decks')
+      log.error('Failed to load shard data:', err)
+      setError(`Failed to load shard data: ${err.message}`)
     } finally {
       setLoading(false)
     }
-  }, [shard?.id, selectedDeck])
+  }, [shard?.id])
 
-  // Load decks on mount
+  // Load shard data on mount
   useEffect(() => {
-    loadDecks()
-  }, [shard, loadDecks])
+    loadShardData()
+  }, [shard, loadShardData])
 
   const handleModeChange = (newMode) => {
     if (newMode !== mode) {
@@ -94,24 +94,24 @@ const AnkiReaderContent = ({ shard, onBack }) => {
     }
   }
 
-  const handleStartStudy = (deck, options = {}) => {
-    if (!deck?.cards?.length) {
+  const handleStartStudy = (options = {}) => {
+    if (!shardData?.cards?.length) {
       setError('No cards available for study')
       return
     }
 
-    // Create study engine for selected deck
-    const engine = new StudyEngine(deck.id)
-    const session = engine.initSession(deck.cards, options)
+    // Create study engine for this shard's cards
+    const engine = new StudyEngine(shardData.id)
+    const session = engine.initSession(shardData.cards, options)
 
     setStudyEngine(engine)
-    setSelectedDeck(deck)
     setMode('study')
 
     log.info('Study session started:', {
-      deckId: deck.id,
+      shardId: shardData.id,
       sessionId: session.id,
-      queueSize: session.maxCards
+      queueSize: session.maxCards,
+      totalCards: shardData.cards.length
     })
   }
 
@@ -138,7 +138,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
   if (loading) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography color="neutral">Loading decks...</Typography>
+        <Typography color="neutral">Loading shard data...</Typography>
       </Box>
     )
   }
@@ -148,7 +148,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
       <Box sx={{ p: 3 }}>
         <Alert color="danger">
           <Typography level="body-sm">{error}</Typography>
-          <Button size="sm" onClick={loadDecks} sx={{ mt: 1 }}>
+          <Button size="sm" onClick={loadShardData} sx={{ mt: 1 }}>
             Retry
           </Button>
         </Alert>
@@ -156,11 +156,11 @@ const AnkiReaderContent = ({ shard, onBack }) => {
     )
   }
 
-  if (decks.length === 0) {
+  if (!shardData || shardData.stats.totalCards === 0) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
         <Typography color="neutral" sx={{ mb: 2 }}>
-          No decks available. Import some .apkg files to get started.
+          No cards available. Import some .apkg files to get started.
         </Typography>
       </Box>
     )
@@ -185,7 +185,11 @@ const AnkiReaderContent = ({ shard, onBack }) => {
             <ArrowBack />
           </IconButton>
           <Typography level="title-md" sx={{ flex: 1 }}>
-            {selectedDeck?.name || 'Anki Deck'}
+            {shardData?.name || 'Anki Shard'}
+          </Typography>
+
+          <Typography level="body-sm" color="neutral" sx={{ mr: 2 }}>
+            {shardData?.stats.totalNotes} notes • {shardData?.stats.totalCards} cards
           </Typography>
 
           <ToggleButtonGroup
@@ -219,14 +223,12 @@ const AnkiReaderContent = ({ shard, onBack }) => {
       <Box sx={{ flex: 1, overflow: 'hidden' }}>
         {mode === 'browse' ? (
           <BrowseMode
-            decks={decks}
-            selectedDeck={selectedDeck}
-            onDeckSelect={setSelectedDeck}
+            selectedDeck={shardData}
             onStartStudy={handleStartStudy}
           />
         ) : (
           <StudyMode
-            deck={selectedDeck}
+            deck={shardData}
             studyEngine={studyEngine}
             onEndStudy={handleEndStudy}
           />

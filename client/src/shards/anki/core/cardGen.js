@@ -1,6 +1,6 @@
 import { idb } from '../storage/storageManager'
 import { noteManager } from './noteManager'
-import TemplateEngine from './templateEngine'
+import TemplateRenderer, { TemplateEngine } from './templateEngine'
 import { log } from '../../../utils/logger'
 
 // Card generation from notes + templates
@@ -44,7 +44,7 @@ export class CardGenerator {
     return cards
   }
 
-  // Render card content for study
+  // Render card content for study with media support
   async renderCard(cardId) {
     const card = await idb.get('cards', cardId)
     if (!card) throw new Error(`Card not found: ${cardId}`)
@@ -56,14 +56,14 @@ export class CardGenerator {
 
     if (!template) throw new Error(`Template not found: ${card.templateIdx}`)
 
-    const engine = new TemplateEngine(noteType)
-    const question = engine.render(template.qfmt, note.fields)
-    const answer = engine.render(template.afmt, note.fields, question)
+    // Use new TemplateRenderer with media support
+    const renderer = new TemplateRenderer(noteType)
+    const rendered = await renderer.render(template, note.fields, card.shardId)
 
     return {
       id: card.id,
-      question,
-      answer,
+      question: rendered.question,
+      answer: rendered.answer,
       template: template.name,
       note: {
         id: note.id,

@@ -329,8 +329,8 @@ export const importApkgData = async (parsedData, deckId, shardId) => {
 
     // 3. Store media files
     if (Object.keys(media).length > 0) {
-      // TODO: Import media files to media store
-      log.debug(`Media files found: ${Object.keys(media).length}`)
+      await importMediaFiles(media, shardId)
+      log.debug(`Media files imported: ${Object.keys(media).length}`)
     }
 
     log.info('✅ Import complete:')
@@ -348,6 +348,27 @@ export const importApkgData = async (parsedData, deckId, shardId) => {
   } catch (error) {
     log.error('Failed to import Anki data:', error)
     throw error
+  }
+}
+
+// Import media files to IndexedDB
+const importMediaFiles = async (media, shardId) => {
+  const { idb } = await import('../storage/storageManager')
+  
+  for (const [filename, mediaData] of Object.entries(media)) {
+    const mediaRecord = {
+      id: `${shardId}-${filename}`,
+      filename,
+      shardId,
+      dataUrl: mediaData.dataUrl,
+      blob: mediaData.blob,
+      size: mediaData.size,
+      type: mediaData.type,
+      imported: Date.now()
+    }
+    
+    await idb.put('media', mediaRecord)
+    log.debug(`Stored media file: ${filename}`)
   }
 }
 

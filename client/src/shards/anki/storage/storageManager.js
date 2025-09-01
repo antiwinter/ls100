@@ -222,6 +222,12 @@ if (typeof window !== 'undefined') {
       log.info('NoteTypes:', types.length)
       return types
     },
+    listMedia: async () => {
+      const media = await idb.getAll(STORES.media)
+      const totalSize = media.reduce((sum, m) => sum + (m.size || 0), 0)
+      log.info('Media files:', media.length, 'Total size:', (totalSize / 1024 / 1024).toFixed(2) + 'MB')
+      return media
+    },
     clearAll: async () => {
       const stores = Object.values(STORES)
       for (const store of stores) {

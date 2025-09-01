@@ -1,4 +1,5 @@
 import ankiApi from '../core/ankiApi'
+import mediaManager from '../core/mediaManager'
 import { log } from '../../../utils/logger'
 
 // Demo setup script for new Anki architecture
@@ -158,13 +159,65 @@ export async function cleanupDemo() {
   }
 }
 
+// Demo media functionality
+export async function demoMedia() {
+  try {
+    log.info('🎨 Testing media functionality...')
+    
+    const shardId = 'demo-shard'
+    
+    // Create a note with media references
+    const result = await ankiApi.createNote(
+      'basic',
+      [
+        'What does this image show?<br><img src="demo-image.jpg">',
+        'A demo image with <img src="demo-icon.png"> icon'
+      ],
+      ['media', 'demo'],
+      'demo-deck',
+      shardId
+    )
+    
+    log.info('📝 Created note with media references')
+    
+    // Test media URL replacement
+    const testHtml = '<img src="test.jpg"> and <img src="another.png">'
+    const processedHtml = await mediaManager.replaceMediaUrls(testHtml, shardId)
+    log.info('🔄 Media replacement test:', { original: testHtml, processed: processedHtml })
+    
+    // Get media statistics
+    const mediaStats = await ankiApi.getMediaStats(shardId)
+    log.info('📊 Media statistics:', mediaStats)
+    
+    // Test card rendering with media
+    if (result.cards.length > 0) {
+      const cardId = result.cards[0].id
+      const renderedCard = await ankiApi.getStudyCard(cardId)
+      log.info('🎴 Rendered card with media processing:', {
+        cardId,
+        question: renderedCard.question,
+        answer: renderedCard.answer
+      })
+    }
+    
+    log.info('✅ Media demo completed')
+    return result
+    
+  } catch (err) {
+    log.error('❌ Media demo failed:', err)
+    throw err
+  }
+}
+
 // Export for browser console
 if (typeof window !== 'undefined') {
   window.ankiDemo = {
     setup: setupDemo,
     multiCard: demoMultiCard,
+    media: demoMedia,
     cleanup: cleanupDemo,
-    api: ankiApi
+    api: ankiApi,
+    mediaManager
   }
   log.info('🎮 Anki Demo available: window.ankiDemo')
 }
