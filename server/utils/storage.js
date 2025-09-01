@@ -36,8 +36,14 @@ export class Storage {
   }
 
   // Local file system implementation
-  putLocal(key, data) {
+  async putLocal(key, data) {
     const filePath = path.join(this.basePath, key)
+    const dirPath = path.dirname(filePath)
+    
+    // Ensure directory exists
+    await fs.mkdir(dirPath, { recursive: true })
+    
+    // Write the file
     return fs.writeFile(filePath, data)
   }
 

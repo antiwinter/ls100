@@ -52,12 +52,21 @@ export const uploadSubtitle = async (oss_id, buffer, metadata) => {
   )
   
   if (duplicate) {
-    // Exact same subtitle already exists - lightning upload
+    // Verify physical file exists before claiming lightning
+    const filename = `${oss_id}.srt`
+    const fileExists = await storage.exists(filename)
+    
+    if (!fileExists) {
+      log.warn({ oss_id, filename }, 'Database record exists but physical file missing - will recreate file')
+      await storage.put(filename, buffer)
+      log.info({ filename }, 'Recreated missing subtitle file')
+    }
+    
     return { subtitle_id: duplicate.subtitle_id, lightning: true, metadata: duplicate }
   }
 
   // Check if OSS file already exists
-  let ossFile = ossModel.findById(oss_id)
+  let ossFile = await ossModel.findById(oss_id)
   if (!ossFile) {
     // New file content - store it
     const filename = `${oss_id}.srt`
@@ -66,7 +75,17 @@ export const uploadSubtitle = async (oss_id, buffer, metadata) => {
     // Create OSS file record (keep meta_data for future use, but don't populate for now)
     ossFile = await ossModel.create(oss_id, buffer.length)
   } else {
-    // File content exists, increment reference
+    // OSS file record exists, but verify physical file exists
+    const filename = `${oss_id}.srt`
+    const fileExists = await storage.exists(filename)
+    
+    if (!fileExists) {
+      log.warn({ oss_id, filename }, 'OSS record exists but physical file missing - recreating file')
+      await storage.put(filename, buffer)
+      log.info({ filename }, 'Recreated missing subtitle file for existing OSS record')
+    }
+    
+    // File content exists (or recreated), increment reference
     ossFile = await ossModel.incrementRef(oss_id)
   }
 
@@ -97,7 +116,12 @@ export const uploadSubtitle = async (oss_id, buffer, metadata) => {
 
 export const getSubtitle = async (hash) => {
   const filename = `${hash}.srt`
-  return await storage.get(filename)
+  try {
+    return await storage.get(filename)
+  } catch (error) {
+    log.error({ filename, hash, error: error.message }, 'Failed to retrieve subtitle file')
+    throw error
+  }
 }
 
 export const deleteSubtitle = async (hash) => {

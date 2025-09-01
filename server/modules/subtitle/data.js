@@ -77,7 +77,8 @@ export const update = async (subtitle_id, updates) => {
   values.push(new Date().toISOString())
   values.push(subtitle_id)
   
-  const setClause = updateFields.join(', ').replaceAll('?', (_, i) => `$${i + 1}`)
+  let paramIndex = 1
+  const setClause = updateFields.join(', ').replaceAll('?', () => `$${paramIndex++}`)
   const sql = `UPDATE subtitles SET ${setClause} WHERE subtitle_id = $${values.length}`
   await q(sql, values)
 }
