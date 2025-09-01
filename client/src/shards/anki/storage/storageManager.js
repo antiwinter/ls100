@@ -4,13 +4,14 @@ import { log } from '../../../utils/logger'
 // Coordinates IndexedDB (deck files) and localStorage (progress)
 
 const DB_NAME = 'AnkiShardDB'
-const DB_VERSION = 1
+const DB_VERSION = 2
 
 // IndexedDB stores
 const STORES = {
   decks: 'decks',
   cards: 'cards',
-  media: 'media'
+  media: 'media',
+  cardRefs: 'cardRefs'
 }
 
 // localStorage keys
@@ -50,11 +51,18 @@ const initDB = () => {
         deckStore.createIndex('name', 'name', { unique: false })
       }
 
-      // Cards store
+      // Cards store - now reference counted
       if (!db.objectStoreNames.contains(STORES.cards)) {
         const cardStore = db.createObjectStore(STORES.cards, { keyPath: 'id' })
-        cardStore.createIndex('deckId', 'deckId', { unique: false })
+        cardStore.createIndex('refCount', 'refCount', { unique: false })
         cardStore.createIndex('due', 'due', { unique: false })
+      }
+
+      // Card references store - tracks which shards use which cards
+      if (!db.objectStoreNames.contains(STORES.cardRefs)) {
+        const refStore = db.createObjectStore(STORES.cardRefs, { keyPath: ['shardId', 'deckId', 'cardId'] })
+        refStore.createIndex('cardId', 'cardId', { unique: false })
+        refStore.createIndex('shardId', 'shardId', { unique: false })
       }
 
       // Media store
@@ -148,6 +156,41 @@ export const storage = {
   }
 }
 
+// Card content hashing - generates unique ID from all card content
+const hashCardContent = async (card) => {
+  const content = {
+    question: card.question || '',
+    answer: card.answer || '',
+    fields: card.note?.flds || [],
+    noteType: card.noteType?.name || '',
+    templateOrd: card.ord || 0,
+    mediaUrls: extractMediaUrls(card)
+  }
+
+  const text = JSON.stringify(content, Object.keys(content).sort())
+  const encoder = new TextEncoder()
+  const data = encoder.encode(text)
+  const hash = await crypto.subtle.digest('SHA-256', data)
+
+  return 'card_' + Array.from(new Uint8Array(hash))
+    .map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16)
+}
+
+// Extract media URLs from card content for hashing
+const extractMediaUrls = (card) => {
+  const urls = []
+  const content = (card.question || '') + (card.answer || '')
+
+  // Extract src= URLs
+  const srcMatches = content.match(/src="([^"]+)"/g) || []
+  srcMatches.forEach(match => {
+    const url = match.match(/src="([^"]+)"/)[1]
+    urls.push(url)
+  })
+
+  return urls.sort()
+}
+
 // Deck operations
 export const deckStorage = {
   async saveDeck(deckData, shardId = null) {
@@ -157,9 +200,46 @@ export const deckStorage = {
     // Store deck in IndexedDB
     await idb.put(STORES.decks, { id: deckId, shardId, name, ...metadata })
 
-    // Store cards in IndexedDB
+    // Process cards with reference counting
+    let newCards = 0
+    let reusedCards = 0
+
     for (const card of cards) {
-      await idb.put(STORES.cards, { ...card, deckId, shardId })
+      const cardId = await hashCardContent(card)
+
+      // Get or create card
+      let storedCard = await idb.get(STORES.cards, cardId)
+
+      if (storedCard) {
+        // Card exists - increment refCount
+        storedCard.refCount = (storedCard.refCount || 0) + 1
+        await idb.put(STORES.cards, storedCard)
+        reusedCards++
+      } else {
+        // New card - store with refCount = 1
+        storedCard = {
+          id: cardId,
+          question: card.question,
+          answer: card.answer,
+          fields: card.note?.flds || [],
+          noteType: card.noteType?.name || '',
+          templateOrd: card.ord || 0,
+          mediaUrls: extractMediaUrls(card),
+          refCount: 1,
+          progress: {}, // FSRS scheduling data
+          lastModified: new Date().toISOString()
+        }
+        await idb.put(STORES.cards, storedCard)
+        newCards++
+      }
+
+      // Add card reference
+      await idb.put(STORES.cardRefs, {
+        shardId,
+        deckId,
+        cardId,
+        addedAt: new Date().toISOString()
+      })
     }
 
     // Update deck list in localStorage
@@ -173,40 +253,56 @@ export const deckStorage = {
     }
     storage.set(KEYS.decks, decks)
 
-    log.info('Deck saved:', { deckId, shardId, name, cards: cards.length })
+    log.info('Deck saved:', { deckId, shardId, name, total: cards.length, newCards, reusedCards })
   },
 
   async loadDeck(deckId) {
     const deck = await idb.get(STORES.decks, deckId)
     if (!deck) return null
 
-    const cards = await idb.query(STORES.cards, 'deckId', deckId)
+    // Get card references for this deck
+    const refs = await idb.getAll(STORES.cardRefs)
+    const deckRefs = refs.filter(ref => ref.deckId === deckId)
 
-    // Debug logging to track card loading
-    log.info('LoadDeck debug:', {
-      deckId,
-      deckName: deck.name,
-      deckShardId: deck.shardId,
-      cardsFound: cards.length,
-      cardSample: cards.slice(0, 3).map(card => ({
-        id: card.id,
-        deckId: card.deckId,
-        shardId: card.shardId,
-        question: card.question?.substring(0, 50) + '...'
-      }))
-    })
+    // Load actual cards
+    const cards = []
+    for (const ref of deckRefs) {
+      const card = await idb.get(STORES.cards, ref.cardId)
+      if (card) {
+        cards.push(card)
+      }
+    }
 
+    log.info('✅ Loaded:', deck.name, `(${cards.length} cards)`)
     return { ...deck, cards }
   },
 
   async deleteDeck(deckId) {
-    // Remove from IndexedDB
-    await idb.delete(STORES.decks, deckId)
+    // Get card references for this deck
+    const refs = await idb.getAll(STORES.cardRefs)
+    const deckRefs = refs.filter(ref => ref.deckId === deckId)
 
-    const cards = await idb.query(STORES.cards, 'deckId', deckId)
-    for (const card of cards) {
-      await idb.delete(STORES.cards, card.id)
+    // Decrement refCount for each referenced card
+    for (const ref of deckRefs) {
+      const card = await idb.get(STORES.cards, ref.cardId)
+      if (card) {
+        card.refCount = (card.refCount || 1) - 1
+
+        if (card.refCount <= 0) {
+          // Delete card when no more references
+          await idb.delete(STORES.cards, ref.cardId)
+        } else {
+          // Update refCount
+          await idb.put(STORES.cards, card)
+        }
+      }
+
+      // Remove the reference
+      await idb.delete(STORES.cardRefs, [ref.shardId, ref.deckId, ref.cardId])
     }
+
+    // Remove deck
+    await idb.delete(STORES.decks, deckId)
 
     // Remove from localStorage
     const decks = storage.get(KEYS.decks, {})
@@ -279,10 +375,9 @@ export const deckStorage = {
     }
 
     if (orphanedDecks.length === 0) {
-      log.info('No orphaned localStorage decks found, checking IndexedDB...')
-      // Check IndexedDB directly for orphaned data
-      const indexedDBCleanup = await this.deepCleanupIndexedDB(validShardSet)
-      return indexedDBCleanup
+      log.info('No orphaned decks found, checking cards...')
+      const cardCleanup = await this.deepCleanupIndexedDB()
+      return cardCleanup
     }
 
     log.warn('Found orphaned decks:', orphanedDecks.map(d => ({
@@ -297,103 +392,40 @@ export const deckStorage = {
       cleanedDecks++
     }
 
-    log.info('Orphan cleanup completed:', { cleanedDecks })
-    return cleanedDecks
+    // Also clean up any orphaned cards
+    const cardCleanup = await this.deepCleanupIndexedDB()
+
+    log.info('Orphan cleanup completed:', { cleanedDecks, orphanedCards: cardCleanup })
+    return cleanedDecks + cardCleanup
   },
 
-  async deepCleanupIndexedDB(validShardSet) {
-    log.info('Performing deep IndexedDB cleanup...')
+  async deepCleanupIndexedDB() {
+    log.info('Deep cleanup: checking orphaned cards...')
     let cleanedItems = 0
 
     try {
-      // Get all decks from IndexedDB
-      const allIndexedDecks = await idb.getAll(STORES.decks)
-      log.info('IndexedDB decks found:', allIndexedDecks.map(deck => ({
-        id: deck.id,
-        name: deck.name,
-        shardId: deck.shardId,
-        originalId: deck.originalId
-      })))
-
-      // Check for orphaned decks in IndexedDB
-      for (const deck of allIndexedDecks) {
-        const shardId = deck.shardId
-        // Skip only temp shards (will be migrated later)
-        if (shardId && shardId.startsWith('temp_')) continue
-
-        // If shardId is null/undefined/empty OR shard doesn't exist in valid list, it's orphaned
-        if (!shardId || !validShardSet.has(shardId)) {
-          log.warn('Found orphaned IndexedDB deck:', {
-            deckId: deck.id,
-            name: deck.name,
-            orphanedShardId: shardId || 'null/undefined'
-          })
-
-          // Delete orphaned deck from IndexedDB
-          await idb.delete(STORES.decks, deck.id)
-          cleanedItems++
-
-          // Delete associated cards
-          const orphanedCards = await idb.query(STORES.cards, 'deckId', deck.id)
-          for (const card of orphanedCards) {
-            await idb.delete(STORES.cards, card.id)
-            cleanedItems++
-          }
-
-          log.info('Removed orphaned IndexedDB deck and cards:', deck.name)
-        }
-      }
-
-      // AGGRESSIVE CARD CLEANUP - Check all cards for consistency
+      // Clean up cards with refCount === 0 or no refCount (legacy)
       const allCards = await idb.getAll(STORES.cards)
-      const validDeckIds = new Set((await idb.getAll(STORES.decks)).map(d => d.id))
-
-      log.info('Aggressive card cleanup - checking all cards...', {
-        totalCards: allCards.length,
-        validDecks: validDeckIds.size,
-        validShards: validShardSet.size
-      })
 
       for (const card of allCards) {
-        let shouldDelete = false
-        let reason = ''
+        const refCount = card.refCount
 
-        // Check 1: Card references non-existent deck
-        if (!validDeckIds.has(card.deckId)) {
-          shouldDelete = true
-          reason = `orphaned deck reference: ${card.deckId}`
-        }
-
-        // Check 2: Card has null/undefined shard ID
-        else if (!card.shardId) {
-          shouldDelete = true
-          reason = 'null/undefined shard ID'
-        }
-
-        // Check 3: Card references non-existent shard (but not temp)
-        else if (!card.shardId.startsWith('temp_') && !validShardSet.has(card.shardId)) {
-          shouldDelete = true
-          reason = `orphaned shard reference: ${card.shardId}`
-        }
-
-        if (shouldDelete) {
+        if (refCount === 0 || refCount === undefined) {
           log.warn('Removing orphaned card:', {
             cardId: card.id,
-            deckId: card.deckId,
-            shardId: card.shardId,
-            reason,
+            refCount,
             question: card.question?.substring(0, 50) + '...'
           })
+
           await idb.delete(STORES.cards, card.id)
           cleanedItems++
         }
       }
-
     } catch (error) {
-      log.error('Error during IndexedDB cleanup:', error)
+      log.error('Error during card cleanup:', error)
     }
 
-    log.info('Deep IndexedDB cleanup completed:', { cleanedItems })
+    log.info('Orphaned card cleanup completed:', { cleanedItems })
     return cleanedItems
   },
 

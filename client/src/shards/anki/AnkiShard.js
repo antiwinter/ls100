@@ -324,21 +324,20 @@ export const cleanup = async (shard, allShards = []) => {
     // Clean up this shard's data
     await _deckStorage.cleanupShard(shard.id)
 
-    // Clean up any orphaned data from previously deleted shards
-    const validAnkiShardIds = allShards
-      .filter(s => s.type === 'anki' && s.id !== shard.id) // Exclude current shard being deleted
-      .map(s => s.id)
+    // Only run orphan cleanup if this is the last shard being deleted
+    // (avoid false positives during batch deletions)
+    const remainingAnkiShards = allShards.filter(s => s.type === 'anki' && s.id !== shard.id)
 
-    const orphansRemoved = await _deckStorage.cleanupOrphans(validAnkiShardIds)
-
-    if (orphansRemoved > 0) {
-      log.info('Anki shard cleanup completed:', {
-        deletedShard: shard.id,
-        orphansRemoved
-      })
-    } else {
-      log.info('Anki shard cleanup completed:', shard.id)
+    if (remainingAnkiShards.length === 0) {
+      // No more Anki shards - clean up any truly orphaned data
+      log.info('Last Anki shard deleted, checking for orphaned data')
+      const orphansRemoved = await _deckStorage.cleanupOrphans([])
+      if (orphansRemoved > 0) {
+        log.info('Orphan cleanup:', { orphansRemoved })
+      }
     }
+
+    log.info('Anki shard cleanup completed:', shard.id)
   } catch (error) {
     log.error('Failed to cleanup Anki shard:', error)
   }
