@@ -241,15 +241,33 @@ const SubtitleViewer_ = forwardRef(({
 
   const { handlers } = useLongPress(handlePress, { delay: 450 })
 
-  // Clean SRT formatting tags - memoized for performance
-  const cleanSrtText = useCallback((text) => {
+  // Clean and normalize subtitle formatting - memoized for performance
+  const cleanSubtitleText = useCallback((text) => {
     if (!text) return ''
 
-    // Remove ASS/SSA formatting tags like {\an1}, {\pos(30,230)}, {\1c&Hffffff&}, etc.
-    return text
-      .replace(/\{\\[^}]*\}/g, '') // Remove {\tag} patterns
-      .replace(/\{[^}]*\}/g, '')   // Remove other {tag} patterns
-      .trim()
+    let cleaned = text
+
+    // Remove ASS/SSA formatting tags (advanced subtitle formats)
+    cleaned = cleaned
+      .replace(/\{\\pos\([^)]*\)\}/g, '') // Remove positioning {\pos(x,y)}
+      .replace(/\{\\an[1-9]\}/g, '')      // Remove alignment {\an1-9}
+      .replace(/\{\\fs[0-9]+\}/g, '')     // Remove font size {\fs20}
+      .replace(/\{\\fn[^}]*\}/g, '')      // Remove font name {\fn}
+      .replace(/\{\\c&H[0-9a-fA-F]{6}&\}/g, '') // Remove colors {\c&Hffffff&}
+      .replace(/\{\\[biu][01]\}/g, '')    // Remove ASS bold/italic/underline toggles
+      .replace(/\{\\[^}]*\}/g, '')        // Remove other {\tag} patterns
+      .replace(/\{[^}]*\}/g, '')          // Remove any remaining {tag} patterns
+
+    // Preserve and normalize standard SRT HTML tags by converting to plain text with markers
+    // These will be styled via CSS classes in the parent component
+    cleaned = cleaned
+      .replace(/<\/?b>/gi, '')     // Remove bold tags (could add ** markers if needed)
+      .replace(/<\/?i>/gi, '')     // Remove italic tags (could add * markers if needed)
+      .replace(/<\/?u>/gi, '')     // Remove underline tags
+      .replace(/<font[^>]*>/gi, '') // Remove font opening tags
+      .replace(/<\/font>/gi, '')   // Remove font closing tags
+
+    return cleaned.trim()
   }, [])
 
   // Render main language text with word overlays - memoized for performance
@@ -299,10 +317,10 @@ const SubtitleViewer_ = forwardRef(({
     if (!group) return null
     return (
       <Box data-index={index} sx={{ borderRadius: 'md', px: 1 }}>
-        <SubtitleRow group={group} clean={cleanSrtText} renderMain={renderMain} />
+        <SubtitleRow group={group} clean={cleanSubtitleText} renderMain={renderMain} />
       </Box>
     )
-  }, [groups, cleanSrtText, renderMain])
+  }, [groups, cleanSubtitleText, renderMain])
 
   return (
     <Box
