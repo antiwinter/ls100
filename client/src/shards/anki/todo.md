@@ -1,0 +1,1 @@
+- [ ] cover from deck name instead of shard name

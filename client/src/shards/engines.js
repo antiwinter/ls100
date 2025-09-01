@@ -63,7 +63,7 @@ export const engineDetect = async (filename, buffer) => {
   // Run detection on all registered engines
   for (const [shardType, engine] of Object.entries(SHARD_ENGINES)) {
     if (engine?.detect) {
-      const result = engine.detect(filename, buffer)
+      const result = await engine.detect(filename, buffer)
       results.push({
         name: shardType,
         processor: engine,

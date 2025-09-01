@@ -206,9 +206,13 @@ export const AnkiShardEditor = ({
 
       setDecks(updatedDecks)
 
-      // Notify parent component
+      // Notify parent component and persist deckName in metadata
       onChange?.({
-        deckIds: Object.keys(updatedDecks)
+        deckIds: Object.keys(updatedDecks),
+        data: {
+          ...(shardData?.data || {}),
+          deckName: importResult.name
+        }
       })
 
       log.info('Anki file imported successfully:', importResult.name, `(${importResult.stats.cards} cards from ${importResult.stats.notes} notes)`)
@@ -219,7 +223,7 @@ export const AnkiShardEditor = ({
     } finally {
       setLoading(false)
     }
-  }, [decks, onChange, getShardId])
+  }, [decks, onChange, getShardId, shardData?.data])
 
   // Initialize decks from storage or detected file
   useEffect(() => {

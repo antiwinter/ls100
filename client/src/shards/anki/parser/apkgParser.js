@@ -70,10 +70,13 @@ export const parseApkgFile = async (file) => {
 
     db.close()
 
+    // Determine deck names (take first when multiple)
+    const deckNames = Object.values(decks || {}).map(d => d.name).filter(Boolean)
     const result = {
       collection,
       noteTypes,
       decks,
+      name: deckNames[0] || 'Anki Deck',
       notes,
       cards,
       media

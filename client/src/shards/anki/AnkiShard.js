@@ -10,7 +10,7 @@ import { log } from '../../utils/logger'
 // Media URL replacement now handled by MediaManager in TemplateRenderer
 
 // File detection with confidence scoring
-export const detect = (filename, buffer) => {
+export const detect = async (filename, buffer) => {
   log.debug('Detecting Anki file:', filename, 'size:', buffer.byteLength || buffer.length)
 
   // Check file extension
@@ -19,28 +19,36 @@ export const detect = (filename, buffer) => {
   // For .apkg files, we can be highly confident
   const confidence = hasExt ? 0.95 : 0.0
 
-  // Extract deck name from filename
-  const suggestedName = filename.replace(/\.apkg$/i, '').replace(/[-_.]/g, ' ').trim()
+  // Extract deck name from file content when possible; fallback to filename
+  let parsedName = null
+  if (hasExt) {
+    try {
+      const { name } = await parseApkgFile(buffer)
+      parsedName = name || null
+    } catch (e) {
+      log.warn('Deck name extraction failed during detect; falling back to filename:', e)
+    }
+  }
 
   const result = {
     match: hasExt,
     confidence,
     metadata: {
       type: 'anki-deck',
-      suggestedName: suggestedName || 'Anki Deck',
+      suggestedName: parsedName || filename.replace(/\.apkg$/i, '').replace(/[-_.]/g, ' ').trim(),
       // Store file for later processing
       file: buffer
     }
   }
 
-  log.debug('Anki detection result:', { match: result.match, confidence, suggestedName })
+  log.debug('Anki detection result:', { match: result.match, confidence, parsedName })
   return result
 }
 
 // Parse .apkg file and import to new note+template structure
-export const parseAnkiFile = async (file, filename, deckId, shardId) => {
+export const parseAnkiFile = async (file, deckId, shardId) => {
   try {
-    log.info('Parsing .apkg file:', filename)
+    log.info('Parsing .apkg')
 
     // Parse the .apkg file
     const parsedData = await parseApkgFile(file)
@@ -50,7 +58,7 @@ export const parseAnkiFile = async (file, filename, deckId, shardId) => {
 
     const result = {
       id: deckId,
-      name: filename.replace(/\.apkg$/i, ''),
+      name: parsedData.name,
       stats: importStats,
       importedAt: new Date().toISOString()
     }
@@ -73,8 +81,8 @@ export const generateCover = (shard) => {
   const noteCount = shard.data?.totalNotes || 0
   const cardCount = shard.data?.totalCards || 0
 
-  // Use shard name
-  const title = shard.name || 'Anki Shard'
+  // Prefer deckName from metadata; fallback to shard name
+  const title = shard.metadata?.deckName || shard.name || 'Anki Shard'
 
   // Create a hash for consistent color selection
   let hash = 0
