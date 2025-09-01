@@ -163,9 +163,9 @@ export async function cleanupDemo() {
 export async function demoMedia() {
   try {
     log.info('🎨 Testing media functionality...')
-    
+
     const shardId = 'demo-shard'
-    
+
     // Create a note with media references
     const result = await ankiApi.createNote(
       'basic',
@@ -177,18 +177,18 @@ export async function demoMedia() {
       'demo-deck',
       shardId
     )
-    
+
     log.info('📝 Created note with media references')
-    
+
     // Test media URL replacement
     const testHtml = '<img src="test.jpg"> and <img src="another.png">'
     const processedHtml = await mediaManager.replaceMediaUrls(testHtml, shardId)
     log.info('🔄 Media replacement test:', { original: testHtml, processed: processedHtml })
-    
+
     // Get media statistics
     const mediaStats = await ankiApi.getMediaStats(shardId)
     log.info('📊 Media statistics:', mediaStats)
-    
+
     // Test card rendering with media
     if (result.cards.length > 0) {
       const cardId = result.cards[0].id
@@ -199,10 +199,10 @@ export async function demoMedia() {
         answer: renderedCard.answer
       })
     }
-    
+
     log.info('✅ Media demo completed')
     return result
-    
+
   } catch (err) {
     log.error('❌ Media demo failed:', err)
     throw err

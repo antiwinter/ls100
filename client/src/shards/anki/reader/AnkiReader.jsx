@@ -28,7 +28,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
 
       // Get cards for this shard
       const cards = await ankiApi.getCardsForShard(shard.id)
-      
+
       // Get unique notes from cards
       const noteIds = [...new Set(cards.map(c => c.noteId))]
       const notes = await Promise.all(
@@ -75,7 +75,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
     } finally {
       setLoading(false)
     }
-  }, [shard?.id])
+  }, [shard?.id, shard?.name])
 
   // Load shard data on mount
   useEffect(() => {

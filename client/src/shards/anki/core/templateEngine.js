@@ -1,4 +1,4 @@
-import { log } from '../../../utils/logger'
+
 import mediaManager from './mediaManager'
 
 // Template renderer for Anki cards with media support
@@ -15,12 +15,12 @@ export class TemplateRenderer {
 
     // Render question
     const renderedQuestion = await this._replaceFields(qContent, noteFields, shardId)
-    
+
     // Render answer (may include FrontSide)
     const renderedAnswer = await this._replaceFields(
-      aContent, 
-      noteFields, 
-      shardId, 
+      aContent,
+      noteFields,
+      shardId,
       frontSideContent || renderedQuestion
     )
 
@@ -55,7 +55,7 @@ export class TemplateRenderer {
 
   // Get field index (case-insensitive)
   _getFieldIndex(fieldName, fieldNames) {
-    return fieldNames.findIndex(name => 
+    return fieldNames.findIndex(name =>
       name.toLowerCase() === fieldName.toLowerCase()
     )
   }
@@ -64,7 +64,7 @@ export class TemplateRenderer {
   wouldRender(template, noteFields) {
     const fieldPattern = /\{\{([^}]+)\}\}/g
     const matches = template.match(fieldPattern)
-    
+
     if (!matches) {
       // No field references, check if template has static content
       return template.trim().length > 0
@@ -74,7 +74,7 @@ export class TemplateRenderer {
     return matches.some(match => {
       const fieldName = match.slice(2, -2)
       if (fieldName === 'FrontSide') return true // FrontSide always available
-      
+
       const index = this._getFieldIndex(fieldName, this.fieldNames)
       return index !== -1 && noteFields[index]?.trim()
     })

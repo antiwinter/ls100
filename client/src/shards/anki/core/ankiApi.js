@@ -46,9 +46,8 @@ export class AnkiApi {
     const cards = await this.cardGen.getCardsForShard(shardId)
     const noteCards = cards.filter(c => c.noteId === noteId)
 
-    for (const card of noteCards) {
-      await this.cardGen.deleteCardsForNote(card.id)
-    }
+    // Delete all cards for this note (single call with noteId)
+    await this.cardGen.deleteCardsForNote(noteId)
 
     // Remove ref (cleanup if refCount = 0)
     await this.noteManager.removeRef(noteId, shardId)
@@ -87,34 +86,34 @@ export class AnkiApi {
     return await this.cardGen.getCardsForShard(shardId)
   }
 
-    // Cleanup all data for a shard
+  // Cleanup all data for a shard
   async cleanupShard(shardId) {
     // Get all cards for this shard
     const cards = await this.cardGen.getCardsForShard(shardId)
     const noteIds = [...new Set(cards.map(c => c.noteId))]
-    
+
     // Delete all cards for this shard
     for (const card of cards) {
       await this.cardGen.deleteCard(card.id)
     }
-    
+
     // Remove note refs and cleanup orphaned notes
     for (const noteId of noteIds) {
       await this.noteManager.removeRef(noteId, shardId)
     }
-    
+
     // Clean up media files for this shard
     const mediaFilesRemoved = await mediaManager.removeShardMedia(shardId)
-    
-    log.debug('Shard cleanup completed:', { 
-      shardId, 
-      cards: cards.length, 
+
+    log.debug('Shard cleanup completed:', {
+      shardId,
+      cards: cards.length,
       notes: noteIds.length,
       mediaFiles: mediaFilesRemoved
     })
-    
-    return { 
-      cardsRemoved: cards.length, 
+
+    return {
+      cardsRemoved: cards.length,
       notesProcessed: noteIds.length,
       mediaFilesRemoved
     }

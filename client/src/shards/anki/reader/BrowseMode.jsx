@@ -18,34 +18,7 @@ import ankiApi from '../core/ankiApi'
 import noteManager from '../core/noteManager'
 import { log } from '../../../utils/logger'
 
-const NoteTable = ({ notes, onStartStudy: _onStartStudy }) => {
-  const [noteTypes, setNoteTypes] = useState({})
-  const [cardCounts, setCardCounts] = useState({})
-
-  useEffect(() => {
-    const loadNoteData = async () => {
-      const types = {}
-      const counts = {}
-
-      for (const note of notes || []) {
-        // Get note type
-        if (!types[note.typeId]) {
-          types[note.typeId] = await noteManager.getType(note.typeId)
-        }
-
-        // Get card count for this note
-        const cards = await ankiApi.getCardsForDeck('current-deck') // TODO: pass actual deckId
-        counts[note.id] = cards.filter(c => c.noteId === note.id).length
-      }
-
-      setNoteTypes(types)
-      setCardCounts(counts)
-    }
-
-    if (notes?.length) {
-      loadNoteData()
-    }
-  }, [notes])
+const NoteTable = ({ notes, noteTypes, onStartStudy: _onStartStudy }) => {
 
   if (!notes || notes.length === 0) {
     return (
@@ -63,16 +36,14 @@ const NoteTable = ({ notes, onStartStudy: _onStartStudy }) => {
           <tr>
             <th style={{ width: '60px' }}>#</th>
             <th style={{ width: '120px' }}>Type</th>
-            <th style={{ width: '40%' }}>Fields</th>
-            <th style={{ width: '20%' }}>Tags</th>
-            <th style={{ width: '80px' }}>Cards</th>
+            <th style={{ width: '45%' }}>Fields</th>
+            <th style={{ width: '25%' }}>Tags</th>
             <th style={{ width: '100px' }}>Modified</th>
           </tr>
         </thead>
         <tbody>
           {notes.map((note, index) => {
             const noteType = noteTypes[note.typeId]
-            const cardCount = cardCounts[note.id] || 0
 
             return (
               <tr key={note.id}>
@@ -125,11 +96,6 @@ const NoteTable = ({ notes, onStartStudy: _onStartStudy }) => {
                   </Stack>
                 </td>
                 <td>
-                  <Typography level="body-sm" fontWeight="bold">
-                    {cardCount}
-                  </Typography>
-                </td>
-                <td>
                   <Typography level="body-xs" color="neutral">
                     {new Date(note.modified).toLocaleDateString()}
                   </Typography>
@@ -151,33 +117,60 @@ export const BrowseMode = ({
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('created')
   const [notes, setNotes] = useState([])
-  const [cards, setCards] = useState([])
+  const [noteTypes, setNoteTypes] = useState({})
 
-  // Load notes and cards for selected deck
+
+  // Load notes for selected shard
   useEffect(() => {
-    const loadDeckData = async () => {
-      if (!selectedDeck?.id) return
+    const loadNotesData = async () => {
+      if (!selectedDeck?.id) {
+        setNotes([])
+        setNoteTypes({})
+        return
+      }
+
 
       try {
-        // Get cards for deck
-        const deckCards = await ankiApi.getCardsForDeck(selectedDeck.id)
-        setCards(deckCards)
+        // Get notes for this shard by finding cards first, then getting unique notes
+        const shardCards = await ankiApi.getCardsForShard(selectedDeck.id)
+        const noteIds = [...new Set(shardCards.map(c => c.noteId))]
 
-        // Get unique notes from cards
-        const noteIds = [...new Set(deckCards.map(c => c.noteId))]
-        const deckNotes = await Promise.all(
-          noteIds.map(id => noteManager.get(id))
+        const shardNotes = await Promise.all(
+          noteIds.map(async (id) => {
+            try {
+              return await noteManager.get(id)
+            } catch (err) {
+              log.warn('Failed to load note:', id, err)
+              return null
+            }
+          })
         )
+        const validNotes = shardNotes.filter(Boolean)
 
-        setNotes(deckNotes.filter(Boolean))
-      } catch (err) {
-        log.error('Failed to load deck data:', err)
+        // Load note types for the notes
+        const types = {}
+        for (const note of validNotes) {
+          if (!types[note.typeId]) {
+            types[note.typeId] = await noteManager.getType(note.typeId)
+          }
+        }
+
+        setNotes(validNotes)
+        setNoteTypes(types)
+        log.debug('Loaded shard notes:', {
+          notes: validNotes.length,
+          noteTypes: Object.keys(types).length
+        })
+      } catch (error) {
+        log.error('Failed to load notes data:', error)
         setNotes([])
-        setCards([])
+        setNoteTypes({})
+      } finally {
+        // Loading complete
       }
     }
 
-    loadDeckData()
+    loadNotesData()
   }, [selectedDeck])
 
   // Process and filter notes
@@ -207,8 +200,35 @@ export const BrowseMode = ({
     }
   }, [notes, searchQuery, sortBy])
 
+  const noteStats = useMemo(() => {
+    if (!notes.length) return { total: 0, noteTypes: {}, tags: {} }
+
+    const typeStats = {}
+    const tagStats = {}
+
+    for (const note of notes) {
+      // Count by note type
+      const typeName = noteTypes[note.typeId]?.name || 'Unknown'
+      typeStats[typeName] = (typeStats[typeName] || 0) + 1
+
+      // Count by tags
+      for (const tag of note.tags || []) {
+        tagStats[tag] = (tagStats[tag] || 0) + 1
+      }
+    }
+
+    return {
+      total: notes.length,
+      noteTypes: typeStats,
+      tags: tagStats,
+      avgFieldsPerNote: notes.reduce((sum, note) => {
+        return sum + (note.fields?.length || 0)
+      }, 0) / notes.length
+    }
+  }, [notes, noteTypes])
+
   const handleStartStudy = () => {
-    if (!selectedDeck || cards.length === 0) return
+    if (!selectedDeck || notes.length === 0) return
 
     try {
       const studyEngine = new StudyEngine(selectedDeck)
@@ -227,15 +247,6 @@ export const BrowseMode = ({
     )
   }
 
-  const deckStats = {
-    notes: notes.length,
-    cards: cards.length,
-    new: cards.filter(c => c.ctype === 0).length,
-    learning: cards.filter(c => c.ctype === 1).length,
-    review: cards.filter(c => c.ctype === 2).length,
-    due: cards.filter(c => c.due <= Date.now()).length
-  }
-
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
       {/* Deck Header */}
@@ -243,33 +254,28 @@ export const BrowseMode = ({
         <Typography level="h4" sx={{ mb: 1 }}>
           {selectedDeck.name}
         </Typography>
-        {/* Stats */}
+        {/* Note Statistics */}
         <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-          <Chip color="neutral" variant="soft">
-            {deckStats.notes} notes
-          </Chip>
-          <Chip color="neutral" variant="outlined">
-            {deckStats.cards} cards
-          </Chip>
           <Chip color="primary" variant="soft">
-            {deckStats.new} new
+            {noteStats.total} notes
           </Chip>
-          <Chip color="warning" variant="soft">
-            {deckStats.learning} learning
-          </Chip>
-          <Chip color="success" variant="soft">
-            {deckStats.review} review
-          </Chip>
-          <Chip color="danger" variant="soft">
-            {deckStats.due} due
-          </Chip>
+          {Object.entries(noteStats.noteTypes).map(([typeName, count]) => (
+            <Chip key={typeName} color="neutral" variant="outlined">
+              {count} {typeName}
+            </Chip>
+          ))}
+          {Object.keys(noteStats.tags).length > 0 && (
+            <Chip color="success" variant="soft">
+              {Object.keys(noteStats.tags).length} unique tags
+            </Chip>
+          )}
         </Stack>
 
         {/* Study Button */}
         <Button
           startDecorator={<PlayArrow />}
           onClick={handleStartStudy}
-          disabled={cards.length === 0}
+          disabled={notes.length === 0}
           sx={{ mb: 2 }}
         >
           Start Study Session
@@ -305,7 +311,7 @@ export const BrowseMode = ({
 
       {/* Notes Table */}
       <Box sx={{ flex: 1, overflow: 'auto' }}>
-        <NoteTable notes={processedNotes} onStartStudy={onStartStudy} />
+        <NoteTable notes={processedNotes} noteTypes={noteTypes} onStartStudy={onStartStudy} />
       </Box>
     </Box>
   )

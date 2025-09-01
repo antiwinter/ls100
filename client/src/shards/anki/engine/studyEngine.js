@@ -272,11 +272,7 @@ export class StudyEngine {
       this.session.endTime = new Date()
       this.session.timeSpent = this.session.endTime - this.session.startTime
 
-      // Update deck stats
-      progressStorage.updateDeckStats(this.deckId, {
-        studiedCards: this.session.cardsStudied,
-        lastStudied: this.session.endTime.toISOString()
-      })
+      // Note: Deck stats are tracked elsewhere via individual card progress
 
       log.info('Study session ended:', {
         sessionId: this.session.id,

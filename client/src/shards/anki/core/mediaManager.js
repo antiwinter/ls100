@@ -10,7 +10,7 @@ export class MediaManager {
   // Get media file for a specific shard
   async getMedia(filename, shardId) {
     const cacheKey = `${shardId}-${filename}`
-    
+
     // Check cache first
     if (this.mediaCache.has(cacheKey)) {
       return this.mediaCache.get(cacheKey)
@@ -83,7 +83,7 @@ export class MediaManager {
   // Extract media file references from HTML
   extractMediaReferences(html) {
     const references = new Set()
-    
+
     // Match src attributes in img, audio, video tags
     const srcPattern = /src=["']?([^"'\s>]+\.(jpg|jpeg|png|gif|webp|svg|mp3|wav|ogg|mp4|webm))["']?/gi
     let match
@@ -114,7 +114,7 @@ export class MediaManager {
   async removeShardMedia(shardId) {
     try {
       const shardMedia = await this.getShardMedia(shardId)
-      
+
       for (const media of shardMedia) {
         await idb.delete('media', media.id)
         this.mediaCache.delete(media.id)
@@ -133,7 +133,7 @@ export class MediaManager {
     try {
       const shardMedia = await this.getShardMedia(shardId)
       const totalSize = shardMedia.reduce((sum, media) => sum + (media.size || 0), 0)
-      
+
       return {
         fileCount: shardMedia.length,
         totalSize,
