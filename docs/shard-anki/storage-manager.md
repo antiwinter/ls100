@@ -1,199 +1,308 @@
 # Storage Manager Module
 
-The Storage Manager coordinates browser storage for Anki shard data, managing IndexedDB for deck files and localStorage for progress tracking.
+The Storage Manager provides a simplified storage interface for the new Note+Template architecture, managing IndexedDB for note data and localStorage for progress tracking.
 
 ## Purpose
 
-Provides unified storage interface for Anki shard components while optimizing browser storage usage and ensuring data persistence.
+Provides unified storage operations for notes, templates, cards, and progress data while supporting the refCount system for cross-shard note sharing.
 
 ## Storage Architecture
 
 ### Data Distribution
 - **Backend**: Shard metadata only (via global shard API)
-- **IndexedDB**: Binary deck files (.apkg), media files
-- **localStorage**: Progress data, FSRS states, preferences
-- **sessionStorage**: Temporary study session data
+- **IndexedDB**: Notes, templates, cards, media files
+- **localStorage**: FSRS progress data, user preferences
 
-### Storage Quotas
-- Monitor available storage space
-- Implement cleanup strategies for old data
-- Provide storage usage feedback to users
-- Handle quota exceeded scenarios gracefully
+### Storage Philosophy
+- **Notes as Source**: Single source of truth for content
+- **Cards as References**: Lightweight pointers to note+template
+- **Dynamic Rendering**: Content generated when needed
+- **RefCount Management**: Automatic cleanup of unused notes
 
-## IndexedDB Management
+## IndexedDB Schema (v3)
 
 ### Database Structure
 ```javascript
 {
   database: 'AnkiShardDB',
-  version: 1,
+  version: 3,
   stores: {
-    decks: { keyPath: 'deckId' },
-    cards: { keyPath: 'cardId', indexes: ['deckId', 'due'] },
-    media: { keyPath: 'mediaId' }
+    notes: { 
+      keyPath: 'id',
+      indexes: ['typeId', 'refCount', 'modified']
+    },
+    noteTypes: {
+      keyPath: 'id', 
+      indexes: ['name']
+    },
+    templates: {
+      keyPath: 'id',
+      indexes: ['typeId', 'idx']
+    },
+    cards: {
+      keyPath: 'id',
+      indexes: ['noteId', 'deckId', 'shardId', 'due']
+    },
+    media: {
+      keyPath: 'id'
+    }
   }
 }
 ```
 
-### Deck Storage
-- Store parsed .apkg file data
-- Maintain card-deck relationships
-- Handle deck updates and synchronization
-- Support deck deletion with cleanup
-
-### Media Handling
-- Store images, audio files from cards
-- Implement caching strategies
-- Handle missing media gracefully
-- Optimize storage for large files
-
-## localStorage Management
-
-### Progress Data Structure
+### Notes Store
+Stores note content with refCount for sharing:
 ```javascript
 {
-  'anki_decks': {
-    [deckId]: {
-      name: string,
-      totalCards: number,
-      studiedCards: number,
-      lastStudied: Date
-    }
-  },
-  'anki_cards_${deckId}': {
+  id: string,
+  typeId: string,
+  fields: string[],       // Raw field data
+  tags: string[],
+  refCount: number,       // Cross-shard sharing counter
+  created: timestamp,
+  modified: timestamp
+}
+```
+
+### Templates Store  
+Rendering templates linked to note types:
+```javascript
+{
+  id: string,
+  typeId: string,         // Links to noteTypes
+  name: string,
+  qfmt: string,           // Question template
+  afmt: string,           // Answer template  
+  idx: number             // Template ordinal
+}
+```
+
+### Cards Store
+Lightweight references with scheduling:
+```javascript
+{
+  id: string,
+  noteId: string,         // Reference to note
+  templateIdx: number,    // Which template to use
+  deckId: string,
+  shardId: string,
+  due: timestamp,         // FSRS scheduling data
+  interval: number,
+  ease: number,
+  reps: number,
+  lapses: number
+}
+```
+
+## Core Operations
+
+### IndexedDB Interface
+Simplified async operations:
+```javascript
+// Basic CRUD
+idb.get(store, key) → Promise<object>
+idb.put(store, data) → Promise<key>
+idb.delete(store, key) → Promise<void>
+idb.getAll(store) → Promise<object[]>
+idb.query(store, index, value) → Promise<object[]>
+```
+
+### Note Operations
+Through noteManager module:
+```javascript
+noteManager.create(typeId, fields, tags) → Promise<note>
+noteManager.get(noteId) → Promise<note>
+noteManager.update(noteId, fields, tags) → Promise<note>
+noteManager.addRef(noteId, shardId) → Promise<void>    // refCount++
+noteManager.removeRef(noteId, shardId) → Promise<void> // refCount--, cleanup if 0
+```
+
+### Card Operations
+Through cardGen module:
+```javascript
+cardGen.genCardsForNote(noteId, deckId, shardId) → Promise<card[]>
+cardGen.renderCard(cardId) → Promise<{question, answer}>
+cardGen.getCardsForDeck(deckId) → Promise<card[]>
+cardGen.getCardsForShard(shardId) → Promise<card[]>
+```
+
+## RefCount System
+
+### Cross-Shard Sharing
+Notes can be referenced by multiple shards:
+```javascript
+// Note shared across 3 shards
+{
+  id: "note123",
+  fields: ["France", "Paris"],
+  refCount: 3  // Referenced by 3 different shards
+}
+```
+
+### Automatic Cleanup
+When refCount reaches 0, note is automatically deleted:
+```javascript
+await noteManager.removeRef(noteId, shardId)
+// If this was the last reference (refCount becomes 0):
+// - Note is deleted from IndexedDB
+// - Associated cards are cleaned up
+// - No manual cleanup needed
+```
+
+### Lifecycle Management
+```javascript
+// Adding note to new shard
+await noteManager.addRef(noteId, shardId)  // refCount: 1 → 2
+
+// Removing shard  
+await noteManager.removeRef(noteId, shardId)  // refCount: 2 → 1
+
+// Last shard removed
+await noteManager.removeRef(noteId, lastShardId)  // refCount: 1 → 0 (auto-delete)
+```
+
+## Progress Storage (localStorage)
+
+### Structure
+```javascript
+{
+  'anki_progress_${deckId}': {
     [cardId]: {
-      state: FSRSState,
-      history: ReviewHistory[]
+      due: timestamp,
+      stability: number,     // FSRS parameters
+      difficulty: number,
+      elapsed_days: number,
+      scheduled_days: number,
+      reps: number,
+      lapses: number,
+      state: string,         // new|learning|review|relearning
+      last_review: timestamp
     }
   },
   'anki_preferences': {
-    studySettings: StudySettings,
-    uiPreferences: UIPreferences
+    studySettings: object,
+    uiPreferences: object
   }
 }
 ```
 
-### Session Management
-- Track active study sessions
-- Handle browser refresh/reload
-- Restore interrupted sessions
-- Clean up completed sessions
-
-## API Interface
-
-### Deck Operations
-- `storeDeck(deckData)` - Save parsed deck to IndexedDB
-- `loadDeck(deckId)` - Retrieve deck data
-- `deleteDeck(deckId)` - Remove deck and cleanup
-- `listDecks()` - Get all available decks
-
-### Card Operations  
-- `getCard(cardId)` - Retrieve card data
-- `updateCardProgress(cardId, progress)` - Save study progress
-- `getCardsForReview(deckId)` - Get cards due for study
-- `searchCards(query, deckId)` - Find cards by content
-
 ### Progress Operations
-- `saveSession(sessionData)` - Store study session
-- `loadProgress(deckId)` - Get deck progress
-- `exportProgress()` - Backup progress data
-- `importProgress(data)` - Restore from backup
+```javascript
+progressStorage.getCardProgress(deckId, cardId) → progress|null
+progressStorage.setCardProgress(deckId, cardId, progress) → void
+progressStorage.getDeckProgress(deckId) → Map<cardId, progress>
+```
 
-## Data Synchronization
+## Storage Status & Monitoring
 
-### Cross-Tab Communication
-- Use BroadcastChannel for tab synchronization
-- Handle concurrent study sessions
-- Prevent data conflicts between tabs
-- Share progress updates in real-time
+### Storage Information
+```javascript
+getStorageInfo() → {
+  quota: number,           // Browser storage limit
+  usage: number,           // Current usage
+  percentUsed: string      // Usage percentage
+}
+```
 
-### Backup Strategies
-- Regular progress backups to JSON
-- Export/import functionality for data migration  
-- Recovery from corrupted storage
-- Version compatibility handling
+### Debug Interface
+Development tools exposed on window:
+```javascript
+window.debugAnkiStorage = {
+  listNotes() → Promise<note[]>,
+  listCards() → Promise<card[]>, 
+  listNoteTypes() → Promise<noteType[]>,
+  clearAll() → Promise<void>      // Complete data wipe
+}
+```
 
 ## Performance Optimization
 
-### Caching Strategies
-- Cache frequently accessed cards
-- Prefetch upcoming cards
-- Background loading of media files
-- Intelligent cache eviction
+### Efficient Queries
+- **Indexed Access**: All queries use proper IndexedDB indexes
+- **Batch Operations**: Multiple operations grouped in transactions
+- **Lazy Loading**: Large datasets loaded on demand
 
 ### Memory Management
-- Lazy loading of large datasets
-- Efficient data structures
-- Garbage collection of unused data
-- Memory usage monitoring
+- **Minimal Storage**: Only essential data in IndexedDB
+- **Dynamic Content**: Cards rendered when accessed
+- **Automatic Cleanup**: RefCount prevents orphaned data
 
-### Transaction Optimization
-- Batch operations for better performance
-- Async operations to prevent UI blocking
-- Transaction queuing for consistency
-- Error handling and rollback support
+### Transaction Patterns
+```javascript
+// Efficient batch creation
+const notes = await Promise.all([
+  noteManager.create(typeId1, fields1, tags1),
+  noteManager.create(typeId2, fields2, tags2),
+  noteManager.create(typeId3, fields3, tags3)
+])
+```
 
 ## Error Handling
 
 ### Storage Errors
-- Handle quota exceeded gracefully
-- Provide fallback storage options
-- User notification for critical errors
-- Automatic retry mechanisms
+- **Quota Exceeded**: Graceful degradation with user notification
+- **Corruption**: Data validation on read with repair attempts
+- **Network Issues**: Offline-first design with sync capabilities
 
 ### Data Integrity
-- Validate data before storage
-- Check for corruption on load
-- Implement data repair utilities
-- Maintain storage consistency
+- **Validation**: All data validated before storage
+- **Consistency**: RefCount maintained across all operations
+- **Recovery**: Automatic repair of inconsistent states
 
-### Recovery Mechanisms
-- Detect and handle corrupted databases
-- Restore from backup when possible
-- Reset storage as last resort
-- User guidance for manual recovery
+## Migration Strategy
 
-## Browser Compatibility
+### Schema Upgrades
+IndexedDB onupgradeneeded handles version transitions:
+```javascript
+// v2 → v3 migration example
+if (oldVersion < 3) {
+  // Remove old stores
+  if (db.objectStoreNames.contains('decks')) {
+    db.deleteObjectStore('decks')
+  }
+  
+  // Create new stores
+  const noteStore = db.createObjectStore('notes', {keyPath: 'id'})
+  noteStore.createIndex('refCount', 'refCount')
+}
+```
 
-### Feature Detection
-- Check IndexedDB availability
-- localStorage capacity testing
-- Progressive enhancement approach
-- Fallback for limited storage
-
-### Storage Limits
-- Monitor browser-specific limits
-- Adapt behavior based on available space
-- Implement storage optimization
-- User warnings for low storage
+### Data Migration
+- **Clean Slate**: New architecture assumes fresh import
+- **No Legacy Support**: Old deckStorage data not migrated
+- **Fresh Start**: Users re-import .apkg files
 
 ## Integration Points
 
-### AnkiShard Engine
-- Deck import/export coordination
-- Metadata synchronization
-- Storage initialization
+### AnkiApi Module
+Primary consumer of storage operations:
+```javascript
+ankiApi.createNote() → noteManager.create() + cardGen.genCardsForNote()
+ankiApi.cleanupShard() → cardGen.deleteCards() + noteManager.removeRefs()
+```
 
-### Study Engine
-- Progress data persistence
-- Session state management
-- FSRS state storage
+### Import/Export
+Direct IndexedDB access for bulk operations:
+```javascript
+importApkgData() → idb.put() batch operations
+parseApkgFile() → Direct IndexedDB writes for performance
+```
 
-### AnkiReader Components
-- Data loading for UI components
-- Real-time progress updates
-- Storage status indicators
+### UI Components
+- **BrowseMode**: Queries notes with idb.query()
+- **StudyMode**: Renders cards with cardGen.renderCard()
+- **Editor**: Imports data with bulk operations
 
 ## Future Enhancements
 
-### Cloud Synchronization
-- Prepare data structures for cloud sync
-- Implement conflict resolution
-- Support multiple device access
-- Privacy-focused sync options
+### Advanced Features
+- **Compression**: Large note fields compressed in storage
+- **Encryption**: Sensitive data encrypted at rest
+- **Sync Preparation**: Structure ready for cloud synchronization
+- **Analytics**: Storage usage analytics and optimization
 
-### Advanced Storage
-- Compression for large datasets
-- Encryption for sensitive data
-- Storage analytics and optimization
-- Automated cleanup policies
+### Performance Improvements
+- **Caching Layer**: Frequently accessed data cached
+- **Background Sync**: Progress synced in background
+- **Intelligent Prefetch**: Predictive loading of upcoming cards
+- **Storage Optimization**: Automatic cleanup policies

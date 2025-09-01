@@ -1,169 +1,260 @@
 # Anki Shard
 
-Anki Shard integrates spaced repetition flashcard functionality into the LS100 shard system, enabling users to study Anki decks alongside other learning content.
+Anki Shard integrates spaced repetition flashcard functionality into the LS100 shard system, implementing Anki's Note+Template architecture for efficient multi-pair card generation.
 
 ## Overview
 
 The Anki Shard provides two primary modes:
-- **Browse Mode**: Navigate and explore deck contents
+- **Browse Mode**: Navigate and explore notes with field data
 - **Study Mode**: Active learning with spaced repetition algorithm
 
 **Key Design Principles**:
-- Frontend-only implementation using browser storage
-- No backend modifications required
-- Leverages existing shard architecture
-- Uses modern FSRS algorithm for optimal learning intervals
+- **Note+Template Architecture** - Cards generated dynamically from note data
+- **RefCount Sharing** - Notes shared across shards with automatic cleanup
+- **Frontend-only** - No backend modifications required
+- **Modern FSRS** - Advanced spaced repetition algorithm
 
 ## Architecture
 
+### Core Concept: Note+Template System
+
+Unlike traditional flashcard systems that store rendered content, we follow Anki's approach:
+
+```
+Note (data) + Template (format) → Card (instance)
+```
+
+- **Note**: Field data (e.g. Country="France", Capital="Paris")
+- **Template**: Rendering format (e.g. "{{Country}} → {{Capital}}")  
+- **Card**: Lightweight reference with scheduling data
+
 ### Storage Strategy
-- **Shard Metadata**: Stored via global shard API (backend)
-- **Deck Data (.apkg)**: IndexedDB (browser)
-- **Study Progress**: localStorage with session backup
-- **Scheduling Data**: localStorage (FSRS state)
+- **Shard Metadata**: Backend via global shard API
+- **Notes**: IndexedDB with refCount for cross-shard sharing
+- **Templates**: IndexedDB linked to note types
+- **Cards**: IndexedDB as note+template references
+- **Progress**: localStorage with FSRS scheduling data
 
-### Core Components
+### Core Modules
 
-#### AnkiShard Engine
-- File detection for `.apkg` files
-- Deck parsing and card extraction
-- Cover generation for shard preview
-- Integration with shard registry
-
-#### AnkiShardEditor
-- Deck import interface
-- Deck selection and configuration
-- Preview of deck statistics
-- Multiple deck support per shard
-
-#### AnkiReader
-- Mode switching (Browse/Study)
-- Card template rendering
-- Progress tracking UI
-- Session management
-
-### Dependencies
-
-**JavaScript Libraries**:
-- `anki-reader`: Parse .apkg files in browser
-- `ts-fsrs`: Modern spaced repetition algorithm
-- Browser IndexedDB API for deck storage
-
-## Modules
-
-Complex components are documented separately:
-
-- **[Card Parser](./card-parser.md)**: Template parsing and rendering
-- **[Study Engine](./study-engine.md)**: FSRS integration and progress tracking
-- **[Storage Manager](./storage-manager.md)**: Browser storage coordination
-
-## Integration Points
-
-### Shard System Integration
+#### AnkiApi
+High-level coordinator for all operations:
 ```javascript
-// engines.js
-const SHARD_ENGINES = {
-  subtitle: subtitleEngine,
-  anki: ankiEngine  // New addition
+ankiApi.createNote(typeId, fields, tags, deckId, shardId)
+ankiApi.getStudyCard(cardId) // Returns rendered content
+ankiApi.cleanupShard(shardId) // RefCount cleanup
+```
+
+#### NoteManager  
+CRUD operations for notes with refCount system:
+```javascript
+noteManager.create(typeId, fields, tags)
+noteManager.addRef(noteId, shardId) // Increment refCount
+noteManager.removeRef(noteId, shardId) // Cleanup if refCount=0
+```
+
+#### CardGenerator
+Generates cards from note+template combinations:
+```javascript  
+cardGen.genCardsForNote(noteId, deckId, shardId)
+cardGen.renderCard(cardId) // Dynamic content generation
+```
+
+#### TemplateEngine
+Renders content using Anki template syntax:
+```javascript
+engine.render("{{Country}}", ["France", "Paris"]) // → "France"
+engine.render("{{FrontSide}}<hr>{{Capital}}", ...) // → "France<hr>Paris"
+```
+
+## Data Structures
+
+### IndexedDB Schema
+
+**Notes Store**:
+```javascript
+{
+  id: string,
+  typeId: string, 
+  fields: string[], // Raw field data
+  tags: string[],
+  refCount: number, // Cross-shard sharing
+  created: timestamp,
+  modified: timestamp
 }
 ```
 
-### File Detection
-- Detects `.apkg` files with high confidence (0.95)
-- Extracts deck name from filename
-- Provides metadata for shard creation
+**Templates Store**:
+```javascript
+{
+  id: string,
+  typeId: string,
+  name: string,
+  qfmt: string, // Question template  
+  afmt: string, // Answer template
+  idx: number   // Template ordinal
+}
+```
 
-### Reader Integration
-- Follows existing reader pattern
-- Uses familiar UI components from subtitle shard
-- Maintains consistent navigation experience
+**Cards Store**:
+```javascript
+{
+  id: string,
+  noteId: string,     // Reference to note
+  templateIdx: number, // Which template to use
+  deckId: string,
+  shardId: string,
+  due: timestamp,     // FSRS scheduling
+  interval: number,
+  ease: number,
+  reps: number
+}
+```
 
-## Data Flow
+## Multi-Pair Card Example
 
-### Import Flow
-1. User selects .apkg file
-2. AnkiShardEditor parses deck using anki-reader
-3. Deck stored in IndexedDB
-4. Shard metadata saved to backend
-5. Cards prepared for study
+A single note with geography data:
+```javascript
+{
+  typeId: "geography",
+  fields: ["France", "Paris", "🇫🇷", "Western Europe"]
+}
+```
 
-### Study Flow
-1. User enters Study Mode
-2. FSRS algorithm selects next card
-3. Card rendered using template parser
-4. User provides rating (Again/Hard/Good/Easy)
-5. FSRS updates scheduling
-6. Progress saved to localStorage
+Using templates:
+- "{{Country}} → {{Capital}}" → "France → Paris"
+- "{{Capital}} → {{Country}}" → "Paris → France"  
+- "{{Flag}} → {{Country}}" → "🇫🇷 → France"
+- "{{Country}} → {{Location}}" → "France → Western Europe"
 
-### Browse Flow
-1. User enters Browse Mode
-2. Cards loaded from IndexedDB
-3. Searchable/filterable card list
-4. Card preview with front/back
-5. Quick study session initiation
+Results in **4 cards** from **1 note**.
+
+## Import Flow
+
+### .apkg Processing
+1. Parse .apkg file using sql.js + jszip
+2. Extract noteTypes, notes, templates, media
+3. Create noteTypes and templates in IndexedDB
+4. Import notes with refCount=1 for current shard
+5. Generate cards using cardGen.genCardsForNote()
+
+### Data Conversion
+```javascript
+// Anki note type → LS100 noteType + templates
+{
+  name: "Basic",
+  flds: [{name: "Front"}, {name: "Back"}],
+  tmpls: [{qfmt: "{{Front}}", afmt: "{{FrontSide}}<hr>{{Back}}"}]
+}
+```
+
+## Study Flow
+
+1. **Card Selection**: FSRS algorithm picks due cards
+2. **Rendering**: TemplateEngine generates question/answer
+3. **User Rating**: Again/Hard/Good/Easy (1-4 scale)
+4. **Scheduling**: FSRS updates due date and difficulty
+5. **Persistence**: Progress saved to localStorage
+
+## Browse Flow
+
+1. **Load Notes**: Get notes for current deck/shard
+2. **Display Fields**: Show note type, field values, tags
+3. **Card Count**: Display how many cards each note generates
+4. **Search/Filter**: By field content, tags, note type
+
+## RefCount System
+
+### Cross-Shard Sharing
+- Notes can be shared across multiple shards
+- `refCount` tracks how many shards reference each note
+- Automatic cleanup when `refCount` reaches 0
+
+### Lifecycle Management
+```javascript
+// Adding note to shard
+await noteManager.addRef(noteId, shardId) // refCount++
+
+// Removing note from shard  
+await noteManager.removeRef(noteId, shardId) // refCount--
+// If refCount=0, note is deleted automatically
+```
 
 ## UI/UX Design
 
 ### Browse Mode
-- **Left Panel**: Card list with search/filter
-- **Right Panel**: Selected card preview
-- **Actions**: Start study, edit tags, card statistics
+- **Note Table**: Type, fields, tags, card count, modified date
+- **Search/Filter**: By content, type, tags
+- **Statistics**: Notes count, cards count, due cards
 
-### Study Mode
-- **Header**: Session progress, time elapsed, exit option
-- **Card Area**: Question/answer display with smooth transitions
-- **Controls**: Show answer button, rating buttons (1-4)
-- **Footer**: Session statistics, cards remaining
+### Study Mode  
+- **Dynamic Content**: Rendered on-demand from note+template
+- **Card Info**: Template name, note fields preview
+- **FSRS Controls**: 4-rating system with scheduling feedback
 
 ### Editor Mode
-- **Import Section**: File selection and deck preview
-- **Deck List**: Imported decks with statistics
-- **Configuration**: Study preferences, scheduling options
+- **Import Interface**: .apkg file selection and preview
+- **Statistics**: NoteTypes, notes, cards imported
+- **Deck Management**: Create decks, assign notes
 
 ## Performance Considerations
 
-### Browser Storage
-- IndexedDB for large deck files (supports binary data)
-- localStorage for quick access to progress data
-- Session cleanup on app close
-- Storage quota management
+### Storage Efficiency
+- **Deduplication**: Notes stored once, cards are references
+- **RefCount**: Automatic cleanup prevents orphaned data
+- **Lazy Loading**: Content rendered when needed
 
-### Memory Management
-- Lazy loading of card content
-- Image/media caching strategies
-- Efficient card scheduling algorithms
-- Background sync of progress data
+### Rendering Optimization
+- **Template Caching**: Parsed templates cached in memory
+- **Batch Operations**: Multiple cards processed together
+- **Progressive Loading**: Large note sets loaded incrementally
+
+## Integration Points
+
+### Shard System
+```javascript  
+// AnkiShard.js exports
+export const detect = (filename, buffer) => // .apkg detection
+export const parseAnkiFile = async (file, filename, deckId, shardId) =>
+export const processData = async (shard) => // Update shard.data
+export const cleanup = async (shard) => // RefCount cleanup
+```
+
+### Reader Integration
+- Follows existing reader pattern
+- Uses familiar UI components
+- Maintains consistent navigation
 
 ## Future Enhancements
 
 ### Phase 1 Extensions
-- Card editing capabilities
-- Custom deck creation
-- Import from various formats
-- Deck sharing between devices
+- **Note Editing**: Direct field editing in browse mode
+- **Custom Templates**: User-defined card formats
+- **Advanced Import**: Support more file formats
+- **Unified Progress**: Cross-shard study progress tracking
 
 ### Phase 2 Integration
-- Cross-shard study sessions
-- Subtitle-to-card conversion
-- Dictionary integration for card creation
-- Progress analytics and insights
+- **Subtitle Integration**: Convert subtitle segments to notes
+- **Dictionary Integration**: Auto-generate vocabulary cards
+- **Cross-Shard Study**: Study cards from multiple shards together
+- **Progress Analytics**: Learning insights and recommendations
 
 ## Technical Notes
 
+### Template Syntax Support
+- **Field Substitution**: `{{FieldName}}`
+- **FrontSide**: `{{FrontSide}}` for answer templates
+- **Conditionals**: `{{#Field}}content{{/Field}}`
+- **Media**: Automatic media URL replacement
+
+### Browser Compatibility  
+- Modern IndexedDB support required
+- ES6+ features used throughout
+- Progressive enhancement approach
+- Mobile-responsive design
+
 ### FSRS Algorithm
 - Modern replacement for SM-2 algorithm
-- Better scheduling accuracy
-- Support for 4-rating system
+- 4-rating system for better accuracy
+- Dynamic difficulty adjustment
 - Optimal retention targeting
-
-### Template System
-- Supports Anki's handlebars-like syntax
-- Cloze deletion support
-- Conditional field rendering
-- Media file handling
-
-### Browser Compatibility
-- Modern browser IndexedDB support required
-- ES6+ features used throughout
-- Progressive enhancement for older browsers
-- Mobile-responsive design

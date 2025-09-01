@@ -9,22 +9,35 @@ This directory contains documentation for the Anki Shard implementation in LS100
 - **[overview.md](./overview.md)** - This file, module navigation guide
 
 ### Component Modules
-- **[card-parser.md](./card-parser.md)** - Template parsing and HTML rendering
+- **[template-engine.md](./template-engine.md)** - Note+Template rendering system
 - **[study-engine.md](./study-engine.md)** - FSRS algorithm and progress tracking  
 - **[storage-manager.md](./storage-manager.md)** - Browser storage coordination
 
 ## Quick Reference
 
 ### Key Features
-- Frontend-only implementation (no backend changes)
-- Browser storage: IndexedDB + localStorage
-- Modern FSRS spaced repetition algorithm
-- Two-mode interface: Browse & Study
+- **Note+Template Architecture** - Anki-style multi-pair cards from single notes
+- **Dynamic Rendering** - Cards generated on-demand from note fields
+- **RefCount Sharing** - Notes shared across shards with automatic cleanup
+- **Modern FSRS** - Advanced spaced repetition algorithm
+- **Two-mode Interface** - Browse notes & Study cards
+
+### New Architecture Benefits
+- **Storage Efficiency** - Notes stored once, cards are lightweight references
+- **Multi-pair Cards** - One note generates multiple Q&A combinations
+- **Cross-shard Sharing** - Same note can be used in multiple shards
+- **Template Flexibility** - Full Anki template syntax support
+
+### Core Modules
+- **noteManager** - Note CRUD operations with refCount
+- **cardGen** - Card generation and scheduling data
+- **templateEngine** - Dynamic content rendering
+- **ankiApi** - High-level API coordinator
 
 ### Dependencies
-- `anki-reader` - Parse .apkg files in browser
-- `ts-fsrs` - Free Spaced Repetition Scheduler
-- Browser IndexedDB and localStorage APIs
+- **IndexedDB** - Notes, templates, cards, media storage
+- **ts-fsrs** - Free Spaced Repetition Scheduler
+- **Browser storage APIs** - localStorage for progress
 
 ### Integration Points
 - Extends existing shard engine system
@@ -32,6 +45,8 @@ This directory contains documentation for the Anki Shard implementation in LS100
 - Maintains consistency with subtitle shard architecture
 
 ## Implementation Status
+
+**✅ Completed**: Note+Template architecture, import/export, browse mode, study mode, multi-pair cards
 
 Refer to main project plan.md for current development status and phase planning.
 
