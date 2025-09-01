@@ -1,24 +1,21 @@
 import { AnkiShardEditor } from './AnkiShardEditor.jsx'
 import { AnkiReader as AnkiReaderComponent } from './reader/AnkiReader.jsx'
-import { deckStorage as _deckStorage } from './storage/storageManager.js'
 import { parseApkgFile, importApkgData } from './parser/apkgParser.js'
-import { parseTemplate } from './parser/templateParser.js'
+import ankiApi from './core/ankiApi'
 import { log } from '../../utils/logger'
 
 // Anki Shard Engine
 // Handles .apkg file detection, parsing, and integration with shard system
 
-// Replace image src references with data URLs for browser access
+// Media URL replacement - simplified for new architecture  
 const replaceMediaUrls = (html, media) => {
   if (!html || !media || Object.keys(media).length === 0) {
     return html
   }
 
   let result = html
-  // Replace img src attributes with data URLs
   for (const [filename, mediaData] of Object.entries(media)) {
     if (mediaData.dataUrl) {
-      // Replace both quoted and unquoted src references
       const patterns = [
         new RegExp(`src=["']${filename}["']`, 'gi'),
         new RegExp(`src=${filename}`, 'gi')
@@ -88,100 +85,15 @@ export const parseAnkiFile = async (file, filename, deckId, shardId) => {
   }
 }
 
-// Generate card side content using Anki templates
-const generateCardSide = (card, noteType, side) => {
-  try {
-    if (!card.note || !card.note.flds) {
-      log.warn('Card missing note or fields:', {
-        cardId: card.id,
-        hasNote: !!card.note,
-        hasFlds: card.note ? !!card.note.flds : false
-      })
-      return 'Missing card data'
-    }
-
-    // Fallback: if no noteType, create a basic template based on field count
-    if (!noteType) {
-      log.debug('No noteType found, creating fallback template for card:', card.id)
-
-      const fieldCount = card.note.flds.length
-      const fields = card.note.flds
-      // Simple fallback logic based on field count and content
-      if (side === 'front') {
-        // For front: show first field, or combine first few fields if they're short
-        if (fieldCount >= 2) {
-          const field1 = fields[0] || ''
-          const field2 = fields[1] || ''
-          // If both fields are short, combine them
-          if (field1.length < 50 && field2.length < 50) {
-            return `<div><strong>${field1}</strong></div><div>${field2}</div>`
-          }
-        }
-        return fields[0] || 'No question'
-      } else {
-        // For back: show remaining fields
-        if (fieldCount >= 3) {
-          return fields.slice(2).filter(f => f.trim()).map(f => `<div>${f}</div>`).join('')
-        } else if (fieldCount >= 2) {
-          return fields[1] || fields[0] || 'No answer'
-        }
-        return fields[0] || 'No answer'
-      }
-    }
-
-    // Get the template for this card (card.ord is the template index)
-    const cardTemplates = noteType.tmpls || []
-    const template = cardTemplates[card.ord] || cardTemplates[0]
-
-    if (!template) {
-      log.warn('No template found for card:', {
-        cardId: card.id,
-        cardOrd: card.ord,
-        availableTemplates: cardTemplates.length
-      })
-      return 'No template available'
-    }
-
-    // Build field map from note type field definitions and note field values
-    const noteTypeFields = noteType.flds || []
-    const noteFieldValues = card.note.flds || []
-
-    const fieldMap = {}
-    noteTypeFields.forEach((fieldDef, index) => {
-      const fieldName = fieldDef.name
-      const fieldValue = noteFieldValues[index] || ''
-      fieldMap[fieldName] = fieldValue
-    })
-
-    // Use the appropriate template format
-    const templateFormat = side === 'front' ? template.qfmt : template.afmt
-
-    // For back side, we might need the front side content
-    let frontSideContent = undefined
-    if (side === 'back' && template.afmt && template.afmt.includes('{{FrontSide}}')) {
-      // Recursively generate front side for {{FrontSide}} substitution
-      frontSideContent = generateCardSide(card, noteType, 'front')
-    }
-
-    const result = parseTemplate(templateFormat, fieldMap, {
-      mode: side === 'front' ? 'question' : 'answer',
-      frontSide: frontSideContent
-    })
-
-    return result || `No ${side} content`
-  } catch (error) {
-    log.warn('Failed to generate card side:', error)
-    return `Error: ${error.message}`
-  }
-}
+// Old generateCardSide function removed - now using TemplateEngine
 
 // Generate cover for shard preview
 export const generateCover = (shard) => {
-  const deckCount = shard.data?.decks?.length || 1
-  const totalCards = shard.data?.decks?.reduce((sum, deck) => sum + (deck.totalCards || 0), 0) || 0
+  const noteCount = shard.data?.totalNotes || 0
+  const cardCount = shard.data?.totalCards || 0
 
-  // Use shard name or first deck name
-  const title = shard.name || shard.data?.decks?.[0]?.name || 'Anki Deck'
+  // Use shard name
+  const title = shard.name || 'Anki Shard'
 
   // Create a hash for consistent color selection
   let hash = 0
@@ -208,9 +120,9 @@ export const generateCover = (shard) => {
     style: 'anki-card',
     background: gradient,
     textColor: '#ffffff',
-    subtitle: deckCount > 1
-      ? `${deckCount} decks • ${totalCards} cards`
-      : `${totalCards} cards`,
+    subtitle: noteCount > 0
+      ? `${noteCount} notes • ${cardCount} cards`
+      : 'No content yet',
     icon: '🧠' // Brain emoji for learning
   }
 }
@@ -222,27 +134,29 @@ export const shardTypeInfo = {
   color: '#3f51b5' // Anki blue
 }
 
-// Process shard data - update deck counts
+// Process shard data - update counts using new architecture
 export const processData = async (shard, _apiCall) => {
   if (!shard.id) {
-    log.debug('Pre-creation, skipping deck count')
-    shard.data = { totalDecks: 0, totalCards: 0 }
+    log.debug('Pre-creation, skipping data processing')
+    shard.data = { totalNotes: 0, totalCards: 0 }
     return
   }
 
   try {
-    const decks = _deckStorage.listDecksByShardId(shard.id)
-    const totalCards = Object.values(decks).reduce((sum, deck) => sum + (deck.totalCards || 0), 0)
+    // Get cards for this shard using new API
+    const cards = await ankiApi.getCardsForShard(shard.id)
+    const noteIds = [...new Set(cards.map(c => c.noteId))]
 
     shard.data = {
-      totalDecks: Object.keys(decks).length,
-      totalCards
+      totalNotes: noteIds.length,
+      totalCards: cards.length
     }
 
     log.info('Shard data updated:', shard.data)
   } catch (error) {
     log.error('Failed to process shard data:', error)
-    throw error
+    // Fallback to default
+    shard.data = { totalNotes: 0, totalCards: 0 }
   }
 }
 
@@ -251,20 +165,14 @@ export const cleanup = async (shard, allShards = []) => {
   try {
     log.info('Cleaning up Anki shard:', shard.id)
 
-    // Clean up this shard's data
-    await _deckStorage.cleanupShard(shard.id)
+    // Remove all notes and cards for this shard
+    await ankiApi.cleanupShard(shard.id)
 
-    // Only run orphan cleanup if this is the last shard being deleted
-    // (avoid false positives during batch deletions)
+    // Check for remaining Anki shards for potential orphan cleanup
     const remainingAnkiShards = allShards.filter(s => s.type === 'anki' && s.id !== shard.id)
-
+    
     if (remainingAnkiShards.length === 0) {
-      // No more Anki shards - clean up any truly orphaned data
-      log.info('Last Anki shard deleted, checking for orphaned data')
-      const orphansRemoved = await _deckStorage.cleanupOrphans([])
-      if (orphansRemoved > 0) {
-        log.info('Orphan cleanup:', { orphansRemoved })
-      }
+      log.info('Last Anki shard deleted - deep cleanup could be performed here if needed')
     }
 
     log.info('Anki shard cleanup completed:', shard.id)

@@ -109,6 +109,12 @@ export class CardGenerator {
     return cards.length
   }
 
+  // Delete single card
+  async deleteCard(cardId) {
+    await idb.delete('cards', cardId)
+    log.debug('Card deleted:', cardId)
+  }
+
   genId() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2)
   }

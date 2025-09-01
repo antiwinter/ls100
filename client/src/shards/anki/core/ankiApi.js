@@ -81,6 +81,31 @@ export class AnkiApi {
     return due
   }
 
+  // Get all cards for a shard
+  async getCardsForShard(shardId) {
+    return await this.cardGen.getCardsForShard(shardId)
+  }
+
+  // Cleanup all data for a shard
+  async cleanupShard(shardId) {
+    // Get all cards for this shard
+    const cards = await this.cardGen.getCardsForShard(shardId)
+    const noteIds = [...new Set(cards.map(c => c.noteId))]
+    
+    // Delete all cards for this shard
+    for (const card of cards) {
+      await this.cardGen.deleteCard(card.id)
+    }
+    
+    // Remove note refs and cleanup orphaned notes
+    for (const noteId of noteIds) {
+      await this.noteManager.removeRef(noteId, shardId)
+    }
+    
+    log.debug('Shard cleanup completed:', { shardId, cards: cards.length, notes: noteIds.length })
+    return { cardsRemoved: cards.length, notesProcessed: noteIds.length }
+  }
+
   // Batch operations for import
   async batchImport(notes, deckId, shardId) {
     const results = []
