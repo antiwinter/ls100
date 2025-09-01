@@ -188,9 +188,7 @@ await noteManager.removeRef(noteId, lastShardId)  // refCount: 1 → 0 (auto-del
 
 ### Progress Operations
 ```javascript
-progressStorage.getCardProgress(deckId, cardId) → progress|null
-progressStorage.setCardProgress(deckId, cardId, progress) → void
-progressStorage.getDeckProgress(deckId) → Map<cardId, progress>
+Progress is stored directly on each card record under `card.fsrs` and mirrored `card.due` for queries.
 ```
 
 ## Storage Status & Monitoring

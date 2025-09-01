@@ -1,5 +1,5 @@
 import { FSRS, Rating, State, createEmptyCard } from 'ts-fsrs'
-import { progressStorage } from '../storage/storageManager.js'
+import { idb } from '../storage/storageManager.js'
 import { log } from '../../../utils/logger'
 
 // Study engine with FSRS integration
@@ -111,16 +111,16 @@ export class StudyEngine {
     const dueCards = []
     const newCards = []
 
-    cards.forEach(card => {
-      const progress = progressStorage.getCardProgress(this.deckId, card.id)
+    for (const c of cards) {
+      const progress = c.fsrs
       const fsrsCard = progressToCard(progress)
 
       if (!progress || fsrsCard.state === STATES.NEW) {
-        newCards.push({ ...card, fsrsCard })
+        newCards.push({ ...c, fsrsCard })
       } else if (fsrsCard.due <= now) {
-        dueCards.push({ ...card, fsrsCard, priority: this.getCardPriority(fsrsCard) })
+        dueCards.push({ ...c, fsrsCard, priority: this.getCardPriority(fsrsCard) })
       }
-    })
+    }
 
     // Sort by priority (higher number = higher priority)
     dueCards.sort((a, b) => b.priority - a.priority)
@@ -169,7 +169,12 @@ export class StudyEngine {
 
     // Save progress
     const progress = cardToProgress(updatedCard.card)
-    progressStorage.setCardProgress(this.deckId, id, progress)
+    // persist on the card
+    const existing = await idb.get('cards', id)
+    if (existing) {
+      const updated = { ...existing, fsrs: progress, due: updatedCard.card.due.getTime() }
+      await idb.put('cards', updated)
+    }
 
     // Update session stats
     this.updateSessionStats(rating)
@@ -207,18 +212,17 @@ export class StudyEngine {
     const now = new Date()
     const due = []
 
-    cards.forEach(card => {
-      const progress = progressStorage.getCardProgress(this.deckId, card.id)
+    for (const c of cards) {
+      const progress = c.fsrs
       if (!progress) {
-        // New card
-        due.push({ ...card, type: 'new', due: now })
+        due.push({ ...c, type: 'new', due: now })
       } else {
         const fsrsCard = progressToCard(progress)
         if (fsrsCard.due <= now) {
-          due.push({ ...card, type: 'review', due: fsrsCard.due, state: fsrsCard.state })
+          due.push({ ...c, type: 'review', due: fsrsCard.due, state: fsrsCard.state })
         }
       }
-    })
+    }
 
     return due.sort((a, b) => a.due - b.due)
   }
@@ -232,8 +236,8 @@ export class StudyEngine {
 
     const now = new Date()
 
-    cards.forEach(card => {
-      const progress = progressStorage.getCardProgress(this.deckId, card.id)
+    for (const c of cards) {
+      const progress = c.fsrs
 
       if (!progress) {
         newCards++
@@ -255,7 +259,7 @@ export class StudyEngine {
           break
         }
       }
-    })
+    }
 
     return {
       total: cards.length,
@@ -272,7 +276,7 @@ export class StudyEngine {
       this.session.endTime = new Date()
       this.session.timeSpent = this.session.endTime - this.session.startTime
 
-      // Note: Deck stats are tracked elsewhere via individual card progress
+      // Note: card progress persisted on each rating
 
       log.info('Study session ended:', {
         sessionId: this.session.id,

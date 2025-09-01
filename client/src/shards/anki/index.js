@@ -26,7 +26,6 @@ export { default as TemplateRenderer } from './core/templateEngine.js'
 export {
   idb,
   storage,
-  progressStorage,
   getStorageInfo
 } from './storage/storageManager.js'
 

@@ -13,7 +13,6 @@ import {
 } from '@mui/joy'
 import { Search, PlayArrow, Collections } from '@mui/icons-material'
 
-import { StudyEngine } from '../engine/studyEngine.js'
 import ankiApi from '../core/ankiApi'
 import noteManager from '../core/noteManager'
 import { log } from '../../../utils/logger'
@@ -229,11 +228,9 @@ export const BrowseMode = ({
 
   const handleStartStudy = () => {
     if (!selectedDeck || notes.length === 0) return
-
     try {
-      const studyEngine = new StudyEngine(selectedDeck)
-      onStartStudy?.(selectedDeck, studyEngine)
-      log.info('Started study session for deck:', selectedDeck.name)
+      onStartStudy?.()
+      log.info('Requested study session for deck:', selectedDeck.name)
     } catch (error) {
       log.error('Failed to start study session:', error)
     }

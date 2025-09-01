@@ -75,8 +75,9 @@ export class AnkiApi {
   async getDueCards(deckId, limit = 20) {
     const cards = await this.cardGen.getCardsForDeck(deckId)
     const now = Date.now()
-    const due = cards.filter(c => c.due <= now)
-      .sort((a, b) => a.due - b.due)
+    const parseDue = d => (typeof d === 'string' ? Date.parse(d) : d)
+    const due = cards.filter(c => parseDue(c.due) <= now)
+      .sort((a, b) => parseDue(a.due) - parseDue(b.due))
       .slice(0, limit)
     return due
   }

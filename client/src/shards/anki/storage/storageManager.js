@@ -15,9 +15,8 @@ const STORES = {
   media: 'media'
 }
 
-// localStorage keys (minimal for new architecture)
+// localStorage keys (minimal)
 const KEYS = {
-  progress: 'anki_progress',
   prefs: 'anki_preferences'
 }
 
@@ -165,25 +164,7 @@ export const storage = {
 }
 
 // Progress operations (keep for FSRS scheduling)
-export const progressStorage = {
-  getCardProgress(deckId, cardId) {
-    const progress = storage.get(`${KEYS.progress}_${deckId}`, {})
-    return progress[cardId] || null
-  },
-
-  setCardProgress(deckId, cardId, progressData) {
-    const progress = storage.get(`${KEYS.progress}_${deckId}`, {})
-    progress[cardId] = {
-      ...progressData,
-      lastReview: new Date().toISOString()
-    }
-    storage.set(`${KEYS.progress}_${deckId}`, progress)
-  },
-
-  getDeckProgress(deckId) {
-    return storage.get(`${KEYS.progress}_${deckId}`, {})
-  }
-}
+// progress is stored directly on card records in IndexedDB under card.fsrs
 
 // Storage status
 export const getStorageInfo = async () => {
