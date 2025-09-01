@@ -1,9 +1,11 @@
 import JSZip from 'jszip'
 import initSqlJs from 'sql.js'
+import ankiApi from '../core/ankiApi'
+import noteManager from '../core/noteManager'
 import { log } from '../../../utils/logger'
 
 // Browser-compatible .apkg parser using sql.js + jszip
-// Replaces anki-reader for better browser compatibility
+// Updated to work with new note+template architecture
 
 let SQL = null
 
@@ -278,6 +280,78 @@ const parseMedia = async (zipData) => {
   }
 }
 
+// Convert parsed Anki data to new note+template structure and import
+export const importApkgData = async (parsedData, deckId, shardId) => {
+  try {
+    log.info('Converting Anki data to new note+template structure...')
+    
+    const { noteTypes, notes: ankiNotes, media } = parsedData
+    const createdNotes = []
+    
+    // 1. Create NoteTypes and Templates
+    for (const [modelId, model] of Object.entries(noteTypes)) {
+      const noteTypeId = `anki-${modelId}`
+      
+      // Extract field names
+      const fields = model.flds.map(field => field.name)
+      
+      // Create noteType
+      await noteManager.createType(noteTypeId, model.name, fields)
+      log.debug(`Created noteType: ${model.name}`)
+      
+      // Create templates
+      for (const template of model.tmpls) {
+        await noteManager.createTemplate(
+          noteTypeId,
+          template.name,
+          template.qfmt,
+          template.afmt,
+          template.ord
+        )
+        log.debug(`Created template: ${template.name}`)
+      }
+    }
+    
+    // 2. Import Notes
+    for (const ankiNote of ankiNotes) {
+      const noteTypeId = `anki-${ankiNote.mid}`
+      
+      const result = await ankiApi.createNote(
+        noteTypeId,
+        ankiNote.flds,
+        ankiNote.tags,
+        deckId,
+        shardId
+      )
+      
+      createdNotes.push(result)
+    }
+    
+    // 3. Store media files
+    if (Object.keys(media).length > 0) {
+      // TODO: Import media files to media store
+      log.debug(`Media files found: ${Object.keys(media).length}`)
+    }
+    
+    log.info(`✅ Import complete:`)
+    log.info(`   • NoteTypes: ${Object.keys(noteTypes).length}`)
+    log.info(`   • Notes: ${createdNotes.length}`)
+    log.info(`   • Cards: ${createdNotes.reduce((sum, n) => sum + n.cards.length, 0)}`)
+    
+    return {
+      noteTypes: Object.keys(noteTypes).length,
+      notes: createdNotes.length,
+      cards: createdNotes.reduce((sum, n) => sum + n.cards.length, 0),
+      media: Object.keys(media).length
+    }
+    
+  } catch (error) {
+    log.error('Failed to import Anki data:', error)
+    throw error
+  }
+}
+
 export default {
-  parseApkgFile
+  parseApkgFile,
+  importApkgData
 }

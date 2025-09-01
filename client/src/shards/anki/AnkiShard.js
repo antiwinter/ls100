@@ -1,7 +1,7 @@
 import { AnkiShardEditor } from './AnkiShardEditor.jsx'
 import { AnkiReader as AnkiReaderComponent } from './reader/AnkiReader.jsx'
 import { deckStorage as _deckStorage } from './storage/storageManager.js'
-import { parseApkgFile } from './parser/apkgParser.js'
+import { parseApkgFile, importApkgData } from './parser/apkgParser.js'
 import { parseTemplate } from './parser/templateParser.js'
 import { log } from '../../utils/logger'
 
@@ -59,102 +59,32 @@ export const detect = (filename, buffer) => {
   return result
 }
 
-// Parse .apkg file and extract deck data
-export const parseAnkiFile = async (file, filename) => {
+// Parse .apkg file and import to new note+template structure
+export const parseAnkiFile = async (file, filename, deckId, shardId) => {
   try {
     log.info('Parsing .apkg file:', filename)
 
-    // Use browser-compatible sql.js + jszip parser
-    const { collection, noteTypes, decks, notes: _notes, cards, media } = await parseApkgFile(file)
-
-    log.debug('Parsed data:', {
-      decksCount: Object.keys(decks).length,
-      deckIds: Object.keys(decks),
-      cardsCount: cards.length,
-      cardDeckIds: [...new Set(cards.map(c => c.did))]
-    })
-
-    // Convert to our internal format
-    let deckList = Object.values(decks).map(deck => {
-      const deckCards = cards.filter(card => card.did === deck.id)
-
-      return {
-        id: deck.id,
-        name: deck.name,
-        description: deck.desc || '',
-        cards: deckCards.map(card => ({
-          id: card.id,
-          nid: card.nid,
-          question: replaceMediaUrls(generateCardSide(card, card.noteType, 'front'), media),
-          answer: replaceMediaUrls(generateCardSide(card, card.noteType, 'back'), media),
-          tags: card.note?.tags || [],
-          due: card.due,
-          interval: card.ivl,
-          factor: card.factor,
-          reps: card.reps,
-          lapses: card.lapses,
-          type: card.type,
-          queue: card.queue
-        })),
-        noteTypes: noteTypes,
-        totalCards: deckCards.length,
-        newCards: deckCards.filter(c => c.type === 0).length,
-        learningCards: deckCards.filter(c => c.type === 1).length,
-        reviewCards: deckCards.filter(c => c.type === 2).length
-      }
-    })
-
-    // Fallback: if no decks found but cards exist, create a default deck
-    if (deckList.length === 0 && cards.length > 0) {
-      log.info('No decks found, creating default deck with all cards')
-      const defaultDeck = {
-        id: 1, // Default deck ID in Anki
-        name: filename.replace(/\.apkg$/i, ''), // Use filename as deck name
-        description: 'Imported from .apkg file',
-        cards: cards.map(card => ({
-          id: card.id,
-          nid: card.nid,
-          question: replaceMediaUrls(generateCardSide(card, card.noteType, 'front'), media),
-          answer: replaceMediaUrls(generateCardSide(card, card.noteType, 'back'), media),
-          tags: card.note?.tags || [],
-          due: card.due,
-          interval: card.ivl,
-          factor: card.factor,
-          reps: card.reps,
-          lapses: card.lapses,
-          type: card.type,
-          queue: card.queue
-        })),
-        noteTypes: noteTypes,
-        totalCards: cards.length,
-        newCards: cards.filter(c => c.type === 0).length,
-        learningCards: cards.filter(c => c.type === 1).length,
-        reviewCards: cards.filter(c => c.type === 2).length
-      }
-      deckList = [defaultDeck]
-    }
-
-    // Store media files
-    for (const [filename, mediaInfo] of Object.entries(media)) {
-      // Media will be stored separately in IndexedDB
-      log.debug('Media file found:', filename, mediaInfo.size + ' bytes')
-    }
-
+    // Parse the .apkg file
+    const parsedData = await parseApkgFile(file)
+    
+    // Import using new note+template structure
+    const importStats = await importApkgData(parsedData, deckId, shardId)
+    
     const result = {
-      id: `deck_${Date.now()}`,
+      id: deckId,
       name: filename.replace(/\.apkg$/i, ''),
-      decks: deckList,
-      media: media,
-      collection: collection,
+      stats: importStats,
       importedAt: new Date().toISOString()
     }
 
-    log.info('Successfully parsed .apkg file:', result.name, `(${deckList.length} decks, ${cards.length} cards)`)
+    log.info(`✅ Successfully imported .apkg file: ${result.name}`)
+    log.info(`   📊 ${importStats.noteTypes} note types, ${importStats.notes} notes, ${importStats.cards} cards`)
+    
     return result
 
   } catch (error) {
     log.error('Failed to parse .apkg file:', error)
-    throw new Error(`Failed to parse Anki deck: ${error.message}`)
+    throw new Error(`Failed to import Anki deck: ${error.message}`)
   }
 }
 

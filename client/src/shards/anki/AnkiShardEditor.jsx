@@ -186,19 +186,19 @@ export const AnkiShardEditor = ({
       log.info('Importing Anki deck:', filename)
       importedFilesRef.current.add(fileKey)
 
-      // Parse .apkg file
-      const deckData = await parseAnkiFile(file, filename)
+      // Generate deck ID and import using new note+template structure
+      const deckId = `deck-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`
+      const shardId = getShardId()
+      
+      const importResult = await parseAnkiFile(file, filename, deckId, shardId)
 
-      // Save each deck to storage (deckData.decks is an array of decks)
-      const updatedDecks = { ...decks }
-
-      for (const deck of deckData.decks || []) {
-        await deckStorage.saveDeck(deck, getShardId())
-
-        // Update local state for each deck
-        updatedDecks[deck.id] = {
-          name: deck.name,
-          totalCards: deck.cards.length,
+      // Update local state with new deck
+      const updatedDecks = { 
+        ...decks,
+        [deckId]: {
+          id: deckId,
+          name: importResult.name,
+          totalCards: importResult.stats.cards,
           studiedCards: 0,
           lastStudied: null
         }
@@ -211,7 +211,7 @@ export const AnkiShardEditor = ({
         deckIds: Object.keys(updatedDecks)
       })
 
-      log.info('Anki file imported successfully:', deckData.name, `(${deckData.decks?.length || 0} decks)`)
+      log.info('Anki file imported successfully:', importResult.name, `(${importResult.stats.cards} cards from ${importResult.stats.notes} notes)`)
 
     } catch (err) {
       log.error('Failed to import deck:', err)
