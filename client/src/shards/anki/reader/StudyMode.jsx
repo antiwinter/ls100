@@ -13,6 +13,7 @@ import {
 import { Close, Refresh } from '@mui/icons-material'
 
 import { RATINGS, formatInterval, getRatingLabel } from '../engine/studyEngine.js'
+import ankiApi from '../core/ankiApi'
 import { log } from '../../../utils/logger'
 
 const ProgressHeader = ({ progress, onExit }) => {
@@ -60,11 +61,39 @@ const ProgressHeader = ({ progress, onExit }) => {
 }
 
 const CardDisplay = ({ card, showAnswer, onShowAnswer }) => {
-  if (!card) return null
+  const [renderedCard, setRenderedCard] = useState(null)
+  const [loading, setLoading] = useState(true)
 
-  // Use simplified card structure with direct question/answer
-  const questionHtml = card.question || 'No question'
-  const answerHtml = card.answer || 'No answer'
+  useEffect(() => {
+    const renderCard = async () => {
+      if (!card) return
+      
+      try {
+        setLoading(true)
+        const rendered = await ankiApi.getStudyCard(card.id)
+        setRenderedCard(rendered)
+      } catch (err) {
+        log.error('Failed to render card:', err)
+        setRenderedCard({ question: 'Error loading card', answer: 'Error loading card' })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    renderCard()
+  }, [card])
+
+  if (!card || loading) {
+    return (
+      <Card sx={{ flex: 1, m: 3, minHeight: 300 }}>
+        <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Typography>Loading card...</Typography>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!renderedCard) return null
 
   return (
     <Card sx={{
@@ -77,7 +106,7 @@ const CardDisplay = ({ card, showAnswer, onShowAnswer }) => {
       <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         {/* Card info */}
         <Typography level="body-sm" color="neutral" sx={{ mb: 2, textAlign: 'center' }}>
-          Card {card.id}
+          {renderedCard.template} • Card {card.id}
         </Typography>
 
         {/* Question */}
@@ -97,7 +126,7 @@ const CardDisplay = ({ card, showAnswer, onShowAnswer }) => {
                 fontSize: '1.1em'
               }
             }}
-            dangerouslySetInnerHTML={{ __html: questionHtml }}
+            dangerouslySetInnerHTML={{ __html: renderedCard.question }}
           />
 
           {showAnswer && (
@@ -136,7 +165,7 @@ const CardDisplay = ({ card, showAnswer, onShowAnswer }) => {
                     fontSize: '1.1em'
                   }
                 }}
-                dangerouslySetInnerHTML={{ __html: answerHtml }}
+                dangerouslySetInnerHTML={{ __html: renderedCard.answer }}
               />
             </>
           )}

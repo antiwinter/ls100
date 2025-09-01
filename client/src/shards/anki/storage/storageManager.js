@@ -4,14 +4,16 @@ import { log } from '../../../utils/logger'
 // Coordinates IndexedDB (deck files) and localStorage (progress)
 
 const DB_NAME = 'AnkiShardDB'
-const DB_VERSION = 2
+const DB_VERSION = 3
 
 // IndexedDB stores
 const STORES = {
   decks: 'decks',
+  notes: 'notes',
+  noteTypes: 'noteTypes', 
+  templates: 'templates',
   cards: 'cards',
-  media: 'media',
-  cardRefs: 'cardRefs'
+  media: 'media'
 }
 
 // localStorage keys
@@ -51,18 +53,34 @@ const initDB = () => {
         deckStore.createIndex('name', 'name', { unique: false })
       }
 
-      // Cards store - now reference counted
-      if (!db.objectStoreNames.contains(STORES.cards)) {
-        const cardStore = db.createObjectStore(STORES.cards, { keyPath: 'id' })
-        cardStore.createIndex('refCount', 'refCount', { unique: false })
-        cardStore.createIndex('due', 'due', { unique: false })
+      // Notes store - field data + refCount
+      if (!db.objectStoreNames.contains(STORES.notes)) {
+        const noteStore = db.createObjectStore(STORES.notes, { keyPath: 'id' })
+        noteStore.createIndex('typeId', 'typeId', { unique: false })
+        noteStore.createIndex('refCount', 'refCount', { unique: false })
+        noteStore.createIndex('modified', 'modified', { unique: false })
       }
 
-      // Card references store - tracks which shards use which cards
-      if (!db.objectStoreNames.contains(STORES.cardRefs)) {
-        const refStore = db.createObjectStore(STORES.cardRefs, { keyPath: ['shardId', 'deckId', 'cardId'] })
-        refStore.createIndex('cardId', 'cardId', { unique: false })
-        refStore.createIndex('shardId', 'shardId', { unique: false })
+      // NoteTypes store - schema definitions
+      if (!db.objectStoreNames.contains(STORES.noteTypes)) {
+        const typeStore = db.createObjectStore(STORES.noteTypes, { keyPath: 'id' })
+        typeStore.createIndex('name', 'name', { unique: false })
+      }
+
+      // Templates store - rendering templates
+      if (!db.objectStoreNames.contains(STORES.templates)) {
+        const tmplStore = db.createObjectStore(STORES.templates, { keyPath: 'id' })
+        tmplStore.createIndex('typeId', 'typeId', { unique: false })
+        tmplStore.createIndex('idx', 'idx', { unique: false })
+      }
+
+      // Cards store - lightweight refs to note+template
+      if (!db.objectStoreNames.contains(STORES.cards)) {
+        const cardStore = db.createObjectStore(STORES.cards, { keyPath: 'id' })
+        cardStore.createIndex('noteId', 'noteId', { unique: false })
+        cardStore.createIndex('deckId', 'deckId', { unique: false })
+        cardStore.createIndex('shardId', 'shardId', { unique: false })
+        cardStore.createIndex('due', 'due', { unique: false })
       }
 
       // Media store
