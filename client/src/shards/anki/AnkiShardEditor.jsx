@@ -189,11 +189,11 @@ export const AnkiShardEditor = ({
       // Generate deck ID and import using new note+template structure
       const deckId = `deck-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`
       const shardId = getShardId()
-      
+
       const importResult = await parseAnkiFile(file, filename, deckId, shardId)
 
       // Update local state with new deck
-      const updatedDecks = { 
+      const updatedDecks = {
         ...decks,
         [deckId]: {
           id: deckId,

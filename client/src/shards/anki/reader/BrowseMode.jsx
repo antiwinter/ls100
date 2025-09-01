@@ -26,18 +26,18 @@ const NoteTable = ({ notes, onStartStudy: _onStartStudy }) => {
     const loadNoteData = async () => {
       const types = {}
       const counts = {}
-      
+
       for (const note of notes || []) {
         // Get note type
         if (!types[note.typeId]) {
           types[note.typeId] = await noteManager.getType(note.typeId)
         }
-        
+
         // Get card count for this note
         const cards = await ankiApi.getCardsForDeck('current-deck') // TODO: pass actual deckId
         counts[note.id] = cards.filter(c => c.noteId === note.id).length
       }
-      
+
       setNoteTypes(types)
       setCardCounts(counts)
     }
@@ -73,7 +73,7 @@ const NoteTable = ({ notes, onStartStudy: _onStartStudy }) => {
           {notes.map((note, index) => {
             const noteType = noteTypes[note.typeId]
             const cardCount = cardCounts[note.id] || 0
-            
+
             return (
               <tr key={note.id}>
                 <td>
@@ -92,7 +92,7 @@ const NoteTable = ({ notes, onStartStudy: _onStartStudy }) => {
                       <Typography
                         key={i}
                         level="body-sm"
-                        sx={{ 
+                        sx={{
                           mb: 0.5,
                           display: '-webkit-box',
                           WebkitLineClamp: 1,
@@ -157,18 +157,18 @@ export const BrowseMode = ({
   useEffect(() => {
     const loadDeckData = async () => {
       if (!selectedDeck?.id) return
-      
+
       try {
         // Get cards for deck
         const deckCards = await ankiApi.getCardsForDeck(selectedDeck.id)
         setCards(deckCards)
-        
+
         // Get unique notes from cards
         const noteIds = [...new Set(deckCards.map(c => c.noteId))]
         const deckNotes = await Promise.all(
           noteIds.map(id => noteManager.get(id))
         )
-        
+
         setNotes(deckNotes.filter(Boolean))
       } catch (err) {
         log.error('Failed to load deck data:', err)
@@ -176,7 +176,7 @@ export const BrowseMode = ({
         setCards([])
       }
     }
-    
+
     loadDeckData()
   }, [selectedDeck])
 

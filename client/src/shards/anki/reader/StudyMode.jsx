@@ -67,7 +67,7 @@ const CardDisplay = ({ card, showAnswer, onShowAnswer }) => {
   useEffect(() => {
     const renderCard = async () => {
       if (!card) return
-      
+
       try {
         setLoading(true)
         const rendered = await ankiApi.getStudyCard(card.id)

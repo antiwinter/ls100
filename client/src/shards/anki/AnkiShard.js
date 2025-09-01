@@ -7,8 +7,8 @@ import { log } from '../../utils/logger'
 // Anki Shard Engine
 // Handles .apkg file detection, parsing, and integration with shard system
 
-// Media URL replacement - simplified for new architecture  
-const replaceMediaUrls = (html, media) => {
+// Media URL replacement - simplified for new architecture
+const _replaceMediaUrls = (html, media) => {
   if (!html || !media || Object.keys(media).length === 0) {
     return html
   }
@@ -63,10 +63,10 @@ export const parseAnkiFile = async (file, filename, deckId, shardId) => {
 
     // Parse the .apkg file
     const parsedData = await parseApkgFile(file)
-    
+
     // Import using new note+template structure
     const importStats = await importApkgData(parsedData, deckId, shardId)
-    
+
     const result = {
       id: deckId,
       name: filename.replace(/\.apkg$/i, ''),
@@ -76,7 +76,7 @@ export const parseAnkiFile = async (file, filename, deckId, shardId) => {
 
     log.info(`✅ Successfully imported .apkg file: ${result.name}`)
     log.info(`   📊 ${importStats.noteTypes} note types, ${importStats.notes} notes, ${importStats.cards} cards`)
-    
+
     return result
 
   } catch (error) {
@@ -170,7 +170,7 @@ export const cleanup = async (shard, allShards = []) => {
 
     // Check for remaining Anki shards for potential orphan cleanup
     const remainingAnkiShards = allShards.filter(s => s.type === 'anki' && s.id !== shard.id)
-    
+
     if (remainingAnkiShards.length === 0) {
       log.info('Last Anki shard deleted - deep cleanup could be performed here if needed')
     }

@@ -52,7 +52,7 @@ export class NoteManager {
   }
 
   // Add reference (increment refCount)
-  async addRef(noteId, shardId) {
+  async addRef(noteId, _shardId) {
     const note = await this.get(noteId)
     if (!note) throw new Error(`Note not found: ${noteId}`)
 
@@ -63,12 +63,12 @@ export class NoteManager {
   }
 
   // Remove reference (decrement refCount, cleanup if 0)
-  async removeRef(noteId, shardId) {
+  async removeRef(noteId, _shardId) {
     const note = await this.get(noteId)
     if (!note) return
 
     note.refCount = Math.max(0, (note.refCount || 1) - 1)
-    
+
     if (note.refCount === 0) {
       // Cleanup note and related cards
       await this.cleanup(noteId)
@@ -83,7 +83,7 @@ export class NoteManager {
   async cleanup(noteId) {
     // Delete note
     await idb.delete(this.STORES.notes, noteId)
-    
+
     // Delete related cards
     const cards = await idb.query('cards', 'noteId', noteId)
     for (const card of cards) {

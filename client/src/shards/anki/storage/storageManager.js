@@ -9,7 +9,7 @@ const DB_VERSION = 3
 // IndexedDB stores for new architecture
 const STORES = {
   notes: 'notes',
-  noteTypes: 'noteTypes', 
+  noteTypes: 'noteTypes',
   templates: 'templates',
   cards: 'cards',
   media: 'media'

@@ -17,13 +17,13 @@ export async function setupDemo() {
         tags: ['europe', 'country']
       },
       {
-        typeId: 'geography', 
+        typeId: 'geography',
         fields: ['Japan', 'Tokyo', '🇯🇵', 'East Asia'],
         tags: ['asia', 'country']
       },
       {
         typeId: 'geography',
-        fields: ['Brazil', 'Brasília', '🇧🇷', 'South America'], 
+        fields: ['Brazil', 'Brasília', '🇧🇷', 'South America'],
         tags: ['south-america', 'country']
       }
     ]
@@ -77,15 +77,15 @@ export async function setupDemo() {
     const totalCards = cards.length
     const geoCards = geoNotes.length * 4 // 4 templates per geography note
     const basicCards = basicNotes.length * 1 // 1 template per basic note
-    
-    log.info(`✅ Demo setup complete!`)
+
+    log.info('✅ Demo setup complete!')
     log.info(`📊 Created ${totalCards} cards:`)
     log.info(`   • ${geoCards} geography cards (from ${geoNotes.length} notes)`)
     log.info(`   • ${basicCards} basic cards (from ${basicNotes.length} notes)`)
 
     return {
       deckId,
-      shardId, 
+      shardId,
       totalCards,
       cards
     }
@@ -99,11 +99,11 @@ export async function setupDemo() {
 // Demo function to show multi-card features
 export async function demoMultiCard() {
   log.info('🔍 Demonstrating multi-card feature...')
-  
+
   try {
     const deckId = 'demo-deck'
     const cards = await ankiApi.getCardsForDeck(deckId)
-    
+
     // Find cards from same note (same noteId)
     const cardsByNote = new Map()
     for (const card of cards) {
@@ -117,7 +117,7 @@ export async function demoMultiCard() {
     for (const [noteId, noteCards] of cardsByNote) {
       if (noteCards.length > 1) {
         log.info(`  Note ${noteId}: ${noteCards.length} cards`)
-        
+
         // Render each card to show different Q/A pairs
         for (const card of noteCards.slice(0, 2)) { // Show first 2 cards
           const rendered = await ankiApi.getStudyCard(card.id)
@@ -137,21 +137,21 @@ export async function demoMultiCard() {
 // Cleanup demo data
 export async function cleanupDemo() {
   log.info('🧹 Cleaning up demo data...')
-  
+
   try {
     const deckId = 'demo-deck'
     const shardId = 'demo-shard'
-    
+
     const cards = await ankiApi.getCardsForDeck(deckId)
     const noteIds = [...new Set(cards.map(c => c.noteId))]
-    
+
     // Remove all notes from shard (triggers cleanup)
     for (const noteId of noteIds) {
       await ankiApi.removeNoteFromShard(noteId, shardId)
     }
-    
+
     log.info(`✅ Cleaned up ${noteIds.length} notes and ${cards.length} cards`)
-    
+
   } catch (err) {
     log.error('❌ Cleanup failed:', err)
     throw err
