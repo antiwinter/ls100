@@ -4,16 +4,14 @@ import {
   Typography,
   Stack,
   Chip,
-  IconButton,
   CircularProgress,
-  Alert,
-  Card,
-  CardContent
+  Alert
 } from '@mui/joy'
 import { Upload } from '@mui/icons-material'
 import { parseApkgFile } from './parser/apkgParser.js'
 import { queueImport } from './AnkiShard.js'
 import { log } from '../../utils/logger'
+import { genId } from '../../utils/idGenerator.js'
 
 const UploadArea = ({ onFileSelect, loading }) => {
   const fileInputRef = useRef(null)
@@ -108,7 +106,7 @@ export const AnkiShardEditor = ({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  const handleFileImport = useCallback(async (file, filename) => {
+  const handleFileSelect = useCallback(async (file, filename) => {
     setLoading(true)
     setError(null)
 
@@ -121,11 +119,10 @@ export const AnkiShardEditor = ({
 
       // Update shardData.metadata.decks directly
       const deckInfo = {
-        id: `deck-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`,
+        id: await genId('deck', filename + parsed.name),
         name: parsed.name,
         filename,
-        totalCards: parsed.cards?.length || 0,
-        isPending: true
+        totalCards: parsed.cards?.length || 0
       }
 
       const currentDecks = shardData?.metadata?.decks || []
@@ -145,17 +142,12 @@ export const AnkiShardEditor = ({
   }, [onChange, shardData])
 
   useEffect(() => {
+    // Auto-import detected file only in create mode
+    // (edit mode has no detectedInfo, users import manually via UploadArea)
     if (mode === 'create' && detectedInfo?.metadata?.file) {
-      // Queue detected file for import
-      handleFileImport(detectedInfo.metadata.file, detectedInfo.filename)
+      handleFileSelect(detectedInfo.metadata.file, detectedInfo.filename)
     }
-  }, [mode, detectedInfo, handleFileImport])
-
-  const handleFileSelect = async (file) => {
-    await handleFileImport(file, file.name)
-  }
-
-
+  }, [mode, detectedInfo, handleFileSelect])
 
   return (
     <Stack spacing={3}>
@@ -170,11 +162,7 @@ export const AnkiShardEditor = ({
           </Alert>
         )}
 
-
-
-        <UploadArea onFileSelect={handleFileSelect} loading={loading} />
-
-
+        <UploadArea onFileSelect={(file) => handleFileSelect(file, file.name)} loading={loading} />
 
         <Typography level="body-xs" sx={{ mt: 1, color: 'text.tertiary' }}>
           Import .apkg files exported from Anki. Files will be processed when you save the shard.

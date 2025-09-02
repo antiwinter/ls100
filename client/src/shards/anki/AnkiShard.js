@@ -3,6 +3,7 @@ import { AnkiReader as AnkiReaderComponent } from './reader/AnkiReader.jsx'
 import { parseApkgFile, importApkgData } from './parser/apkgParser.js'
 import ankiApi from './core/ankiApi'
 import { log } from '../../utils/logger'
+import { genId } from '../../utils/idGenerator.js'
 
 // Anki Shard Engine
 // Handles .apkg file detection, parsing, and integration with shard system
@@ -134,13 +135,12 @@ export const processData = async (shard, _apiCall) => {
 
     // Store deck information in metadata for frontend display
     if (pendingImports.length > 0) {
-      const decks = pendingImports.map(item => ({
-        id: `deck-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`,
+      const decks = await Promise.all(pendingImports.map(async item => ({
+        id: await genId('deck', item.filename + item.parsedData.name),
         name: item.parsedData.name,
         filename: item.filename,
-        totalCards: item.parsedData.cards?.length || 0,
-        isPending: true
-      }))
+        totalCards: item.parsedData.cards?.length || 0
+      })))
 
       shard.metadata = { ...shard.metadata, decks }
       log.info('Stored deck metadata for create mode:', decks.length, 'decks')
@@ -153,7 +153,7 @@ export const processData = async (shard, _apiCall) => {
     if (pendingImports.length > 0) {
       for (const item of pendingImports) {
         try {
-          const deckId = `deck-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`
+          const deckId = await genId('deck', item.filename + item.parsedData.name)
           await importApkgData(item.parsedData, deckId, shard.id)
           log.info('Committed Anki import:', { deckId, name: item.parsedData.name })
         } catch (e) {

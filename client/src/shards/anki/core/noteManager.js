@@ -1,5 +1,6 @@
 import { idb } from '../storage/storageManager'
 import { log } from '../../../utils/logger'
+import { genNvId } from '../../../utils/idGenerator.js'
 
 // Note manager with refCount for cross-shard sharing
 export class NoteManager {
@@ -17,7 +18,7 @@ export class NoteManager {
     if (!noteType) throw new Error(`NoteType not found: ${typeId}`)
 
     const note = {
-      id: this.genId(),
+      id: await genNvId('note', typeId + fields.join('') + tags.join('')),
       typeId,
       fields: fields.slice(0, noteType.fields.length), // Ensure correct field count
       tags,
@@ -113,7 +114,7 @@ export class NoteManager {
   // Create template
   async createTemplate(typeId, name, qfmt, afmt, idx = 0) {
     const template = {
-      id: this.genId(),
+      id: await genNvId('template', typeId + name + qfmt + afmt),
       typeId,
       name,
       qfmt,
@@ -125,10 +126,7 @@ export class NoteManager {
     return template
   }
 
-  // Generate unique ID
-  genId() {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2)
-  }
+
 }
 
 // Singleton instance

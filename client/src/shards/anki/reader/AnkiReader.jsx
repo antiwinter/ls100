@@ -97,7 +97,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
     }
   }
 
-  const handleStartStudy = (options = {}) => {
+  const handleStartStudy = async (options = {}) => {
     if (!shardData?.cards?.length) {
       setError('No cards available for study')
       return
@@ -105,7 +105,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
 
     // Create study engine for this shard's cards
     const engine = new StudyEngine(shardData.id)
-    const session = engine.initSession(shardData.cards, options)
+    const session = await engine.initSession(shardData.cards, options)
 
     setStudyEngine(engine)
     setMode('study')

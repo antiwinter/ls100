@@ -63,6 +63,7 @@ export const EditShard = () => {
   const [showDescriptionDialog, setShowDescriptionDialog] = useState(false)
   const [showCoverDialog, setShowCoverDialog] = useState(false)
   const [coverUrl, setCoverUrl] = useState('')
+  const engineValid = useRef(false)
 
   // Get shard data from navigation or URL
   const navigationShardData = location.state?.shardData
@@ -180,7 +181,10 @@ export const EditShard = () => {
 
   // Memoized onChange handler to prevent unnecessary re-renders
   const handleEngineDataChange = useCallback((data, type) => {
-    _setShardData({ ...shardData, [type || 'data']: data })
+    // engine can set metadata by providing type
+    // or else it goes to shardData.data
+    _setShardData({ ...shardData, [type? 'metadata' : 'data']: data })
+    engineValid.current = true
   }, [shardData])
 
   const getShardTypeDisplayInfo = () => {
@@ -428,10 +432,7 @@ export const EditShard = () => {
           size="sm"
           onClick={handleSave}
           loading={saving}
-          disabled={
-            !shardData.name.trim() ||
-            (shardData.data.languages && shardData.data.languages.length === 0)
-          }
+          disabled={!shardData.name.trim() || !engineValid.current}
         >
           {mode === 'create' ? 'Create Shard' : 'Save Changes'}
         </Button>

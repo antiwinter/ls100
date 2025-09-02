@@ -1,6 +1,7 @@
 import { FSRS, Rating, State, createEmptyCard } from 'ts-fsrs'
 import { idb } from '../storage/storageManager.js'
 import { log } from '../../../utils/logger'
+import { genId } from '../../../utils/idGenerator.js'
 
 // Study engine with FSRS integration
 // Manages card scheduling, progress tracking, and study sessions
@@ -78,11 +79,11 @@ export class StudyEngine {
   }
 
   // Initialize study session
-  initSession(cards, options = {}) {
+  async initSession(cards, options = {}) {
     const { maxCards = 20, maxTime = 30 * 60 * 1000 } = options // 30 minutes default
 
     this.session = {
-      id: `session_${Date.now()}`,
+      id: await genId('session', Date.now().toString()),
       deckId: this.deckId,
       startTime: new Date(),
       maxCards,

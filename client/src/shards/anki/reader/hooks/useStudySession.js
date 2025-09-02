@@ -12,14 +12,14 @@ export const useStudySession = (deck, options = {}) => {
   const [sessionData, setSessionData] = useState(null)
 
   // Initialize study session
-  const startSession = useCallback(() => {
+  const startSession = useCallback(async () => {
     if (!deck?.cards?.length) {
       log.warn('Cannot start session: no cards available')
       return false
     }
 
     const engine = new StudyEngine(deck.id)
-    const session = engine.initSession(deck.cards, options)
+    const session = await engine.initSession(deck.cards, options)
 
     if (!session) {
       log.warn('Failed to initialize study session')

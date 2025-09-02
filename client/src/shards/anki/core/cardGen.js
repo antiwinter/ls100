@@ -2,6 +2,7 @@ import { idb } from '../storage/storageManager'
 import { noteManager } from './noteManager'
 import TemplateRenderer, { TemplateEngine } from './templateEngine'
 import { log } from '../../../utils/logger'
+import { genId } from '../../../utils/idGenerator.js'
 
 // Card generation from notes + templates
 export class CardGenerator {
@@ -21,7 +22,7 @@ export class CardGenerator {
       if (engine.wouldRender(template.qfmt, note.fields)) {
         const nowIso = new Date().toISOString()
         const card = {
-          id: this.genId(),
+          id: await genId('card', noteId + template.idx + deckId),
           noteId,
           templateIdx: template.idx,
           deckId,
@@ -118,9 +119,7 @@ export class CardGenerator {
     log.debug('Card deleted:', cardId)
   }
 
-  genId() {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2)
-  }
+
 }
 
 // Singleton instance

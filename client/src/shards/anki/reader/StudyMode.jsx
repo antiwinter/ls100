@@ -368,7 +368,7 @@ export const StudyMode = ({ deck, studyEngine, onEndStudy }) => {
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [showAnswer, handleRate])
 
-  const handleRestart = () => {
+  const handleRestart = async () => {
     setSessionComplete(false)
     setCurrentCard(null)
     setShowAnswer(false)
@@ -376,7 +376,7 @@ export const StudyMode = ({ deck, studyEngine, onEndStudy }) => {
 
     // Initialize new session
     if (deck && studyEngine) {
-      const session = studyEngine.initSession(deck.cards)
+      const session = await studyEngine.initSession(deck.cards)
       log.info('New study session started:', session.id)
       loadNextCard()
     }
