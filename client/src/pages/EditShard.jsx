@@ -183,7 +183,7 @@ export const EditShard = () => {
   const handleEngineDataChange = useCallback((data, type) => {
     // engine can set metadata by providing type
     // or else it goes to shardData.data
-    _setShardData({ ...shardData, [type? 'metadata' : 'data']: data })
+    _setShardData({ ...shardData, [type ? 'metadata' : 'data']: data })
     engineValid.current = true
   }, [shardData])
 

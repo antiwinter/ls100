@@ -30,7 +30,7 @@ const genUUID = () => {
     return crypto.randomUUID().replace(/-/g, '').substring(0, 8) // Short version
   }
   // Fallback for older browsers
-  return 'xxxxxxxx'.replace(/[x]/g, () => 
+  return 'xxxxxxxx'.replace(/[x]/g, () =>
     (Math.random() * 16 | 0).toString(16)
   )
 }
@@ -46,3 +46,4 @@ export const genId = async (prefix, seed) => {
 export const genNvId = async (prefix, seed) => {
   const hash = await sha256Hash(seed)
   return `${prefix}-${hash}`
+}
