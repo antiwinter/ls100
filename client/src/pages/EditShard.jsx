@@ -179,12 +179,9 @@ export const EditShard = () => {
   }
 
   // Memoized onChange handler to prevent unnecessary re-renders
-  const handleEngineDataChange = useCallback((engineData) => {
-    _setShardData(prev => ({
-      ...prev,
-      data: { ...prev.data, ...engineData }
-    }))
-  }, [])
+  const handleEngineDataChange = useCallback((data, type) => {
+    _setShardData({ ...shardData, [type || 'data']: data })
+  }, [shardData])
 
   const getShardTypeDisplayInfo = () => {
     // Get type info from current shardData

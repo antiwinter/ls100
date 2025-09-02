@@ -101,7 +101,7 @@ const UploadArea = ({ onFileSelect, loading }) => {
 
 export const AnkiShardEditor = ({
   mode = 'create',
-  shardData: _shardData = null,
+  shardData = null,
   detectedInfo = null,
   onChange
 }) => {
@@ -119,7 +119,7 @@ export const AnkiShardEditor = ({
       const parsed = await parseApkgFile(file)
       queueImport(parsed, filename)
 
-      // Store deck info in onChange for parent component
+      // Update shardData.metadata.decks directly
       const deckInfo = {
         id: `deck-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`,
         name: parsed.name,
@@ -128,10 +128,11 @@ export const AnkiShardEditor = ({
         isPending: true
       }
 
+      const currentDecks = shardData?.metadata?.decks || []
       onChange?.({
-        deckInfo,
-        action: 'add'
-      })
+        ...shardData?.metadata,
+        decks: [...currentDecks, deckInfo]
+      }, 'meta')
 
       log.info('Anki import queued:', parsed.name)
 
@@ -141,7 +142,7 @@ export const AnkiShardEditor = ({
     } finally {
       setLoading(false)
     }
-  }, [onChange])
+  }, [onChange, shardData])
 
   useEffect(() => {
     if (mode === 'create' && detectedInfo?.metadata?.file) {
