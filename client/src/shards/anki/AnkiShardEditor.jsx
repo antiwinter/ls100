@@ -105,19 +105,18 @@ export const AnkiShardEditor = ({
 }) => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const processedDetectedFile = useRef(null)
 
   const handleFileSelect = useCallback(async (file, filename, parsedData = null) => {
     setLoading(true)
     setError(null)
 
     try {
-      log.info('Queuing Anki import:', filename, parsedData ? '(using cached data)' : '(parsing)')
+      log.info('Processing Anki file:', filename, parsedData ? '(using cached data)' : '(parsing)')
 
-      // Use cached parsed data if available, otherwise parse
       const parsed = parsedData || await parseApkgFile(file)
       queueImport(parsed, filename)
 
-      // Update shardData.metadata.decks directly
       const deckInfo = {
         id: await genId('deck', filename + parsed.name),
         name: parsed.name,
@@ -131,10 +130,10 @@ export const AnkiShardEditor = ({
         decks: [...currentDecks, deckInfo]
       }, 'meta')
 
-      log.info('Anki import queued:', parsed.name)
+      log.info('Anki import processed:', parsed.name)
 
     } catch (err) {
-      log.error('Failed to queue import:', err)
+      log.error('Failed to process import:', err)
       setError(err.message)
     } finally {
       setLoading(false)
@@ -142,9 +141,8 @@ export const AnkiShardEditor = ({
   }, [onChange, shardData])
 
   useEffect(() => {
-    // Auto-import detected file only in create mode
-    // (edit mode has no detectedInfo, users import manually via UploadArea)
-    if (mode === 'create' && detectedInfo?.file) {
+    if (mode === 'create' && detectedInfo?.file && detectedInfo.file !== processedDetectedFile.current) {
+      processedDetectedFile.current = detectedInfo.file
       handleFileSelect(detectedInfo.file, detectedInfo.filename, detectedInfo.metadata?.parsedData)
     }
   }, [mode, detectedInfo, handleFileSelect])

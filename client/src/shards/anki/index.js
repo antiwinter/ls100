@@ -1,7 +1,6 @@
 // Export all Anki shard functionality
 export {
   detect,
-  parseAnkiFile,
   generateCover,
   shardTypeInfo,
   EditorComponent,

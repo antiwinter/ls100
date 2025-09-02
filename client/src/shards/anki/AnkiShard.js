@@ -26,6 +26,7 @@ export const detect = async (filename, buffer) => {
   if (hasExt) {
     try {
       parsedData = await parseApkgFile(buffer)
+      log.debug('Parsed data:', parsedData)
       parsedName = parsedData.name || null
     } catch (e) {
       log.warn('Deck name extraction failed during detect; falling back to filename:', e)
@@ -49,34 +50,7 @@ export const detect = async (filename, buffer) => {
   return result
 }
 
-// Parse .apkg file and import to new note+template structure
-export const parseAnkiFile = async (file, deckId, shardId) => {
-  try {
-    log.info('Parsing .apkg')
 
-    // Parse the .apkg file
-    const parsedData = await parseApkgFile(file)
-
-    // Import using new note+template structure
-    const importStats = await importApkgData(parsedData, deckId, shardId)
-
-    const result = {
-      id: deckId,
-      name: parsedData.name,
-      stats: importStats,
-      importedAt: Date.now()
-    }
-
-    log.info(`✅ Successfully imported .apkg file: ${result.name}`)
-    log.info(`   📊 ${importStats.noteTypes} note types, ${importStats.notes} notes, ${importStats.cards} cards`)
-
-    return result
-
-  } catch (error) {
-    log.error('Failed to parse .apkg file:', error)
-    throw new Error(`Failed to import Anki deck: ${error.message}`)
-  }
-}
 
 // Old generateCardSide function removed - now using TemplateEngine
 
