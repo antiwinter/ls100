@@ -1,6 +1,49 @@
 import ankiApi from '../core/ankiApi'
 import mediaManager from '../core/mediaManager'
 import { log } from '../../../utils/logger'
+import { genNvId } from '../../../utils/idGenerator.js'
+
+// Setup basic note types and templates for demo
+async function setupBasicTypes() {
+  // Basic Q&A type
+  const basicTypeId = await genNvId('notetype', 'basic-qa')
+  const basicType = await ankiApi.noteManager.createType(
+    basicTypeId,
+    'Basic',
+    ['Question', 'Answer']
+  )
+
+  await ankiApi.noteManager.createTemplate(
+    basicTypeId,
+    'Card 1',
+    '{{Question}}',
+    '{{FrontSide}}<hr>{{Answer}}',
+    0
+  )
+
+  // Geography type (example multi-field)
+  const geoTypeId = await genNvId('notetype', 'geography-multi')
+  const geoType = await ankiApi.noteManager.createType(
+    geoTypeId,
+    'Geography',
+    ['Country', 'Capital', 'Flag', 'Location']
+  )
+
+  const geoTemplates = [
+    ['Country → Capital', '{{Country}}', '{{FrontSide}}<hr>{{Capital}}'],
+    ['Capital → Country', '{{Capital}}', '{{FrontSide}}<hr>{{Country}}'],
+    ['Flag → Country', '{{Flag}}', '{{FrontSide}}<hr>{{Country}}'],
+    ['Country → Location', '{{Country}}', '{{FrontSide}}<hr>{{Location}}']
+  ]
+
+  for (let i = 0; i < geoTemplates.length; i++) {
+    const [name, qfmt, afmt] = geoTemplates[i]
+    await ankiApi.noteManager.createTemplate(geoTypeId, name, qfmt, afmt, i)
+  }
+
+  log.debug('Basic note types setup completed')
+  return { basicType, geoType, basicTypeId, geoTypeId }
+}
 
 // Demo setup script for new Anki architecture
 export async function setupDemo() {
@@ -8,22 +51,22 @@ export async function setupDemo() {
     log.info('🎯 Setting up Anki demo...')
 
     // Setup basic note types and templates
-    await ankiApi.setupBasicTypes()
+    const { basicTypeId, geoTypeId } = await setupBasicTypes()
 
     // Create sample geography notes
     const geoNotes = [
       {
-        typeId: 'geography',
+        typeId: geoTypeId,
         fields: ['France', 'Paris', '🇫🇷', 'Western Europe'],
         tags: ['europe', 'country']
       },
       {
-        typeId: 'geography',
+        typeId: geoTypeId,
         fields: ['Japan', 'Tokyo', '🇯🇵', 'East Asia'],
         tags: ['asia', 'country']
       },
       {
-        typeId: 'geography',
+        typeId: geoTypeId,
         fields: ['Brazil', 'Brasília', '🇧🇷', 'South America'],
         tags: ['south-america', 'country']
       }
@@ -32,12 +75,12 @@ export async function setupDemo() {
     // Create sample basic notes
     const basicNotes = [
       {
-        typeId: 'basic',
+        typeId: basicTypeId,
         fields: ['What is the capital of Australia?', 'Canberra'],
         tags: ['geography', 'basic']
       },
       {
-        typeId: 'basic',
+        typeId: basicTypeId,
         fields: ['2 + 2 = ?', '4'],
         tags: ['math', 'basic']
       }
@@ -167,8 +210,9 @@ export async function demoMedia() {
     const shardId = 'demo-shard'
 
     // Create a note with media references
+    const { basicTypeId } = await setupBasicTypes()
     const result = await ankiApi.createNote(
-      'basic',
+      basicTypeId,
       [
         'What does this image show?<br><img src="demo-image.jpg">',
         'A demo image with <img src="demo-icon.png"> icon'

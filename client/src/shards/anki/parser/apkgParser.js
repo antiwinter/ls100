@@ -3,6 +3,7 @@ import initSqlJs from 'sql.js'
 import ankiApi from '../core/ankiApi'
 import noteManager from '../core/noteManager'
 import { log } from '../../../utils/logger'
+import { genNvId } from '../../../utils/idGenerator.js'
 
 // Browser-compatible .apkg parser using sql.js + jszip
 // Updated to work with new note+template architecture
@@ -293,7 +294,7 @@ export const importApkgData = async (parsedData, deckId, shardId) => {
 
     // 1. Create NoteTypes and Templates
     for (const [modelId, model] of Object.entries(noteTypes)) {
-      const noteTypeId = `anki-${modelId}`
+      const noteTypeId = await genNvId('notetype', `anki-${modelId}`)
 
       // Extract field names
       const fields = model.flds.map(field => field.name)
@@ -317,7 +318,7 @@ export const importApkgData = async (parsedData, deckId, shardId) => {
 
     // 2. Import Notes
     for (const ankiNote of ankiNotes) {
-      const noteTypeId = `anki-${ankiNote.mid}`
+      const noteTypeId = await genNvId('notetype', `anki-${ankiNote.mid}`)
 
       const result = await ankiApi.createNote(
         noteTypeId,

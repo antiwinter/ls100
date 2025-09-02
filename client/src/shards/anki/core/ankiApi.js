@@ -144,44 +144,7 @@ export class AnkiApi {
     return await mediaManager.getMediaStats(shardId)
   }
 
-  // Setup basic note types and templates
-  async setupBasicTypes() {
-    // Basic Q&A type
-    const basicType = await this.noteManager.createType(
-      'basic',
-      'Basic',
-      ['Question', 'Answer']
-    )
 
-    await this.noteManager.createTemplate(
-      'basic',
-      'Card 1',
-      '{{Question}}',
-      '{{FrontSide}}<hr>{{Answer}}',
-      0
-    )
-
-    // Geography type (example multi-field)
-    const geoType = await this.noteManager.createType(
-      'geography',
-      'Geography',
-      ['Country', 'Capital', 'Flag', 'Location']
-    )
-
-    const geoTemplates = [
-      ['Country → Capital', '{{Country}}', '{{FrontSide}}<hr>{{Capital}}'],
-      ['Capital → Country', '{{Capital}}', '{{FrontSide}}<hr>{{Country}}'],
-      ['Flag → Country', '{{Flag}}', '{{FrontSide}}<hr>{{Country}}'],
-      ['Country → Location', '{{Country}}', '{{FrontSide}}<hr>{{Location}}']
-    ]
-
-    for (const [name, qfmt, afmt] of geoTemplates) {
-      await this.noteManager.createTemplate('geography', name, qfmt, afmt, geoTemplates.indexOf([name, qfmt, afmt]))
-    }
-
-    log.debug('Basic note types setup completed')
-    return { basicType, geoType }
-  }
 }
 
 // Singleton instance

@@ -376,9 +376,14 @@ export const StudyMode = ({ deck, studyEngine, onEndStudy }) => {
 
     // Initialize new session
     if (deck && studyEngine) {
-      const session = await studyEngine.initSession(deck.cards)
-      log.info('New study session started:', session.id)
-      loadNextCard()
+      try {
+        const session = await studyEngine.initSession(deck.cards)
+        log.info('New study session started:', session.id)
+        loadNextCard()
+      } catch (err) {
+        log.error('Failed to restart session:', err)
+        setError('Failed to restart session: ' + err.message)
+      }
     }
   }
 

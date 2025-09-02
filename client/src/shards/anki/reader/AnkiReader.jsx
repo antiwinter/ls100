@@ -55,10 +55,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
           totalCards: cards.length,
           totalNotes: validNotes.length,
           newCards: cards.filter(c => c.reps === 0).length,
-          dueCards: cards.filter(c => {
-            const due = typeof c.due === 'string' ? Date.parse(c.due) : c.due
-            return due <= Date.now()
-          }).length,
+          dueCards: cards.filter(c => c.due <= Date.now()).length,
           mediaFiles: mediaStats.fileCount,
           mediaSize: mediaStats.totalSizeMB
         }
@@ -103,19 +100,24 @@ const AnkiReaderContent = ({ shard, onBack }) => {
       return
     }
 
-    // Create study engine for this shard's cards
-    const engine = new StudyEngine(shardData.id)
-    const session = await engine.initSession(shardData.cards, options)
+    try {
+      // Create study engine for this shard's cards
+      const engine = new StudyEngine(shardData.id)
+      const session = await engine.initSession(shardData.cards, options)
 
-    setStudyEngine(engine)
-    setMode('study')
+      setStudyEngine(engine)
+      setMode('study')
 
-    log.info('Study session started:', {
-      shardId: shardData.id,
-      sessionId: session.id,
-      queueSize: session.maxCards,
-      totalCards: shardData.cards.length
-    })
+      log.info('Study session started:', {
+        shardId: shardData.id,
+        sessionId: session.id,
+        queueSize: session.maxCards,
+        totalCards: shardData.cards.length
+      })
+    } catch (err) {
+      log.error('Failed to start study session:', err)
+      setError('Failed to start study session: ' + err.message)
+    }
   }
 
   const handleEndStudy = () => {

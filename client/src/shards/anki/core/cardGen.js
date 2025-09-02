@@ -20,7 +20,7 @@ export class CardGenerator {
 
     for (const template of templates) {
       if (engine.wouldRender(template.qfmt, note.fields)) {
-        const nowIso = new Date().toISOString()
+        const now = Date.now()
         const card = {
           id: await genId('card', noteId + template.idx + deckId),
           noteId,
@@ -28,15 +28,15 @@ export class CardGenerator {
           deckId,
           shardId,
           // Default scheduling
-          due: nowIso,
+          due: now,
           interval: 1,
           ease: 2500,
           reps: 0,
           lapses: 0,
           // FSRS progress stored with the card
           fsrs: null,
-          created: Date.now(),
-          modified: Date.now()
+          created: now,
+          modified: now
         }
 
         await idb.put('cards', card)
