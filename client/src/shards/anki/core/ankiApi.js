@@ -42,17 +42,19 @@ export class AnkiApi {
 
   // Remove note from shard
   async removeNoteFromShard(noteId, shardId) {
-    // Delete cards for this shard
+    // Get cards for this shard that belong to this note
     const cards = await this.cardGen.getCardsForShard(shardId)
     const noteCards = cards.filter(c => c.noteId === noteId)
 
-    // Delete all cards for this note (single call with noteId)
-    await this.cardGen.deleteCardsForNote(noteId)
+    // Delete only cards for this note in this shard (not all cards for the note)
+    for (const card of noteCards) {
+      await this.cardGen.deleteCard(card.id)
+    }
 
     // Remove ref (cleanup if refCount = 0)
     await this.noteManager.removeRef(noteId, shardId)
 
-    log.debug('Note removed from shard:', { noteId, shardId })
+    log.debug('Note removed from shard:', { noteId, shardId, deletedCards: noteCards.length })
     return noteCards.length
   }
 

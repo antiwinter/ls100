@@ -14,7 +14,6 @@ import {
 import { Search, PlayArrow, Collections } from '@mui/icons-material'
 
 import ankiApi from '../core/ankiApi'
-import noteManager from '../core/noteManager'
 import { log } from '../../../utils/logger'
 
 const NoteTable = ({ notes, noteTypes, onStartStudy: _onStartStudy }) => {
@@ -137,7 +136,7 @@ export const BrowseMode = ({
         const shardNotes = await Promise.all(
           noteIds.map(async (id) => {
             try {
-              return await noteManager.get(id)
+              return await ankiApi.noteManager.get(id)
             } catch (err) {
               log.warn('Failed to load note:', id, err)
               return null
@@ -150,7 +149,7 @@ export const BrowseMode = ({
         const types = {}
         for (const note of validNotes) {
           if (!types[note.typeId]) {
-            types[note.typeId] = await noteManager.getType(note.typeId)
+            types[note.typeId] = await ankiApi.noteManager.getType(note.typeId)
           }
         }
 
@@ -189,9 +188,9 @@ export const BrowseMode = ({
     // Sort notes
     switch (sortBy) {
     case 'modified':
-      return [...filteredNotes].sort((a, b) => new Date(b.modified) - new Date(a.modified))
+      return [...filteredNotes].sort((a, b) => b.modified - a.modified)
     case 'created':
-      return [...filteredNotes].sort((a, b) => new Date(a.created) - new Date(b.created))
+      return [...filteredNotes].sort((a, b) => a.created - b.created)
     case 'type':
       return [...filteredNotes].sort((a, b) => a.typeId.localeCompare(b.typeId))
     default:

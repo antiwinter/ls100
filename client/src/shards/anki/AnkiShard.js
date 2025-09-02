@@ -22,10 +22,11 @@ export const detect = async (filename, buffer) => {
 
   // Extract deck name from file content when possible; fallback to filename
   let parsedName = null
+  let parsedData = null
   if (hasExt) {
     try {
-      const { name } = await parseApkgFile(buffer)
-      parsedName = name || null
+      parsedData = await parseApkgFile(buffer)
+      parsedName = parsedData.name || null
     } catch (e) {
       log.warn('Deck name extraction failed during detect; falling back to filename:', e)
     }
@@ -38,7 +39,9 @@ export const detect = async (filename, buffer) => {
       type: 'anki-deck',
       suggestedName: parsedName || filename.replace(/\.apkg$/i, '').replace(/[-_.]/g, ' ').trim(),
       // Store file for later processing
-      file: buffer
+      file: buffer,
+      // Store parsed data to avoid re-parsing in editor
+      parsedData: parsedData
     }
   }
 
@@ -61,7 +64,7 @@ export const parseAnkiFile = async (file, deckId, shardId) => {
       id: deckId,
       name: parsedData.name,
       stats: importStats,
-      importedAt: new Date().toISOString()
+      importedAt: Date.now()
     }
 
     log.info(`✅ Successfully imported .apkg file: ${result.name}`)

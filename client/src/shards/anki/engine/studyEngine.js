@@ -58,7 +58,7 @@ const progressToCard = (progress) => {
 
 // Convert FSRS card to progress data
 const cardToProgress = (card) => ({
-  due: card.due.toISOString(),
+  due: card.due.getTime(),
   stability: card.stability,
   difficulty: card.difficulty,
   elapsed_days: card.elapsed_days,
@@ -66,7 +66,7 @@ const cardToProgress = (card) => ({
   reps: card.reps,
   lapses: card.lapses,
   state: card.state,
-  last_review: card.last_review.toISOString()
+  last_review: card.last_review.getTime()
 })
 
 // Study Engine class
@@ -85,7 +85,7 @@ export class StudyEngine {
     this.session = {
       id: await genId('session', Date.now().toString()),
       deckId: this.deckId,
-      startTime: new Date(),
+      startTime: Date.now(),
       maxCards,
       maxTime,
       cardsStudied: 0,
@@ -194,7 +194,7 @@ export class StudyEngine {
   // Update session statistics
   updateSessionStats(rating) {
     this.session.cardsStudied++
-    this.session.timeSpent = Date.now() - this.session.startTime.getTime()
+    this.session.timeSpent = Date.now() - this.session.startTime
 
     // Count rating
     const ratingNames = ['again', 'hard', 'good', 'easy']
@@ -274,7 +274,7 @@ export class StudyEngine {
   // End study session
   endSession() {
     if (this.session) {
-      this.session.endTime = new Date()
+      this.session.endTime = Date.now()
       this.session.timeSpent = this.session.endTime - this.session.startTime
 
       // Note: card progress persisted on each rating
@@ -303,7 +303,7 @@ export class StudyEngine {
   getProgress() {
     if (!this.session) return null
 
-    const elapsed = Date.now() - this.session.startTime.getTime()
+    const elapsed = Date.now() - this.session.startTime
     const remaining = Math.max(0, this.session.maxTime - elapsed)
     const cardsRemaining = Math.max(0, this.session.maxCards - this.session.cardsStudied)
 

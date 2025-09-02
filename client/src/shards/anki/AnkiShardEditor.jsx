@@ -106,15 +106,15 @@ export const AnkiShardEditor = ({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  const handleFileSelect = useCallback(async (file, filename) => {
+  const handleFileSelect = useCallback(async (file, filename, parsedData = null) => {
     setLoading(true)
     setError(null)
 
     try {
-      log.info('Queuing Anki import:', filename)
+      log.info('Queuing Anki import:', filename, parsedData ? '(using cached data)' : '(parsing)')
 
-      // Parse and queue - no IDB writes until Save
-      const parsed = await parseApkgFile(file)
+      // Use cached parsed data if available, otherwise parse
+      const parsed = parsedData || await parseApkgFile(file)
       queueImport(parsed, filename)
 
       // Update shardData.metadata.decks directly
@@ -144,8 +144,8 @@ export const AnkiShardEditor = ({
   useEffect(() => {
     // Auto-import detected file only in create mode
     // (edit mode has no detectedInfo, users import manually via UploadArea)
-    if (mode === 'create' && detectedInfo?.metadata?.file) {
-      handleFileSelect(detectedInfo.metadata.file, detectedInfo.filename)
+    if (mode === 'create' && detectedInfo?.file) {
+      handleFileSelect(detectedInfo.file, detectedInfo.filename, detectedInfo.metadata?.parsedData)
     }
   }, [mode, detectedInfo, handleFileSelect])
 
@@ -162,7 +162,7 @@ export const AnkiShardEditor = ({
           </Alert>
         )}
 
-        <UploadArea onFileSelect={(file) => handleFileSelect(file, file.name)} loading={loading} />
+        <UploadArea onFileSelect={(file) => handleFileSelect(file, file.name, null)} loading={loading} />
 
         <Typography level="body-xs" sx={{ mt: 1, color: 'text.tertiary' }}>
           Import .apkg files exported from Anki. Files will be processed when you save the shard.
