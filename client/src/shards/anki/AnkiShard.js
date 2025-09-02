@@ -123,16 +123,34 @@ export const shardTypeInfo = {
   color: '#3f51b5' // Anki blue
 }
 
-// Process shard data - update counts using new architecture
+// Process shard data - commit imports and update counts
 export const processData = async (shard, _apiCall) => {
+  // Set default data structure
+  shard.data = { totalNotes: 0, totalCards: 0 }
+
+  // If no ID yet, we can't do IDB operations
   if (!shard.id) {
-    log.debug('Pre-creation, skipping data processing')
-    shard.data = { totalNotes: 0, totalCards: 0 }
+    log.debug('Pre-creation, setting default counts')
     return
   }
 
   try {
-    // Get cards for this shard using new API
+    // Commit any pending imports first
+    if (pendingImports.length > 0) {
+      for (const item of pendingImports) {
+        try {
+          const deckId = `deck-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`
+          const parsed = await parseApkgFile(item.file)
+          await importApkgData(parsed, deckId, shard.id)
+          log.info('Committed Anki import:', { deckId, name: parsed.name })
+        } catch (e) {
+          log.error('Failed to commit pending Anki import:', e)
+        }
+      }
+      clearQueue()
+    }
+
+    // Then get updated counts from IDB
     const cards = await ankiApi.getCardsForShard(shard.id)
     const noteIds = [...new Set(cards.map(c => c.noteId))]
 
@@ -144,9 +162,17 @@ export const processData = async (shard, _apiCall) => {
     log.info('Shard data updated:', shard.data)
   } catch (error) {
     log.error('Failed to process shard data:', error)
-    // Fallback to default
-    shard.data = { totalNotes: 0, totalCards: 0 }
+    // Keep default fallback
   }
+}
+
+// Get pending imports from editor module scope
+let pendingImports = []
+export const queueImport = (file, filename, name) => {
+  pendingImports.push({ file, filename, name })
+}
+export const clearQueue = () => {
+  pendingImports = []
 }
 
 // Cleanup function called when shard is deleted

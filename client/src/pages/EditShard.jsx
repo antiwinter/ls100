@@ -70,18 +70,37 @@ export const EditShard = () => {
 
   useEffect(() => {
     if (mode === 'create' && detectedInfo) {
-      // Create mode: initialize with detected info (engine will process)
-      const defaultName = detectedInfo?.metadata?.suggestedName ||
-                         detectedInfo?.filename?.replace(/\.[^/.]+$/, '') ||
-                         'New Shard'
+      // Pre-create a draft shard to obtain a real id
+      const init = async () => {
+        try {
+          const draftRes = await apiCall('/api/shards', {
+            method: 'POST',
+            body: JSON.stringify({
+              name: 'Draft Shard',
+              description: '',
+              type: detectedInfo.shardType,
+              public: false
+            })
+          })
 
-      setShardData({
-        name: defaultName,
-        description: '',
-        type: detectedInfo.shardType,
-        public: false, // Default to private
-        data: {} // Keep empty, let editor initialize from detectedInfo
-      })
+          const created = draftRes.shard
+          const defaultName = detectedInfo?.metadata?.suggestedName ||
+                             detectedInfo?.filename?.replace(/\.[^/.]+$/, '') ||
+                             'New Shard'
+          setShardData({
+            id: created.id,
+            name: defaultName,
+            description: created.description || '',
+            type: created.type,
+            public: created.public || false,
+            data: {}
+          })
+          log.info('Draft shard created:', created.id)
+        } catch (e) {
+          log.error('Failed to create draft shard:', e)
+        }
+      }
+      init()
     } else if (mode === 'edit' && navigationShardData) {
       const fetchShardDetails = async () => {
         try {
@@ -128,63 +147,16 @@ export const EditShard = () => {
         delete shardData.coverFile
       }
 
-      // Process uploads and prepare shardData for backend
+      // Process with engine-specific logic
       await engineSaveData(shardData, apiCall)
 
-      // Submit shardData directly
-      const result = await apiCall(
-        isCreate ? '/api/shards' : `/api/shards/${shardId}`,
-        {
-          method: isCreate ? 'POST' : 'PUT',
-          body: JSON.stringify(shardData)
-        }
-      )
+      // Update shard (both create and edit modes have IDs already)
+      await apiCall(`/api/shards/${shardData.id || shardId}`, {
+        method: 'PUT',
+        body: JSON.stringify(shardData)
+      })
 
-      log.info(`✅ Shard ${isCreate ? 'created' : 'updated'}:`,
-        isCreate ? result.shard.id : shardId)
-
-      // Handle post-creation migration for Anki shards
-      if (isCreate && shardData.type === 'anki' && result.shard?.id) {
-        try {
-          // Import the migration function
-          const { deckStorage } = await import('../shards/anki/storage/storageManager.js')
-
-          // Find temp shard IDs and migrate them to the actual shard ID
-          const allDecks = deckStorage.listDecks()
-          const tempShardPattern = /^temp_\d+_[a-z0-9]+$/
-
-          for (const [, deckData] of Object.entries(allDecks)) {
-            if (deckData.shardId && tempShardPattern.test(deckData.shardId)) {
-              log.info('Post-creation migration:', {
-                tempId: deckData.shardId,
-                actualId: result.shard.id
-              })
-              await deckStorage.updateDeckShardAssociation(deckData.shardId, result.shard.id)
-
-              // Update the shard data with deck IDs after migration
-              try {
-                const { processData } = await import('../shards/anki/AnkiShard.js')
-                const shardWithId = { ...result.shard, id: result.shard.id }
-                await processData(shardWithId, apiCall)
-
-                // Save updated shard data back to the server
-                await apiCall(`/api/shards/${result.shard.id}`, {
-                  method: 'PUT',
-                  body: JSON.stringify(shardWithId)
-                })
-
-                log.info('Shard deck IDs updated after migration')
-              } catch (processError) {
-                log.error('Failed to update shard deck IDs after migration:', processError)
-              }
-
-              break // Only need to migrate once per shard
-            }
-          }
-        } catch (error) {
-          log.error('Failed to migrate deck associations:', error)
-        }
-      }
+      log.info(`✅ Shard ${isCreate ? 'created' : 'updated'}:`, shardData.id || shardId)
 
       // Navigate back to home
       navigate('/')
@@ -195,8 +167,17 @@ export const EditShard = () => {
     }
   }
 
-  const handleBack = () => {
-    navigate('/')
+  const handleBack = async () => {
+    try {
+      if (mode === 'create' && shardData?.id) {
+        await apiCall(`/api/shards/${shardData.id}`, { method: 'DELETE' })
+        log.info('Draft shard deleted:', shardData.id)
+      }
+    } catch (e) {
+      log.error('Failed to delete draft shard:', e)
+    } finally {
+      navigate('/')
+    }
   }
 
   const handleCoverUpload = (e) => {

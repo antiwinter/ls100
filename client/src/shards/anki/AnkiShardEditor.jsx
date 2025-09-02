@@ -1,63 +1,19 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Box,
   Typography,
   Stack,
   Chip,
   IconButton,
-  Modal,
-  ModalDialog,
-  DialogTitle,
-  DialogContent,
-  Button,
   CircularProgress,
   Alert,
   Card,
   CardContent
 } from '@mui/joy'
-import { Close, Upload, Collections } from '@mui/icons-material'
-import { parseAnkiFile } from './AnkiShard.js'
-import { deckStorage } from './storage/storageManager.js'
+import { Upload } from '@mui/icons-material'
+import { parseApkgFile } from './parser/apkgParser.js'
+import { queueImport } from './AnkiShard.js'
 import { log } from '../../utils/logger'
-
-const DeckCard = ({ deck, onDelete }) => (
-  <Card variant="outlined" sx={{ position: 'relative' }}>
-    <CardContent>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-        <Collections color="primary" />
-        <Typography level="title-md" sx={{ flex: 1 }}>
-          {deck.name}
-        </Typography>
-        <IconButton
-          size="sm"
-          variant="plain"
-          color="danger"
-          onClick={onDelete}
-          sx={{ '&:hover': { bgcolor: 'danger.100' } }}
-        >
-          <Close />
-        </IconButton>
-      </Box>
-
-      <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
-        <Chip size="sm" variant="soft" color="primary">
-          {deck.totalCards} cards
-        </Chip>
-        {deck.studiedCards > 0 && (
-          <Chip size="sm" variant="soft" color="success">
-            {deck.studiedCards} studied
-          </Chip>
-        )}
-      </Stack>
-
-      {deck.lastStudied && (
-        <Typography level="body-xs" color="neutral">
-          Last studied: {new Date(deck.lastStudied).toLocaleDateString()}
-        </Typography>
-      )}
-    </CardContent>
-  </Card>
-)
 
 const UploadArea = ({ onFileSelect, loading }) => {
   const fileInputRef = useRef(null)
@@ -145,138 +101,48 @@ const UploadArea = ({ onFileSelect, loading }) => {
 
 export const AnkiShardEditor = ({
   mode = 'create',
-  shardData = null,
+  shardData: _shardData = null,
   detectedInfo = null,
-  onChange
+  onChange: _onChange
 }) => {
-  const [decks, setDecks] = useState({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const importedFilesRef = useRef(new Set())
 
-  // Generate consistent temporary shard ID for create mode
-  const tempShardId = useRef(null)
-
-  const getShardId = useCallback(() => {
-    // In edit mode, use the actual shard ID
-    if (mode === 'edit' && shardData?.id) {
-      return shardData.id
-    }
-
-    // In create mode, generate and reuse a consistent temporary ID
-    if (!tempShardId.current) {
-      tempShardId.current = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    }
-    return tempShardId.current
-  }, [mode, shardData?.id])
-
-  // Define handleFileImport BEFORE useEffect that uses it
   const handleFileImport = useCallback(async (file, filename) => {
-    // Prevent importing the same file multiple times
-    const fileKey = `${filename}_${file.size || 0}`
-    if (importedFilesRef.current.has(fileKey)) {
-      log.debug('File already imported, skipping:', filename)
-      return
-    }
-
     setLoading(true)
     setError(null)
 
     try {
-      log.info('Importing Anki deck:', filename)
-      importedFilesRef.current.add(fileKey)
+      log.info('Queuing Anki import:', filename)
 
-      // Generate deck ID and import using new note+template structure
-      const deckId = `deck-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`
-      const shardId = getShardId()
+      // Parse only - no IDB writes until Save
+      const parsed = await parseApkgFile(file)
 
-      const importResult = await parseAnkiFile(file, filename, deckId, shardId)
+      // Queue in module scope
+      queueImport(file, filename, parsed.name)
 
-      // Update local state with new deck
-      const updatedDecks = {
-        ...decks,
-        [deckId]: {
-          id: deckId,
-          name: importResult.name,
-          totalCards: importResult.stats.cards,
-          studiedCards: 0,
-          lastStudied: null
-        }
-      }
-
-      setDecks(updatedDecks)
-
-      // Notify parent component and persist deckName in metadata
-      onChange?.({
-        deckIds: Object.keys(updatedDecks),
-        data: {
-          ...(shardData?.data || {}),
-          deckName: importResult.name
-        }
-      })
-
-      log.info('Anki file imported successfully:', importResult.name, `(${importResult.stats.cards} cards from ${importResult.stats.notes} notes)`)
+      log.info('Anki import queued:', parsed.name)
 
     } catch (err) {
-      log.error('Failed to import deck:', err)
+      log.error('Failed to queue import:', err)
       setError(err.message)
     } finally {
       setLoading(false)
     }
-  }, [decks, onChange, getShardId, shardData?.data])
+  }, [])
 
-  // Initialize decks from storage or detected file
   useEffect(() => {
-    if (mode === 'edit' && shardData?.data?.deckIds) {
-      // Edit mode: load deck references for this shard only
-      const deckList = {}
-      const storedDecks = deckStorage.listDecksByShardId(getShardId())
-
-      shardData.data.deckIds.forEach(deckId => {
-        if (storedDecks[deckId]) {
-          deckList[deckId] = storedDecks[deckId]
-        }
-      })
-
-      setDecks(deckList)
-      onChange?.({ deckIds: Object.keys(deckList) })
-    } else if (mode === 'create' && detectedInfo?.metadata?.file) {
-      // Create mode with detected .apkg file
+    if (mode === 'create' && detectedInfo?.metadata?.file) {
+      // Queue detected file for import
       handleFileImport(detectedInfo.metadata.file, detectedInfo.filename)
-    } else {
-      // Load existing decks for this shard only
-      setDecks(deckStorage.listDecksByShardId(getShardId()))
     }
-  }, [mode, shardData, detectedInfo, onChange]) // eslint-disable-line react-hooks/exhaustive-deps
-  // Note: handleFileImport excluded to prevent infinite loop
-  // (it updates decks which recreates itself)
+  }, [mode, detectedInfo, handleFileImport])
 
   const handleFileSelect = async (file) => {
     await handleFileImport(file, file.name)
   }
 
-  const handleDeckDelete = async (deckId) => {
-    try {
-      await deckStorage.deleteDeck(deckId)
 
-      const updatedDecks = { ...decks }
-      delete updatedDecks[deckId]
-
-      setDecks(updatedDecks)
-      onChange?.({
-        deckIds: Object.keys(updatedDecks)
-      })
-
-      log.info('Deck deleted:', deckId)
-
-    } catch (err) {
-      log.error('Failed to delete deck:', err)
-      setError('Failed to delete deck')
-    }
-  }
-
-  const deckList = Object.entries(decks)
-  const totalCards = deckList.reduce((sum, [, deck]) => sum + deck.totalCards, 0)
 
   return (
     <Stack spacing={3}>
@@ -291,30 +157,14 @@ export const AnkiShardEditor = ({
           </Alert>
         )}
 
-        {deckList.length > 0 && (
-          <Stack spacing={1} sx={{ mb: 2 }}>
-            {deckList.map(([deckId, deck]) => (
-              <DeckCard
-                key={deckId}
-                deck={deck}
-                onDelete={() => handleDeckDelete(deckId)}
-              />
-            ))}
-          </Stack>
-        )}
+
 
         <UploadArea onFileSelect={handleFileSelect} loading={loading} />
 
-        {deckList.length > 0 && (
-          <Box sx={{ mt: 2, p: 2, bgcolor: 'background.level1', borderRadius: 'md' }}>
-            <Typography level="body-sm" color="neutral">
-              Total: {deckList.length} deck{deckList.length !== 1 ? 's' : ''} • {totalCards} cards
-            </Typography>
-          </Box>
-        )}
+
 
         <Typography level="body-xs" sx={{ mt: 1, color: 'text.tertiary' }}>
-          Import .apkg files exported from Anki. Decks are stored locally in your browser.
+          Import .apkg files exported from Anki. Files will be processed when you save the shard.
         </Typography>
       </Box>
 
