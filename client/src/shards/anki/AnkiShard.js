@@ -128,26 +128,44 @@ export const processData = async (shard, _apiCall) => {
   // Set default data structure
   shard.data = { totalNotes: 0, totalCards: 0 }
 
-  // If no ID yet, we can't do IDB operations
+  // For create mode: process pending imports and store deck info in metadata
   if (!shard.id) {
-    log.debug('Pre-creation, setting default counts')
+    log.debug('Pre-creation mode: storing deck metadata')
+
+    // Store deck information in metadata for frontend display
+    if (pendingImports.length > 0) {
+      const decks = pendingImports.map(item => ({
+        id: `deck-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`,
+        name: item.parsedData.name,
+        filename: item.filename,
+        totalCards: item.parsedData.cards?.length || 0,
+        isPending: true
+      }))
+
+      shard.metadata = { ...shard.metadata, decks }
+      log.info('Stored deck metadata for create mode:', decks.length, 'decks')
+    }
     return
   }
 
   try {
-    // Commit any pending imports first
+    // Commit pending imports (edit mode or post-creation)
     if (pendingImports.length > 0) {
       for (const item of pendingImports) {
         try {
           const deckId = `deck-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`
-          const parsed = await parseApkgFile(item.file)
-          await importApkgData(parsed, deckId, shard.id)
-          log.info('Committed Anki import:', { deckId, name: parsed.name })
+          await importApkgData(item.parsedData, deckId, shard.id)
+          log.info('Committed Anki import:', { deckId, name: item.parsedData.name })
         } catch (e) {
           log.error('Failed to commit pending Anki import:', e)
         }
       }
       clearQueue()
+
+      // Clear pending metadata since we've committed the imports
+      if (shard.metadata?.decks) {
+        shard.metadata = { ...shard.metadata, decks: [] }
+      }
     }
 
     // Then get updated counts from IDB
@@ -168,8 +186,8 @@ export const processData = async (shard, _apiCall) => {
 
 // Get pending imports from editor module scope
 let pendingImports = []
-export const queueImport = (file, filename, name) => {
-  pendingImports.push({ file, filename, name })
+export const queueImport = (parsedData, filename) => {
+  pendingImports.push({ parsedData, filename })
 }
 export const clearQueue = () => {
   pendingImports = []

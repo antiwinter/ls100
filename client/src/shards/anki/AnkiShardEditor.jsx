@@ -103,7 +103,7 @@ export const AnkiShardEditor = ({
   mode = 'create',
   shardData: _shardData = null,
   detectedInfo = null,
-  onChange: _onChange
+  onChange
 }) => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -115,11 +115,23 @@ export const AnkiShardEditor = ({
     try {
       log.info('Queuing Anki import:', filename)
 
-      // Parse only - no IDB writes until Save
+      // Parse and queue - no IDB writes until Save
       const parsed = await parseApkgFile(file)
+      queueImport(parsed, filename)
 
-      // Queue in module scope
-      queueImport(file, filename, parsed.name)
+      // Store deck info in onChange for parent component
+      const deckInfo = {
+        id: `deck-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`,
+        name: parsed.name,
+        filename,
+        totalCards: parsed.cards?.length || 0,
+        isPending: true
+      }
+
+      onChange?.({
+        deckInfo,
+        action: 'add'
+      })
 
       log.info('Anki import queued:', parsed.name)
 
@@ -129,7 +141,7 @@ export const AnkiShardEditor = ({
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [onChange])
 
   useEffect(() => {
     if (mode === 'create' && detectedInfo?.metadata?.file) {

@@ -70,37 +70,17 @@ export const EditShard = () => {
 
   useEffect(() => {
     if (mode === 'create' && detectedInfo) {
-      // Pre-create a draft shard to obtain a real id
-      const init = async () => {
-        try {
-          const draftRes = await apiCall('/api/shards', {
-            method: 'POST',
-            body: JSON.stringify({
-              name: 'Draft Shard',
-              description: '',
-              type: detectedInfo.shardType,
-              public: false
-            })
-          })
-
-          const created = draftRes.shard
-          const defaultName = detectedInfo?.metadata?.suggestedName ||
-                             detectedInfo?.filename?.replace(/\.[^/.]+$/, '') ||
-                             'New Shard'
-          setShardData({
-            id: created.id,
-            name: defaultName,
-            description: created.description || '',
-            type: created.type,
-            public: created.public || false,
-            data: {}
-          })
-          log.info('Draft shard created:', created.id)
-        } catch (e) {
-          log.error('Failed to create draft shard:', e)
-        }
-      }
-      init()
+      // Set up shard data from detection info (no backend call needed)
+      const defaultName = detectedInfo?.metadata?.suggestedName ||
+                         detectedInfo?.filename?.replace(/\.[^/.]+$/, '') ||
+                         'New Shard'
+      setShardData({
+        name: defaultName,
+        description: '',
+        type: detectedInfo.shardType,
+        public: false,
+        data: {}
+      })
     } else if (mode === 'edit' && navigationShardData) {
       const fetchShardDetails = async () => {
         try {
@@ -150,13 +130,37 @@ export const EditShard = () => {
       // Process with engine-specific logic
       await engineSaveData(shardData, apiCall)
 
-      // Update shard (both create and edit modes have IDs already)
-      await apiCall(`/api/shards/${shardData.id || shardId}`, {
-        method: 'PUT',
-        body: JSON.stringify(shardData)
-      })
+      // Create or update shard
+      const result = await apiCall(
+        isCreate ? '/api/shards' : `/api/shards/${shardId}`,
+        {
+          method: isCreate ? 'POST' : 'PUT',
+          body: JSON.stringify(shardData)
+        }
+      )
 
-      log.info(`✅ Shard ${isCreate ? 'created' : 'updated'}:`, shardData.id || shardId)
+      log.info(`✅ Shard ${isCreate ? 'created' : 'updated'}:`,
+        isCreate ? result.shard.id : shardId)
+
+      // Post-creation processing for new shards with pending data
+      const hasPendingData = (shardData.metadata?.decks?.length > 0 ||
+                             shardData.data?.languages?.length > 0)
+      if (isCreate && result.shard?.id && hasPendingData) {
+        try {
+          const { engineSaveData } = await import('../shards/engines.js')
+          const shardWithId = { ...result.shard }
+          await engineSaveData(shardWithId, apiCall)
+
+          // Update shard with processed data
+          await apiCall(`/api/shards/${result.shard.id}`, {
+            method: 'PUT',
+            body: JSON.stringify(shardWithId)
+          })
+          log.info('Post-creation processing completed for shard:', result.shard.id)
+        } catch (error) {
+          log.error('Failed to process post-creation data:', error)
+        }
+      }
 
       // Navigate back to home
       navigate('/')
@@ -167,17 +171,8 @@ export const EditShard = () => {
     }
   }
 
-  const handleBack = async () => {
-    try {
-      if (mode === 'create' && shardData?.id) {
-        await apiCall(`/api/shards/${shardData.id}`, { method: 'DELETE' })
-        log.info('Draft shard deleted:', shardData.id)
-      }
-    } catch (e) {
-      log.error('Failed to delete draft shard:', e)
-    } finally {
-      navigate('/')
-    }
+  const handleBack = () => {
+    navigate('/')
   }
 
   const handleCoverUpload = (e) => {
@@ -204,10 +199,37 @@ export const EditShard = () => {
 
   // Memoized onChange handler to prevent unnecessary re-renders
   const handleEngineDataChange = useCallback((engineData) => {
-    _setShardData(prev => ({
-      ...prev,
-      data: { ...prev.data, ...engineData }
-    }))
+    // Handle different engine data patterns
+    if (engineData.languages) {
+      // Subtitle pattern: languages array
+      _setShardData(prev => ({
+        ...prev,
+        data: { ...prev.data, languages: engineData.languages }
+      }))
+    } else if (engineData.deckInfo) {
+      // Anki pattern: deck metadata
+      const { deckInfo, action } = engineData
+      _setShardData(prev => {
+        const currentDecks = prev.metadata?.decks || []
+        let updatedDecks = [...currentDecks]
+
+        if (action === 'add') {
+          updatedDecks.push(deckInfo)
+        } else if (action === 'remove') {
+          updatedDecks = updatedDecks.filter(d => d.id !== deckInfo.id)
+        }
+        return {
+          ...prev,
+          metadata: { ...prev.metadata, decks: updatedDecks }
+        }
+      })
+    } else {
+      // Fallback: merge into data
+      _setShardData(prev => ({
+        ...prev,
+        data: { ...prev.data, ...engineData }
+      }))
+    }
   }, [])
 
   const getShardTypeDisplayInfo = () => {
