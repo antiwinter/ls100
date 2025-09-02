@@ -39,12 +39,12 @@ const parseCards = (sqlData) => {
 // Our fixed deck name extraction logic
 function extractDeckName(decks, cards) {
   let deckName = 'Anki Deck'
-  
+
   if (cards.length > 0) {
     // Find deck that contains the cards
     const cardDeckIds = [...new Set(cards.map(c => c.did))]
     log.debug('Card deck IDs:', cardDeckIds)
-    
+
     for (const deckId of cardDeckIds) {
       const deck = decks[deckId]
       if (deck && deck.name && deck.name !== 'Default') {
@@ -54,60 +54,60 @@ function extractDeckName(decks, cards) {
       }
     }
   }
-  
+
   // Fallback to first non-default deck
   if (deckName === 'Anki Deck') {
     const nonDefaultDecks = Object.values(decks || {})
       .filter(d => d.name && d.name !== 'Default')
       .map(d => d.name)
-    
+
     if (nonDefaultDecks.length > 0) {
       deckName = nonDefaultDecks[0]
       log.debug(`Using first non-default deck: "${deckName}"`)
     }
   }
-  
+
   return deckName
 }
 
 async function testFixedParser() {
   try {
     console.log('🧪 Testing FIXED deck name extraction...\n')
-    
+
     // Use the raw deck data we extracted earlier
-    const rawDecks = `{"1": {"collapsed": false, "conf": 1, "desc": "", "dyn": 0, "extendNew": 10, "extendRev": 50, "id": 1, "lrnToday": [0, 0], "mod": 1425279151, "name": "Default", "newToday": [0, 0], "revToday": [0, 0], "timeToday": [0, 0], "usn": 0}, "2059400111": {"collapsed": false, "conf": 1, "desc": "", "dyn": 0, "extendNew": 0, "extendRev": 50, "id": 2059400111, "lrnToday": [163, 2], "mod": 1425278051, "name": "2x2 PBL - Permutation of Both Layers", "newToday": [163, 2], "revToday": [163, 0], "timeToday": [163, 23598], "usn": -1}}`
-    
+    const rawDecks = '{"1": {"collapsed": false, "conf": 1, "desc": "", "dyn": 0, "extendNew": 10, "extendRev": 50, "id": 1, "lrnToday": [0, 0], "mod": 1425279151, "name": "Default", "newToday": [0, 0], "revToday": [0, 0], "timeToday": [0, 0], "usn": 0}, "2059400111": {"collapsed": false, "conf": 1, "desc": "", "dyn": 0, "extendNew": 0, "extendRev": 50, "id": 2059400111, "lrnToday": [163, 2], "mod": 1425278051, "name": "2x2 PBL - Permutation of Both Layers", "newToday": [163, 2], "revToday": [163, 0], "timeToday": [163, 23598], "usn": -1}}'
+
     console.log('📊 RAW DATA:')
     console.log('Raw decks JSON:', rawDecks)
-    
+
     // Parse decks
     const decks = parseDecks({ decks: rawDecks })
     console.log('\n📂 PARSED DECKS:')
     Object.entries(decks).forEach(([id, deck]) => {
       console.log(`  • ${id}: "${deck.name}"`)
     })
-    
+
     // Generate test cards
     const cards = parseCards()
     console.log('\n🃏 CARDS DATA:')
     console.log(`  • Total cards: ${cards.length}`)
     console.log(`  • Card deck IDs: ${[...new Set(cards.map(c => c.did))]}`)
-    
+
     // Test our fixed extraction
     console.log('\n🔧 TESTING EXTRACTION:')
     const extractedName = extractDeckName(decks, cards)
-    
+
     console.log('\n✅ RESULT:')
     console.log(`Extracted deck name: "${extractedName}"`)
-    
+
     // Verify against expected
-    const expected = "2x2 PBL - Permutation of Both Layers"
+    const expected = '2x2 PBL - Permutation of Both Layers'
     if (extractedName === expected) {
       console.log('🎉 SUCCESS: Correctly extracted the deck name!')
     } else {
       console.log(`❌ FAILED: Expected "${expected}", got "${extractedName}"`)
     }
-    
+
   } catch (error) {
     console.error('❌ Error testing parser:', error)
   }

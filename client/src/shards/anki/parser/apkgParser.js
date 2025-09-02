@@ -35,17 +35,13 @@ export const parseApkgFile = async (file) => {
 
     // Extract collection database (try multiple formats like real Anki)
     // Order: collection.anki21b (latest) → collection.anki21 (legacy2) → collection.anki2 (legacy1)
-    let dbFile = zipData.files['collection.anki21b'] || 
-                 zipData.files['collection.anki21'] || 
+    let dbFile = zipData.files['collection.anki21b'] ||
+                 zipData.files['collection.anki21'] ||
                  zipData.files['collection.anki2']
-    
+
     if (!dbFile) {
       throw new Error('No collection database found in .apkg file (tried collection.anki21b, collection.anki21, collection.anki2)')
     }
-    
-    const collectionType = zipData.files['collection.anki21b'] ? 'collection.anki21b' :
-                          zipData.files['collection.anki21'] ? 'collection.anki21' :
-                          'collection.anki2'
 
     const dbBuffer = await dbFile.async('uint8array')
     const db = new SQL.Database(dbBuffer)
@@ -77,11 +73,11 @@ export const parseApkgFile = async (file) => {
 
     // Determine deck name: prefer deck that contains cards
     let deckName = 'Anki Deck'
-    
+
     if (cards.length > 0) {
       // Find deck that contains the cards
       const cardDeckIds = [...new Set(cards.map(c => c.did))]
-      
+
       for (const deckId of cardDeckIds) {
         const deck = decks[deckId]
         if (deck && deck.name && deck.name !== 'Default') {
@@ -90,18 +86,18 @@ export const parseApkgFile = async (file) => {
         }
       }
     }
-    
+
     // Fallback to first non-default deck
     if (deckName === 'Anki Deck') {
       const nonDefaultDecks = Object.values(decks || {})
         .filter(d => d.name && d.name !== 'Default')
         .map(d => d.name)
-      
+
       if (nonDefaultDecks.length > 0) {
         deckName = nonDefaultDecks[0]
       }
     }
-    
+
     const result = {
       collection,
       noteTypes,
@@ -178,18 +174,18 @@ const parseNoteTypes = (db) => {
 const parseDecks = (db) => {
   try {
     const stmt = db.prepare('SELECT decks FROM col LIMIT 1')
-    
+
     if (stmt.step()) {
       const row = stmt.getAsObject()
       stmt.free()
-      
+
       const decksJson = row.decks
       if (decksJson && typeof decksJson === 'string') {
         const decks = JSON.parse(decksJson)
         return decks
       }
     }
-    
+
     stmt.free()
     log.warn('No decks data found in database')
     return {}
