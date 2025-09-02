@@ -70,16 +70,17 @@ export const EditShard = () => {
 
   useEffect(() => {
     if (mode === 'create' && detectedInfo) {
-      // Set up shard data from detection info (no backend call needed)
+      // Create mode: initialize with detected info (engine will process)
       const defaultName = detectedInfo?.metadata?.suggestedName ||
                          detectedInfo?.filename?.replace(/\.[^/.]+$/, '') ||
                          'New Shard'
+
       setShardData({
         name: defaultName,
         description: '',
         type: detectedInfo.shardType,
-        public: false,
-        data: {}
+        public: false, // Default to private
+        data: {} // Keep empty, let editor initialize from detectedInfo
       })
     } else if (mode === 'edit' && navigationShardData) {
       const fetchShardDetails = async () => {
@@ -127,10 +128,10 @@ export const EditShard = () => {
         delete shardData.coverFile
       }
 
-      // Process with engine-specific logic
+      // Process uploads and prepare shardData for backend
       await engineSaveData(shardData, apiCall)
 
-      // Create or update shard
+      // Submit shardData directly
       const result = await apiCall(
         isCreate ? '/api/shards' : `/api/shards/${shardId}`,
         {
@@ -141,26 +142,6 @@ export const EditShard = () => {
 
       log.info(`✅ Shard ${isCreate ? 'created' : 'updated'}:`,
         isCreate ? result.shard.id : shardId)
-
-      // Post-creation processing for new shards with pending data
-      const hasPendingData = (shardData.metadata?.decks?.length > 0 ||
-                             shardData.data?.languages?.length > 0)
-      if (isCreate && result.shard?.id && hasPendingData) {
-        try {
-          const { engineSaveData } = await import('../shards/engines.js')
-          const shardWithId = { ...result.shard }
-          await engineSaveData(shardWithId, apiCall)
-
-          // Update shard with processed data
-          await apiCall(`/api/shards/${result.shard.id}`, {
-            method: 'PUT',
-            body: JSON.stringify(shardWithId)
-          })
-          log.info('Post-creation processing completed for shard:', result.shard.id)
-        } catch (error) {
-          log.error('Failed to process post-creation data:', error)
-        }
-      }
 
       // Navigate back to home
       navigate('/')
@@ -199,37 +180,10 @@ export const EditShard = () => {
 
   // Memoized onChange handler to prevent unnecessary re-renders
   const handleEngineDataChange = useCallback((engineData) => {
-    // Handle different engine data patterns
-    if (engineData.languages) {
-      // Subtitle pattern: languages array
-      _setShardData(prev => ({
-        ...prev,
-        data: { ...prev.data, languages: engineData.languages }
-      }))
-    } else if (engineData.deckInfo) {
-      // Anki pattern: deck metadata
-      const { deckInfo, action } = engineData
-      _setShardData(prev => {
-        const currentDecks = prev.metadata?.decks || []
-        let updatedDecks = [...currentDecks]
-
-        if (action === 'add') {
-          updatedDecks.push(deckInfo)
-        } else if (action === 'remove') {
-          updatedDecks = updatedDecks.filter(d => d.id !== deckInfo.id)
-        }
-        return {
-          ...prev,
-          metadata: { ...prev.metadata, decks: updatedDecks }
-        }
-      })
-    } else {
-      // Fallback: merge into data
-      _setShardData(prev => ({
-        ...prev,
-        data: { ...prev.data, ...engineData }
-      }))
-    }
+    _setShardData(prev => ({
+      ...prev,
+      data: { ...prev.data, ...engineData }
+    }))
   }, [])
 
   const getShardTypeDisplayInfo = () => {
