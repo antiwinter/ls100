@@ -164,7 +164,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
     )
   }
 
-  if (!shardData || shardData.stats.totalCards === 0) {
+  if (!shardData || (shard?.metadata?.totalCards || 0) === 0) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
         <Typography color="neutral" sx={{ mb: 2 }}>
@@ -197,7 +197,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
           </Typography>
 
           <Typography level="body-sm" color="neutral" sx={{ mr: 2 }}>
-            {shardData?.stats.totalNotes} notes • {shardData?.stats.totalCards} cards
+            {shard?.metadata?.totalNotes || 0} notes • {shard?.metadata?.totalCards || 0} cards
           </Typography>
 
           <ToggleButtonGroup

@@ -56,11 +56,19 @@ export const detect = async (filename, buffer) => {
 
 // Generate cover for shard preview
 export const generateCover = (shard) => {
-  const noteCount = shard.data?.totalNotes || 0
-  const cardCount = shard.data?.totalCards || 0
+  // Handle case where metadata might not exist yet
+  const metadata = shard.metadata || {}
+  const noteCount = metadata.totalNotes || 0
+  const cardCount = metadata.totalCards || 0
 
-  // Prefer deckName from metadata; fallback to shard name
-  const title = shard.metadata?.deckName || shard.name || 'Anki Shard'
+  // Determine title with multiple fallbacks
+  let title = metadata.deckName || shard.name || 'Anki Shard'
+  
+  // If no deckName but we have decks in metadata (create mode), use first deck name
+  if (!metadata.deckName && metadata.decks?.length > 0) {
+    title = metadata.decks[0].name
+    // Also update the hash source to use the deck name for consistent colors
+  }
 
   // Create a hash for consistent color selection
   let hash = 0
@@ -104,7 +112,7 @@ export const shardTypeInfo = {
 // Process shard data - commit imports and update counts
 export const processData = async (shard, _apiCall) => {
   // Set default data structure
-  shard.data = { totalNotes: 0, totalCards: 0 }
+  shard.data = {}
 
   // For create mode: process pending imports and store deck info in metadata
   if (!shard.id) {
@@ -119,7 +127,17 @@ export const processData = async (shard, _apiCall) => {
         totalCards: item.parsedData.cards?.length || 0
       })))
 
-      shard.metadata = { ...shard.metadata, decks }
+      // Store the first deck name for consistent cover colors and total counts
+      const deckName = decks[0]?.name || 'Anki Deck'
+      const totalCards = decks.reduce((sum, deck) => sum + deck.totalCards, 0)
+
+      shard.metadata = {
+        ...shard.metadata,
+        decks,
+        deckName,
+        totalCards,
+        totalNotes: 0 // Will be calculated after import
+      }
       log.info('Stored deck metadata for create mode:', decks.length, 'decks')
     }
     return
@@ -128,16 +146,29 @@ export const processData = async (shard, _apiCall) => {
   try {
     // Commit pending imports (edit mode or post-creation)
     if (pendingImports.length > 0) {
+      let deckName = null
+
       for (const item of pendingImports) {
         try {
           const deckId = await genId('deck', item.filename + item.parsedData.name)
           await importApkgData(item.parsedData, deckId, shard.id)
+
+          // Store the first deck name for consistent cover colors
+          if (!deckName) {
+            deckName = item.parsedData.name
+          }
+
           log.info('Committed Anki import:', { deckId, name: item.parsedData.name })
         } catch (e) {
           log.error('Failed to commit pending Anki import:', e)
         }
       }
       clearQueue()
+
+      // Store deck name in metadata for cover generation
+      if (deckName) {
+        shard.metadata = { ...shard.metadata, deckName }
+      }
 
       // Clear pending metadata since we've committed the imports
       if (shard.metadata?.decks) {
@@ -149,12 +180,14 @@ export const processData = async (shard, _apiCall) => {
     const cards = await ankiApi.getCardsForShard(shard.id)
     const noteIds = [...new Set(cards.map(c => c.noteId))]
 
-    shard.data = {
+    // Store persistent counts in metadata (not transient data)
+    shard.metadata = {
+      ...shard.metadata,
       totalNotes: noteIds.length,
       totalCards: cards.length
     }
 
-    log.info('Shard data updated:', shard.data)
+    log.info('Shard metadata updated:', { totalNotes: noteIds.length, totalCards: cards.length })
   } catch (error) {
     log.error('Failed to process shard data:', error)
     // Keep default fallback
