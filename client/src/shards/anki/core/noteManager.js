@@ -2,7 +2,7 @@ import { idb } from '../storage/storageManager'
 import { log } from '../../../utils/logger'
 import { genNvId } from '../../../utils/idGenerator.js'
 
-// Note manager with refCount for cross-shard sharing
+// Note manager for Anki collection
 export class NoteManager {
   constructor() {
     this.STORES = {
@@ -52,8 +52,8 @@ export class NoteManager {
     return updated
   }
 
-  // Add reference (increment refCount)
-  async addRef(noteId, _shardId) {
+  // Add reference (increment refCount) - for compatibility
+  async addRef(noteId) {
     const note = await this.get(noteId)
     if (!note) throw new Error(`Note not found: ${noteId}`)
 
@@ -63,8 +63,8 @@ export class NoteManager {
     return note
   }
 
-  // Remove reference (decrement refCount, cleanup if 0)
-  async removeRef(noteId, _shardId) {
+  // Remove reference (decrement refCount, cleanup if 0) - for compatibility
+  async removeRef(noteId) {
     const note = await this.get(noteId)
     if (!note) return
 
@@ -78,6 +78,12 @@ export class NoteManager {
       await idb.put(this.STORES.notes, note)
       log.debug('Note ref removed:', noteId, 'refCount:', note.refCount)
     }
+  }
+
+  // Delete note directly
+  async delete(noteId) {
+    await this.cleanup(noteId)
+    log.debug('Note deleted:', noteId)
   }
 
   // Cleanup note and related data

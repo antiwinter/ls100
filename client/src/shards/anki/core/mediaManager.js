@@ -7,9 +7,9 @@ export class MediaManager {
     this.mediaCache = new Map() // Cache for frequently accessed media
   }
 
-  // Get media file for a specific shard
-  async getMedia(filename, shardId) {
-    const cacheKey = `${shardId}-${filename}`
+  // Get media file for a specific deck
+  async getMedia(filename, deckId) {
+    const cacheKey = `${deckId}-${filename}`
 
     // Check cache first
     if (this.mediaCache.has(cacheKey)) {
@@ -31,19 +31,30 @@ export class MediaManager {
     return null
   }
 
-  // Get all media files for a shard
-  async getShardMedia(shardId) {
+  // Get all media files for a deck
+  async getDeckMedia(deckId) {
     try {
       const allMedia = await idb.getAll('media')
-      return allMedia.filter(media => media.shardId === shardId)
+      return allMedia.filter(media => media.deckId === deckId)
     } catch (error) {
-      log.error('Failed to get shard media:', error)
+      log.error('Failed to get deck media:', error)
+      return []
+    }
+  }
+
+  // Get all media files for multiple decks
+  async getDecksMedia(deckIds) {
+    try {
+      const allMedia = await idb.getAll('media')
+      return allMedia.filter(media => deckIds.includes(media.deckId))
+    } catch (error) {
+      log.error('Failed to get decks media:', error)
       return []
     }
   }
 
   // Replace media URLs in HTML content
-  async replaceMediaUrls(html, shardId) {
+  async replaceMediaUrls(html, deckId) {
     if (!html || typeof html !== 'string') {
       return html
     }
@@ -58,7 +69,7 @@ export class MediaManager {
 
     // Replace each media reference
     for (const filename of mediaReferences) {
-      const mediaRecord = await this.getMedia(filename, shardId)
+      const mediaRecord = await this.getMedia(filename, deckId)
       if (mediaRecord && mediaRecord.dataUrl) {
         // Replace src attributes with data URL
         const patterns = [
@@ -110,32 +121,32 @@ export class MediaManager {
     log.debug('Media cache cleared')
   }
 
-  // Remove media files for a shard (cleanup)
-  async removeShardMedia(shardId) {
+  // Remove media files for multiple decks (cleanup)
+  async removeDecksMedia(deckIds) {
     try {
-      const shardMedia = await this.getShardMedia(shardId)
+      const decksMedia = await this.getDecksMedia(deckIds)
 
-      for (const media of shardMedia) {
+      for (const media of decksMedia) {
         await idb.delete('media', media.id)
         this.mediaCache.delete(media.id)
       }
 
-      log.debug(`Removed ${shardMedia.length} media files for shard: ${shardId}`)
-      return shardMedia.length
+      log.debug(`Removed ${decksMedia.length} media files for decks: ${deckIds.join(', ')}`)
+      return decksMedia.length
     } catch (error) {
-      log.error('Failed to remove shard media:', error)
+      log.error('Failed to remove decks media:', error)
       return 0
     }
   }
 
-  // Get storage usage statistics
-  async getMediaStats(shardId) {
+  // Get storage usage statistics for multiple decks
+  async getMediaStatsForDecks(deckIds) {
     try {
-      const shardMedia = await this.getShardMedia(shardId)
-      const totalSize = shardMedia.reduce((sum, media) => sum + (media.size || 0), 0)
+      const decksMedia = await this.getDecksMedia(deckIds)
+      const totalSize = decksMedia.reduce((sum, media) => sum + (media.size || 0), 0)
 
       return {
-        fileCount: shardMedia.length,
+        fileCount: decksMedia.length,
         totalSize,
         totalSizeMB: (totalSize / (1024 * 1024)).toFixed(2)
       }

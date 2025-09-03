@@ -27,7 +27,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
       }
 
       // Get cards for this shard
-      const cards = await ankiApi.getCardsForShard(shard.id)
+      const cards = await ankiApi.getCardsForDecks(shard.metadata?.deckIds)
 
       // Get unique notes from cards
       const noteIds = [...new Set(cards.map(c => c.noteId))]
@@ -44,7 +44,9 @@ const AnkiReaderContent = ({ shard, onBack }) => {
       const validNotes = notes.filter(Boolean)
 
       // Get media stats
-      const mediaStats = await ankiApi.getMediaStats(shard.id)
+      const mediaStats = shard.metadata?.deckIds?.length > 0
+        ? await ankiApi.getMediaStatsForDecks(shard.metadata.deckIds)
+        : { fileCount: 0, totalSize: 0, totalSizeMB: '0.00' }
 
       const data = {
         id: shard.id,
@@ -78,7 +80,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
     } finally {
       setLoading(false)
     }
-  }, [shard?.id, shard?.name])
+  }, [shard?.id, shard?.name, shard?.metadata?.deckIds])
 
   // Load shard data on mount
   useEffect(() => {

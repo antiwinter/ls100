@@ -9,18 +9,18 @@ export class TemplateRenderer {
   }
 
   // Main render method - returns both question and answer
-  async render(template, noteFields, shardId, frontSideContent = null) {
+  async render(template, noteFields, deckId, frontSideContent = null) {
     const qContent = template.qfmt || ''
     const aContent = template.afmt || ''
 
     // Render question
-    const renderedQuestion = await this._replaceFields(qContent, noteFields, shardId)
+    const renderedQuestion = await this._replaceFields(qContent, noteFields, deckId)
 
     // Render answer (may include FrontSide)
     const renderedAnswer = await this._replaceFields(
       aContent,
       noteFields,
-      shardId,
+      deckId,
       frontSideContent || renderedQuestion
     )
 
@@ -31,7 +31,7 @@ export class TemplateRenderer {
   }
 
   // Replace fields and process media URLs
-  async _replaceFields(content, noteFields, shardId, frontSide = '') {
+  async _replaceFields(content, noteFields, deckId, frontSide = '') {
     let result = content
 
     // Replace {{FrontSide}} with question content
@@ -48,7 +48,7 @@ export class TemplateRenderer {
     })
 
     // Process media URLs
-    result = await mediaManager.replaceMediaUrls(result, shardId)
+    result = await mediaManager.replaceMediaUrls(result, deckId)
 
     return result
   }

@@ -77,7 +77,7 @@ export class AnkiApi {
     return due
   }
 
-  // Get all cards for deck IDs (used by shards)
+  // Get all cards for multiple deck IDs
   async getCardsForDeckIds(deckIds) {
     const allCards = []
     for (const deckId of deckIds) {
@@ -87,15 +87,17 @@ export class AnkiApi {
     return allCards
   }
 
-  // Get all cards for a shard (legacy method - now uses deckIds)
-  async getCardsForShard(shardId) {
-    // This is a legacy method that should be replaced by getCardsForDeckIds
-    // For now, we'll return empty array since we don't store shardId anymore
-    log.warn('getCardsForShard is deprecated, use getCardsForDeckIds instead')
-    return []
+  // Get all cards for decks
+  async getCardsForDecks(deckIds) {
+    if (!deckIds || deckIds.length === 0) {
+      log.debug('No deckIds provided')
+      return []
+    }
+
+    return await this.getCardsForDeckIds(deckIds)
   }
 
-  // Cleanup all data for deck IDs  
+  // Cleanup all data for deck IDs
   async cleanupDecks(deckIds) {
     let totalCards = 0
     const allNoteIds = new Set()
@@ -104,7 +106,7 @@ export class AnkiApi {
     for (const deckId of deckIds) {
       const cards = await this.cardGen.getCardsForDeck(deckId)
       totalCards += cards.length
-      
+
       for (const card of cards) {
         allNoteIds.add(card.noteId)
         await this.cardGen.deleteCard(card.id)
@@ -117,7 +119,6 @@ export class AnkiApi {
       // Check if note has any remaining cards
       const allCards = await this.cardGen.getAllCards()
       const hasRemainingCards = allCards.some(c => c.noteId === noteId)
-      
       if (!hasRemainingCards) {
         await this.noteManager.delete(noteId)
         notesRemoved++
@@ -136,11 +137,7 @@ export class AnkiApi {
     }
   }
 
-  // Cleanup all data for a shard (legacy method)
-  async cleanupShard(shardId) {
-    log.warn('cleanupShard is deprecated, use cleanupDecks instead')
-    return { cardsRemoved: 0, notesRemoved: 0 }
-  }
+
 
   // Batch operations for import
   async batchImport(notes, deckId) {
@@ -160,12 +157,10 @@ export class AnkiApi {
     return results
   }
 
-  // Get media statistics for a shard
-  async getMediaStats(shardId) {
-    return await mediaManager.getMediaStats(shardId)
+  // Get media statistics for multiple decks
+  async getMediaStatsForDecks(deckIds) {
+    return await mediaManager.getMediaStatsForDecks(deckIds)
   }
-
-
 }
 
 // Singleton instance

@@ -130,7 +130,7 @@ export const BrowseMode = ({
 
       try {
         // Get notes for this shard by finding cards first, then getting unique notes
-        const shardCards = await ankiApi.getCardsForShard(selectedDeck.id)
+        const shardCards = await ankiApi.getCardsForDecks(selectedDeck.metadata?.deckIds)
         const noteIds = [...new Set(shardCards.map(c => c.noteId))]
 
         const shardNotes = await Promise.all(

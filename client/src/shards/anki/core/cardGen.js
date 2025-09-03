@@ -61,7 +61,7 @@ export class CardGenerator {
 
     // Use new TemplateRenderer with media support
     const renderer = new TemplateRenderer(noteType)
-    const rendered = await renderer.render(template, note.fields, card.shardId)
+    const rendered = await renderer.render(template, note.fields, card.deckId)
 
     return {
       id: card.id,
@@ -101,12 +101,6 @@ export class CardGenerator {
   // Get all cards
   async getAllCards() {
     return await idb.getAll('cards')
-  }
-
-  // Get cards for shard (legacy method)
-  async getCardsForShard(shardId) {
-    log.warn('getCardsForShard is deprecated, use getCardsForDeck instead')
-    return []
   }
 
   // Delete cards for note

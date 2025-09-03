@@ -226,11 +226,11 @@ export async function demoMedia() {
 
     // Test media URL replacement
     const testHtml = '<img src="test.jpg"> and <img src="another.png">'
-    const processedHtml = await mediaManager.replaceMediaUrls(testHtml, shardId)
+    const processedHtml = await mediaManager.replaceMediaUrls(testHtml, 'demo-deck')
     log.info('🔄 Media replacement test:', { original: testHtml, processed: processedHtml })
 
     // Get media statistics
-    const mediaStats = await ankiApi.getMediaStats(shardId)
+    const mediaStats = await ankiApi.getMediaStatsForDecks(['demo-deck'])
     log.info('📊 Media statistics:', mediaStats)
 
     // Test card rendering with media
