@@ -261,6 +261,7 @@ export const StudyMode = ({ deck, studyEngine, onEndStudy }) => {
   const [sessionComplete, setSessionComplete] = useState(false)
   const [intervals, setIntervals] = useState(null)
   const [error, setError] = useState(null)
+  const [autoEndTimeout, setAutoEndTimeout] = useState(null)
 
   // Define functions before useEffects that use them
   const loadNextCard = useCallback(() => {
@@ -270,11 +271,18 @@ export const StudyMode = ({ deck, studyEngine, onEndStudy }) => {
       const nextCard = studyEngine.getNextCard()
 
       if (!nextCard) {
-        // Session complete
+        // Session complete - end session and notify parent
         const sessionData = studyEngine.endSession()
         setSessionComplete(true)
         setProgress(null)
-        log.info('Study session completed:', sessionData)
+        log.info('Study session completed naturally:', sessionData)
+
+        // Automatically notify parent that session ended after delay
+        const timeoutId = setTimeout(() => {
+          onEndStudy()
+        }, 3000) // Give user 3 seconds to see completion screen
+        setAutoEndTimeout(timeoutId)
+
         return
       }
 
@@ -299,7 +307,7 @@ export const StudyMode = ({ deck, studyEngine, onEndStudy }) => {
       log.error('Failed to load next card:', err)
       setError('Failed to load next card')
     }
-  }, [studyEngine])
+  }, [studyEngine, onEndStudy])
 
   const handleRate = useCallback(async (rating) => {
     if (!studyEngine || !currentCard) return
@@ -349,7 +357,22 @@ export const StudyMode = ({ deck, studyEngine, onEndStudy }) => {
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [showAnswer, handleRate])
 
+  // Cleanup timeout on component unmount
+  useEffect(() => {
+    return () => {
+      if (autoEndTimeout) {
+        clearTimeout(autoEndTimeout)
+      }
+    }
+  }, [autoEndTimeout])
+
   const handleRestart = async () => {
+    // Clear auto-end timeout if restarting
+    if (autoEndTimeout) {
+      clearTimeout(autoEndTimeout)
+      setAutoEndTimeout(null)
+    }
+
     setSessionComplete(false)
     setCurrentCard(null)
     setShowAnswer(false)
@@ -378,13 +401,22 @@ export const StudyMode = ({ deck, studyEngine, onEndStudy }) => {
     )
   }
 
+  // Clean up auto-end timeout on manual exit
+  const handleManualExit = () => {
+    if (autoEndTimeout) {
+      clearTimeout(autoEndTimeout)
+      setAutoEndTimeout(null)
+    }
+    onEndStudy()
+  }
+
   if (sessionComplete) {
     const sessionData = studyEngine.session
     return (
       <SessionComplete
         sessionData={sessionData}
         onRestart={handleRestart}
-        onExit={onEndStudy}
+        onExit={handleManualExit}
       />
     )
   }
@@ -402,7 +434,7 @@ export const StudyMode = ({ deck, studyEngine, onEndStudy }) => {
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ProgressHeader progress={progress} onExit={onEndStudy} />
+      <ProgressHeader progress={progress} onExit={handleManualExit} />
 
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <CardDisplay

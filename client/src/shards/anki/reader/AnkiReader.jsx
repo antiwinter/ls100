@@ -127,8 +127,11 @@ const AnkiReaderContent = ({ shard, onBack }) => {
   }
 
   const handleEndStudy = () => {
-    log.debug('no manual end session')
-
+    // Clean up study engine reference (session already ended in StudyMode)
+    if (studyEngine) {
+      log.info('Cleaning up study engine reference')
+      setStudyEngine(null)
+    }
     setMode('browse')
   }
 
