@@ -93,18 +93,11 @@ const AnkiReaderContent = ({ shard, onBack }) => {
   }, [shard, loadShardData])
 
   const handleModeChange = (newMode) => {
-    if (newMode !== mode) {
-      // End any active study session when switching modes
-      if (studyEngine && mode === 'study') {
-        studyEngine.endSession()
-        setStudyEngine(null)
-      }
-
+    if (newMode !== mode)
       setMode(newMode)
-    }
   }
 
-  const handleStartStudy = async (options = {}) => {
+  const handleStartStudy = async () => {
     if (!shardData?.cards?.length) {
       setError('No cards available for study')
       return
@@ -112,8 +105,8 @@ const AnkiReaderContent = ({ shard, onBack }) => {
 
     try {
       // Create study engine for this shard's cards
-      const engine = new StudyEngine(shard.id, sessionStore)
-      const session = await engine.initSession(shardData.cards, options)
+      const engine = new StudyEngine(shard.id, shard.metadata?.deckIds || [], sessionStore)
+      const session = await engine.initSession()
 
       setStudyEngine(engine)
       setMode('study')
@@ -122,9 +115,9 @@ const AnkiReaderContent = ({ shard, onBack }) => {
         shardId: session.shardId,
         deckIds: session.deckIds,
         sessionId: session.id,
-        queueSize: engine.studyQueue.length,
-        maxNew: session.maxNewCards,
-        maxReview: session.maxReviewCards,
+        queueSize: session.queue.length,
+        newStudied: session.newCardsStudied,
+        reviewStudied: session.reviewCardsStudied,
         totalCards: shardData.cards.length
       })
     } catch (err) {
@@ -134,12 +127,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
   }
 
   const handleEndStudy = () => {
-    if (studyEngine) {
-      const sessionData = studyEngine.endSession()
-      setStudyEngine(null)
-
-      log.info('Study session ended by user:', sessionData)
-    }
+    log.debug('no manual end session')
 
     setMode('browse')
   }

@@ -15,12 +15,14 @@ export const useAnkiSessionStore = (shardId) => {
 
   const store = create(
     persist(
-      immer((set, get) => ({
+      immer((set, _get) => ({
         // === Daily Study Limits (persistent) ===
         studySettings: {
           maxNewCards: 20, // Maximum new cards to study per day
           maxReviewCards: 200, // Maximum review cards to study per day
-          maxTime: 30 * 60 * 1000 // Maximum study time per session (30 minutes in ms)
+          maxTime: 30 * 60 * 1000, // Maximum study time per session (30 minutes in ms)
+          dailyResetTime: 4 // Hour (0AM-6AM) when daily limits reset
+          // (4 AM default prevents midnight interruptions for night owls)
         },
         setStudySettings: (settings) => set((state) => {
           state.studySettings = { ...state.studySettings, ...settings }
@@ -35,18 +37,9 @@ export const useAnkiSessionStore = (shardId) => {
         setMaxTime: (timeMs) => set((state) => {
           state.studySettings.maxTime = timeMs
         }),
-
-        // === Daily Statistics (persistent, date-keyed) ===
-        dailyStats: {}, // { "2025-01-11": { newCards: 5, reviewCards: 12, timeSpent: 1200000 } }
-        // Format: { [YYYY-MM-DD]: { newCards: number, reviewCards: number, timeSpent: ms } }
-        updateDailyStats: (date, stats) => set((state) => {
-          const dateKey = date || new Date().toISOString().split('T')[0]
-          state.dailyStats[dateKey] = { ...state.dailyStats[dateKey], ...stats }
+        setDailyResetTime: (hour) => set((state) => {
+          state.studySettings.dailyResetTime = Math.max(0, Math.min(23, hour))
         }),
-        getDailyStats: (date) => {
-          const dateKey = date || new Date().toISOString().split('T')[0]
-          return get().dailyStats[dateKey] || { newCards: 0, reviewCards: 0, timeSpent: 0 }
-        },
 
         // Study preferences (persistent)
         preferences: {
@@ -102,36 +95,31 @@ export const useAnkiSessionStore = (shardId) => {
         currentSession: null, // Active or paused session data
         lastSessionDate: null, // Last date a session was started (YYYY-MM-DD)
         // Note: sessionActive can be inferred as sessionState === 'active'
-        sessionHistory: [],
+        sessionHistory: {},// { "2025-01-11": { newCards: 5, reviewCards: 12, timeSpent: 1200000 } }
+
+        // Format: { [YYYY-MM-DD]: { newCards: number, reviewCards: number, timeSpent: ms } }
+        updateSessionHistory: (stats) => set((state) => {
+          const dateKey = getStudyDayKey(state.studySettings.dailyResetTime)
+          state.sessionHistory[dateKey] = { ...state.sessionHistory[dateKey], ...stats }
+        }),
 
         // Session management actions
         setCurrentSession: (session) => set((state) => {
           state.currentSession = session
           if (session) {
-            state.lastSessionDate = new Date().toISOString().split('T')[0]
+            state.lastSessionDate = getStudyDayKey(state.studySettings.dailyResetTime)
           }
         }),
 
         completeCurrentSession: () => set((state) => {
           state.currentSession = null
-          // TODO: summary session into history
-        }),
-
-        // Clear all data (for testing/reset)
-        reset: () => set((state) => {
-          state.dailyStats = {}
-          state.studyStreak = { current: 0, longest: 0, lastStudyDate: null }
-          state.currentSession = null
-          state.sessionState = 'none'
-          // Keep settings and preferences
         })
       })),
       {
         name: `ls100-anki-session-${shardId}`,
         partialize: (state) => {
-          // Don't persist session state
-          const { currentSession: _, ...persistedState } = state
-          return persistedState
+          // Persist everything including currentSession for resumption
+          return state
         }
       }
     )
@@ -146,7 +134,17 @@ export const cleanupAnkiSessionStore = (shardId) => {
   stores.delete(shardId)
 }
 
-// Helper to get today's date key
-export const getTodayDateKey = () => {
-  return new Date().toISOString().split('T')[0]
+// Helper to get study day date key (accounts for custom reset time)
+export const getStudyDayKey = (resetHour = 4) => {
+  const now = new Date()
+
+  // If current time is before reset hour, use previous calendar day
+  if (now.getHours() < resetHour) {
+    const yesterday = new Date(now)
+    yesterday.setDate(yesterday.getDate() - 1)
+    return yesterday.toISOString().split('T')[0]
+  }
+
+  // Otherwise use current calendar day
+  return now.toISOString().split('T')[0]
 }
