@@ -78,6 +78,7 @@ export class StudyEngine {
     this.session = null
     this.currentCard = null
     this.studyQueue = []
+    this.buriedCards = new Set() // Track cards buried during session
   }
 
   // Initialize study session
@@ -110,17 +111,23 @@ export class StudyEngine {
     // Build study queue
     this.buildStudyQueue(cards)
 
+    const preferences = this.sessionStore.getState().preferences
     log.info('Study session initialized:', {
       shardId: this.shardId,
       deckIds: this.deckIds,
       queueSize: this.studyQueue.length,
-      sessionId: this.session.id
+      sessionId: this.session.id,
+      siblingBurying: {
+        newCards: preferences.buryNewSiblings,
+        reviewCards: preferences.buryReviewSiblings,
+        note: 'Sibling burying applied dynamically during study (learning cards treated as review)'
+      }
     })
 
     return this.session
   }
 
-  // Build optimal study queue using FSRS
+  // Build optimal study queue using FSRS (NO sibling filtering at build time)
   buildStudyQueue(cards) {
     const now = new Date()
     const dueCards = []
@@ -140,11 +147,116 @@ export class StudyEngine {
     // Sort by priority (higher number = higher priority)
     dueCards.sort((a, b) => b.priority - a.priority)
 
-    // Add cards up to their respective limits (Anki-style)
+    // Sort new cards according to user preference
+    const sortedNewCards = this.sortNewCards(newCards)
+
+    // Include ALL available cards - sibling burying happens dynamically during study
     this.studyQueue = [
       ...dueCards.slice(0, this.session.maxReviewCards),
-      ...newCards.slice(0, this.session.maxNewCards)
+      ...sortedNewCards.slice(0, this.session.maxNewCards)
     ]
+  }
+
+  // Sort new cards according to user preference (Anki-style ordering)
+  sortNewCards(newCards) {
+    const preferences = this.sessionStore.getState().preferences
+    const order = preferences.newCardOrder
+
+    switch (order) {
+    case 'gather':
+      // Keep original order (no sorting)
+      return newCards
+
+    case 'template':
+      // Sort by template index (card type)
+      return newCards.sort((a, b) => a.templateIdx - b.templateIdx)
+
+    case 'random':
+      // Fully random shuffle
+      return this.shuffleArray([...newCards])
+
+    case 'template-random':
+      // Sort by template, then randomize within templates
+      return newCards
+        .sort((a, b) => a.templateIdx - b.templateIdx)
+        .sort((a, b) => {
+          if (a.templateIdx === b.templateIdx) {
+            return Math.random() - 0.5 // Random within same template
+          }
+          return 0 // Keep template order
+        })
+
+    case 'note-random': {
+      // Group by note, randomize notes, keep template order within notes
+      const noteGroups = new Map()
+
+      // Group cards by noteId
+      for (const card of newCards) {
+        if (!noteGroups.has(card.noteId)) {
+          noteGroups.set(card.noteId, [])
+        }
+        noteGroups.get(card.noteId).push(card)
+      }
+
+      // Sort cards within each note by template
+      for (const cards of noteGroups.values()) {
+        cards.sort((a, b) => a.templateIdx - b.templateIdx)
+      }
+
+      // Randomize note order and flatten
+      const shuffledNotes = this.shuffleArray([...noteGroups.values()])
+      return shuffledNotes.flat()
+    }
+
+    default:
+      return newCards
+    }
+  }
+
+  // Fisher-Yates shuffle algorithm
+  shuffleArray(array) {
+    const shuffled = [...array]
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+    }
+    return shuffled
+  }
+
+  // Bury sibling cards after answering (Anki behavior)
+  burySiblings(answeredCard) {
+    const preferences = this.sessionStore.getState().preferences
+
+    // Check if burying is enabled for this card type
+    const cardState = answeredCard.fsrsCard?.state || STATES.NEW
+    const shouldBury = cardState === STATES.NEW
+      ? preferences.buryNewSiblings
+      : preferences.buryReviewSiblings
+
+    if (!shouldBury) {
+      return // No burying enabled
+    }
+
+    // Find and bury all sibling cards (same noteId, different cardId)
+    let buriedCount = 0
+    for (const card of this.studyQueue) {
+      if (card.noteId === answeredCard.noteId && card.id !== answeredCard.id) {
+        this.buriedCards.add(card.id)
+        buriedCount++
+      }
+    }
+
+    log.debug('Buried siblings:', {
+      answeredCard: answeredCard.id,
+      noteId: answeredCard.noteId,
+      buriedCount
+    })
+  }
+
+  // Update sibling burying preferences (for testing/configuration)
+  updateSiblingBuryingPreferences(preferences) {
+    this.sessionStore.getState().setPreferences(preferences)
+    log.info('Updated sibling burying preferences:', preferences)
   }
 
   // Calculate card priority for studying
@@ -157,15 +269,25 @@ export class StudyEngine {
     return overdueDays + difficultyBonus + stateBonus
   }
 
-  // Get next card for study
+  // Get next card for study (skip buried cards)
   getNextCard() {
-    if (this.studyQueue.length === 0) return null
-
     const now = new Date()
     if (now - this.session.startTime >= this.session.maxTime) return null
 
-    this.currentCard = this.studyQueue.shift()
-    return this.currentCard
+    // Find next non-buried card
+    while (this.studyQueue.length > 0) {
+      const card = this.studyQueue.shift()
+
+      // Skip buried cards
+      if (this.buriedCards.has(card.id)) {
+        continue
+      }
+
+      this.currentCard = card
+      return this.currentCard
+    }
+
+    return null // No more cards available
   }
 
   // Rate current card and update scheduling
@@ -199,6 +321,9 @@ export class StudyEngine {
       nextDue: updatedCard.card.due,
       state: updatedCard.card.state
     })
+
+    // Bury sibling cards after answering (Anki behavior)
+    this.burySiblings(this.currentCard)
 
     this.currentCard = null
     return updatedCard
@@ -306,6 +431,7 @@ export class StudyEngine {
       this.session = null
       this.currentCard = null
       this.studyQueue = []
+      this.buriedCards.clear() // Reset buried cards for next session
 
       return sessionData
     }

@@ -16,15 +16,16 @@ export const useAnkiSessionStore = (shardId) => {
   const store = create(
     persist(
       immer((set, get) => ({
-        // Study settings (persistent)
+        // === Daily Study Limits (persistent) ===
         studySettings: {
-          maxNewCards: 20,
-          maxReviewCards: 200,
-          maxTime: 30 * 60 * 1000 // 30 minutes in ms
+          maxNewCards: 20, // Maximum new cards to study per day
+          maxReviewCards: 200, // Maximum review cards to study per day
+          maxTime: 30 * 60 * 1000 // Maximum study time per session (30 minutes in ms)
         },
         setStudySettings: (settings) => set((state) => {
           state.studySettings = { ...state.studySettings, ...settings }
         }),
+        // === Study Limits Setters ===
         setMaxNewCards: (count) => set((state) => {
           state.studySettings.maxNewCards = count
         }),
@@ -35,8 +36,9 @@ export const useAnkiSessionStore = (shardId) => {
           state.studySettings.maxTime = timeMs
         }),
 
-        // Daily statistics (persistent, date-keyed)
+        // === Daily Statistics (persistent, date-keyed) ===
         dailyStats: {}, // { "2025-01-11": { newCards: 5, reviewCards: 12, timeSpent: 1200000 } }
+        // Format: { [YYYY-MM-DD]: { newCards: number, reviewCards: number, timeSpent: ms } }
         updateDailyStats: (date, stats) => set((state) => {
           const dateKey = date || new Date().toISOString().split('T')[0]
           state.dailyStats[dateKey] = { ...state.dailyStats[dateKey], ...stats }
@@ -48,25 +50,52 @@ export const useAnkiSessionStore = (shardId) => {
 
         // Study preferences (persistent)
         preferences: {
-          showAnswer: false,
-          autoReveal: false,
-          cardOrder: 'optimal', // 'optimal' | 'random' | 'due'
-          studyMode: 'mixed' // 'mixed' | 'new-first' | 'review-first'
+          // === Display Settings ===
+          showAnswer: false, // Auto-show answer after question (for accessibility)
+          autoReveal: false, // Automatically reveal answer after delay
+
+          // === Study Flow ===
+          studyMode: 'mixed', // How to mix new and review cards
+          // Options: 'mixed' (reviews first, then new), 'new-first' (new cards priority),
+          // 'review-first' (reviews only)
+
+          // === New Card Ordering ===
+          newCardOrder: 'gather', // How new cards are ordered before study
+          // Options:
+          // - 'gather': Keep import/creation order (fastest)
+          // - 'template': Sort by card template/type (front→back, then back→front)
+          // - 'random': Completely randomize all new cards
+          // - 'template-random': Group by template, randomize within each template
+          // - 'note-random': Randomize notes, keep template order within notes
+
+          // === Sibling Burying (Anki behavior) ===
+          buryNewSiblings: true, // Hide other new cards from same note until next session
+          buryReviewSiblings: true // Hide other review cards from same note until next session
+          // Note: Prevents seeing "front->back" and "back->front" in same session
         },
         setPreferences: (prefs) => set((state) => {
           state.preferences = { ...state.preferences, ...prefs }
         }),
+        // === Preference Setters (for Settings UI) ===
         setShowAnswer: (show) => set((state) => {
           state.preferences.showAnswer = show
         }),
         setAutoReveal: (auto) => set((state) => {
           state.preferences.autoReveal = auto
         }),
-        setCardOrder: (order) => set((state) => {
-          state.preferences.cardOrder = order
-        }),
         setStudyMode: (mode) => set((state) => {
+          // 'mixed' | 'new-first' | 'review-first'
           state.preferences.studyMode = mode
+        }),
+        setNewCardOrder: (order) => set((state) => {
+          // 'gather' | 'template' | 'random' | 'template-random' | 'note-random'
+          state.preferences.newCardOrder = order
+        }),
+        setBuryNewSiblings: (bury) => set((state) => {
+          state.preferences.buryNewSiblings = bury
+        }),
+        setBuryReviewSiblings: (bury) => set((state) => {
+          state.preferences.buryReviewSiblings = bury
         }),
 
         // Session state (non-persistent)
@@ -81,11 +110,11 @@ export const useAnkiSessionStore = (shardId) => {
           state.sessionActive = false
         }),
 
-        // Study streak tracking (persistent)
+        // === Study Streak Tracking (persistent) ===
         studyStreak: {
-          current: 0,
-          longest: 0,
-          lastStudyDate: null
+          current: 0, // Current consecutive days studied
+          longest: 0, // Longest streak ever achieved
+          lastStudyDate: null // Last date studied (YYYY-MM-DD format)
         },
         updateStudyStreak: () => set((state) => {
           const today = new Date().toISOString().split('T')[0]
