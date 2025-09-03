@@ -4,6 +4,7 @@ import { log } from '../../../utils/logger'
 import { genId } from '../../../utils/idGenerator.js'
 import ankiApi from '../core/ankiApi.js'
 import { getStudyDayKey } from '../storage/useSessionStore.js'
+import _ from 'lodash'
 
 // Study engine with FSRS integration
 // Manages card scheduling, progress tracking, and study sessions
@@ -97,8 +98,7 @@ export class StudyEngine {
         sessionId: this.session.id,
         newStudied: this.session.newCardsStudied || 0,
         reviewStudied: this.session.reviewCardsStudied || 0,
-        queueRemaining: this.session.queue.length,
-        buriedCount: Object.keys(this.session.buried || {}).length
+        queueRemaining: this.session.queue.length
       })
     } else {
       // Create new session
@@ -117,7 +117,6 @@ export class StudyEngine {
         // Session State (for resumption)
         currentCard: null,
         queue: [], // Will be built below
-        buried: {}, // cardId -> true (object operations)
 
         // Timing (for resumption)
         timeSpent: 0,
@@ -142,150 +141,59 @@ export class StudyEngine {
       sessionId: this.session.id,
       options: this.sessionStore.getState().studySettings,
       siblingBurying: {
-        newCards: this.sessionStore.getState().preferences.buryNewSiblings,
-        reviewCards: this.sessionStore.getState().preferences.buryReviewSiblings,
-        note: 'Sibling burying applied dynamically during study (learning cards treated as review)'
+        enabled: this.sessionStore.getState().preferences.autoBurySiblings,
+        note: 'Sibling filtering applied during queue building'
       }
     })
 
     return this.session
   }
 
-  // Build optimal study queue using FSRS (NO sibling filtering at build time)
+  // Build study queue with FSRS + sibling filtering
   async buildStudyQueue() {
-    // Get all cards for this shard's decks
     const cards = await ankiApi.getCardsForDecks(this.deckIds)
     const now = new Date()
-    const dueCards = []
-    const newCards = []
+    let dueCards = []
+    let newCards = []
 
-    for (const c of cards) {
-      const progress = c.fsrs
-      const fsrsCard = progressToCard(progress)
-
-      if (!progress || fsrsCard.state === STATES.NEW) {
+    cards.forEach(c => {
+      const fsrsCard = progressToCard(c.fsrs)
+      if (!c.fsrs || fsrsCard.state === STATES.NEW) {
         newCards.push({ ...c, fsrsCard })
       } else if (fsrsCard.due <= now) {
         dueCards.push({ ...c, fsrsCard, priority: this.getCardPriority(fsrsCard) })
       }
+    })
+
+    dueCards = _.orderBy(dueCards, 'priority', 'desc')
+    newCards = this.sortNewCards(newCards)
+
+    if (this.sessionStore.getState().preferences.autoBurySiblings) {
+      dueCards = _.uniqBy(dueCards, 'noteId')
+      newCards = _.uniqBy(newCards, 'noteId')
     }
 
-    // Sort by priority (higher number = higher priority)
-    dueCards.sort((a, b) => b.priority - a.priority)
-
-    // Sort new cards according to user preference
-    const sortedNewCards = this.sortNewCards(newCards)
-
-    // Include ALL available cards - sibling burying happens dynamically during study
-    const queue = [
-      ...dueCards.slice(0, this.sessionStore.getState().studySettings.maxReviewCards),
-      ...sortedNewCards.slice(0, this.sessionStore.getState().studySettings.maxNewCards)
-    ]
-
-    return queue
+    const { maxReviewCards, maxNewCards } = this.sessionStore.getState().studySettings
+    return [...dueCards.slice(0, maxReviewCards), ...newCards.slice(0, maxNewCards)]
   }
 
-  // Sort new cards according to user preference (Anki-style ordering)
-  sortNewCards(newCards) {
-    const preferences = this.sessionStore.getState().preferences
-    const order = preferences.newCardOrder
+  // Sort new cards according to user preference
+  sortNewCards(cards) {
+    const order = this.sessionStore.getState().preferences.newCardOrder
 
     switch (order) {
-    case 'gather':
-      // Keep original order (no sorting)
-      return newCards
-
-    case 'template':
-      // Sort by template index (card type)
-      return newCards.sort((a, b) => a.templateIdx - b.templateIdx)
-
-    case 'random':
-      // Fully random shuffle
-      return this.shuffleArray([...newCards])
-
+    case 'gather': return cards
+    case 'template': return _.sortBy(cards, 'templateIdx')
+    case 'random': return _.shuffle(cards)
     case 'template-random':
-      // Sort by template, then randomize within templates
-      return newCards
-        .sort((a, b) => a.templateIdx - b.templateIdx)
-        .sort((a, b) => {
-          if (a.templateIdx === b.templateIdx) {
-            return Math.random() - 0.5 // Random within same template
-          }
-          return 0 // Keep template order
-        })
-
-    case 'note-random': {
-      // Group by note, randomize notes, keep template order within notes
-      const noteGroups = new Map()
-
-      // Group cards by noteId
-      for (const card of newCards) {
-        if (!noteGroups.has(card.noteId)) {
-          noteGroups.set(card.noteId, [])
-        }
-        noteGroups.get(card.noteId).push(card)
-      }
-
-      // Sort cards within each note by template
-      for (const cards of noteGroups.values()) {
-        cards.sort((a, b) => a.templateIdx - b.templateIdx)
-      }
-
-      // Randomize note order and flatten
-      const shuffledNotes = this.shuffleArray([...noteGroups.values()])
-      return shuffledNotes.flat()
-    }
-
-    default:
-      return newCards
+      return _(cards).sortBy('templateIdx').groupBy('templateIdx').values().map(_.shuffle).flatten().value()
+    case 'note-random':
+      return _(cards).groupBy('noteId').values().map(g => _.sortBy(g, 'templateIdx')).shuffle().flatten().value()
+    default: return cards
     }
   }
 
-  // Fisher-Yates shuffle algorithm
-  shuffleArray(array) {
-    const shuffled = [...array]
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
-      ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-    }
-    return shuffled
-  }
 
-  // Bury sibling cards after answering (Anki behavior)
-  async burySiblings(answeredCard) {
-    const preferences = this.sessionStore.getState().preferences
-
-    // Check if burying is enabled for this card type
-    const cardState = answeredCard.fsrsCard?.state || STATES.NEW
-    const shouldBury = cardState === STATES.NEW
-      ? preferences.buryNewSiblings
-      : preferences.buryReviewSiblings
-
-    if (!shouldBury) {
-      return // No burying enabled
-    }
-
-    // Get ALL cards for this note from stable source (not the modified queue)
-    const allCards = await ankiApi.getCardsForDecks(this.deckIds)
-    const siblings = allCards.filter(c =>
-      c.noteId === answeredCard.noteId && c.id !== answeredCard.id
-    )
-
-    // Bury using object operations
-    siblings.forEach(card => {
-      this.session.buried[card.id] = true
-    })
-
-    // Persist session immediately for real-time updates
-    this.sessionStore.getState().setCurrentSession(this.session)
-
-    log.debug('Buried siblings:', {
-      answeredCard: answeredCard.id,
-      noteId: answeredCard.noteId,
-      buriedCount: siblings.length,
-      totalBuried: Object.keys(this.session.buried).length
-    })
-  }
 
   // Calculate card priority for studying
   getCardPriority(fsrsCard) {
@@ -297,20 +205,14 @@ export class StudyEngine {
     return overdueDays + difficultyBonus + stateBonus
   }
 
-  // Get next card for study (skip buried cards)
+  // Get next card for study
   getNextCard() {
     const now = new Date()
     if (now - this.session.startTime >= this.session.maxTime) return null
 
-    // Find next non-buried card
-    while (this.session.queue.length > 0) {
+    // Get next card from queue (siblings already filtered during queue building)
+    if (this.session.queue.length > 0) {
       const card = this.session.queue.shift()
-
-      // Skip buried cards using object operations
-      if (this.session.buried[card.id]) {
-        continue
-      }
-
       this.session.currentCard = card
       return this.session.currentCard
     }
@@ -379,9 +281,6 @@ export class StudyEngine {
       reviewStudied: this.session.reviewCardsStudied
     })
 
-    // Bury sibling cards after answering (Anki behavior)
-    await this.burySiblings(this.session.currentCard)
-
     this.session.currentCard = null
     return updatedCard
   }
@@ -391,64 +290,38 @@ export class StudyEngine {
   // Get cards due for review
   getDueCards(cards) {
     const now = new Date()
-    const due = []
-
-    for (const c of cards) {
-      const progress = c.fsrs
-      if (!progress) {
-        due.push({ ...c, type: 'new', due: now })
-      } else {
-        const fsrsCard = progressToCard(progress)
-        if (fsrsCard.due <= now) {
-          due.push({ ...c, type: 'review', due: fsrsCard.due, state: fsrsCard.state })
-        }
-      }
-    }
-
-    return due.sort((a, b) => a.due - b.due)
+    return cards
+      .map(c => {
+        if (!c.fsrs) return { ...c, type: 'new', due: now }
+        const fsrsCard = progressToCard(c.fsrs)
+        return fsrsCard.due <= now ? { ...c, type: 'review', due: fsrsCard.due, state: fsrsCard.state } : null
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.due - b.due)
   }
 
   // Get study statistics for deck
   getStudyStats(cards) {
-    let newCards = 0
-    let learningCards = 0
-    let reviewCards = 0
-    let dueCards = 0
-
     const now = new Date()
+    const stats = { new: 0, learning: 0, review: 0, due: 0 }
 
-    for (const c of cards) {
-      const progress = c.fsrs
-
-      if (!progress) {
-        newCards++
+    cards.forEach(c => {
+      if (!c.fsrs) {
+        stats.new++
       } else {
-        const fsrsCard = progressToCard(progress)
-
-        switch (fsrsCard.state) {
-        case STATES.NEW:
-          newCards++
-          break
-        case STATES.LEARNING:
-        case STATES.RELEARNING:
-          learningCards++
-          if (fsrsCard.due <= now) dueCards++
-          break
-        case STATES.REVIEW:
-          reviewCards++
-          if (fsrsCard.due <= now) dueCards++
-          break
+        const fsrsCard = progressToCard(c.fsrs)
+        if (fsrsCard.state === STATES.NEW) stats.new++
+        else if ([STATES.LEARNING, STATES.RELEARNING].includes(fsrsCard.state)) {
+          stats.learning++
+          if (fsrsCard.due <= now) stats.due++
+        } else if (fsrsCard.state === STATES.REVIEW) {
+          stats.review++
+          if (fsrsCard.due <= now) stats.due++
         }
       }
-    }
+    })
 
-    return {
-      total: cards.length,
-      new: newCards,
-      learning: learningCards,
-      review: reviewCards,
-      due: dueCards
-    }
+    return { total: cards.length, ...stats }
   }
 
   // End study session
@@ -490,31 +363,22 @@ export class StudyEngine {
     return null
   }
 
-  // Get session progress with detailed breakdown
+  // Get session progress
   getProgress() {
     if (!this.session) return null
 
     const elapsed = Date.now() - this.session.startTime
-    const remaining = Math.max(0, this.session.maxTime - elapsed)
-    const cardsRemaining = this.session.queue.length
     const totalStudied = this.session.newCardsStudied + this.session.reviewCardsStudied
 
     return {
-      // Detailed card progress (for resumption)
-      totalCardsStudied: totalStudied, // Calculated on-demand
+      totalCardsStudied: totalStudied,
       newCardsStudied: this.session.newCardsStudied,
       reviewCardsStudied: this.session.reviewCardsStudied,
-      cardsRemaining,
-
-      // Timing
+      cardsRemaining: this.session.queue.length,
       timeElapsed: elapsed,
-      timeRemaining: remaining,
-
-      // Quality metrics
+      timeRemaining: Math.max(0, this.session.maxTime - elapsed),
       correctAnswers: this.session.correctAnswers,
-      accuracy: totalStudied > 0
-        ? this.session.correctAnswers / totalStudied
-        : 0,
+      accuracy: totalStudied ? this.session.correctAnswers / totalStudied : 0,
       ratings: { ...this.session.ratings }
     }
   }

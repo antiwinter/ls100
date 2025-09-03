@@ -62,8 +62,7 @@ export const useAnkiSessionStore = (shardId) => {
           // - 'note-random': Randomize notes, keep template order within notes
 
           // === Sibling Burying (Anki behavior) ===
-          buryNewSiblings: true, // Hide other new cards from same note until next session
-          buryReviewSiblings: true // Hide other review cards from same note until next session
+          autoBurySiblings: true // Hide sibling cards from same note during queue building
           // Note: Prevents seeing "front->back" and "back->front" in same session
         },
         setPreferences: (prefs) => set((state) => {
@@ -84,11 +83,8 @@ export const useAnkiSessionStore = (shardId) => {
           // 'gather' | 'template' | 'random' | 'template-random' | 'note-random'
           state.preferences.newCardOrder = order
         }),
-        setBuryNewSiblings: (bury) => set((state) => {
-          state.preferences.buryNewSiblings = bury
-        }),
-        setBuryReviewSiblings: (bury) => set((state) => {
-          state.preferences.buryReviewSiblings = bury
+        setAutoBurySiblings: (bury) => set((state) => {
+          state.preferences.autoBurySiblings = bury
         }),
 
         // === Session State Management (persistent) ===
