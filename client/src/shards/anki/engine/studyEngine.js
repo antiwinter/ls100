@@ -71,55 +71,57 @@ const cardToProgress = (card) => ({
 
 // Study Engine class
 export class StudyEngine {
-  constructor(shardId, sessionStore) {
+  constructor(shardId, deckIds) {
     this.shardId = shardId
-    this.sessionStore = sessionStore
-    this.deckIds = [] // Will be populated from shard metadata
-    this.session = null
-    this.currentCard = null
-    this.studyQueue = []
-    this.buriedCards = new Set() // Track cards buried during session
+    this.deckIds = deckIds
+    this.sessionStore = {} // FIXME: access store
+    this.session = { currentCard: null, queue: [], buried: {} }
   }
 
-  // Initialize study session
-  async initSession(cards, options = {}) {
-    // Extract unique deck IDs from cards
-    this.deckIds = [...new Set(cards.map(card => card.deckId).filter(Boolean))]
+  // Initialize study session with proper session management
+  async initSession() {
+    const state = this.sessionStore.getState().currentSession
+    const today = new Date().toISOString().split('T')[0]
 
-    // Get persistent settings from session store
-    const persistentSettings = this.sessionStore.getState().studySettings
-    const {
-      maxNewCards = persistentSettings.maxNewCards,
-      maxReviewCards = persistentSettings.maxReviewCards,
-      maxTime = persistentSettings.maxTime
-    } = options
+    if (!state.currentSession && today === state.lastSessionDate)
+      return // today finished
+    else
+    // Check if resuming existing session
+      this.session = state.currentSession || {
+        id: await genId('session', Date.now().toString()),
+        shardId: this.shardId,
+        deckIds: this.deckIds,
+        startTime: Date.now(),
+        maxTime: state.studySettings.maxTime,
 
-    this.session = {
-      id: await genId('session', Date.now().toString()),
-      shardId: this.shardId,
-      deckIds: this.deckIds,
-      startTime: Date.now(),
-      maxNewCards,
-      maxReviewCards,
-      maxTime,
-      cardsStudied: 0,
-      correctAnswers: 0,
-      ratings: { again: 0, hard: 0, good: 0, easy: 0 },
-      timeSpent: 0
-    }
+        // since we keep the queue, we don't need count the card studied
+        // Session State (for resumption)
+        currentCard: null,
+        queue: this.buildStudyQueue(),
+        buried: [],
 
-    // Build study queue
-    this.buildStudyQueue(cards)
+        // quality
+        correctAnswers: 0, // Cards answered correctly (Hard/Good/Easy)
+        ratings: { again: 0, hard: 0, good: 0, easy: 0 }, // Rating distribution
 
-    const preferences = this.sessionStore.getState().preferences
+        // timing
+        timeSpent: 0,
+        pauseTime: null,
+        totalPauseTime: 0
+      }
+
+    // Set session in store
+    state.setCurrentSession(this.session)
+
     log.info('Study session initialized:', {
       shardId: this.shardId,
       deckIds: this.deckIds,
       queueSize: this.studyQueue.length,
       sessionId: this.session.id,
+      options: state.studySettings,
       siblingBurying: {
-        newCards: preferences.buryNewSiblings,
-        reviewCards: preferences.buryReviewSiblings,
+        newCards: state.preferences.buryNewSiblings,
+        reviewCards: state.preferences.buryReviewSiblings,
         note: 'Sibling burying applied dynamically during study (learning cards treated as review)'
       }
     })
@@ -128,7 +130,8 @@ export class StudyEngine {
   }
 
   // Build optimal study queue using FSRS (NO sibling filtering at build time)
-  buildStudyQueue(cards) {
+  buildStudyQueue() {
+    const cards = [] // FIXME: find them from deckIds
     const now = new Date()
     const dueCards = []
     const newCards = []
@@ -246,6 +249,11 @@ export class StudyEngine {
       }
     }
 
+    // Persist buried cards to session for resumption
+    if (this.session) {
+      this.session.buriedCardIds = Array.from(this.buriedCards)
+    }
+
     log.debug('Buried siblings:', {
       answeredCard: answeredCard.id,
       noteId: answeredCard.noteId,
@@ -312,8 +320,9 @@ export class StudyEngine {
       await idb.put('cards', updated)
     }
 
-    // Update session stats
-    this.updateSessionStats(rating)
+    // Update session stats (determine if card was new or review)
+    const isNewCard = fsrsCard.state === STATES.NEW
+    this.updateSessionStats(rating, isNewCard)
 
     log.debug('Card rated:', {
       cardId: id,
@@ -329,19 +338,27 @@ export class StudyEngine {
     return updatedCard
   }
 
-  // Update session statistics
-  updateSessionStats(rating) {
-    this.session.cardsStudied++
+  // Update session statistics with clear semantics
+  updateSessionStats(rating, isNewCard) {
+    // Track card type progress for resumption
+    if (isNewCard) {
+      this.session.newCardsStudied++
+    } else {
+      this.session.reviewCardsStudied++
+    }
+    // Note: totalCardsStudied = newCardsStudied + reviewCardsStudied (calculated)
+
+    // Update timing
     this.session.timeSpent = Date.now() - this.session.startTime
 
-    // Count rating
+    // Count rating distribution (for statistics)
     const ratingNames = ['again', 'hard', 'good', 'easy']
     if (rating >= 1 && rating <= 4) {
       this.session.ratings[ratingNames[rating - 1]]++
     }
 
-    // Count correct answers (Good or Easy)
-    if (rating >= 3) {
+    // Count correct answers (Hard, Good, or Easy - not just Good/Easy)
+    if (rating >= 2) {  // Hard(2), Good(3), Easy(4) are all "correct"
       this.session.correctAnswers++
     }
   }
@@ -409,29 +426,78 @@ export class StudyEngine {
     }
   }
 
+  // Pause study session
+  pauseSession() {
+    if (this.session && this.sessionStore.getState().sessionState === 'active') {
+      this.session.pauseTime = Date.now()
+      this.sessionStore.getState().pauseCurrentSession()
+
+      log.info('Study session paused:', {
+        sessionId: this.session.id,
+        totalCardsStudied: this.session.newCardsStudied + this.session.reviewCardsStudied,
+        newCardsStudied: this.session.newCardsStudied,
+        reviewCardsStudied: this.session.reviewCardsStudied,
+        timeElapsed: Date.now() - this.session.startTime
+      })
+    }
+  }
+
+  // Resume study session
+  resumeSession() {
+    if (this.session && this.sessionStore.getState().sessionState === 'paused') {
+      if (this.session.pauseTime) {
+        this.session.totalPauseTime += Date.now() - this.session.pauseTime
+        this.session.pauseTime = null
+      }
+      this.sessionStore.getState().resumeCurrentSession()
+
+      log.info('Study session resumed:', {
+        sessionId: this.session.id,
+        totalPauseTime: Math.round(this.session.totalPauseTime / 1000) + 's'
+      })
+    }
+  }
+
   // End study session
   endSession() {
     if (this.session) {
       this.session.endTime = Date.now()
-      this.session.timeSpent = this.session.endTime - this.session.startTime
+
+      // Calculate actual study time (excluding pauses)
+      let actualStudyTime = this.session.endTime - this.session.startTime
+      if (this.session.pauseTime) {
+        // Account for current pause if session is paused
+        this.session.totalPauseTime += this.session.endTime - this.session.pauseTime
+      }
+      actualStudyTime -= (this.session.totalPauseTime || 0)
+      this.session.timeSpent = Math.max(0, actualStudyTime)
 
       // Update daily stats and study streak
       this.updateDailyStats()
 
+      const totalCardsStudied = this.session.newCardsStudied + this.session.reviewCardsStudied
       log.info('Study session ended:', {
         sessionId: this.session.id,
-        cardsStudied: this.session.cardsStudied,
+        totalCardsStudied,
+        newCardsStudied: this.session.newCardsStudied,
+        reviewCardsStudied: this.session.reviewCardsStudied,
         timeSpent: Math.round(this.session.timeSpent / 1000) + 's',
-        accuracy: this.session.cardsStudied > 0
-          ? Math.round(this.session.correctAnswers / this.session.cardsStudied * 100) + '%'
+        totalPauseTime: Math.round((this.session.totalPauseTime || 0) / 1000) + 's',
+        accuracy: totalCardsStudied > 0
+          ? Math.round(this.session.correctAnswers / totalCardsStudied * 100) + '%'
           : '0%'
       })
 
       const sessionData = { ...this.session }
+
+      // Clear current session
       this.session = null
       this.currentCard = null
       this.studyQueue = []
       this.buriedCards.clear() // Reset buried cards for next session
+
+      // Update session store - complete session
+      this.sessionStore.getState().completeCurrentSession()
 
       return sessionData
     }
@@ -446,43 +512,50 @@ export class StudyEngine {
     const today = new Date().toISOString().split('T')[0]
     const sessionStore = this.sessionStore.getState()
 
-    // Count new vs review cards
-    let newCardsStudied = 0
-    let reviewCardsStudied = 0
+    // Use accurate counts from session tracking
+    const newCardsStudied = this.session.newCardsStudied
+    const reviewCardsStudied = this.session.reviewCardsStudied
 
-    // Note: We could track this during the session, but for now estimate
-    // This is a simplification - ideally we'd track during rateCard()
-    newCardsStudied = this.session.cardsStudied // Simplified for now
-    reviewCardsStudied = 0
-
-    // Update daily stats
+    // Update daily stats with accurate data
     sessionStore.updateDailyStats(today, {
       newCards: newCardsStudied,
       reviewCards: reviewCardsStudied,
       timeSpent: this.session.timeSpent
     })
-
-    // Update study streak if cards were studied
-    if (this.session.cardsStudied > 0) {
-      sessionStore.updateStudyStreak()
-    }
   }
 
-  // Get session progress
+  // Get session progress with detailed breakdown
   getProgress() {
     if (!this.session) return null
 
     const elapsed = Date.now() - this.session.startTime
     const remaining = Math.max(0, this.session.maxTime - elapsed)
     const cardsRemaining = this.studyQueue.length
+    const totalCardsStudied = this.session.newCardsStudied + this.session.reviewCardsStudied
 
     return {
-      cardsStudied: this.session.cardsStudied,
+      // Detailed card progress (for resumption)
+      totalCardsStudied,
+      newCardsStudied: this.session.newCardsStudied,
+      reviewCardsStudied: this.session.reviewCardsStudied,
       cardsRemaining,
+
+      // Session limits and remaining
+      maxNewCards: this.session.maxNewCards,
+      maxReviewCards: this.session.maxReviewCards,
+      newCardsRemaining: Math.max(0,
+        this.session.maxNewCards - this.session.newCardsStudied),
+      reviewCardsRemaining: Math.max(0,
+        this.session.maxReviewCards - this.session.reviewCardsStudied),
+
+      // Timing
       timeElapsed: elapsed,
       timeRemaining: remaining,
-      accuracy: this.session.cardsStudied > 0
-        ? this.session.correctAnswers / this.session.cardsStudied
+
+      // Quality metrics
+      correctAnswers: this.session.correctAnswers,
+      accuracy: totalCardsStudied > 0
+        ? this.session.correctAnswers / totalCardsStudied
         : 0,
       ratings: { ...this.session.ratings }
     }

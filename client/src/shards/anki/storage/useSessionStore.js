@@ -98,76 +98,31 @@ export const useAnkiSessionStore = (shardId) => {
           state.preferences.buryReviewSiblings = bury
         }),
 
-        // Session state (non-persistent)
-        currentSession: null,
-        sessionActive: false,
+        // === Session State Management (persistent) ===
+        currentSession: null, // Active or paused session data
+        lastSessionDate: null, // Last date a session was started (YYYY-MM-DD)
+        // Note: sessionActive can be inferred as sessionState === 'active'
+        sessionHistory: [],
+
+        // Session management actions
         setCurrentSession: (session) => set((state) => {
           state.currentSession = session
-          state.sessionActive = !!session
+          if (session) {
+            state.lastSessionDate = new Date().toISOString().split('T')[0]
+          }
         }),
-        endCurrentSession: () => set((state) => {
+
+        completeCurrentSession: () => set((state) => {
           state.currentSession = null
-          state.sessionActive = false
+          // TODO: summary session into history
         }),
-
-        // === Study Streak Tracking (persistent) ===
-        studyStreak: {
-          current: 0, // Current consecutive days studied
-          longest: 0, // Longest streak ever achieved
-          lastStudyDate: null // Last date studied (YYYY-MM-DD format)
-        },
-        updateStudyStreak: () => set((state) => {
-          const today = new Date().toISOString().split('T')[0]
-          const lastDate = state.studyStreak.lastStudyDate
-
-          if (lastDate === today) {
-            // Already studied today, no change
-            return
-          }
-
-          const yesterday = new Date()
-          yesterday.setDate(yesterday.getDate() - 1)
-          const yesterdayStr = yesterday.toISOString().split('T')[0]
-
-          if (lastDate === yesterdayStr) {
-            // Consecutive day, increment streak
-            state.studyStreak.current += 1
-            state.studyStreak.longest = Math.max(state.studyStreak.longest,
-              state.studyStreak.current)
-          } else {
-            // Streak broken, restart
-            state.studyStreak.current = 1
-          }
-
-          state.studyStreak.lastStudyDate = today
-        }),
-        resetStudyStreak: () => set((state) => {
-          state.studyStreak.current = 0
-          state.studyStreak.lastStudyDate = null
-        }),
-
-        // Helper functions
-        getTodayProgress: () => {
-          const today = new Date().toISOString().split('T')[0]
-          const stats = get().dailyStats[today] || { newCards: 0, reviewCards: 0, timeSpent: 0 }
-          const settings = get().studySettings
-
-          return {
-            newProgress: stats.newCards / settings.maxNewCards,
-            reviewProgress: stats.reviewCards / settings.maxReviewCards,
-            timeProgress: stats.timeSpent / settings.maxTime,
-            newRemaining: Math.max(0, settings.maxNewCards - stats.newCards),
-            reviewRemaining: Math.max(0, settings.maxReviewCards - stats.reviewCards),
-            timeRemaining: Math.max(0, settings.maxTime - stats.timeSpent)
-          }
-        },
 
         // Clear all data (for testing/reset)
         reset: () => set((state) => {
           state.dailyStats = {}
           state.studyStreak = { current: 0, longest: 0, lastStudyDate: null }
           state.currentSession = null
-          state.sessionActive = false
+          state.sessionState = 'none'
           // Keep settings and preferences
         })
       })),
@@ -175,7 +130,7 @@ export const useAnkiSessionStore = (shardId) => {
         name: `ls100-anki-session-${shardId}`,
         partialize: (state) => {
           // Don't persist session state
-          const { currentSession: _, sessionActive: __, ...persistedState } = state
+          const { currentSession: _, ...persistedState } = state
           return persistedState
         }
       }
