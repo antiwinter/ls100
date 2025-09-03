@@ -9,7 +9,6 @@ import {
 } from '@mui/joy'
 import { Upload } from '@mui/icons-material'
 import { parseApkgFile } from './parser/apkgParser.js'
-import { queueImport } from './AnkiShard.js'
 import { log } from '../../utils/logger'
 import { genId } from '../../utils/idGenerator.js'
 
@@ -115,20 +114,31 @@ export const AnkiShardEditor = ({
       log.info('Processing Anki file:', filename, parsedData ? '(using cached data)' : '(parsing)')
 
       const parsed = parsedData || await parseApkgFile(file)
-      queueImport(parsed, filename)
+      const deckId = await genId('deck', filename + parsed.name)
 
+      // Store parsed data directly in shardData.data
+      const currentDataDecks = shardData?.data?.decks || []
+      const updatedData = {
+        ...shardData?.data,
+        decks: [...currentDataDecks, { ...parsed, deckId, filename }]
+      }
+
+      // Store deck metadata  
       const deckInfo = {
-        id: await genId('deck', filename + parsed.name),
+        id: deckId,
         name: parsed.name,
         filename,
         totalCards: parsed.cards?.length || 0
       }
-
-      const currentDecks = shardData?.metadata?.decks || []
-      onChange?.({
+      const currentMetaDecks = shardData?.metadata?.decks || []
+      const updatedMetadata = {
         ...shardData?.metadata,
-        decks: [...currentDecks, deckInfo]
-      }, 'meta')
+        decks: [...currentMetaDecks, deckInfo]
+      }
+
+      // Update both data and metadata
+      onChange?.(updatedData, 'data')
+      onChange?.(updatedMetadata, 'meta')
 
       log.info('Anki import processed:', parsed.name)
 
@@ -143,7 +153,8 @@ export const AnkiShardEditor = ({
   useEffect(() => {
     if (mode === 'create' && detectedInfo?.file && detectedInfo.file !== processedDetectedFile.current) {
       processedDetectedFile.current = detectedInfo.file
-      handleFileSelect(detectedInfo.file, detectedInfo.filename, detectedInfo.metadata?.parsedData)
+      const filename = detectedInfo.filename || 'unknown.apkg'
+      handleFileSelect(detectedInfo.file, filename, detectedInfo.metadata?.parsedData)
     }
   }, [mode, detectedInfo, handleFileSelect])
 
