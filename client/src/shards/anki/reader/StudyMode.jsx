@@ -109,65 +109,46 @@ const CardDisplay = ({ card, showAnswer, onShowAnswer }) => {
           {renderedCard.template} • Card {card.id}
         </Typography>
 
-        {/* Question */}
+        {/* Card Content - Question or Answer */}
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          <Box
-            sx={{
-              fontSize: '1.1rem',
-              textAlign: 'center',
-              '& img': { maxWidth: '100%', height: 'auto' },
-              '& .cloze-deletion': {
-                bgcolor: 'warning.100',
-                color: 'warning.800',
-                px: 1.5,
-                py: 0.75,
-                borderRadius: 'sm',
-                fontWeight: 'bold',
-                fontSize: '1.1em'
-              }
-            }}
-            dangerouslySetInnerHTML={{ __html: renderedCard.question }}
-          />
-
-          {showAnswer && (
-            <>
-              <Box sx={{ my: 3, textAlign: 'center' }}>
-                <Box sx={{
-                  height: 1,
-                  bgcolor: 'divider',
-                  position: 'relative',
-                  '&::after': {
-                    content: '"Answer"',
-                    position: 'absolute',
-                    top: -10,
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    bgcolor: 'background.body',
-                    px: 2,
-                    fontSize: '0.8rem',
-                    color: 'text.tertiary'
-                  }
-                }} />
-              </Box>
-
-              <Box
-                sx={{
-                  fontSize: '1.1rem',
-                  textAlign: 'center',
-                  '& img': { maxWidth: '100%', height: 'auto' },
-                  '& .cloze-answer': {
-                    bgcolor: 'success.100',
-                    color: 'success.800',
-                    px: 1.5,
-                    py: 0.75,
-                    borderRadius: 'sm',
-                    fontWeight: 'bold',
-                    fontSize: '1.1em'
-                  }
-                }}
-                dangerouslySetInnerHTML={{ __html: renderedCard.answer }}
-              />
-            </>
+          {!showAnswer ? (
+            // Show Question Side
+            <Box
+              sx={{
+                fontSize: '1.1rem',
+                textAlign: 'center',
+                '& img': { maxWidth: '100%', height: 'auto' },
+                '& .cloze-deletion': {
+                  bgcolor: 'warning.100',
+                  color: 'warning.800',
+                  px: 1.5,
+                  py: 0.75,
+                  borderRadius: 'sm',
+                  fontWeight: 'bold',
+                  fontSize: '1.1em'
+                }
+              }}
+              dangerouslySetInnerHTML={{ __html: renderedCard.question }}
+            />
+          ) : (
+            // Show Answer Side Only
+            <Box
+              sx={{
+                fontSize: '1.1rem',
+                textAlign: 'center',
+                '& img': { maxWidth: '100%', height: 'auto' },
+                '& .cloze-answer': {
+                  bgcolor: 'success.100',
+                  color: 'success.800',
+                  px: 1.5,
+                  py: 0.75,
+                  borderRadius: 'sm',
+                  fontWeight: 'bold',
+                  fontSize: '1.1em'
+                }
+              }}
+              dangerouslySetInnerHTML={{ __html: renderedCard.answer }}
+            />
           )}
         </Box>
 

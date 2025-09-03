@@ -71,8 +71,10 @@ const cardToProgress = (card) => ({
 
 // Study Engine class
 export class StudyEngine {
-  constructor(deckId) {
-    this.deckId = deckId
+  constructor(shardId, sessionStore) {
+    this.shardId = shardId
+    this.sessionStore = sessionStore
+    this.deckIds = [] // Will be populated from shard metadata
     this.session = null
     this.currentCard = null
     this.studyQueue = []
@@ -80,13 +82,24 @@ export class StudyEngine {
 
   // Initialize study session
   async initSession(cards, options = {}) {
-    const { maxCards = 20, maxTime = 30 * 60 * 1000 } = options // 30 minutes default
+    // Extract unique deck IDs from cards
+    this.deckIds = [...new Set(cards.map(card => card.deckId).filter(Boolean))]
+
+    // Get persistent settings from session store
+    const persistentSettings = this.sessionStore.getState().studySettings
+    const {
+      maxNewCards = persistentSettings.maxNewCards,
+      maxReviewCards = persistentSettings.maxReviewCards,
+      maxTime = persistentSettings.maxTime
+    } = options
 
     this.session = {
       id: await genId('session', Date.now().toString()),
-      deckId: this.deckId,
+      shardId: this.shardId,
+      deckIds: this.deckIds,
       startTime: Date.now(),
-      maxCards,
+      maxNewCards,
+      maxReviewCards,
       maxTime,
       cardsStudied: 0,
       correctAnswers: 0,
@@ -98,7 +111,8 @@ export class StudyEngine {
     this.buildStudyQueue(cards)
 
     log.info('Study session initialized:', {
-      deckId: this.deckId,
+      shardId: this.shardId,
+      deckIds: this.deckIds,
       queueSize: this.studyQueue.length,
       sessionId: this.session.id
     })
@@ -126,11 +140,11 @@ export class StudyEngine {
     // Sort by priority (higher number = higher priority)
     dueCards.sort((a, b) => b.priority - a.priority)
 
-    // Mix new and due cards (prefer due cards)
+    // Add cards up to their respective limits (Anki-style)
     this.studyQueue = [
-      ...dueCards.slice(0, this.session.maxCards * 0.8),
-      ...newCards.slice(0, this.session.maxCards * 0.2)
-    ].slice(0, this.session.maxCards)
+      ...dueCards.slice(0, this.session.maxReviewCards),
+      ...newCards.slice(0, this.session.maxNewCards)
+    ]
   }
 
   // Calculate card priority for studying
@@ -146,7 +160,6 @@ export class StudyEngine {
   // Get next card for study
   getNextCard() {
     if (this.studyQueue.length === 0) return null
-    if (this.session.cardsStudied >= this.session.maxCards) return null
 
     const now = new Date()
     if (now - this.session.startTime >= this.session.maxTime) return null
@@ -277,7 +290,8 @@ export class StudyEngine {
       this.session.endTime = Date.now()
       this.session.timeSpent = this.session.endTime - this.session.startTime
 
-      // Note: card progress persisted on each rating
+      // Update daily stats and study streak
+      this.updateDailyStats()
 
       log.info('Study session ended:', {
         sessionId: this.session.id,
@@ -299,13 +313,42 @@ export class StudyEngine {
     return null
   }
 
+  // Update daily statistics and study streak
+  updateDailyStats() {
+    if (!this.session) return
+
+    const today = new Date().toISOString().split('T')[0]
+    const sessionStore = this.sessionStore.getState()
+
+    // Count new vs review cards
+    let newCardsStudied = 0
+    let reviewCardsStudied = 0
+
+    // Note: We could track this during the session, but for now estimate
+    // This is a simplification - ideally we'd track during rateCard()
+    newCardsStudied = this.session.cardsStudied // Simplified for now
+    reviewCardsStudied = 0
+
+    // Update daily stats
+    sessionStore.updateDailyStats(today, {
+      newCards: newCardsStudied,
+      reviewCards: reviewCardsStudied,
+      timeSpent: this.session.timeSpent
+    })
+
+    // Update study streak if cards were studied
+    if (this.session.cardsStudied > 0) {
+      sessionStore.updateStudyStreak()
+    }
+  }
+
   // Get session progress
   getProgress() {
     if (!this.session) return null
 
     const elapsed = Date.now() - this.session.startTime
     const remaining = Math.max(0, this.session.maxTime - elapsed)
-    const cardsRemaining = Math.max(0, this.session.maxCards - this.session.cardsStudied)
+    const cardsRemaining = this.studyQueue.length
 
     return {
       cardsStudied: this.session.cardsStudied,

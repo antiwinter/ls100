@@ -5,6 +5,7 @@ import { BrowseMode } from './BrowseMode.jsx'
 import { StudyMode } from './StudyMode.jsx'
 import ankiApi from '../core/ankiApi'
 import { StudyEngine } from '../engine/studyEngine.js'
+import { useAnkiSessionStore } from '../storage/useSessionStore.js'
 import { apiCall } from '../../../config/api.js'
 import { log } from '../../../utils/logger'
 
@@ -14,6 +15,9 @@ const AnkiReaderContent = ({ shard, onBack }) => {
   const [studyEngine, setStudyEngine] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+
+  // Session store for persistent study settings
+  const sessionStore = useAnkiSessionStore(shard?.id)
 
   // Load shard data using new architecture
   const loadShardData = useCallback(async () => {
@@ -108,16 +112,19 @@ const AnkiReaderContent = ({ shard, onBack }) => {
 
     try {
       // Create study engine for this shard's cards
-      const engine = new StudyEngine(shardData.id)
+      const engine = new StudyEngine(shard.id, sessionStore)
       const session = await engine.initSession(shardData.cards, options)
 
       setStudyEngine(engine)
       setMode('study')
 
       log.info('Study session started:', {
-        shardId: shardData.id,
+        shardId: session.shardId,
+        deckIds: session.deckIds,
         sessionId: session.id,
-        queueSize: session.maxCards,
+        queueSize: engine.studyQueue.length,
+        maxNew: session.maxNewCards,
+        maxReview: session.maxReviewCards,
         totalCards: shardData.cards.length
       })
     } catch (err) {
