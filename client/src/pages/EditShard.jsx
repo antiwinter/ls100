@@ -180,12 +180,12 @@ export const EditShard = () => {
   }
 
   // Memoized onChange handler to prevent unnecessary re-renders
-  const handleEngineDataChange = useCallback((data, type) => {
-    // engine can set metadata by providing type
+  const handleEngineDataChange = useCallback((data, meta) => {
+    // engine can set metadata by providing 'meta' type
     // or else it goes to shardData.data
-    _setShardData({ ...shardData, [type ? 'metadata' : 'data']: data })
+    _setShardData(x => ({ ...x, [meta ? 'metadata' : 'data']: data }))
     engineValid.current = true
-  }, [shardData])
+  }, [])
 
   const getShardTypeDisplayInfo = () => {
     // Get type info from current shardData

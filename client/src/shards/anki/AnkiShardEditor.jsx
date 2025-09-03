@@ -123,7 +123,7 @@ export const AnkiShardEditor = ({
         decks: [...currentDataDecks, { ...parsed, deckId, filename }]
       }
 
-      // Store deck metadata  
+      // Store deck metadata
       const deckInfo = {
         id: deckId,
         name: parsed.name,
@@ -137,8 +137,8 @@ export const AnkiShardEditor = ({
       }
 
       // Update both data and metadata
-      onChange?.(updatedData, 'data')
-      onChange?.(updatedMetadata, 'meta')
+      onChange?.(updatedData)
+      onChange?.(updatedMetadata, true)
 
       log.info('Anki import processed:', parsed.name)
 
