@@ -18,7 +18,6 @@ export class AnkiApi {
     // Generate cards
     const cards = await this.cardGen.genCardsForNote(note.id, deckId)
 
-    log.debug('Note created with cards:', { noteId: note.id, cardCount: cards.length })
     return { note, cards }
   }
 

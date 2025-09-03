@@ -406,7 +406,7 @@ const importMediaFiles = async (media, deckId) => {
     }
 
     await idb.put('media', mediaRecord)
-    log.debug(`Stored media file: ${filename}`)
+
   }
 }
 

@@ -53,6 +53,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
         name: shard.name || 'Anki Shard',
         cards,
         notes: validNotes,
+        metadata: shard.metadata, // Include original metadata for BrowseMode
         stats: {
           totalCards: cards.length,
           totalNotes: validNotes.length,
@@ -80,7 +81,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
     } finally {
       setLoading(false)
     }
-  }, [shard?.id, shard?.name, shard?.metadata?.deckIds])
+  }, [shard?.id, shard?.name, shard?.metadata])
 
   // Load shard data on mount
   useEffect(() => {

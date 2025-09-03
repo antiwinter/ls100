@@ -28,7 +28,7 @@ export class NoteManager {
     }
 
     await idb.put(this.STORES.notes, note)
-    log.debug('Note created:', note.id)
+
     return note
   }
 

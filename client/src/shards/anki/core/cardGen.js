@@ -43,7 +43,6 @@ export class CardGenerator {
       }
     }
 
-    log.debug('Cards generated for note:', noteId, 'count:', cards.length)
     return cards
   }
 
