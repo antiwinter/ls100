@@ -320,7 +320,7 @@ const parseMedia = async (zipData) => {
 }
 
 // Convert parsed Anki data to new note+template structure and import
-export const importApkgData = async (parsedData, deckId, shardId) => {
+export const importApkgData = async (parsedData, deckId) => {
   try {
     log.info('Converting Anki data to new note+template structure...')
 
@@ -359,8 +359,7 @@ export const importApkgData = async (parsedData, deckId, shardId) => {
         noteTypeId,
         ankiNote.flds,
         ankiNote.tags,
-        deckId,
-        shardId
+        deckId
       )
 
       createdNotes.push(result)
@@ -368,7 +367,7 @@ export const importApkgData = async (parsedData, deckId, shardId) => {
 
     // 3. Store media files
     if (Object.keys(media).length > 0) {
-      await importMediaFiles(media, shardId)
+      await importMediaFiles(media, deckId)
       log.debug(`Media files imported: ${Object.keys(media).length}`)
     }
 
@@ -391,14 +390,14 @@ export const importApkgData = async (parsedData, deckId, shardId) => {
 }
 
 // Import media files to IndexedDB
-const importMediaFiles = async (media, shardId) => {
+const importMediaFiles = async (media, deckId) => {
   const { idb } = await import('../storage/storageManager')
 
   for (const [filename, mediaData] of Object.entries(media)) {
     const mediaRecord = {
-      id: `${shardId}-${filename}`,
+      id: `${deckId}-${filename}`,
       filename,
-      shardId,
+      deckId,
       dataUrl: mediaData.dataUrl,
       blob: mediaData.blob,
       size: mediaData.size,

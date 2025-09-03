@@ -114,15 +114,19 @@ export const processData = async (shard, _apiCall) => {
     // Process decks stored in shard.data.decks
     if (shard.data?.decks?.length > 0) {
       let deckName = null
+      const deckIds = []
 
       for (const deck of shard.data.decks) {
         try {
-          await importApkgData(deck, deck.deckId, shard.id)
+          await importApkgData(deck, deck.deckId)
 
           // Store the first deck name for consistent cover colors
           if (!deckName) {
             deckName = deck.name
           }
+
+          // Collect deckIds for metadata
+          deckIds.push(deck.deckId)
 
           log.info('Committed Anki import:', { deckId: deck.deckId, name: deck.name })
         } catch (e) {
@@ -130,15 +134,17 @@ export const processData = async (shard, _apiCall) => {
         }
       }
 
-      // Store deck name in metadata for cover generation
-      if (deckName) {
-        shard.metadata = { ...shard.metadata, deckName }
+      // Store deck info in metadata for lookup
+      shard.metadata = {
+        ...shard.metadata,
+        deckName,
+        deckIds
       }
     }
 
-    // Get updated counts from IDB (if shard exists)
-    if (shard.id) {
-      const cards = await ankiApi.getCardsForShard(shard.id)
+    // Get updated counts from IDB using deckIds
+    if (shard.metadata?.deckIds?.length > 0) {
+      const cards = await ankiApi.getCardsForDeckIds(shard.metadata.deckIds)
       const noteIds = [...new Set(cards.map(c => c.noteId))]
 
       // Store persistent counts in metadata
@@ -168,8 +174,10 @@ export const cleanup = async (shard, allShards = []) => {
   try {
     log.info('Cleaning up Anki shard:', shard.id)
 
-    // Remove all notes and cards for this shard
-    await ankiApi.cleanupShard(shard.id)
+    // Remove all notes and cards for this shard's decks
+    if (shard.metadata?.deckIds?.length > 0) {
+      await ankiApi.cleanupDecks(shard.metadata.deckIds)
+    }
 
     // Check for remaining Anki shards for potential orphan cleanup
     const remainingAnkiShards = allShards.filter(s => s.type === 'anki' && s.id !== shard.id)

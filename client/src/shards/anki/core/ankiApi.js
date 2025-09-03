@@ -11,15 +11,12 @@ export class AnkiApi {
   }
 
   // Create note with cards
-  async createNote(typeId, fields, tags, deckId, shardId) {
+  async createNote(typeId, fields, tags, deckId) {
     // Create note
     const note = await this.noteManager.create(typeId, fields, tags)
 
-    // Add ref for this shard
-    await this.noteManager.addRef(note.id, shardId)
-
     // Generate cards
-    const cards = await this.cardGen.genCardsForNote(note.id, deckId, shardId)
+    const cards = await this.cardGen.genCardsForNote(note.id, deckId)
 
     log.debug('Note created with cards:', { noteId: note.id, cardCount: cards.length })
     return { note, cards }
@@ -32,29 +29,25 @@ export class AnkiApi {
     return note
   }
 
-  // Add note to shard (share existing note)
-  async addNoteToShard(noteId, deckId, shardId) {
-    await this.noteManager.addRef(noteId, shardId)
-    const cards = await this.cardGen.genCardsForNote(noteId, deckId, shardId)
-    log.debug('Note added to shard:', { noteId, shardId, cardCount: cards.length })
+  // Add note to deck (share existing note)
+  async addNoteToDeck(noteId, deckId) {
+    const cards = await this.cardGen.genCardsForNote(noteId, deckId)
+    log.debug('Note added to deck:', { noteId, deckId, cardCount: cards.length })
     return cards
   }
 
-  // Remove note from shard
-  async removeNoteFromShard(noteId, shardId) {
-    // Get cards for this shard that belong to this note
-    const cards = await this.cardGen.getCardsForShard(shardId)
+  // Remove note from deck
+  async removeNoteFromDeck(noteId, deckId) {
+    // Get cards for this deck that belong to this note
+    const cards = await this.cardGen.getCardsForDeck(deckId)
     const noteCards = cards.filter(c => c.noteId === noteId)
 
-    // Delete only cards for this note in this shard (not all cards for the note)
+    // Delete only cards for this note in this deck
     for (const card of noteCards) {
       await this.cardGen.deleteCard(card.id)
     }
 
-    // Remove ref (cleanup if refCount = 0)
-    await this.noteManager.removeRef(noteId, shardId)
-
-    log.debug('Note removed from shard:', { noteId, shardId, deletedCards: noteCards.length })
+    log.debug('Note removed from deck:', { noteId, deckId, deletedCards: noteCards.length })
     return noteCards.length
   }
 
@@ -84,46 +77,73 @@ export class AnkiApi {
     return due
   }
 
-  // Get all cards for a shard
-  async getCardsForShard(shardId) {
-    return await this.cardGen.getCardsForShard(shardId)
+  // Get all cards for deck IDs (used by shards)
+  async getCardsForDeckIds(deckIds) {
+    const allCards = []
+    for (const deckId of deckIds) {
+      const cards = await this.cardGen.getCardsForDeck(deckId)
+      allCards.push(...cards)
+    }
+    return allCards
   }
 
-  // Cleanup all data for a shard
-  async cleanupShard(shardId) {
-    // Get all cards for this shard
-    const cards = await this.cardGen.getCardsForShard(shardId)
-    const noteIds = [...new Set(cards.map(c => c.noteId))]
+  // Get all cards for a shard (legacy method - now uses deckIds)
+  async getCardsForShard(shardId) {
+    // This is a legacy method that should be replaced by getCardsForDeckIds
+    // For now, we'll return empty array since we don't store shardId anymore
+    log.warn('getCardsForShard is deprecated, use getCardsForDeckIds instead')
+    return []
+  }
 
-    // Delete all cards for this shard
-    for (const card of cards) {
-      await this.cardGen.deleteCard(card.id)
+  // Cleanup all data for deck IDs  
+  async cleanupDecks(deckIds) {
+    let totalCards = 0
+    const allNoteIds = new Set()
+
+    // Delete all cards for these decks
+    for (const deckId of deckIds) {
+      const cards = await this.cardGen.getCardsForDeck(deckId)
+      totalCards += cards.length
+      
+      for (const card of cards) {
+        allNoteIds.add(card.noteId)
+        await this.cardGen.deleteCard(card.id)
+      }
     }
 
-    // Remove note refs and cleanup orphaned notes
-    for (const noteId of noteIds) {
-      await this.noteManager.removeRef(noteId, shardId)
+    // Clean up orphaned notes (notes with no remaining cards)
+    let notesRemoved = 0
+    for (const noteId of allNoteIds) {
+      // Check if note has any remaining cards
+      const allCards = await this.cardGen.getAllCards()
+      const hasRemainingCards = allCards.some(c => c.noteId === noteId)
+      
+      if (!hasRemainingCards) {
+        await this.noteManager.delete(noteId)
+        notesRemoved++
+      }
     }
 
-    // Clean up media files for this shard
-    const mediaFilesRemoved = await mediaManager.removeShardMedia(shardId)
-
-    log.debug('Shard cleanup completed:', {
-      shardId,
-      cards: cards.length,
-      notes: noteIds.length,
-      mediaFiles: mediaFilesRemoved
+    log.debug('Decks cleanup completed:', {
+      deckIds,
+      cards: totalCards,
+      notes: notesRemoved
     })
 
     return {
-      cardsRemoved: cards.length,
-      notesProcessed: noteIds.length,
-      mediaFilesRemoved
+      cardsRemoved: totalCards,
+      notesRemoved
     }
   }
 
+  // Cleanup all data for a shard (legacy method)
+  async cleanupShard(shardId) {
+    log.warn('cleanupShard is deprecated, use cleanupDecks instead')
+    return { cardsRemoved: 0, notesRemoved: 0 }
+  }
+
   // Batch operations for import
-  async batchImport(notes, deckId, shardId) {
+  async batchImport(notes, deckId) {
     const results = []
 
     for (const noteData of notes) {
@@ -131,13 +151,12 @@ export class AnkiApi {
         noteData.typeId,
         noteData.fields,
         noteData.tags || [],
-        deckId,
-        shardId
+        deckId
       )
       results.push(result)
     }
 
-    log.debug('Batch import completed:', { count: results.length, deckId, shardId })
+    log.debug('Batch import completed:', { count: results.length, deckId })
     return results
   }
 

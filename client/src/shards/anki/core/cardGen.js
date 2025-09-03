@@ -6,8 +6,8 @@ import { genId } from '../../../utils/idGenerator.js'
 
 // Card generation from notes + templates
 export class CardGenerator {
-  // Generate cards for note in specific deck/shard
-  async genCardsForNote(noteId, deckId, shardId) {
+  // Generate cards for note in specific deck
+  async genCardsForNote(noteId, deckId) {
     const note = await noteManager.get(noteId)
     if (!note) throw new Error(`Note not found: ${noteId}`)
 
@@ -26,7 +26,6 @@ export class CardGenerator {
           noteId,
           templateIdx: template.idx,
           deckId,
-          shardId,
           // Default scheduling
           due: now,
           interval: 1,
@@ -99,9 +98,15 @@ export class CardGenerator {
     return await idb.query('cards', 'deckId', deckId)
   }
 
-  // Get cards for shard
+  // Get all cards
+  async getAllCards() {
+    return await idb.getAll('cards')
+  }
+
+  // Get cards for shard (legacy method)
   async getCardsForShard(shardId) {
-    return await idb.query('cards', 'shardId', shardId)
+    log.warn('getCardsForShard is deprecated, use getCardsForDeck instead')
+    return []
   }
 
   // Delete cards for note
