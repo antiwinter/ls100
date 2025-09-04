@@ -1,4 +1,4 @@
-import { idb } from '../storage/storageManager'
+import db from '../storage/db.js'
 import { noteManager } from './noteManager'
 import TemplateRenderer, { TemplateEngine } from './templateEngine'
 import { log } from '../../../utils/logger'
@@ -38,7 +38,7 @@ export class CardGenerator {
           modified: now
         }
 
-        await idb.put('cards', card)
+        await db.cards.put(card)
         cards.push(card)
       }
     }
@@ -48,7 +48,7 @@ export class CardGenerator {
 
   // Render card content for study with media support
   async renderCard(cardId) {
-    const card = await idb.get('cards', cardId)
+    const card = await db.cards.get(cardId)
     if (!card) throw new Error(`Card not found: ${cardId}`)
 
     const note = await noteManager.get(card.noteId)
@@ -77,9 +77,6 @@ export class CardGenerator {
 
   // Update card scheduling after study
   async updateCard(cardId, { interval, ease, due, reps, lapses }) {
-    const card = await idb.get('cards', cardId)
-    if (!card) throw new Error(`Card not found: ${cardId}`)
-
     const updates = { modified: Date.now() }
     if (interval !== undefined) updates.interval = interval
     if (ease !== undefined) updates.ease = ease
@@ -87,33 +84,30 @@ export class CardGenerator {
     if (reps !== undefined) updates.reps = reps
     if (lapses !== undefined) updates.lapses = lapses
 
-    const updated = { ...card, ...updates }
-    await idb.put('cards', updated)
-    return updated
+    await db.cards.update(cardId, updates)
+    return await db.cards.get(cardId)
   }
 
   // Get cards for deck
   async getCardsForDeck(deckId) {
-    return await idb.query('cards', 'deckId', deckId)
+    return await db.cards.where('deckId').equals(deckId).toArray()
   }
 
   // Get all cards
   async getAllCards() {
-    return await idb.getAll('cards')
+    return await db.cards.toArray()
   }
 
   // Delete cards for note
   async deleteCardsForNote(noteId) {
-    const cards = await idb.query('cards', 'noteId', noteId)
-    for (const card of cards) {
-      await idb.delete('cards', card.id)
-    }
+    const cards = await db.cards.where('noteId').equals(noteId).toArray()
+    await db.cards.where('noteId').equals(noteId).delete()
     return cards.length
   }
 
   // Delete single card
   async deleteCard(cardId) {
-    await idb.delete('cards', cardId)
+    await db.cards.delete(cardId)
     log.debug('Card deleted:', cardId)
   }
 

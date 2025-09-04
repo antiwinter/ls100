@@ -391,7 +391,7 @@ export const importApkgData = async (parsedData, deckId) => {
 
 // Import media files to IndexedDB
 const importMediaFiles = async (media, deckId) => {
-  const { idb } = await import('../storage/storageManager')
+  const { default: db } = await import('../storage/db.js')
 
   for (const [filename, mediaData] of Object.entries(media)) {
     const mediaRecord = {
@@ -405,7 +405,7 @@ const importMediaFiles = async (media, deckId) => {
       imported: Date.now()
     }
 
-    await idb.put('media', mediaRecord)
+    await db.media.put(mediaRecord)
 
   }
 }

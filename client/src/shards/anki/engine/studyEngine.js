@@ -1,5 +1,5 @@
 import { FSRS, Rating, State, createEmptyCard } from 'ts-fsrs'
-import { idb } from '../storage/storageManager.js'
+import db from '../storage/db.js'
 import { log } from '../../../utils/logger'
 import { genId } from '../../../utils/idGenerator.js'
 import ankiApi from '../core/ankiApi.js'
@@ -140,10 +140,7 @@ export class StudyEngine {
       queueSize: this.session.queue.length,
       sessionId: this.session.id,
       options: this.sessionStore.getState().studySettings,
-      siblingBurying: {
-        enabled: this.sessionStore.getState().preferences.autoBurySiblings,
-        note: 'Sibling filtering applied during queue building'
-      }
+      siblingBurying: this.sessionStore.getState().preferences.autoBurySiblings
     })
 
     return this.session
@@ -158,6 +155,7 @@ export class StudyEngine {
 
     cards.forEach(c => {
       const fsrsCard = progressToCard(c.fsrs)
+      log.debug({ fsrsCard })
       if (!c.fsrs || fsrsCard.state === STATES.NEW) {
         newCards.push({ ...c, fsrsCard })
       } else if (fsrsCard.due <= now) {
@@ -235,11 +233,11 @@ export class StudyEngine {
 
     // Save progress
     const progress = cardToProgress(updatedCard.card)
-    const existing = await idb.get('cards', id)
-    if (existing) {
-      const updated = { ...existing, fsrs: progress, due: updatedCard.card.due.getTime() }
-      await idb.put('cards', updated)
-    }
+    await db.cards.update(id, {
+      fsrs: progress,
+      due: updatedCard.card.due.getTime(),
+      reps: updatedCard.card.reps
+    })
 
     // Update session stats
     const isNewCard = !this.session.currentCard.fsrs ||

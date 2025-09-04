@@ -1,4 +1,4 @@
-import { idb } from '../storage/storageManager'
+import db from '../storage/db.js'
 import { log } from '../../../utils/logger'
 import { genNvId } from '../../../utils/idGenerator.js'
 
@@ -27,14 +27,14 @@ export class NoteManager {
       modified: Date.now()
     }
 
-    await idb.put(this.STORES.notes, note)
+    await db.notes.put(note)
 
     return note
   }
 
   // Get note by id
   async get(noteId) {
-    return await idb.get(this.STORES.notes, noteId)
+    return await db.notes.get(noteId)
   }
 
   // Update note fields
@@ -47,7 +47,7 @@ export class NoteManager {
     if (tags !== undefined) updates.tags = tags
 
     const updated = { ...note, ...updates }
-    await idb.put(this.STORES.notes, updated)
+    await db.notes.put(updated)
     log.debug('Note updated:', noteId)
     return updated
   }
@@ -58,7 +58,7 @@ export class NoteManager {
     if (!note) throw new Error(`Note not found: ${noteId}`)
 
     note.refCount = (note.refCount || 0) + 1
-    await idb.put(this.STORES.notes, note)
+    await db.notes.put(note)
     log.debug('Note ref added:', noteId, 'refCount:', note.refCount)
     return note
   }
@@ -75,7 +75,7 @@ export class NoteManager {
       await this.cleanup(noteId)
       log.debug('Note cleaned up:', noteId)
     } else {
-      await idb.put(this.STORES.notes, note)
+      await db.notes.put(note)
       log.debug('Note ref removed:', noteId, 'refCount:', note.refCount)
     }
   }
@@ -89,32 +89,29 @@ export class NoteManager {
   // Cleanup note and related data
   async cleanup(noteId) {
     // Delete note
-    await idb.delete(this.STORES.notes, noteId)
+    await db.notes.delete(noteId)
 
     // Delete related cards
-    const cards = await idb.query('cards', 'noteId', noteId)
-    for (const card of cards) {
-      await idb.delete('cards', card.id)
-    }
+    await db.cards.where('noteId').equals(noteId).delete()
 
     log.debug('Note and cards cleaned up:', noteId)
   }
 
   // Get noteType
   async getType(typeId) {
-    return await idb.get(this.STORES.noteTypes, typeId)
+    return await db.noteTypes.get(typeId)
   }
 
   // Create noteType
   async createType(id, name, fields) {
     const noteType = { id, name, fields, created: Date.now() }
-    await idb.put(this.STORES.noteTypes, noteType)
+    await db.noteTypes.put(noteType)
     return noteType
   }
 
   // Get templates for noteType
   async getTemplates(typeId) {
-    return await idb.query(this.STORES.templates, 'typeId', typeId)
+    return await db.templates.where('typeId').equals(typeId).toArray()
   }
 
   // Create template
@@ -128,7 +125,7 @@ export class NoteManager {
       idx,
       created: Date.now()
     }
-    await idb.put(this.STORES.templates, template)
+    await db.templates.put(template)
     return template
   }
 

@@ -21,12 +21,8 @@ export { default as cardGen } from './core/cardGen.js'
 export { default as mediaManager } from './core/mediaManager.js'
 export { default as TemplateRenderer } from './core/templateEngine.js'
 
-// Storage utilities
-export {
-  idb,
-  storage,
-  getStorageInfo
-} from './storage/storageManager.js'
+// Database
+export { default as db } from './storage/db.js'
 
 // Parser utilities
 export {

@@ -1,4 +1,4 @@
-import { idb } from '../storage/storageManager'
+import db from '../storage/db.js'
 import { log } from '../../../utils/logger'
 
 // Media file management for Anki cards
@@ -18,7 +18,7 @@ export class MediaManager {
 
     // Query IndexedDB
     try {
-      const mediaRecord = await idb.get('media', cacheKey)
+      const mediaRecord = await db.media.get(cacheKey)
       if (mediaRecord) {
         // Cache the result
         this.mediaCache.set(cacheKey, mediaRecord)
@@ -34,8 +34,7 @@ export class MediaManager {
   // Get all media files for a deck
   async getDeckMedia(deckId) {
     try {
-      const allMedia = await idb.getAll('media')
-      return allMedia.filter(media => media.deckId === deckId)
+      return await db.media.where('deckId').equals(deckId).toArray()
     } catch (error) {
       log.error('Failed to get deck media:', error)
       return []
@@ -45,8 +44,7 @@ export class MediaManager {
   // Get all media files for multiple decks
   async getDecksMedia(deckIds) {
     try {
-      const allMedia = await idb.getAll('media')
-      return allMedia.filter(media => deckIds.includes(media.deckId))
+      return await db.media.where('deckId').anyOf(deckIds).toArray()
     } catch (error) {
       log.error('Failed to get decks media:', error)
       return []
@@ -127,7 +125,7 @@ export class MediaManager {
       const decksMedia = await this.getDecksMedia(deckIds)
 
       for (const media of decksMedia) {
-        await idb.delete('media', media.id)
+        await db.media.delete(media.id)
         this.mediaCache.delete(media.id)
       }
 

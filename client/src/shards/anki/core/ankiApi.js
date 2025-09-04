@@ -1,6 +1,7 @@
 import noteManager from './noteManager'
 import cardGen from './cardGen'
 import mediaManager from './mediaManager'
+import db from '../storage/db.js'
 import { log } from '../../../utils/logger'
 
 // Main API for Anki operations
@@ -76,24 +77,14 @@ export class AnkiApi {
     return due
   }
 
-  // Get all cards for multiple deck IDs
-  async getCardsForDeckIds(deckIds) {
-    const allCards = []
-    for (const deckId of deckIds) {
-      const cards = await this.cardGen.getCardsForDeck(deckId)
-      allCards.push(...cards)
-    }
-    return allCards
-  }
-
-  // Get all cards for decks
+  // Get all cards for decks (efficient Dexie query)
   async getCardsForDecks(deckIds) {
     if (!deckIds || deckIds.length === 0) {
       log.debug('No deckIds provided')
       return []
     }
 
-    return await this.getCardsForDeckIds(deckIds)
+    return await db.cards.where('deckId').anyOf(deckIds).toArray()
   }
 
   // Cleanup all data for deck IDs
