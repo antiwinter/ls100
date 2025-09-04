@@ -12,7 +12,7 @@ import {
 } from '@mui/joy'
 import { Close, Refresh } from '@mui/icons-material'
 
-import { RATINGS, formatInterval, getRatingLabel } from '../engine/studyEngine.js'
+import { RATINGS } from '../engine/studyEngine.js'
 import ankiApi from '../core/ankiApi'
 import { log } from '../../../utils/logger'
 
@@ -268,7 +268,7 @@ export const StudyMode = ({ deck, studyEngine, onEndStudy }) => {
     if (!studyEngine) return
 
     try {
-      const nextCard = studyEngine.getNextCard()
+      const nextCard = studyEngine.getNext()
 
       if (!nextCard) {
         // Session complete - end session and notify parent
@@ -313,8 +313,8 @@ export const StudyMode = ({ deck, studyEngine, onEndStudy }) => {
     if (!studyEngine || !currentCard) return
 
     try {
-      await studyEngine.rateCard(rating)
-      log.debug('Card rated:', { cardId: currentCard.id, rating: getRatingLabel(rating) })
+      await studyEngine.rate(rating)
+      // log.debug('Card rated:', { cardId: currentCard.id, rating: getRatingLabel(rating) })
 
       // Load next card
       setTimeout(() => {

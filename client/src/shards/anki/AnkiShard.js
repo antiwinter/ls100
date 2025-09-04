@@ -51,7 +51,7 @@ export const detect = async (filename, buffer) => {
 
 
 
-// Old generateCardSide function removed - now using TemplateEngine
+// Old generateSide function removed - now using TemplateEngine
 
 // Generate cover for shard preview
 export const generateCover = (shard) => {
@@ -144,7 +144,7 @@ export const processData = async (shard, _apiCall) => {
 
     // Get updated counts from IDB using deckIds
     if (shard.metadata?.deckIds?.length > 0) {
-      const cards = await ankiApi.getCardsForDeckIds(shard.metadata.deckIds)
+      const cards = await ankiApi.getCardsForDecks(shard.metadata.deckIds)
       const noteIds = [...new Set(cards.map(c => c.noteId))]
 
       // Store persistent counts in metadata
