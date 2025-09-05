@@ -12,9 +12,31 @@ import {
 } from '@mui/joy'
 import { Close, Refresh } from '@mui/icons-material'
 
-import { RATINGS } from '../engine/studyEngine.js'
+import { Rating } from 'ts-fsrs'
 import ankiApi from '../core/ankiApi'
 import { log } from '../../../utils/logger'
+
+// FSRS Rating constants
+const RATINGS = {
+  AGAIN: Rating.Again,   // 1 - Forgot/wrong
+  HARD: Rating.Hard,     // 2 - Correct but difficult
+  GOOD: Rating.Good,     // 3 - Correct with effort
+  EASY: Rating.Easy      // 4 - Correct and easy
+}
+
+// Format interval utility
+const formatInterval = (days) => {
+  if (days < 1) {
+    const minutes = Math.round(days * 24 * 60)
+    return minutes < 60 ? `${minutes}m` : `${Math.round(minutes / 60)}h`
+  } else if (days < 30) {
+    return `${Math.round(days)}d`
+  } else if (days < 365) {
+    return `${Math.round(days / 30)}mo`
+  } else {
+    return `${Math.round(days / 365)}y`
+  }
+}
 
 const ProgressHeader = ({ progress, onExit }) => {
   if (!progress) return null
@@ -291,17 +313,8 @@ export const StudyMode = ({ deck, studyEngine, onEndStudy }) => {
       setProgress(studyEngine.getProgress())
       setError(null)
 
-      // Calculate intervals for rating preview (if we have FSRS data)
-      if (nextCard.fsrsCard) {
-        try {
-          // This would need the FSRS instance to calculate intervals
-          // For now, we'll just show the shortcuts
-          setIntervals(null)
-        } catch (err) {
-          log.warn('Failed to calculate intervals:', err)
-          setIntervals(null)
-        }
-      }
+      // DONE: remove fsrsCard usage, keep shortcuts for now
+      setIntervals(null)
 
     } catch (err) {
       log.error('Failed to load next card:', err)
@@ -381,7 +394,8 @@ export const StudyMode = ({ deck, studyEngine, onEndStudy }) => {
     // Initialize new session
     if (deck && studyEngine) {
       try {
-        const session = await studyEngine.initSession(deck.cards)
+        // FIXED: initSession no longer accepts arguments
+        const session = await studyEngine.initSession()
         log.info('New study session started:', session.id)
         loadNextCard()
       } catch (err) {

@@ -81,7 +81,7 @@ export const useAnkiSessionStore = (shardId) => {
 
         // Format: { [YYYY-MM-DD]: { newCards: number, reviewCards: number, timeSpent: ms } }
         updateSessionHistory: (stats) => set((state) => {
-          const dateKey = getSessionDate(state.studySettings.dailyResetTime)
+          const dateKey = getSessionDate(state.dailyResetTime)
           state.sessionHistory[dateKey] = { ...state.sessionHistory[dateKey], ...stats }
         }),
 
@@ -89,7 +89,7 @@ export const useAnkiSessionStore = (shardId) => {
         setCurrentSession: (session) => set((state) => {
           state.currentSession = session
           if (session) {
-            state.lastSessionDate = getSessionDate(state.studySettings.dailyResetTime)
+            state.lastSessionDate = getSessionDate(state.dailyResetTime)
           }
         }),
 
