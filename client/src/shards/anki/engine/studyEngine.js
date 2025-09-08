@@ -84,14 +84,19 @@ export class StudyEngine {
     }
   }
 
-  // Get next card for study
+  // Card Drawing with Strategy-Based Selection
   draw() {
     const ss = this.session.getState()
     const { pile } = ss
 
+    // Helper: Extract card from pile if available
     const _pick = (type) => pile[type].length > 0 ?
       { card: pile[type].shift(), from: type } : null
 
+    // Drawing Strategies:
+    // - 'new-first': Prioritize new cards, then review
+    // - 'review-first': Prioritize review cards, then new
+    // - 'mixed': Probability based on queue ratio (fair distribution)
     const strategies = {
       'new-first': () => _pick('new') || _pick('review'),
       'review-first': () => _pick('review') || _pick('new'),
@@ -107,9 +112,20 @@ export class StudyEngine {
     const result = pick()
 
     if (result?.card) {
-      ss.currentCard = result.card
-      ss.currentCard.fsrs ||= createEmptyCard(Date.now())
-      ss.currentCard.fsrs.response_time = Date.now() // Store start time
+      const c0 = ss.currentCard = result.card
+
+      // FSRS History Management:
+      // Each card has fsrs = [newest, older, oldest...] (LIFO order)
+      // Check if we need a new FSRS entry or can reuse existing one
+      // If no fsrs OR latest entry is unrated (>24h old start time), create new entry
+      if ((c0.fsrs?.[0]?.response_time || Infinity) > 24 * 60 * 1000) {
+        c0.fsrs ||= []
+        c0.fsrs.unshift(createEmptyCard(Date.now())) // Add new entry at front
+        c0.fsrs[0].response_time = Date.now() // Store session start time
+      }
+
+      // Action Log: Stack of draw operations for undo functionality
+      // Each entry: { id: cardId, from: 'new'|'review' }
       ss.actionLog.unshift({ id: result.card.id, from: result.from })
       return result.card
     }
@@ -124,22 +140,30 @@ export class StudyEngine {
     if (!c0)
       throw new Error('No active card or session')
 
-    // Process rating with FSRS and update DB
+    // FSRS Rating Process:
+    // 1. Get current FSRS state (always at index 0 - newest entry)
+    // 2. Calculate new FSRS state using user's rating
+    // 3. Convert start time (stored in response_time) to actual duration
     const now = new Date()
-    const next = fsrs.repeat(c0.fsrs, now)[rating]
-    const c1 = { ...c0, fsrs: next.card }
-    c1.fsrs.response_time = now.getTime() - c0.fsrs.response_time
+    const next = fsrs.repeat(c0.fsrs[0], now)[rating]
 
-    await db.cards.update(c0.id, { fsrs: c1.fsrs })
+    // Update the latest FSRS entry with calculated values and final response time
+    c0.fsrs[0] = {
+      ...next.card,
+      response_time: now.getTime() - c0.fsrs[0].response_time // Duration in ms
+    }
 
-    // Apply graduation rule: graduate if due beyond initial gap
+    await db.cards.update(c0.id, { fsrs: c0.fsrs })
+
+    // Graduation Rule: Cards graduate to 'done' if due time exceeds initial gap
+    // Cards that don't graduate go back to review pile, sorted by due time
     if (next.card.due - now < (ss.initialGap || 0) * 60 * 1000) {
-      // Use lodash's sortedIndexBy for ordered insert
-      const insertIndex = _.sortedIndexBy(ss.pile.review, c1,
-        c => c.fsrs?.due ?? Infinity)
-      ss.pile.review.splice(insertIndex, 0, c1)
+      // Insert into review pile in chronological order (new cards without due = 0 go first)
+      const insertIndex = _.sortedIndexBy(ss.pile.review, c0,
+        c => c.fsrs[0]?.due || 0)
+      ss.pile.review.splice(insertIndex, 0, c0)
     } else
-      ss.pile.done.push(c1)
+      ss.pile.done.push(c0)
 
     this.session.updateHistory()
     log.debug('Card rated:', { cardId: c0.id, rating })
@@ -157,10 +181,11 @@ export class StudyEngine {
   // Undo last step using action log
   async undo() {
     const ss = this.session.getState()
+    // Need at least 2 actions: can't undo if only one card drawn (not rated yet)
     if ((ss.actionLog?.length || 0) < 2)
       return null
 
-    // Pop last draw action
+    // Pop last draw action and verify it matches current card
     const lastDraw = ss.actionLog.shift()
     const c0 = ss.currentCard
     if (lastDraw?.id !== c0?.id) {
@@ -171,13 +196,19 @@ export class StudyEngine {
       return null
     }
 
-    // Return current card to its source pile
+    // Return current (unrated) card to its source pile
     ss.pile[lastDraw.from || 'review'].unshift(c0)
 
-    // Set current card from top of stack
+    // Restore previous card from action stack
     const top = ss.actionLog[0]
     const c1 = await db.cards.get(top.id)
     ss.currentCard = c1
+
+    // FSRS Cleanup: Remove the unrated entry added when c1 was interrupted
+    // Action stack guarantees c1 was rated (otherwise couldn't draw next card)
+    // So c1.fsrs = [unrated_entry_from_interruption, rated_entry, ...]
+    c1.fsrs.shift() // Remove interruption entry
+    c1.fsrs[0].response_time = Date.now() // Reset timing for new session
     return c1
   }
 }
