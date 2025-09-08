@@ -157,33 +157,28 @@ export class StudyEngine {
   // Undo last step using action log
   async undo() {
     const ss = this.session.getState()
-    if (!ss.day || !Array.isArray(ss.actionLog) || ss.actionLog.length === 0) return null
+    if ((ss.actionLog?.length || 0) < 2)
+      return null
 
     // Pop last draw action
     const lastDraw = ss.actionLog.shift()
-    if (!lastDraw) return null
-
-    // Return current card to its source pile
-    const cur = ss.currentCard
-    if (cur && lastDraw.id === cur.id) {
-      if (lastDraw.from === 'new') ss.pile.new.unshift(cur)
-      else if (lastDraw.from === 'review') ss.pile.review.unshift(cur)
-    } else
+    const c0 = ss.currentCard
+    if (lastDraw?.id !== c0?.id) {
       log.warn('Current card not found in action log:', {
-        currentCard: cur,
+        c0,
         lastDraw
       })
-
-    // Set current card from top of stack (if any)
-    const topAction = ss.actionLog[0]
-    if (topAction) {
-      const card = await db.cards.get(topAction.id)
-      ss.currentCard = card
-    } else {
-      ss.currentCard = null
+      return null
     }
 
-    return ss.currentCard
+    // Return current card to its source pile
+    ss.pile[lastDraw.from || 'review'].unshift(c0)
+
+    // Set current card from top of stack
+    const top = ss.actionLog[0]
+    const c1 = await db.cards.get(top.id)
+    ss.currentCard = c1
+    return c1
   }
 }
 
