@@ -108,6 +108,8 @@ export class StudyEngine {
 
     if (result?.card) {
       ss.currentCard = result.card
+      ss.currentCard.fsrs ||= createEmptyCard(Date.now())
+      ss.currentCard.fsrs.response_time = Date.now() // Store start time
       ss.actionLog.unshift({ id: result.card.id, from: result.from })
       return result.card
     }
@@ -118,32 +120,29 @@ export class StudyEngine {
   // Rate current card and update scheduling
   async rate(rating) {
     const ss = this.session.getState()
-    if (!ss.currentCard || !ss.day) {
+    const c0 = ss.currentCard
+    if (!c0)
       throw new Error('No active card or session')
-    }
 
     // Process rating with FSRS and update DB
     const now = new Date()
-    const base = ss.currentCard.fsrs || createEmptyCard(now)
-    const next = fsrs.repeat(base, now)[rating]
+    const next = fsrs.repeat(c0.fsrs, now)[rating]
+    const c1 = { ...c0, fsrs: next.card }
+    c1.fsrs.response_time = now.getTime() - c0.fsrs.response_time
 
-    await db.cards.update(ss.currentCard.id, { fsrs: next.card })
+    await db.cards.update(c0.id, { fsrs: c1.fsrs })
 
     // Apply graduation rule: graduate if due beyond initial gap
-    const updatedCard = { ...ss.currentCard, fsrs: next.card }
-    const gapReached = next.card.due.getTime() - Date.now() >= (ss.initialGap || 0) * 60 * 1000
-
-    if (gapReached) {
-      ss.pile.done.push(updatedCard)
-    } else {
+    if (next.card.due - now < (ss.initialGap || 0) * 60 * 1000) {
       // Use lodash's sortedIndexBy for ordered insert
-      const insertIndex = _.sortedIndexBy(ss.pile.review, updatedCard,
-        c => c.fsrs?.due?.getTime?.() ?? c.fsrs?.due ?? Infinity)
-      ss.pile.review.splice(insertIndex, 0, updatedCard)
-    }
+      const insertIndex = _.sortedIndexBy(ss.pile.review, c1,
+        c => c.fsrs?.due ?? Infinity)
+      ss.pile.review.splice(insertIndex, 0, c1)
+    } else
+      ss.pile.done.push(c1)
 
     this.session.updateHistory()
-    log.debug('Card rated:', { cardId: ss.currentCard.id, rating })
+    log.debug('Card rated:', { cardId: c0.id, rating })
     ss.currentCard = null
   }
 
