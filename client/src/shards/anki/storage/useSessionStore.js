@@ -89,7 +89,7 @@ export const useAnkiSessionStore = (shardId) => {
 
         // Format: { [YYYY-MM-DD]: { newCards: number, reviewCards: number, timeSpent: ms } }
         updateSessionHistory: (stats) => set((state) => {
-          const dateKey = getSessionDate(state.dailyResetTime)
+          const dateKey = get().getCurrentDay()
           state.sessionHistory[dateKey] = { ...state.sessionHistory[dateKey], ...stats }
         }),
 
@@ -97,22 +97,20 @@ export const useAnkiSessionStore = (shardId) => {
         setCurrentSession: (session) => set((state) => {
           state.currentSession = session
           if (session) {
-            state.lastSessionDate = getSessionDate(state.dailyResetTime)
+            state.lastSessionDate = get().getCurrentDay()
           }
         }),
 
         getCurrentDay: () => get(x => {
-          const now = new Date()
+          const now = Date.now() / 60 / 1000 // in minutes
+          const resetOffs = x.dailyResetTime * 60
+          const tzOffs = new Date().getTimezoneOffset() // TZ offset in minutes
 
-          // If current time is before reset hour, use previous calendar day
-          if (now.getHours() < x.dailyResetTime) {
-            const yesterday = new Date(now)
-            yesterday.setDate(yesterday.getDate() - 1)
-            return yesterday.toISOString().split('T')[0]
-          }
+          // Adjust for timezone and daily reset time
+          const delta = now - resetOffs + tzOffs
 
-          // Otherwise use current calendar day
-          return now.toISOString().split('T')[0]
+          // Calculate days since epoch (1970/1/1)
+          return Math.floor(delta / 60 / 24)
         }),
 
         completeCurrentSession: () => set((state) => {

@@ -2,7 +2,7 @@ import { FSRS, Rating, createEmptyCard } from 'ts-fsrs'
 import db from '../storage/db.js'
 import { log } from '../../../utils/logger'
 import { genId } from '../../../utils/idGenerator.js'
-import { getSessionDate } from '../storage/useSessionStore.js'
+import { TimeSegments } from '../../../utils/timeTracker.js'
 import _ from 'lodash'
 
 // Study engine with FSRS integration
@@ -11,60 +11,46 @@ import _ from 'lodash'
 // FSRS instance with default parameters
 const fsrs = new FSRS()
 
-// FIXED: use FSRS card object directly (no JSON mapping)
-
 // Study Engine class
 export class StudyEngine {
-  constructor(shardId, deckIds, store) {
-    this.shardId = shardId
-    this.deckIds = deckIds
-    this.store = store
-  }
 
   // Initialize study session with proper session management
-  async init() {
-    const store = this.store
+  async init(deckIds, store) {
     const day = store.getCurrentDay()
-    let ss = store.currentSession
+    let ss = store.getState().currentSession
 
     if (ss?.day === day) {
       return null
     }
 
     // Create new session
-    // Set session in store for persistence
     ss ||= {
       id: await genId('session', Date.now().toString()),
-      shardId: this.shardId,
       deckIds: this.deckIds,
+      day,
 
       // Session State (for resumption)
       currentCard: null,
       deckNew: [],
       deckReview: [],
       deckDone: [],
-      actionLog: [],
+      actionLog: []
 
-      // Timing (for resumption)
-      startTime: Date.now(),
-      timeSpent: 0,
-      pauseTime: null,
-      totalPauseTime: 0,
-
-      // Statistics
-      // Study progress (for resumption)
-      studied: [0, 0, 0, 0],
-      failed: 0,
-      ratings:[0, 0, 0, 0]
+      // Statistics: calc from queues & cards
     }
     store.setCurrentSession(ss)
 
     await this._buildQueues()
-    log.info('Study session initialized:',
-      _.pick(ss, ['shardId', 'deckIds', 'deckNew',
-        'deckReview', 'deckDone', 'sessionId',
-        'autoBurySiblings']))
 
+    // Initialize time tracking
+    this.timeTracker = new TimeSegments()
+    this.timeTracker.open()
+
+    log.info('Study session initialized:',
+      _.pick(ss, ['id', 'deckIds', 'day']))
+
+    this.store = store
+    this.deckIds = deckIds
     return ss
   }
 
@@ -72,7 +58,7 @@ export class StudyEngine {
   async _buildQueues() {
     const now = Date.now()
     const store = this.store
-    const ss = store.currentSession
+    const ss = store.getState().currentSession
 
     // Get new cards for decks (optimized database query)
     let newCards =  await db.cards
@@ -88,7 +74,7 @@ export class StudyEngine {
 
     // Sort new cards according to user preference
     function _sort(cards) {
-      switch (store.newCardOrder) {
+      switch (store.getState().newCardOrder) {
       case 'random': return _.shuffle(cards)
       case 'template-random':
         return _(cards).sortBy('templateIdx').groupBy('templateIdx').values().map(_.shuffle).flatten().value()
@@ -100,20 +86,20 @@ export class StudyEngine {
     newCards = _sort(newCards)
 
     // Apply auto-bury siblings if enabled
-    if (store.autoBurySiblings) {
+    if (store.getState().autoBurySiblings) {
       dueCards = _.uniqBy(dueCards, 'noteId')
       newCards = _.uniqBy(newCards, 'noteId')
     }
 
     // Populate tri-queues; ordering within each queue already applied
-    ss.deckNew =  newCards.slice(0, store.maxNewCards)
-    ss.deckReview = dueCards.slice(0, store.maxReviewCards)
+    ss.deckNew =  newCards.slice(0, store.getState().maxNewCards)
+    ss.deckReview = dueCards.slice(0, store.getState().maxReviewCards)
     ss.deckDone = []
   }
 
   // Get next card for study
   draw() {
-    const ss = this.store.currentSession
+    const ss = this.store.getState().currentSession
 
     const pickFromMixed = () => {
       const hasNew = ss.deckNew.length > 0
@@ -129,7 +115,7 @@ export class StudyEngine {
     }
 
     let chosen = null
-    switch (this.store.newReviewOrder) {
+    switch (this.store.getState().newReviewOrder) {
     case 'new-first':
       chosen = ss.deckNew.length > 0
         ? { card: ss.deckNew.shift(), from: 'new' }
@@ -154,7 +140,7 @@ export class StudyEngine {
 
   // Rate current card and update scheduling
   async rate(rating) {
-    const ss = this.store.currentSession
+    const ss = this.store.getState().currentSession
     if (!ss.currentCard || !ss) {
       throw new Error('No active card or session')
     }
@@ -173,29 +159,16 @@ export class StudyEngine {
     const nextFsrs = { ...next.card }
     await db.cards.update(c0.id, { fsrs: nextFsrs })
 
-    // Update session stats
-    if (rating !== Rating.Again) {
-      const stateIndex = typeof base.state === 'number' ? base.state : 0
-      ss.studied[stateIndex]++
-    } else {
-      ss.failed++
-    }
-    ss.ratings[rating]++
-
-    // Update time spent
-    ss.timeSpent = Date.now() - ss.startTime
-
     // Real-time session history update
-    this.store.updateSessionHistory(
-      _.pick(ss, ['startTime', 'timeSpent',
-        'pauseTime', 'totalPauseTime',
-        'studied', 'failed', 'ratings']))
+    this.store.updateSessionHistory({
+      totalTime: this.timeTracker.total()
+    })
 
     const dueTs = next.card.due.getTime()
 
     // Decide graduation vs reinsert based on type and timing
     const isNewCard = !(c0?.fsrs?.reps > 0)
-    const initialGapMs = (this.store.initialGap || 0) * 60 * 1000
+    const initialGapMs = (this.store.getState().initialGap || 0) * 60 * 1000
     const nowTs = Date.now()
     const updatedCard = { ...c0, fsrs: { ...next.card } }
 
@@ -246,28 +219,14 @@ export class StudyEngine {
 
   // End study session
   finish() {
-    if (!this.store.currentSession) return
+    if (!this.store.getState().currentSession) return
 
-    const ss = this.store.currentSession
-    ss.endTime = Date.now()
+    const totalTime = this.timeTracker.total()
+    this.timeTracker.destroy()
 
-    // Calculate actual study time (excluding pauses)
-    let actualStudyTime = ss.endTime - ss.startTime
-    if (ss.pauseTime) {
-      // Account for current pause if session is paused
-      ss.totalPauseTime += ss.endTime - ss.pauseTime
-    }
-    actualStudyTime -= (ss.totalPauseTime || 0)
-    ss.timeSpent = Math.max(0, actualStudyTime)
-
-    const totalStudied = ss.studied.reduce((sum, count) => sum + count, 0)
     log.info('Study session ended:', {
-      sessionId: ss.id,
-      totalCardsStudied: totalStudied,
-      failed: ss.failed,
-      timeSpent: Math.round(ss.timeSpent / 1000) + 's',
-      totalPauseTime: Math.round((ss.totalPauseTime || 0) / 1000) + 's',
-      ratings: ss.ratings
+      sessionId: this.store.getState().currentSession.id,
+      totalTime: Math.round(totalTime / 1000) + 's'
     })
 
     // Update session store - complete session
@@ -276,30 +235,22 @@ export class StudyEngine {
 
   // Get session progress
   getProgress() {
-    if (!this.store.currentSession) return null
+    if (!this.store.getState().currentSession) return null
 
-    const ss = this.store.currentSession
-    const elapsed = Date.now() - ss.startTime
-    const totalStudied = ss.studied.reduce((sum, count) => sum + count, 0)
-    // ratings 1-3 are correct (Again=0 is incorrect, Hard/Good/Easy=1-3 are correct)
-    const correctAnswers = ss.ratings.slice(1).reduce((sum, count) => sum + count, 0)
+    const ss = this.store.getState().currentSession
 
     return {
-      cardsStudied: totalStudied,
       cardsRemaining:
         (ss.deckNew?.length || 0) +
         (ss.deckReview?.length || 0) +
         (ss.currentCard ? 1 : 0),
-      timeElapsed: elapsed,
-      correctAnswers,
-      accuracy: totalStudied ? correctAnswers / totalStudied : 0,
-      ratings: { ...ss.ratings }
+      timeElapsed: this.timeTracker?.total() || 0
     }
   }
 
   // Undo last step using action log
   async undo() {
-    const ss = this.store.currentSession
+    const ss = this.store.getState().currentSession
     if (!ss || !Array.isArray(ss.actionLog) || ss.actionLog.length === 0) return null
 
     // If the last action was a draw, revert it first
@@ -333,17 +284,9 @@ export class StudyEngine {
     ss.currentCard = card
     ss.currentCard._from = rateAction.from
 
-    // Revert stats
-    if (rateAction.rating !== Rating.Again) {
-      const idx = typeof rateAction.prev.state === 'number' ? rateAction.prev.state : 0
-      ss.studied[idx] = Math.max(0, (ss.studied[idx] || 0) - 1)
-    } else {
-      ss.failed = Math.max(0, (ss.failed || 0) - 1)
-    }
-    ss.ratings[rateAction.rating] = Math.max(0, (ss.ratings[rateAction.rating] || 0) - 1)
-
     return ss.currentCard
   }
+
 }
 
 log.debug('Study engine initialized')
