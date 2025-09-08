@@ -295,17 +295,9 @@ const parseMedia = async (zipData) => {
         const originalName = mediaMap[filename] || filename
         const blob = await file.async('blob')
 
-        // Create data URL for browser access
-        const dataUrl = await new Promise((resolve) => {
-          const reader = new FileReader()
-          reader.onload = () => resolve(reader.result)
-          reader.readAsDataURL(blob)
-        })
-
         media[originalName] = {
           filename: originalName,
           blob: blob,
-          dataUrl: dataUrl,
           size: blob.size,
           type: blob.type
         }
@@ -398,7 +390,6 @@ const importMediaFiles = async (media, deckId) => {
       id: `${deckId}-${filename}`,
       filename,
       deckId,
-      dataUrl: mediaData.dataUrl,
       blob: mediaData.blob,
       size: mediaData.size,
       type: mediaData.type,

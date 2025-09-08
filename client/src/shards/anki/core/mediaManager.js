@@ -4,49 +4,137 @@ import { log } from '../../../utils/logger'
 // Media file management for Anki cards
 export class MediaManager {
   constructor() {
-    this.mediaCache = new Map() // Cache for frequently accessed media
+    // Unified KV cache structure:
+    // key: "deckId-filename"
+    // value: {
+    //   dataUrl?: string,     // Generated data URL for templates (hot path)
+    //   size?: number,        // File size for statistics
+    //   type?: string,        // MIME type
+    //   filename?: string,    // Original filename
+    //   imported?: number,    // Import timestamp
+    //   data?: any,          // Future extensible field (thumbnails, transforms, etc.)
+    //   ...                  // Other future extensions
+    // }
+    this.mediaCache = new Map()
   }
 
-  // Get media file for a specific deck
-  async getMedia(filename, deckId) {
-    const cacheKey = `${deckId}-${filename}`
+  // Get or load media metadata into unified cache
+  async _ensureMetadata(cacheKey, filename, _deckId) {
+    let cached = this.mediaCache.get(cacheKey)
 
-    // Check cache first
-    if (this.mediaCache.has(cacheKey)) {
-      return this.mediaCache.get(cacheKey)
+    // If we have complete metadata, return it
+    if (cached?.filename && cached?.size !== undefined) {
+      return cached
     }
 
-    // Query IndexedDB
+    // Load from DB and merge with existing cache entry
     try {
       const mediaRecord = await db.media.get(cacheKey)
       if (mediaRecord) {
-        // Cache the result
-        this.mediaCache.set(cacheKey, mediaRecord)
-        return mediaRecord
+        const updated = {
+          ...cached, // Preserve existing cache (e.g., dataUrl)
+          filename: mediaRecord.filename,
+          size: mediaRecord.size,
+          type: mediaRecord.type,
+          imported: mediaRecord.imported
+        }
+        this.mediaCache.set(cacheKey, updated)
+        return updated
       }
     } catch (error) {
-      log.warn('Failed to retrieve media:', filename, error)
+      log.warn('Failed to retrieve media metadata:', filename, error)
     }
 
     return null
   }
 
-  // Get all media files for a deck
-  async getDeckMedia(deckId) {
+  // Convert blob to data URL on demand
+  async _blobToDataUrl(blob) {
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result)
+      reader.readAsDataURL(blob)
+    })
+  }
+
+  // Get data URL for media (with caching) - primary method for template rendering
+  async getMediaDataUrl(filename, deckId) {
+    const cacheKey = `${deckId}-${filename}`
+
+    // Check if dataUrl already cached
+    let cached = this.mediaCache.get(cacheKey)
+    if (cached?.dataUrl) {
+      return cached.dataUrl
+    }
+
+    // Generate dataUrl from blob and cache it
     try {
-      return await db.media.where('deckId').equals(deckId).toArray()
+      const mediaRecord = await db.media.get(cacheKey)
+      if (mediaRecord?.blob) {
+        const dataUrl = await this._blobToDataUrl(mediaRecord.blob)
+
+        // Update unified cache with dataUrl (preserve existing metadata if any)
+        const updated = {
+          ...cached,
+          dataUrl,
+          // Also cache metadata while we have it
+          filename: mediaRecord.filename,
+          size: mediaRecord.size,
+          type: mediaRecord.type,
+          imported: mediaRecord.imported
+        }
+        this.mediaCache.set(cacheKey, updated)
+        return dataUrl
+      }
     } catch (error) {
-      log.error('Failed to get deck media:', error)
+      log.warn('Failed to retrieve media for data URL:', filename, error)
+    }
+
+    return null
+  }
+
+  // Get media metadata for statistics (returns metadata without blobs)
+  async getDeckMediaStats(deckId) {
+    try {
+      const mediaRecords = await db.media.where('deckId').equals(deckId).toArray()
+      return mediaRecords.map(record => {
+        const cacheKey = `${deckId}-${record.filename}`
+        // Update cache with metadata while we have it
+        const cached = this.mediaCache.get(cacheKey)
+        const metadata = {
+          filename: record.filename,
+          size: record.size,
+          type: record.type,
+          imported: record.imported
+        }
+        this.mediaCache.set(cacheKey, { ...cached, ...metadata })
+        return metadata
+      })
+    } catch (error) {
+      log.error('Failed to get deck media stats:', error)
       return []
     }
   }
 
-  // Get all media files for multiple decks
-  async getDecksMedia(deckIds) {
+  // Get media metadata for multiple decks (for statistics)
+  async getDecksMediaStats(deckIds) {
     try {
-      return await db.media.where('deckId').anyOf(deckIds).toArray()
+      const mediaRecords = await db.media.where('deckId').anyOf(deckIds).toArray()
+      return mediaRecords.map(record => {
+        const cacheKey = `${record.deckId}-${record.filename}`
+        // Update cache with metadata while we have it
+        const cached = this.mediaCache.get(cacheKey)
+        const metadata = {
+          filename: record.filename,
+          size: record.size,
+          type: record.type,
+          imported: record.imported
+        }
+        this.mediaCache.set(cacheKey, { ...cached, ...metadata })
+        return metadata
+      })
     } catch (error) {
-      log.error('Failed to get decks media:', error)
+      log.error('Failed to get decks media stats:', error)
       return []
     }
   }
@@ -67,8 +155,8 @@ export class MediaManager {
 
     // Replace each media reference
     for (const filename of mediaReferences) {
-      const mediaRecord = await this.getMedia(filename, deckId)
-      if (mediaRecord && mediaRecord.dataUrl) {
+      const dataUrl = await this.getMediaDataUrl(filename, deckId)
+      if (dataUrl) {
         // Replace src attributes with data URL
         const patterns = [
           new RegExp(`src=["']${this.escapeRegExp(filename)}["']`, 'gi'),
@@ -76,7 +164,7 @@ export class MediaManager {
         ]
 
         for (const pattern of patterns) {
-          processedHtml = processedHtml.replace(pattern, `src="${mediaRecord.dataUrl}"`)
+          processedHtml = processedHtml.replace(pattern, `src="${dataUrl}"`)
         }
 
         log.debug(`Replaced media reference: ${filename}`)
@@ -122,10 +210,12 @@ export class MediaManager {
   // Remove media files for multiple decks (cleanup)
   async removeDecksMedia(deckIds) {
     try {
-      const decksMedia = await this.getDecksMedia(deckIds)
+      // Get all media records for deletion
+      const decksMedia = await db.media.where('deckId').anyOf(deckIds).toArray()
 
       for (const media of decksMedia) {
         await db.media.delete(media.id)
+        // Clear cache entry
         this.mediaCache.delete(media.id)
       }
 
@@ -140,7 +230,7 @@ export class MediaManager {
   // Get storage usage statistics for multiple decks
   async getMediaStatsForDecks(deckIds) {
     try {
-      const decksMedia = await this.getDecksMedia(deckIds)
+      const decksMedia = await this.getDecksMediaStats(deckIds)
       const totalSize = decksMedia.reduce((sum, media) => sum + (media.size || 0), 0)
 
       return {

@@ -115,14 +115,14 @@ export class NoteManager {
   }
 
   // Create template
-  async createTemplate(typeId, name, qfmt, afmt, idx = 0) {
+  async createTemplate(typeId, name, qfmt, afmt, ord = 0) {
     const template = {
       id: await genNvId('template', typeId + name + qfmt + afmt),
       typeId,
       name,
       qfmt,
       afmt,
-      idx,
+      ord,
       created: Date.now()
     }
     await db.templates.put(template)

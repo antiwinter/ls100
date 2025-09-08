@@ -22,16 +22,13 @@ export class CardGenerator {
       if (engine.wouldRender(template.qfmt, note.fields)) {
         const now = Date.now()
         const card = {
-          id: await genId('card', noteId + template.idx + deckId),
+          id: await genId('card', noteId + template.ord + deckId),
           noteId,
-          templateIdx: template.idx,
+          templateOrd: template.ord,
           deckId,
           // Default scheduling
           due: now,
-          interval: 1,
-          ease: 2500,
-          reps: 0,
-          lapses: 0,
+          state: 'New', // FSRS state mirrored for fast queries
           // FSRS progress stored with the card
           fsrs: null,
           created: now,
@@ -54,9 +51,9 @@ export class CardGenerator {
     const note = await noteManager.get(card.noteId)
     const noteType = await noteManager.getType(note.typeId)
     const templates = await noteManager.getTemplates(note.typeId)
-    const template = templates.find(t => t.idx === card.templateIdx)
+    const template = templates.find(t => t.ord === card.templateOrd)
 
-    if (!template) throw new Error(`Template not found: ${card.templateIdx}`)
+    if (!template) throw new Error(`Template not found: ${card.templateOrd}`)
 
     // Use new TemplateRenderer with media support
     const renderer = new TemplateRenderer(noteType)
@@ -75,18 +72,7 @@ export class CardGenerator {
     }
   }
 
-  // Update card scheduling after study
-  async updateCard(cardId, { interval, ease, due, reps, lapses }) {
-    const updates = { modified: Date.now() }
-    if (interval !== undefined) updates.interval = interval
-    if (ease !== undefined) updates.ease = ease
-    if (due !== undefined) updates.due = due
-    if (reps !== undefined) updates.reps = reps
-    if (lapses !== undefined) updates.lapses = lapses
-
-    await db.cards.update(cardId, updates)
-    return await db.cards.get(cardId)
-  }
+  // Legacy updateCard method removed - FSRS updates handled by studyEngine directly
 
   // Get cards for deck
   async getCardsForDeck(deckId) {

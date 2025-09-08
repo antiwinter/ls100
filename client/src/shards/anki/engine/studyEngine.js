@@ -45,16 +45,17 @@ export class StudyEngine {
     const now = Date.now()
     const ss = this.session.getState()
 
-    // Get new cards for decks (optimized database query)
-    let newCards =  await db.cards
+    // Get new cards for decks (optimized database query using mirrored state)
+    let newCards = await db.cards
       .where('deckId').anyOf(ss.deckIds)
-      .and(card => !card.fsrs?.reps) // New cards have 0 reps
+      .and(card => card.state === 'New')
       .toArray()
 
+    // Get due cards for review (optimized database query using mirrored due)
     let dueCards = await db.cards
       .where('deckId').anyOf(ss.deckIds)
-      .and(card => card.fsrs?.due <= now && card.fsrs?.reps > 0)
-      .orderBy('fsrs.due')
+      .and(card => card.state !== 'New' && card.due <= now)
+      .orderBy('due')
       .toArray()
 
     // Sort new cards according to user preference
@@ -150,17 +151,23 @@ export class StudyEngine {
     // Update the latest FSRS entry with calculated values and final response time
     c0.fsrs[0] = {
       ...next.card,
-      response_time: now.getTime() - c0.fsrs[0].response_time // Duration in ms
+      response_time: now.getTime() - c0.fsrs[0].response_time, // Duration in ms
+      rating
     }
 
-    await db.cards.update(c0.id, { fsrs: c0.fsrs })
+    // Mirror latest FSRS state to card level for fast queries
+    await db.cards.update(c0.id, {
+      fsrs: c0.fsrs,
+      due: c0.fsrs[0].due,
+      state: c0.fsrs[0].state
+    })
 
     // Graduation Rule: Cards graduate to 'done' if due time exceeds initial gap
     // Cards that don't graduate go back to review pile, sorted by due time
     if (next.card.due - now < (ss.initialGap || 0) * 60 * 1000) {
       // Insert into review pile in chronological order (new cards without due = 0 go first)
       const insertIndex = _.sortedIndexBy(ss.pile.review, c0,
-        c => c.fsrs[0]?.due || 0)
+        c => c.due || 0)
       ss.pile.review.splice(insertIndex, 0, c0)
     } else
       ss.pile.done.push(c0)

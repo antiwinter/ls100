@@ -61,7 +61,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
         stats: {
           totalCards: cards.length,
           totalNotes: validNotes.length,
-          newCards: cards.filter(c => c.reps === 0).length,
+          newCards: cards.filter(c => c.state === 'New').length,
           dueCards: cards.filter(c => {
             const due = typeof c.due === 'string' ? Date.parse(c.due) : c.due
             return due <= Date.now()
