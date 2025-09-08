@@ -12,108 +12,67 @@ import _ from 'lodash'
 const fsrs = new FSRS()
 
 // FIXED: use FSRS card object directly (no JSON mapping)
-// Helper: compute next daily reset timestamp based on settings hour
-const nextDailyResetAt = (resetHour = 4) => {
-  const hour = Math.max(0, Math.min(23, resetHour || 0))
-  const now = new Date()
-  const reset = new Date(now)
-  reset.setHours(hour, 0, 0, 0)
-  if (now >= reset) reset.setDate(reset.getDate() + 1)
-  return reset.getTime()
-}
-
-// Helper: insert a card back into queue ordered by fsrs.due (ascending),
-// placing items without fsrs at the end
-const insertByDue = (queue, card) => {
-  const dueTs = card?.fsrs?.due?.getTime ? card.fsrs.due.getTime() : card?.fsrs?.due
-  if (!Number.isFinite(dueTs)) {
-    queue.push(card)
-    return
-  }
-  let i = 0
-  for (; i < queue.length; i++) {
-    const qDue = queue[i]?.fsrs?.due?.getTime ? queue[i].fsrs.due.getTime() : queue[i]?.fsrs?.due
-    if (!Number.isFinite(qDue) || qDue > dueTs) break
-  }
-  queue.splice(i, 0, card)
-}
 
 // Study Engine class
 export class StudyEngine {
-  constructor(shardId, deckIds, sessionStore) {
+  constructor(shardId, deckIds, store) {
     this.shardId = shardId
     this.deckIds = deckIds
-    this.store = sessionStore.getState()
-    this.session = null // Will be initialized in initSession()
+    this.store = store
   }
 
   // Initialize study session with proper session management
-  async initSession() {
-    const settings = this.store
-    const studyDay = getSessionDate(settings.dailyResetTime)
-    let ss = this.session
+  async init() {
+    const store = this.store
+    const day = store.getCurrentDay()
+    let ss = store.currentSession
 
-    if (!settings.currentSession && studyDay === settings.lastSessionDate) {
-      return null // today finished
+    if (ss?.day === day) {
+      return null
     }
 
-    if (settings.currentSession) {
-      // Resume existing session
-      ss = this.session = settings.currentSession
-
-      log.info('Resuming session:', {
-        sessionId: ss.id,
-        newStudied: ss.newCardsStudied || 0,
-        reviewStudied: ss.reviewCardsStudied || 0,
-        queueRemaining: ss.queue.length
-      })
-    } else {
-      // Create new session
-      ss = this.session = {
-        id: await genId('session', Date.now().toString()),
-        shardId: this.shardId,
-        deckIds: this.deckIds,
-
-        // Session State (for resumption)
-        currentCard: null,
-        queue: [], // Will be built below
-
-        // Timing (for resumption)
-        startTime: Date.now(),
-        timeSpent: 0,
-        pauseTime: null,
-        totalPauseTime: 0,
-
-        // Statistics
-        // Study progress (for resumption)
-        studied: [0, 0, 0, 0],
-        failed: 0,
-        ratings:[0, 0, 0, 0]
-      }
-
-      // Build queue asynchronously after session object is created
-      ss.queue = await this.buildQueue()
-    }
-
+    // Create new session
     // Set session in store for persistence
-    settings.setCurrentSession(ss)
-
-    log.info('Study session initialized:', {
+    ss ||= {
+      id: await genId('session', Date.now().toString()),
       shardId: this.shardId,
       deckIds: this.deckIds,
-      queueSize: ss.queue.length,
-      sessionId: ss.id,
-      siblingBurying: settings.autoBurySiblings
-    })
+
+      // Session State (for resumption)
+      currentCard: null,
+      deckNew: [],
+      deckReview: [],
+      deckDone: [],
+      actionLog: [],
+
+      // Timing (for resumption)
+      startTime: Date.now(),
+      timeSpent: 0,
+      pauseTime: null,
+      totalPauseTime: 0,
+
+      // Statistics
+      // Study progress (for resumption)
+      studied: [0, 0, 0, 0],
+      failed: 0,
+      ratings:[0, 0, 0, 0]
+    }
+    store.setCurrentSession(ss)
+
+    await this._buildQueues()
+    log.info('Study session initialized:',
+      _.pick(ss, ['shardId', 'deckIds', 'deckNew',
+        'deckReview', 'deckDone', 'sessionId',
+        'autoBurySiblings']))
 
     return ss
   }
 
-  // Build study queue with FSRS + sibling filtering
-  async buildQueue() {
+  // Build study queues with FSRS + sibling filtering
+  async _buildQueues() {
     const now = Date.now()
-    const settings = this.store
-    const { maxReviewCards, maxNewCards } = settings
+    const store = this.store
+    const ss = store.currentSession
 
     // Get new cards for decks (optimized database query)
     let newCards =  await db.cards
@@ -129,7 +88,7 @@ export class StudyEngine {
 
     // Sort new cards according to user preference
     function _sort(cards) {
-      switch (settings.newCardOrder) {
+      switch (store.newCardOrder) {
       case 'random': return _.shuffle(cards)
       case 'template-random':
         return _(cards).sortBy('templateIdx').groupBy('templateIdx').values().map(_.shuffle).flatten().value()
@@ -141,46 +100,61 @@ export class StudyEngine {
     newCards = _sort(newCards)
 
     // Apply auto-bury siblings if enabled
-    if (settings.autoBurySiblings) {
+    if (store.autoBurySiblings) {
       dueCards = _.uniqBy(dueCards, 'noteId')
       newCards = _.uniqBy(newCards, 'noteId')
     }
 
-    // FIXED: apply settings.newReviewOrder (basic: reviews-first/new-first/mixed)
-    const clampDue = dueCards.slice(0, maxReviewCards)
-    const clampNew = newCards.slice(0, maxNewCards)
-    switch (settings.newReviewOrder) {
-    case 'new-first':
-      return [...clampNew, ...clampDue]
-    case 'review-first':
-      return [...clampDue, ...clampNew]
-    case 'mixed': {
-      // FIXED: shuffle new into the due, keeping due relative order
-      if (clampDue.length === 0) return _.shuffle(clampNew)
-      const out = [...clampDue]
-      const shuffledNew = _.shuffle(clampNew)
-      for (const n of shuffledNew) {
-        const idx = Math.floor(Math.random() * (out.length + 1))
-        out.splice(idx, 0, n)
-      }
-      return out
-    }
-    default:
-      return [...clampDue, ...clampNew]
-    }
+    // Populate tri-queues; ordering within each queue already applied
+    ss.deckNew =  newCards.slice(0, store.maxNewCards)
+    ss.deckReview = dueCards.slice(0, store.maxReviewCards)
+    ss.deckDone = []
   }
 
   // Get next card for study
-  getNext() {
-    const next = this.session.queue.shift()
-    // FIXED: keep single source of truth for the current card in engine
-    this.session.currentCard = next || null
-    return next // No more cards available
+  draw() {
+    const ss = this.store.currentSession
+
+    const pickFromMixed = () => {
+      const hasNew = ss.deckNew.length > 0
+      const hasRev = ss.deckReview.length > 0
+      if (!hasNew && !hasRev) return null
+      if (hasNew && !hasRev) return { card: ss.deckNew.shift(), from: 'new' }
+      if (!hasNew && hasRev) return { card: ss.deckReview.shift(), from: 'review' }
+      // both available -> roll dice
+      const roll = Math.random() < 0.5 ? 'review' : 'new'
+      return roll === 'review'
+        ? { card: ss.deckReview.shift(), from: 'review' }
+        : { card: ss.deckNew.shift(), from: 'new' }
+    }
+
+    let chosen = null
+    switch (this.store.newReviewOrder) {
+    case 'new-first':
+      chosen = ss.deckNew.length > 0
+        ? { card: ss.deckNew.shift(), from: 'new' }
+        : (ss.deckReview.length > 0 ? { card: ss.deckReview.shift(), from: 'review' } : null)
+      break
+    case 'review-first':
+      chosen = ss.deckReview.length > 0
+        ? { card: ss.deckReview.shift(), from: 'review' }
+        : (ss.deckNew.length > 0 ? { card: ss.deckNew.shift(), from: 'new' } : null)
+      break
+    case 'mixed':
+    default:
+      chosen = pickFromMixed()
+    }
+
+    const next = chosen?.card || null
+    if (next) next._from = chosen.from
+    ss.currentCard = next
+    if (next) ss.actionLog.push({ t: 'draw', id: next.id, from: chosen.from })
+    return next
   }
 
   // Rate current card and update scheduling
   async rate(rating) {
-    const ss = this.session
+    const ss = this.store.currentSession
     if (!ss.currentCard || !ss) {
       throw new Error('No active card or session')
     }
@@ -195,8 +169,9 @@ export class StudyEngine {
     const scheduling = fsrs.repeat(base, now)
     const next = scheduling[rating]
 
-    // Save progress
-    await db.cards.update(c0.id, { fsrs: { ...next.card } })
+    const prevFsrs = { ...base }
+    const nextFsrs = { ...next.card }
+    await db.cards.update(c0.id, { fsrs: nextFsrs })
 
     // Update session stats
     if (rating !== Rating.Again) {
@@ -211,24 +186,52 @@ export class StudyEngine {
     ss.timeSpent = Date.now() - ss.startTime
 
     // Real-time session history update
-    // FIXED: write full timing and counters only per-rating (no start/end writes)
-    this.store.updateSessionHistory({
-      startTime: ss.startTime,
-      timeSpent: ss.timeSpent,
-      pauseTime: ss.pauseTime,
-      totalPauseTime: ss.totalPauseTime,
-      studied: [...ss.studied],
-      failed: ss.failed,
-      ratings: [...ss.ratings]
-    })
+    this.store.updateSessionHistory(
+      _.pick(ss, ['startTime', 'timeSpent',
+        'pauseTime', 'totalPauseTime',
+        'studied', 'failed', 'ratings']))
 
-    // FIXED: requeue Again cards due before next reset
-    const nextReset = nextDailyResetAt(this.store.dailyResetTime)
     const dueTs = next.card.due.getTime()
-    if (rating === Rating.Again && dueTs <= nextReset) {
-      const updatedCard = { ...c0, fsrs: { ...next.card } }
-      insertByDue(ss.queue, updatedCard)
+
+    // Decide graduation vs reinsert based on type and timing
+    const isNewCard = !(c0?.fsrs?.reps > 0)
+    const initialGapMs = (this.store.initialGap || 0) * 60 * 1000
+    const nowTs = Date.now()
+    const updatedCard = { ...c0, fsrs: { ...next.card } }
+
+    let to = null
+    if (isNewCard) {
+      // New card graduation requires due beyond initial gap
+      const gapReached = dueTs - nowTs >= initialGapMs
+      if (gapReached) {
+        ss.deckDone.push(updatedCard)
+        to = 'done'
+      } else {
+        // Keep within session: treat as immediate review candidate
+        ss.deckReview = _.sortBy(
+          [...ss.deckReview, updatedCard],
+          c => (c.fsrs?.due?.getTime?.() ?? c.fsrs?.due ?? Infinity)
+        )
+        to = 'review'
+      }
+    } else {
+      // Review cards always go back to review deck, sorted by due
+      ss.deckReview = _.sortBy(
+        [...ss.deckReview, updatedCard],
+        c => (c.fsrs?.due?.getTime?.() ?? c.fsrs?.due ?? Infinity)
+      )
+      to = 'review'
     }
+
+    ss.actionLog.push({
+      t: 'rate',
+      id: c0.id,
+      rating,
+      from: c0._from,
+      to,
+      prev: prevFsrs,
+      next: nextFsrs
+    })
 
     // FIXME: fix the log
     log.debug('Card rated:', {
@@ -237,17 +240,15 @@ export class StudyEngine {
       rating
     })
 
-    // FIXME: if the rate is Again, don't we need to put in the queue
-    // and re-sort the queue with new due?
-    // FIXED: handled above by insertByDue until next reset
+    // current cleared; next card will be drawn by caller
     ss.currentCard = null
   }
 
   // End study session
-  endSession() {
-    if (!this.session) return
+  finish() {
+    if (!this.store.currentSession) return
 
-    const ss = this.session
+    const ss = this.store.currentSession
     ss.endTime = Date.now()
 
     // Calculate actual study time (excluding pauses)
@@ -275,9 +276,9 @@ export class StudyEngine {
 
   // Get session progress
   getProgress() {
-    if (!this.session) return null
+    if (!this.store.currentSession) return null
 
-    const ss = this.session
+    const ss = this.store.currentSession
     const elapsed = Date.now() - ss.startTime
     const totalStudied = ss.studied.reduce((sum, count) => sum + count, 0)
     // ratings 1-3 are correct (Again=0 is incorrect, Hard/Good/Easy=1-3 are correct)
@@ -285,12 +286,63 @@ export class StudyEngine {
 
     return {
       cardsStudied: totalStudied,
-      cardsRemaining: ss.queue.length,
+      cardsRemaining:
+        (ss.deckNew?.length || 0) +
+        (ss.deckReview?.length || 0) +
+        (ss.currentCard ? 1 : 0),
       timeElapsed: elapsed,
       correctAnswers,
       accuracy: totalStudied ? correctAnswers / totalStudied : 0,
       ratings: { ...ss.ratings }
     }
+  }
+
+  // Undo last step using action log
+  async undo() {
+    const ss = this.store.currentSession
+    if (!ss || !Array.isArray(ss.actionLog) || ss.actionLog.length === 0) return null
+
+    // If the last action was a draw, revert it first
+    const last = ss.actionLog.pop()
+    let rateAction = last
+    if (last.t === 'draw') {
+      // return currentCard to its source deck front
+      const cur = ss.currentCard
+      if (cur && last.id === cur.id) {
+        if (last.from === 'new') ss.deckNew.unshift(cur)
+        else if (last.from === 'review') ss.deckReview.unshift(cur)
+        ss.currentCard = null
+      }
+      rateAction = ss.actionLog.pop() || null
+    }
+
+    if (!rateAction || rateAction.t !== 'rate') return ss.currentCard
+
+    // Remove the card from its destination queue if present
+    const removeById = (arr, id) => {
+      const i = arr.findIndex(c => c.id === id)
+      if (i >= 0) arr.splice(i, 1)
+    }
+    if (rateAction.to === 'done') removeById(ss.deckDone, rateAction.id)
+    else if (rateAction.to === 'new') removeById(ss.deckNew, rateAction.id)
+    else if (rateAction.to === 'review') removeById(ss.deckReview, rateAction.id)
+
+    // Restore FSRS in DB and set as current
+    await db.cards.update(rateAction.id, { fsrs: { ...rateAction.prev } })
+    const card = await db.cards.get(rateAction.id)
+    ss.currentCard = card
+    ss.currentCard._from = rateAction.from
+
+    // Revert stats
+    if (rateAction.rating !== Rating.Again) {
+      const idx = typeof rateAction.prev.state === 'number' ? rateAction.prev.state : 0
+      ss.studied[idx] = Math.max(0, (ss.studied[idx] || 0) - 1)
+    } else {
+      ss.failed = Math.max(0, (ss.failed || 0) - 1)
+    }
+    ss.ratings[rateAction.rating] = Math.max(0, (ss.ratings[rateAction.rating] || 0) - 1)
+
+    return ss.currentCard
   }
 }
 

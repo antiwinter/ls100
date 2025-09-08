@@ -105,7 +105,8 @@ const AnkiReaderContent = ({ shard, onBack }) => {
 
     try {
       // Create study engine for this shard's cards
-      const engine = new StudyEngine(shard.id, shard.metadata?.deckIds || [], sessionStore)
+      const engine = new StudyEngine(shard.id, shard.metadata?.deckIds
+        || [], sessionStore.getState())
       const session = await engine.initSession()
 
       setStudyEngine(engine)

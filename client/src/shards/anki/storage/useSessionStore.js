@@ -15,7 +15,7 @@ export const useAnkiSessionStore = (shardId) => {
 
   const store = create(
     persist(
-      immer((set, _get) => ({
+      immer((set, get) => ({
         // === Daily Study Limits (persistent) ===
         maxNewCards: 18, // Maximum new cards to study per day
         maxReviewCards: 188, // Maximum review cards to study per day
@@ -31,6 +31,14 @@ export const useAnkiSessionStore = (shardId) => {
         }),
         setDailyResetTime: (hour) => set((state) => {
           state.dailyResetTime = Math.max(0, Math.min(6, hour))
+        }),
+
+        // === Initial gap for new cards graduation (minutes) ===
+        // New cards only graduate out of current session when next due is beyond this gap
+        initialGap: 10,
+        setInitialGap: (minutes) => set((state) => {
+          const m = Number.isFinite(minutes) ? Math.max(0, minutes) : 10
+          state.initialGap = m
         }),
 
         // Study preferences (persistent)
@@ -93,6 +101,20 @@ export const useAnkiSessionStore = (shardId) => {
           }
         }),
 
+        getCurrentDay: () => get(x => {
+          const now = new Date()
+
+          // If current time is before reset hour, use previous calendar day
+          if (now.getHours() < x.dailyResetTime) {
+            const yesterday = new Date(now)
+            yesterday.setDate(yesterday.getDate() - 1)
+            return yesterday.toISOString().split('T')[0]
+          }
+
+          // Otherwise use current calendar day
+          return now.toISOString().split('T')[0]
+        }),
+
         completeCurrentSession: () => set((state) => {
           state.currentSession = null
         })
@@ -114,19 +136,4 @@ export const useAnkiSessionStore = (shardId) => {
 // Cleanup function to remove store when shard is no longer needed
 export const cleanupAnkiSessionStore = (shardId) => {
   stores.delete(shardId)
-}
-
-// Helper to get study day date key (accounts for custom reset time)
-export const getSessionDate = (resetHour = 4) => {
-  const now = new Date()
-
-  // If current time is before reset hour, use previous calendar day
-  if (now.getHours() < resetHour) {
-    const yesterday = new Date(now)
-    yesterday.setDate(yesterday.getDate() - 1)
-    return yesterday.toISOString().split('T')[0]
-  }
-
-  // Otherwise use current calendar day
-  return now.toISOString().split('T')[0]
 }
