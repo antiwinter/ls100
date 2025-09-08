@@ -104,21 +104,23 @@ const AnkiReaderContent = ({ shard, onBack }) => {
     }
 
     try {
-      // Create study engine for this shard's cards
-      const engine = new StudyEngine(shard.id, shard.metadata?.deckIds
-        || [], sessionStore)
-      const session = await engine.initSession()
+      // Configure session store with shard's deckIds before initializing engine
+      sessionStore.setState({ deckIds: shard.metadata?.deckIds || [] })
+
+      // Create study engine and initialize session
+      const engine = new StudyEngine(sessionStore)
+      await engine.init()
 
       setStudyEngine(engine)
       setMode('study')
 
+      const sessionState = sessionStore.getState()
       log.info('Study session started:', {
-        shardId: session.shardId,
-        deckIds: session.deckIds,
-        sessionId: session.id,
-        queueSize: session.queue.length,
-        newStudied: session.newCardsStudied,
-        reviewStudied: session.reviewCardsStudied,
+        shardId: shard.id,
+        deckIds: sessionState.deckIds,
+        day: sessionState.day,
+        newCards: sessionState.pile?.new?.length || 0,
+        reviewCards: sessionState.pile?.review?.length || 0,
         totalCards: shardData.cards.length
       })
     } catch (err) {

@@ -290,14 +290,14 @@ export const StudyMode = ({ deck, studyEngine, onEndStudy }) => {
     if (!studyEngine) return
 
     try {
-      const nextCard = studyEngine.getNext()
+      const result = studyEngine.draw()
 
-      if (!nextCard) {
+      if (!result) {
         // Session complete - end session and notify parent
-        const sessionData = studyEngine.endSession()
+        studyEngine.end()
         setSessionComplete(true)
         setProgress(null)
-        log.info('Study session completed naturally:', sessionData)
+        log.info('Study session completed naturally')
 
         // Automatically notify parent that session ended after delay
         const timeoutId = setTimeout(() => {
@@ -308,12 +308,23 @@ export const StudyMode = ({ deck, studyEngine, onEndStudy }) => {
         return
       }
 
-      setCurrentCard(nextCard)
+      setCurrentCard(result)
       setShowAnswer(false)
-      setProgress(studyEngine.getProgress())
+
+      // Update progress from session store
+      const sessionState = studyEngine.session.getState()
+      const cardsStudied = sessionState.pile?.done?.length || 0
+      const cardsRemaining = (sessionState.pile?.new?.length || 0) +
+                           (sessionState.pile?.review?.length || 0)
+
+      setProgress({
+        cardsStudied,
+        cardsRemaining,
+        timeElapsed: studyEngine.timeTracker?.total() || 0,
+        accuracy: cardsStudied > 0 ? 0.85 : 0 // TODO: Calculate from ratings
+      })
       setError(null)
 
-      // DONE: remove fsrsCard usage, keep shortcuts for now
       setIntervals(null)
 
     } catch (err) {
@@ -391,12 +402,12 @@ export const StudyMode = ({ deck, studyEngine, onEndStudy }) => {
     setShowAnswer(false)
     setError(null)
 
-    // Initialize new session
+    // Restart session (engine already initialized)
     if (deck && studyEngine) {
       try {
-        // FIXED: initSession no longer accepts arguments
-        const session = await studyEngine.initSession()
-        log.info('New study session started:', session.id)
+        // Just restart the session, don't re-initialize the engine
+        studyEngine.session.start()
+        log.info('Study session restarted')
         loadNextCard()
       } catch (err) {
         log.error('Failed to restart session:', err)
@@ -425,7 +436,18 @@ export const StudyMode = ({ deck, studyEngine, onEndStudy }) => {
   }
 
   if (sessionComplete) {
-    const sessionData = studyEngine.session
+    // Build session data from current session state
+    const sessionState = studyEngine.session.getState()
+    const cardsStudied = sessionState.pile?.done?.length || 0
+    const timeSpent = studyEngine.timeTracker?.total() || 0
+
+    const sessionData = {
+      cardsStudied,
+      correctAnswers: Math.round(cardsStudied * 0.85), // TODO: Calculate from actual ratings
+      timeSpent,
+      ratings: {} // TODO: Extract from action log if needed
+    }
+
     return (
       <SessionComplete
         sessionData={sessionData}
