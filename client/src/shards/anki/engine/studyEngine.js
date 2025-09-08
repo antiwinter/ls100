@@ -31,10 +31,9 @@ export class StudyEngine {
 
       // Session State (for resumption)
       currentCard: null,
-      deckNew: [],
-      deckReview: [],
-      deckDone: [],
-      actionLog: []
+      pile: { new: [], review: [], done: [] },
+      actionLog: [],
+      timeSegments: []
 
       // Statistics: calc from queues & cards
     }
@@ -42,8 +41,15 @@ export class StudyEngine {
 
     await this._buildQueues()
 
-    // Initialize time tracking
-    this.timeTracker = new TimeSegments()
+    // Initialize time tracking with persistence
+    this.timeTracker = new TimeSegments({
+      segments: ss.timeSegments,
+      onSegmentChange: (segments) => {
+        ss.timeSegments = [...segments]
+        this.store.setCurrentSession(ss)
+      }
+    })
+
     this.timeTracker.open()
 
     log.info('Study session initialized:',
@@ -92,9 +98,9 @@ export class StudyEngine {
     }
 
     // Populate tri-queues; ordering within each queue already applied
-    ss.deckNew =  newCards.slice(0, store.getState().maxNewCards)
-    ss.deckReview = dueCards.slice(0, store.getState().maxReviewCards)
-    ss.deckDone = []
+    ss.pile.new =  newCards.slice(0, store.getState().maxNewCards)
+    ss.pile.review = dueCards.slice(0, store.getState().maxReviewCards)
+    ss.pile.done = []
   }
 
   // Get next card for study
@@ -102,29 +108,29 @@ export class StudyEngine {
     const ss = this.store.getState().currentSession
 
     const pickFromMixed = () => {
-      const hasNew = ss.deckNew.length > 0
-      const hasRev = ss.deckReview.length > 0
+      const hasNew = ss.pile.new.length > 0
+      const hasRev = ss.pile.review.length > 0
       if (!hasNew && !hasRev) return null
-      if (hasNew && !hasRev) return { card: ss.deckNew.shift(), from: 'new' }
-      if (!hasNew && hasRev) return { card: ss.deckReview.shift(), from: 'review' }
+      if (hasNew && !hasRev) return { card: ss.pile.new.shift(), from: 'new' }
+      if (!hasNew && hasRev) return { card: ss.pile.review.shift(), from: 'review' }
       // both available -> roll dice
       const roll = Math.random() < 0.5 ? 'review' : 'new'
       return roll === 'review'
-        ? { card: ss.deckReview.shift(), from: 'review' }
-        : { card: ss.deckNew.shift(), from: 'new' }
+        ? { card: ss.pile.review.shift(), from: 'review' }
+        : { card: ss.pile.new.shift(), from: 'new' }
     }
 
     let chosen = null
     switch (this.store.getState().newReviewOrder) {
     case 'new-first':
-      chosen = ss.deckNew.length > 0
-        ? { card: ss.deckNew.shift(), from: 'new' }
-        : (ss.deckReview.length > 0 ? { card: ss.deckReview.shift(), from: 'review' } : null)
+      chosen = ss.pile.new.length > 0
+        ? { card: ss.pile.new.shift(), from: 'new' }
+        : (ss.pile.review.length > 0 ? { card: ss.pile.review.shift(), from: 'review' } : null)
       break
     case 'review-first':
-      chosen = ss.deckReview.length > 0
-        ? { card: ss.deckReview.shift(), from: 'review' }
-        : (ss.deckNew.length > 0 ? { card: ss.deckNew.shift(), from: 'new' } : null)
+      chosen = ss.pile.review.length > 0
+        ? { card: ss.pile.review.shift(), from: 'review' }
+        : (ss.pile.new.length > 0 ? { card: ss.pile.new.shift(), from: 'new' } : null)
       break
     case 'mixed':
     default:
@@ -177,20 +183,20 @@ export class StudyEngine {
       // New card graduation requires due beyond initial gap
       const gapReached = dueTs - nowTs >= initialGapMs
       if (gapReached) {
-        ss.deckDone.push(updatedCard)
+        ss.pile.done.push(updatedCard)
         to = 'done'
       } else {
         // Keep within session: treat as immediate review candidate
-        ss.deckReview = _.sortBy(
-          [...ss.deckReview, updatedCard],
+        ss.pile.review = _.sortBy(
+          [...ss.pile.review, updatedCard],
           c => (c.fsrs?.due?.getTime?.() ?? c.fsrs?.due ?? Infinity)
         )
         to = 'review'
       }
     } else {
       // Review cards always go back to review deck, sorted by due
-      ss.deckReview = _.sortBy(
-        [...ss.deckReview, updatedCard],
+      ss.pile.review = _.sortBy(
+        [...ss.pile.review, updatedCard],
         c => (c.fsrs?.due?.getTime?.() ?? c.fsrs?.due ?? Infinity)
       )
       to = 'review'
@@ -241,8 +247,8 @@ export class StudyEngine {
 
     return {
       cardsRemaining:
-        (ss.deckNew?.length || 0) +
-        (ss.deckReview?.length || 0) +
+        (ss.pile.new?.length || 0) +
+        (ss.pile.review?.length || 0) +
         (ss.currentCard ? 1 : 0),
       timeElapsed: this.timeTracker?.total() || 0
     }
@@ -260,8 +266,8 @@ export class StudyEngine {
       // return currentCard to its source deck front
       const cur = ss.currentCard
       if (cur && last.id === cur.id) {
-        if (last.from === 'new') ss.deckNew.unshift(cur)
-        else if (last.from === 'review') ss.deckReview.unshift(cur)
+        if (last.from === 'new') ss.pile.new.unshift(cur)
+        else if (last.from === 'review') ss.pile.review.unshift(cur)
         ss.currentCard = null
       }
       rateAction = ss.actionLog.pop() || null
@@ -274,9 +280,9 @@ export class StudyEngine {
       const i = arr.findIndex(c => c.id === id)
       if (i >= 0) arr.splice(i, 1)
     }
-    if (rateAction.to === 'done') removeById(ss.deckDone, rateAction.id)
-    else if (rateAction.to === 'new') removeById(ss.deckNew, rateAction.id)
-    else if (rateAction.to === 'review') removeById(ss.deckReview, rateAction.id)
+    if (rateAction.to === 'done') removeById(ss.pile.done, rateAction.id)
+    else if (rateAction.to === 'new') removeById(ss.pile.new, rateAction.id)
+    else if (rateAction.to === 'review') removeById(ss.pile.review, rateAction.id)
 
     // Restore FSRS in DB and set as current
     await db.cards.update(rateAction.id, { fsrs: { ...rateAction.prev } })
@@ -286,7 +292,6 @@ export class StudyEngine {
 
     return ss.currentCard
   }
-
 }
 
 log.debug('Study engine initialized')
