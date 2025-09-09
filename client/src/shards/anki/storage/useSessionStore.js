@@ -16,7 +16,7 @@ export const useAnkiSessionStore = (shardId) => {
   const store = create(
     persist(
       immer((set, get) => ({
-        deckIds: [], // these are set when shard created
+        bundleIds: [], // these are set when shard created
 
         // Daily Study Limits (persistent)
         maxNewCards: 18, // Maximum new cards to study per day

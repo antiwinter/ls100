@@ -1,26 +1,28 @@
 import db from '../storage/db.js'
 import { log } from '../../../utils/logger'
 import { genNvId } from '../../../utils/idGenerator.js'
+import mediaManager from './mediaManager.js'
 
 // Note manager for Anki collection
 export class NoteManager {
   constructor() {
     this.STORES = {
       notes: 'notes',
-      noteTypes: 'noteTypes',
+      bundles: 'bundles',
       templates: 'templates'
     }
   }
 
-  // Create new note
-  async create(typeId, fields, tags = []) {
-    const noteType = await this.getType(typeId)
-    if (!noteType) throw new Error(`NoteType not found: ${typeId}`)
+  // Create new note with cooked fields (for APKG import)
+  async create(bundleId, fields, tags = []) {
+    const bundle = await this.getType(bundleId)
+    if (!bundle) throw new Error(`NoteType not found: ${bundleId}`)
 
+    // Fields should already be cooked (contain NvIds) when passed in
     const note = {
-      id: await genNvId('note', typeId + fields.join('') + tags.join('')),
-      typeId,
-      fields: fields.slice(0, noteType.fields.length), // Ensure correct field count
+      id: await genNvId('note', bundleId + fields.join('') + tags.join('')),
+      bundleId,
+      fields: fields.slice(0, bundle.fields.length), // Ensure correct field count
       tags,
       refCount: 0,
       created: Date.now(),
@@ -28,6 +30,11 @@ export class NoteManager {
     }
 
     await db.notes.put(note)
+
+    // Retain media references from cooked fields
+    for (const field of note.fields) {
+      await mediaManager.retainMedia(field)
+    }
 
     return note
   }
@@ -37,10 +44,23 @@ export class NoteManager {
     return await db.notes.get(noteId)
   }
 
-  // Update note fields
+  // Update note fields (expects cooked fields with NvIds)
   async update(noteId, fields, tags) {
     const note = await this.get(noteId)
     if (!note) throw new Error(`Note not found: ${noteId}`)
+
+    // Handle media refCount updates if fields changed
+    if (fields !== undefined) {
+      // Remove old media references from existing cooked fields
+      for (const field of note.fields) {
+        await mediaManager.removeMedia(field)
+      }
+
+      // Retain media references from new cooked fields
+      for (const field of fields) {
+        await mediaManager.retainMedia(field)
+      }
+    }
 
     const updates = { modified: Date.now() }
     if (fields !== undefined) updates.fields = fields
@@ -88,6 +108,15 @@ export class NoteManager {
 
   // Cleanup note and related data
   async cleanup(noteId) {
+    // Get note before deletion to remove media references
+    const note = await this.get(noteId)
+    if (note) {
+      // Remove media references from all fields
+      for (const field of note.fields) {
+        await mediaManager.removeMedia(field)
+      }
+    }
+
     // Delete note
     await db.notes.delete(noteId)
 
@@ -97,35 +126,41 @@ export class NoteManager {
     log.debug('Note and cards cleaned up:', noteId)
   }
 
-  // Get noteType
-  async getType(typeId) {
-    return await db.noteTypes.get(typeId)
+  // Get bundle
+  async getType(bundleId) {
+    return await db.bundles.get(bundleId)
   }
 
-  // Create noteType
+  // Create bundle
   async createType(id, name, fields) {
-    const noteType = { id, name, fields, created: Date.now() }
-    await db.noteTypes.put(noteType)
-    return noteType
+    const bundle = { id, name, fields, created: Date.now() }
+    await db.bundles.put(bundle)
+    return bundle
   }
 
-  // Get templates for noteType
-  async getTemplates(typeId) {
-    return await db.templates.where('typeId').equals(typeId).toArray()
+  // Get templates for bundle
+  async getTemplates(bundleId) {
+    return await db.templates.where('bundleId').equals(bundleId).toArray()
   }
 
-  // Create template
-  async createTemplate(typeId, name, qfmt, afmt, ord = 0) {
+  // Create template with cooked formats (for APKG import)
+  async createTemplate(bundleId, name, qfmt, afmt, ord = 0, vdeck = null) {
     const template = {
-      id: await genNvId('template', typeId + name + qfmt + afmt),
-      typeId,
+      id: await genNvId('template', bundleId + name + qfmt + afmt),
+      bundleId,
       name,
       qfmt,
       afmt,
       ord,
+      vdeck,
       created: Date.now()
     }
     await db.templates.put(template)
+
+    // Retain media references from cooked template formats
+    await mediaManager.retainMedia(qfmt)
+    await mediaManager.retainMedia(afmt)
+
     return template
   }
 

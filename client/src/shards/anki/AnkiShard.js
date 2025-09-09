@@ -114,21 +114,21 @@ export const processData = async (shard, _apiCall) => {
     // Process decks stored in shard.data.decks
     if (shard.data?.decks?.length > 0) {
       let deckName = null
-      const deckIds = []
+      const bundleIds = []
 
       for (const deck of shard.data.decks) {
         try {
-          await importApkgData(deck, deck.deckId)
+          await importApkgData(deck, deck.bundleId)
 
           // Store the first deck name for consistent cover colors
           if (!deckName) {
             deckName = deck.name
           }
 
-          // Collect deckIds for metadata
-          deckIds.push(deck.deckId)
+          // Collect bundleIds for metadata
+          bundleIds.push(deck.bundleId)
 
-          log.info('Committed Anki import:', { deckId: deck.deckId, name: deck.name })
+          log.info('Committed Anki import:', { bundleId: deck.bundleId, name: deck.name })
         } catch (e) {
           log.error('Failed to commit Anki import:', e)
         }
@@ -138,13 +138,13 @@ export const processData = async (shard, _apiCall) => {
       shard.metadata = {
         ...shard.metadata,
         deckName,
-        deckIds
+        bundleIds
       }
     }
 
-    // Get updated counts from IDB using deckIds
-    if (shard.metadata?.deckIds?.length > 0) {
-      const cards = await ankiApi.getCardsForDecks(shard.metadata.deckIds)
+    // Get updated counts from IDB using bundleIds
+    if (shard.metadata?.bundleIds?.length > 0) {
+      const cards = await ankiApi.getCardsForDecks(shard.metadata.bundleIds)
       const noteIds = [...new Set(cards.map(c => c.noteId))]
 
       // Store persistent counts in metadata
@@ -175,8 +175,8 @@ export const cleanup = async (shard, allShards = []) => {
     log.info('Cleaning up Anki shard:', shard.id)
 
     // Remove all notes and cards for this shard's decks
-    if (shard.metadata?.deckIds?.length > 0) {
-      await ankiApi.cleanupDecks(shard.metadata.deckIds)
+    if (shard.metadata?.bundleIds?.length > 0) {
+      await ankiApi.cleanupDecks(shard.metadata.bundleIds)
     }
 
     // Check for remaining Anki shards for potential orphan cleanup

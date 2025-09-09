@@ -16,7 +16,7 @@ import { Search, PlayArrow, Collections } from '@mui/icons-material'
 import ankiApi from '../core/ankiApi'
 import { log } from '../../../utils/logger'
 
-const NoteTable = ({ notes, noteTypes, onStartStudy: _onStartStudy }) => {
+const NoteTable = ({ notes, bundles, onStartStudy: _onStartStudy }) => {
 
   if (!notes || notes.length === 0) {
     return (
@@ -41,7 +41,7 @@ const NoteTable = ({ notes, noteTypes, onStartStudy: _onStartStudy }) => {
         </thead>
         <tbody>
           {notes.map((note, index) => {
-            const noteType = noteTypes[note.typeId]
+            const bundle = bundles[note.bundleId]
 
             return (
               <tr key={note.id}>
@@ -52,12 +52,12 @@ const NoteTable = ({ notes, noteTypes, onStartStudy: _onStartStudy }) => {
                 </td>
                 <td>
                   <Chip size="sm" variant="soft" color="primary">
-                    {noteType?.name || note.typeId}
+                    {bundle?.name || note.bundleId}
                   </Chip>
                 </td>
                 <td>
                   <Box sx={{ maxWidth: '100%', overflow: 'hidden' }}>
-                    {noteType?.fields.map((fieldName, i) => (
+                    {bundle?.fields.map((fieldName, i) => (
                       <Typography
                         key={i}
                         level="body-sm"
@@ -115,7 +115,7 @@ export const BrowseMode = ({
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('created')
   const [notes, setNotes] = useState([])
-  const [noteTypes, setNoteTypes] = useState({})
+  const [bundles, setNoteTypes] = useState({})
 
 
   // Load notes for selected shard
@@ -130,7 +130,7 @@ export const BrowseMode = ({
 
       try {
         // Get notes for this shard by finding cards first, then getting unique notes
-        const shardCards = await ankiApi.getCardsForDecks(selectedDeck.metadata?.deckIds)
+        const shardCards = await ankiApi.getCardsForDecks(selectedDeck.metadata?.bundleIds)
         const noteIds = [...new Set(shardCards.map(c => c.noteId))]
 
         const shardNotes = await Promise.all(
@@ -148,8 +148,8 @@ export const BrowseMode = ({
         // Load note types for the notes
         const types = {}
         for (const note of validNotes) {
-          if (!types[note.typeId]) {
-            types[note.typeId] = await ankiApi.noteManager.getType(note.typeId)
+          if (!types[note.bundleId]) {
+            types[note.bundleId] = await ankiApi.noteManager.getType(note.bundleId)
           }
         }
 
@@ -157,7 +157,7 @@ export const BrowseMode = ({
         setNoteTypes(types)
         log.debug('Loaded shard notes:', {
           notes: validNotes.length,
-          noteTypes: Object.keys(types).length
+          bundles: Object.keys(types).length
         })
       } catch (error) {
         log.error('Failed to load notes data:', error)
@@ -192,21 +192,21 @@ export const BrowseMode = ({
     case 'created':
       return [...filteredNotes].sort((a, b) => a.created - b.created)
     case 'type':
-      return [...filteredNotes].sort((a, b) => a.typeId.localeCompare(b.typeId))
+      return [...filteredNotes].sort((a, b) => a.bundleId.localeCompare(b.bundleId))
     default:
       return filteredNotes
     }
   }, [notes, searchQuery, sortBy])
 
   const noteStats = useMemo(() => {
-    if (!notes.length) return { total: 0, noteTypes: {}, tags: {} }
+    if (!notes.length) return { total: 0, bundles: {}, tags: {} }
 
     const typeStats = {}
     const tagStats = {}
 
     for (const note of notes) {
       // Count by note type
-      const typeName = noteTypes[note.typeId]?.name || 'Unknown'
+      const typeName = bundles[note.bundleId]?.name || 'Unknown'
       typeStats[typeName] = (typeStats[typeName] || 0) + 1
 
       // Count by tags
@@ -217,13 +217,13 @@ export const BrowseMode = ({
 
     return {
       total: notes.length,
-      noteTypes: typeStats,
+      bundles: typeStats,
       tags: tagStats,
       avgFieldsPerNote: notes.reduce((sum, note) => {
         return sum + (note.fields?.length || 0)
       }, 0) / notes.length
     }
-  }, [notes, noteTypes])
+  }, [notes, bundles])
 
   const handleStartStudy = () => {
     if (!selectedDeck || notes.length === 0) return
@@ -255,7 +255,7 @@ export const BrowseMode = ({
           <Chip color="primary" variant="soft">
             {noteStats.total} notes
           </Chip>
-          {Object.entries(noteStats.noteTypes).map(([typeName, count]) => (
+          {Object.entries(noteStats.bundles).map(([typeName, count]) => (
             <Chip key={typeName} color="neutral" variant="outlined">
               {count} {typeName}
             </Chip>
@@ -307,7 +307,7 @@ export const BrowseMode = ({
 
       {/* Notes Table */}
       <Box sx={{ flex: 1, overflow: 'auto' }}>
-        <NoteTable notes={processedNotes} noteTypes={noteTypes} onStartStudy={onStartStudy} />
+        <NoteTable notes={processedNotes} bundles={bundles} onStartStudy={onStartStudy} />
       </Box>
     </Box>
   )

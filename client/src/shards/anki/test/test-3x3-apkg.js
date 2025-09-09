@@ -63,9 +63,9 @@ async function test3x3Apkg() {
       console.log('\n🔧 Applying our deck name extraction logic:')
       let deckName = 'Anki Deck'
 
-      for (const deckId of cardDecks) {
-        const deck = decks[deckId]
-        console.log(`\n🔍 Checking deck ${deckId}:`)
+      for (const bundleId of cardDecks) {
+        const deck = decks[bundleId]
+        console.log(`\n🔍 Checking deck ${bundleId}:`)
         console.log(`  • Found: ${!!deck}`)
         if (deck) {
           console.log(`  • Name: "${deck.name}"`)

@@ -56,17 +56,17 @@ export async function setupDemo() {
     // Create sample geography notes
     const geoNotes = [
       {
-        typeId: geoTypeId,
+        bundleId: geoTypeId,
         fields: ['France', 'Paris', '🇫🇷', 'Western Europe'],
         tags: ['europe', 'country']
       },
       {
-        typeId: geoTypeId,
+        bundleId: geoTypeId,
         fields: ['Japan', 'Tokyo', '🇯🇵', 'East Asia'],
         tags: ['asia', 'country']
       },
       {
-        typeId: geoTypeId,
+        bundleId: geoTypeId,
         fields: ['Brazil', 'Brasília', '🇧🇷', 'South America'],
         tags: ['south-america', 'country']
       }
@@ -75,29 +75,29 @@ export async function setupDemo() {
     // Create sample basic notes
     const basicNotes = [
       {
-        typeId: basicTypeId,
+        bundleId: basicTypeId,
         fields: ['What is the capital of Australia?', 'Canberra'],
         tags: ['geography', 'basic']
       },
       {
-        typeId: basicTypeId,
+        bundleId: basicTypeId,
         fields: ['2 + 2 = ?', '4'],
         tags: ['math', 'basic']
       }
     ]
 
     // Demo deck and shard IDs
-    const deckId = 'demo-deck'
+    const bundleId = 'demo-deck'
     const shardId = 'demo-shard'
 
     // Create geography notes (each generates 4 cards)
     log.info('📝 Creating geography notes...')
     for (const noteData of geoNotes) {
       const result = await ankiApi.createNote(
-        noteData.typeId,
+        noteData.bundleId,
         noteData.fields,
         noteData.tags,
-        deckId,
+        bundleId,
         shardId
       )
       log.debug(`Created note ${result.note.id} with ${result.cards.length} cards`)
@@ -107,17 +107,17 @@ export async function setupDemo() {
     log.info('📝 Creating basic notes...')
     for (const noteData of basicNotes) {
       const result = await ankiApi.createNote(
-        noteData.typeId,
+        noteData.bundleId,
         noteData.fields,
         noteData.tags,
-        deckId,
+        bundleId,
         shardId
       )
       log.debug(`Created note ${result.note.id} with ${result.cards.length} cards`)
     }
 
     // Get stats
-    const cards = await ankiApi.getCardsForDeck(deckId)
+    const cards = await ankiApi.getCardsForDeck(bundleId)
     const totalCards = cards.length
     const geoCards = geoNotes.length * 4 // 4 templates per geography note
     const basicCards = basicNotes.length * 1 // 1 template per basic note
@@ -128,7 +128,7 @@ export async function setupDemo() {
     log.info(`   • ${basicCards} basic cards (from ${basicNotes.length} notes)`)
 
     return {
-      deckId,
+      bundleId,
       shardId,
       totalCards,
       cards
@@ -145,8 +145,8 @@ export async function demoMultiCard() {
   log.info('🔍 Demonstrating multi-card feature...')
 
   try {
-    const deckId = 'demo-deck'
-    const cards = await ankiApi.getCardsForDeck(deckId)
+    const bundleId = 'demo-deck'
+    const cards = await ankiApi.getCardsForDeck(bundleId)
 
     // Find cards from same note (same noteId)
     const cardsByNote = new Map()
@@ -183,10 +183,10 @@ export async function cleanupDemo() {
   log.info('🧹 Cleaning up demo data...')
 
   try {
-    const deckId = 'demo-deck'
+    const bundleId = 'demo-deck'
     const shardId = 'demo-shard'
 
-    const cards = await ankiApi.getCardsForDeck(deckId)
+    const cards = await ankiApi.getCardsForDeck(bundleId)
     const noteIds = [...new Set(cards.map(c => c.noteId))]
 
     // Remove all notes from shard (triggers cleanup)

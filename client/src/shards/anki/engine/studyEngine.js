@@ -34,7 +34,7 @@ export class StudyEngine {
 
     log.info('Study session initialized:', {
       day: ss.day,
-      deckIds: ss.deckIds
+      bundleIds: ss.bundleIds
     })
 
     return ss
@@ -45,15 +45,15 @@ export class StudyEngine {
     const now = Date.now()
     const ss = this.session.getState()
 
-    // Get new cards for decks (optimized database query using mirrored state)
+    // Get new cards for bundles (optimized database query using mirrored state)
     let newCards = await db.cards
-      .where('deckId').anyOf(ss.deckIds)
+      .where('bundleId').anyOf(ss.bundleIds)
       .and(card => card.state === 'New')
       .toArray()
 
     // Get due cards for review (optimized database query using mirrored due)
     let dueCards = await db.cards
-      .where('deckId').anyOf(ss.deckIds)
+      .where('bundleId').anyOf(ss.bundleIds)
       .and(card => card.state !== 'New' && card.due <= now)
       .orderBy('due')
       .toArray()

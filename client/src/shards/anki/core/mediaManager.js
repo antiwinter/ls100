@@ -1,11 +1,12 @@
 import db from '../storage/db.js'
 import { log } from '../../../utils/logger'
+import { genNvId } from '../../../utils/idGenerator.js'
 
 // Media file management for Anki cards
 export class MediaManager {
   constructor() {
     // Unified KV cache structure:
-    // key: "deckId-filename"
+    // key: "filename" (global media)
     // value: {
     //   dataUrl?: string,     // Generated data URL for templates (hot path)
     //   size?: number,        // File size for statistics
@@ -19,7 +20,7 @@ export class MediaManager {
   }
 
   // Get or load media metadata into unified cache
-  async _ensureMetadata(cacheKey, filename, _deckId) {
+  async _ensureMetadata(cacheKey, filename) {
     let cached = this.mediaCache.get(cacheKey)
 
     // If we have complete metadata, return it
@@ -58,8 +59,8 @@ export class MediaManager {
   }
 
   // Get data URL for media (with caching) - primary method for template rendering
-  async getMediaDataUrl(filename, deckId) {
-    const cacheKey = `${deckId}-${filename}`
+  async getMediaDataUrl(filename) {
+    const cacheKey = filename
 
     // Check if dataUrl already cached
     let cached = this.mediaCache.get(cacheKey)
@@ -94,11 +95,11 @@ export class MediaManager {
   }
 
   // Get media metadata for statistics (returns metadata without blobs)
-  async getDeckMediaStats(deckId) {
+  async getDeckMediaStats(bundleId) {
     try {
-      const mediaRecords = await db.media.where('deckId').equals(deckId).toArray()
+      const mediaRecords = await db.media.where('bundleId').equals(bundleId).toArray()
       return mediaRecords.map(record => {
-        const cacheKey = `${deckId}-${record.filename}`
+        const cacheKey = `${bundleId}-${record.filename}`
         // Update cache with metadata while we have it
         const cached = this.mediaCache.get(cacheKey)
         const metadata = {
@@ -117,11 +118,11 @@ export class MediaManager {
   }
 
   // Get media metadata for multiple decks (for statistics)
-  async getDecksMediaStats(deckIds) {
+  async getDecksMediaStats(bundleIds) {
     try {
-      const mediaRecords = await db.media.where('deckId').anyOf(deckIds).toArray()
+      const mediaRecords = await db.media.where('bundleId').anyOf(bundleIds).toArray()
       return mediaRecords.map(record => {
-        const cacheKey = `${record.deckId}-${record.filename}`
+        const cacheKey = `${record.bundleId}-${record.filename}`
         // Update cache with metadata while we have it
         const cached = this.mediaCache.get(cacheKey)
         const metadata = {
@@ -140,7 +141,7 @@ export class MediaManager {
   }
 
   // Replace media URLs in HTML content
-  async replaceMediaUrls(html, deckId) {
+  async replaceMediaUrls(html, bundleId) {
     if (!html || typeof html !== 'string') {
       return html
     }
@@ -155,7 +156,7 @@ export class MediaManager {
 
     // Replace each media reference
     for (const filename of mediaReferences) {
-      const dataUrl = await this.getMediaDataUrl(filename, deckId)
+      const dataUrl = await this.getMediaDataUrl(filename, bundleId)
       if (dataUrl) {
         // Replace src attributes with data URL
         const patterns = [
@@ -177,28 +178,140 @@ export class MediaManager {
     return processedHtml
   }
 
-  // Extract media file references from HTML
+  // Extract media NvIds from cooked HTML content
   extractMediaReferences(html) {
-    const references = new Set()
+    const nvIds = new Set()
+    if (!html || typeof html !== 'string') {
+      return []
+    }
 
-    // Match src attributes in img, audio, video tags
-    const srcPattern = /src=["']?([^"'\s>]+\.(jpg|jpeg|png|gif|webp|svg|mp3|wav|ogg|mp4|webm))["']?/gi
+    // Match src attributes containing NvIds (12+ alphanumeric characters)
+    const srcPattern = /src=["']?([a-zA-Z0-9]{12,})["']?/gi
     let match
 
     while ((match = srcPattern.exec(html)) !== null) {
-      const filename = match[1]
-      // Only include relative paths (Anki media files)
-      if (!filename.startsWith('http') && !filename.startsWith('data:') && !filename.startsWith('/')) {
-        references.add(filename)
+      const possibleNvId = match[1]
+      // Basic NvId validation: should be 12+ characters, alphanumeric
+      if (possibleNvId.length >= 12 && /^[a-zA-Z0-9]+$/.test(possibleNvId)) {
+        nvIds.add(possibleNvId)
       }
     }
 
-    return Array.from(references)
+    return Array.from(nvIds)
   }
 
   // Helper: Escape special regex characters
   escapeRegExp(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  }
+
+  // Add media from raw content with blob context (Raw → Cooked)
+  async addMedia(content, mediaBlobs) {
+    if (!content || typeof content !== 'string') return content
+    if (!mediaBlobs) {
+      throw new Error('mediaBlobs required for addMedia - cannot add media without blob data')
+    }
+
+    let cookedContent = content
+
+    // Extract filenames and replace with NvIds
+    const srcPattern = /src=["']?([^"'\s>]+\.(jpg|jpeg|png|gif|webp|svg|mp3|wav|ogg|mp4|webm))["']?/gi
+
+    cookedContent = await this._replaceAsync(cookedContent, srcPattern, async (match, filename) => {
+      if (!mediaBlobs[filename]) {
+        throw new Error(`Media blob not found for filename: ${filename}`)
+      }
+
+      // Generate NvId from blob content
+      const mediaData = mediaBlobs[filename]
+      const nvId = await genNvId('media', mediaData.blob)
+
+      // Upsert media record
+      const existingMedia = await db.media.get(nvId)
+      if (existingMedia) {
+        // Media exists: increment refCount
+        await db.media.where('id').equals(nvId).modify(media => {
+          media.refCount = (media.refCount || 0) + 1
+        })
+      } else {
+        // New media: create record
+        await db.media.put({
+          id: nvId,
+          filename,
+          blob: mediaData.blob,
+          size: mediaData.size,
+          type: mediaData.type,
+          refCount: 1,
+          imported: Date.now()
+        })
+      }
+
+      // Replace filename with NvId
+      return match.replace(filename, nvId)
+    })
+
+    return cookedContent
+  }
+
+  // Remove media references from cooked content (decrement refCount, auto-cleanup)
+  async removeMedia(content) {
+    if (!content || typeof content !== 'string') return []
+
+    const nvIds = this.extractMediaReferences(content)
+    for (const nvId of nvIds) {
+      // Decrement refCount
+      await db.media.where('id').equals(nvId).modify(media => {
+        media.refCount = Math.max(0, (media.refCount || 1) - 1)
+      })
+
+      // Auto-cleanup if refCount reaches 0
+      const media = await db.media.get(nvId)
+      if (media && media.refCount <= 0) {
+        await db.media.delete(nvId)
+        this.mediaCache.delete(nvId)
+        log.info(`🗑️ Auto-removed unused media: ${nvId}`)
+      }
+    }
+    return nvIds
+  }
+
+  // Retain media references from cooked content (increment refCount for existing NvIds)
+  async retainMedia(content) {
+    if (!content || typeof content !== 'string') return []
+
+    const nvIds = this.extractMediaReferences(content)
+    for (const nvId of nvIds) {
+      await db.media.where('id').equals(nvId).modify(media => {
+        media.refCount = (media.refCount || 0) + 1
+      })
+    }
+    return nvIds
+  }
+
+  // Helper: Async string replacement
+  async _replaceAsync(str, regex, asyncFn) {
+    const promises = []
+    const matches = []
+
+    // Collect all matches first
+    str.replace(regex, (match, ...args) => {
+      matches.push({ match, args })
+      return match
+    })
+
+    // Process matches with async function
+    for (const { match, args } of matches) {
+      promises.push(asyncFn(match, ...args))
+    }
+
+    const replacements = await Promise.all(promises)
+
+    // Apply replacements
+    let result = str
+    let index = 0
+    result = result.replace(regex, () => replacements[index++])
+
+    return result
   }
 
   // Clear cache for memory management
@@ -208,10 +321,10 @@ export class MediaManager {
   }
 
   // Remove media files for multiple decks (cleanup)
-  async removeDecksMedia(deckIds) {
+  async removeDecksMedia(bundleIds) {
     try {
       // Get all media records for deletion
-      const decksMedia = await db.media.where('deckId').anyOf(deckIds).toArray()
+      const decksMedia = await db.media.where('bundleId').anyOf(bundleIds).toArray()
 
       for (const media of decksMedia) {
         await db.media.delete(media.id)
@@ -219,7 +332,7 @@ export class MediaManager {
         this.mediaCache.delete(media.id)
       }
 
-      log.debug(`Removed ${decksMedia.length} media files for decks: ${deckIds.join(', ')}`)
+      log.debug(`Removed ${decksMedia.length} media files for decks: ${bundleIds.join(', ')}`)
       return decksMedia.length
     } catch (error) {
       log.error('Failed to remove decks media:', error)
@@ -228,9 +341,9 @@ export class MediaManager {
   }
 
   // Get storage usage statistics for multiple decks
-  async getMediaStatsForDecks(deckIds) {
+  async getMediaStatsForDecks(bundleIds) {
     try {
-      const decksMedia = await this.getDecksMediaStats(deckIds)
+      const decksMedia = await this.getDecksMediaStats(bundleIds)
       const totalSize = decksMedia.reduce((sum, media) => sum + (media.size || 0), 0)
 
       return {

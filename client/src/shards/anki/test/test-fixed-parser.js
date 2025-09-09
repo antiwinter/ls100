@@ -45,8 +45,8 @@ function extractDeckName(decks, cards) {
     const cardDeckIds = [...new Set(cards.map(c => c.did))]
     log.debug('Card deck IDs:', cardDeckIds)
 
-    for (const deckId of cardDeckIds) {
-      const deck = decks[deckId]
+    for (const bundleId of cardDeckIds) {
+      const deck = decks[bundleId]
       if (deck && deck.name && deck.name !== 'Default') {
         deckName = deck.name
         log.debug(`Using deck name from cards: "${deckName}"`)

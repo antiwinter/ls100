@@ -2,6 +2,7 @@ import JSZip from 'jszip'
 import initSqlJs from 'sql.js'
 import ankiApi from '../core/ankiApi'
 import noteManager from '../core/noteManager'
+import mediaManager from '../core/mediaManager'
 import { log } from '../../../utils/logger'
 import { genNvId } from '../../../utils/idGenerator.js'
 
@@ -46,7 +47,7 @@ export const parseApkgFile = async (file) => {
     const dbBuffer = await dbFile.async('uint8array')
     const db = new SQL.Database(dbBuffer)
 
-    // Get colSample for noteTypes extraction
+    // Get colSample for bundles extraction
     const colSampleStmt = db.prepare('SELECT * FROM col LIMIT 1')
     const colSample = colSampleStmt.step() ? colSampleStmt.getAsObject() : null
     colSampleStmt.free()
@@ -55,7 +56,7 @@ export const parseApkgFile = async (file) => {
     const collection = parseCollection(db)
 
     // Use the models data we already extracted (workaround for parseNoteTypes db access issue)
-    const noteTypes = colSample && colSample.models
+    const bundles = colSample && colSample.models
       ? JSON.parse(colSample.models)
       : parseNoteTypes(db)
 
@@ -64,7 +65,7 @@ export const parseApkgFile = async (file) => {
 
     // Parse notes and cards
     const notes = parseNotes(db)
-    const cards = parseCards(db, notes, noteTypes)
+    const cards = parseCards(db, notes, bundles)
 
     // Extract media files
     const media = await parseMedia(zipData)
@@ -78,8 +79,8 @@ export const parseApkgFile = async (file) => {
       // Find deck that contains the cards
       const cardDeckIds = [...new Set(cards.map(c => c.did))]
 
-      for (const deckId of cardDeckIds) {
-        const deck = decks[deckId]
+      for (const bundleId of cardDeckIds) {
+        const deck = decks[bundleId]
         if (deck && deck.name && deck.name !== 'Default') {
           deckName = deck.name
           break
@@ -100,7 +101,7 @@ export const parseApkgFile = async (file) => {
 
     const result = {
       collection,
-      noteTypes,
+      bundles,
       decks,
       name: deckName,
       notes,
@@ -227,7 +228,7 @@ const parseNotes = (db) => {
 }
 
 // Parse cards
-const parseCards = (db, notes, noteTypes) => {
+const parseCards = (db, notes, bundles) => {
   try {
     const stmt = db.prepare('SELECT * FROM cards')
     const cards = []
@@ -238,7 +239,7 @@ const parseCards = (db, notes, noteTypes) => {
       const note = noteMap.get(row.nid)
 
       if (note) {
-        const noteType = noteTypes[note.mid]
+        const bundle = bundles[note.mid]
 
         cards.push({
           id: row.id,
@@ -262,7 +263,7 @@ const parseCards = (db, notes, noteTypes) => {
           data: row.data,
           // Additional computed fields
           note: note,
-          noteType: noteType
+          bundle: bundle
         })
       }
     }
@@ -312,64 +313,76 @@ const parseMedia = async (zipData) => {
 }
 
 // Convert parsed Anki data to new note+template structure and import
-export const importApkgData = async (parsedData, deckId) => {
+export const importApkgData = async (parsedData) => {
   try {
     log.info('Converting Anki data to new note+template structure...')
 
-    const { noteTypes, notes: ankiNotes, media } = parsedData
+    const { bundles, notes: ankiNotes, media } = parsedData
     const createdNotes = []
+    const bundleIds = []
+    const bundleMap = new Map() // modelId -> bundleId
 
-    // 1. Create NoteTypes and Templates
-    for (const [modelId, model] of Object.entries(noteTypes)) {
-      const noteTypeId = await genNvId('notetype', `anki-${modelId}`)
+    // 1. Create Bundles and Templates (one bundle per Anki note type)
+    for (const [modelId, model] of Object.entries(bundles)) {
+      const bundleId = await genNvId('bundle', `${model.name}-${JSON.stringify(model.flds.map(f => f.name))}`)
+      bundleMap.set(modelId, bundleId)
+      bundleIds.push(bundleId)
 
       // Extract field names
       const fields = model.flds.map(field => field.name)
 
-      // Create noteType
-      await noteManager.createType(noteTypeId, model.name, fields)
-      log.debug(`Created noteType: ${model.name}`)
+      // Create bundle
+      await noteManager.createType(bundleId, model.name, fields)
+      log.debug(`Created bundle: ${model.name}`)
 
-      // Create templates
+      // Create templates with cooked formats
       for (const template of model.tmpls) {
+        // Cook template formats: filename → NvId + increment refCount
+        const cookedQfmt = await mediaManager.addMedia(template.qfmt, media)
+        const cookedAfmt = await mediaManager.addMedia(template.afmt, media)
+
         await noteManager.createTemplate(
-          noteTypeId,
+          bundleId,
           template.name,
-          template.qfmt,
-          template.afmt,
+          cookedQfmt,
+          cookedAfmt,
           template.ord
         )
         log.debug(`Created template: ${template.name}`)
       }
     }
 
-    // 2. Import Notes
+    // 2. Import Notes with cooked fields
     for (const ankiNote of ankiNotes) {
-      const noteTypeId = await genNvId('notetype', `anki-${ankiNote.mid}`)
+      const bundleId = bundleMap.get(ankiNote.mid.toString())
+
+      // Cook fields: filename → NvId + increment refCount
+      const cookedFields = []
+      for (const field of ankiNote.flds) {
+        const cookedField = await mediaManager.addMedia(field, media)
+        cookedFields.push(cookedField)
+      }
 
       const result = await ankiApi.createNote(
-        noteTypeId,
-        ankiNote.flds,
-        ankiNote.tags,
-        deckId
+        bundleId,
+        cookedFields,
+        ankiNote.tags
       )
 
       createdNotes.push(result)
     }
 
-    // 3. Store media files
-    if (Object.keys(media).length > 0) {
-      await importMediaFiles(media, deckId)
-      log.debug(`Media files imported: ${Object.keys(media).length}`)
-    }
+    // 3. Media files are already imported during field/template cooking
+    // No need for separate media import step
 
     log.info('✅ Import complete:')
-    log.info(`   • NoteTypes: ${Object.keys(noteTypes).length}`)
+    log.info(`   • NoteTypes: ${Object.keys(bundles).length}`)
     log.info(`   • Notes: ${createdNotes.length}`)
     log.info(`   • Cards: ${createdNotes.reduce((sum, n) => sum + n.cards.length, 0)}`)
 
     return {
-      noteTypes: Object.keys(noteTypes).length,
+      bundleIds,
+      bundles: Object.keys(bundles).length,
       notes: createdNotes.length,
       cards: createdNotes.reduce((sum, n) => sum + n.cards.length, 0),
       media: Object.keys(media).length
@@ -381,25 +394,8 @@ export const importApkgData = async (parsedData, deckId) => {
   }
 }
 
-// Import media files to IndexedDB
-const importMediaFiles = async (media, deckId) => {
-  const { default: db } = await import('../storage/db.js')
-
-  for (const [filename, mediaData] of Object.entries(media)) {
-    const mediaRecord = {
-      id: `${deckId}-${filename}`,
-      filename,
-      deckId,
-      blob: mediaData.blob,
-      size: mediaData.size,
-      type: mediaData.type,
-      imported: Date.now()
-    }
-
-    await db.media.put(mediaRecord)
-
-  }
-}
+// Media files are now imported automatically during addMedia() calls
+// No separate media import function needed
 
 export default {
   parseApkgFile,

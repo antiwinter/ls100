@@ -12,12 +12,12 @@ export class AnkiApi {
   }
 
   // Create note with cards
-  async createNote(typeId, fields, tags, deckId) {
+  async createNote(bundleId, fields, tags) {
     // Create note
-    const note = await this.noteManager.create(typeId, fields, tags)
+    const note = await this.noteManager.create(bundleId, fields, tags)
 
     // Generate cards
-    const cards = await this.cardGen.genCardsForNote(note.id, deckId)
+    const cards = await this.cardGen.genCardsForNote(note.id, bundleId)
 
     return { note, cards }
   }
@@ -29,28 +29,28 @@ export class AnkiApi {
   }
 
   // Get cards for deck
-  async getCardsForDeck(deckId) {
-    return await this.cardGen.getCardsForDeck(deckId)
+  async getCardsForDeck(bundleId) {
+    return await this.cardGen.getCardsForDeck(bundleId)
   }
 
   // Get all cards for decks (efficient Dexie query)
-  async getCardsForDecks(deckIds) {
-    if (!deckIds || deckIds.length === 0) {
-      log.debug('No deckIds provided')
+  async getCardsForDecks(bundleIds) {
+    if (!bundleIds || bundleIds.length === 0) {
+      log.debug('No bundleIds provided')
       return []
     }
 
-    return await db.cards.where('deckId').anyOf(deckIds).toArray()
+    return await db.cards.where('bundleId').anyOf(bundleIds).toArray()
   }
 
   // Cleanup all data for deck IDs
-  async cleanupDecks(deckIds) {
+  async cleanupDecks(bundleIds) {
     let totalCards = 0
     const allNoteIds = new Set()
 
     // Delete all cards for these decks
-    for (const deckId of deckIds) {
-      const cards = await this.cardGen.getCardsForDeck(deckId)
+    for (const bundleId of bundleIds) {
+      const cards = await this.cardGen.getCardsForDeck(bundleId)
       totalCards += cards.length
 
       for (const card of cards) {
@@ -72,7 +72,7 @@ export class AnkiApi {
     }
 
     log.debug('Decks cleanup completed:', {
-      deckIds,
+      bundleIds,
       cards: totalCards,
       notes: notesRemoved
     })
@@ -87,8 +87,8 @@ export class AnkiApi {
 
 
   // Get media statistics for multiple decks
-  async getMediaStatsForDecks(deckIds) {
-    return await mediaManager.getMediaStatsForDecks(deckIds)
+  async getMediaStatsForDecks(bundleIds) {
+    return await mediaManager.getMediaStatsForDecks(bundleIds)
   }
 }
 

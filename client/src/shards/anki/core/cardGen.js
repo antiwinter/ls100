@@ -7,25 +7,25 @@ import { genId } from '../../../utils/idGenerator.js'
 // Card generation from notes + templates
 export class CardGenerator {
   // Generate cards for note in specific deck
-  async genCardsForNote(noteId, deckId) {
+  async genCardsForNote(noteId, bundleId) {
     const note = await noteManager.get(noteId)
     if (!note) throw new Error(`Note not found: ${noteId}`)
 
-    const noteType = await noteManager.getType(note.typeId)
-    if (!noteType) throw new Error(`NoteType not found: ${note.typeId}`)
+    const bundle = await noteManager.getType(note.bundleId)
+    if (!bundle) throw new Error(`NoteType not found: ${note.bundleId}`)
 
-    const templates = await noteManager.getTemplates(note.typeId)
-    const engine = new TemplateEngine(noteType)
+    const templates = await noteManager.getTemplates(note.bundleId)
+    const engine = new TemplateEngine(bundle)
     const cards = []
 
     for (const template of templates) {
       if (engine.wouldRender(template.qfmt, note.fields)) {
         const now = Date.now()
         const card = {
-          id: await genId('card', noteId + template.ord + deckId),
+          id: await genId('card', noteId + template.ord + bundleId),
           noteId,
           templateOrd: template.ord,
-          deckId,
+          bundleId,
           // Default scheduling
           due: now,
           state: 'New', // FSRS state mirrored for fast queries
@@ -49,15 +49,15 @@ export class CardGenerator {
     if (!card) throw new Error(`Card not found: ${cardId}`)
 
     const note = await noteManager.get(card.noteId)
-    const noteType = await noteManager.getType(note.typeId)
-    const templates = await noteManager.getTemplates(note.typeId)
+    const bundle = await noteManager.getType(note.bundleId)
+    const templates = await noteManager.getTemplates(note.bundleId)
     const template = templates.find(t => t.ord === card.templateOrd)
 
     if (!template) throw new Error(`Template not found: ${card.templateOrd}`)
 
     // Use new TemplateRenderer with media support
-    const renderer = new TemplateRenderer(noteType)
-    const rendered = await renderer.render(template, note.fields, card.deckId)
+    const renderer = new TemplateRenderer(bundle)
+    const rendered = await renderer.render(template, note.fields, card.bundleId)
 
     return {
       id: card.id,
@@ -75,8 +75,8 @@ export class CardGenerator {
   // Legacy updateCard method removed - FSRS updates handled by studyEngine directly
 
   // Get cards for deck
-  async getCardsForDeck(deckId) {
-    return await db.cards.where('deckId').equals(deckId).toArray()
+  async getCardsForDeck(bundleId) {
+    return await db.cards.where('bundleId').equals(bundleId).toArray()
   }
 
   // Get all cards

@@ -31,7 +31,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
       }
 
       // Get cards for this shard
-      const cards = await ankiApi.getCardsForDecks(shard.metadata?.deckIds)
+      const cards = await ankiApi.getCardsForDecks(shard.metadata?.bundleIds)
 
       // Get unique notes from cards
       const noteIds = [...new Set(cards.map(c => c.noteId))]
@@ -48,8 +48,8 @@ const AnkiReaderContent = ({ shard, onBack }) => {
       const validNotes = notes.filter(Boolean)
 
       // Get media stats
-      const mediaStats = shard.metadata?.deckIds?.length > 0
-        ? await ankiApi.getMediaStatsForDecks(shard.metadata.deckIds)
+      const mediaStats = shard.metadata?.bundleIds?.length > 0
+        ? await ankiApi.getMediaStatsForDecks(shard.metadata.bundleIds)
         : { fileCount: 0, totalSize: 0, totalSizeMB: '0.00' }
 
       const data = {
@@ -104,8 +104,8 @@ const AnkiReaderContent = ({ shard, onBack }) => {
     }
 
     try {
-      // Configure session store with shard's deckIds before initializing engine
-      sessionStore.setState({ deckIds: shard.metadata?.deckIds || [] })
+      // Configure session store with shard's bundleIds before initializing engine
+      sessionStore.setState({ bundleIds: shard.metadata?.bundleIds || [] })
 
       // Create study engine and initialize session
       const engine = new StudyEngine(sessionStore)
@@ -117,7 +117,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
       const sessionState = sessionStore.getState()
       log.info('Study session started:', {
         shardId: shard.id,
-        deckIds: sessionState.deckIds,
+        bundleIds: sessionState.bundleIds,
         day: sessionState.day,
         newCards: sessionState.pile?.new?.length || 0,
         reviewCards: sessionState.pile?.review?.length || 0,

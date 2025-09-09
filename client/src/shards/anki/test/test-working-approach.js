@@ -30,9 +30,9 @@ async function testWorkingApproach() {
     // Apply our fixed logic
     let deckName = 'Anki Deck'
 
-    for (const deckId of cardDeckIds) {
-      const deck = decks[deckId]
-      console.log(`\n🔍 Looking up deck ${deckId}:`)
+    for (const bundleId of cardDeckIds) {
+      const deck = decks[bundleId]
+      console.log(`\n🔍 Looking up deck ${bundleId}:`)
       console.log(`  • Found: ${!!deck}`)
       if (deck) {
         console.log(`  • Name: "${deck.name}"`)

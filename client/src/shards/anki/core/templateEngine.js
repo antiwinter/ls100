@@ -3,24 +3,24 @@ import mediaManager from './mediaManager'
 
 // Template renderer for Anki cards with media support
 export class TemplateRenderer {
-  constructor(noteType) {
-    this.noteType = noteType
-    this.fieldNames = noteType.fields.map(f => f.name || f)
+  constructor(bundle) {
+    this.bundle = bundle
+    this.fieldNames = bundle.fields.map(f => f.name || f)
   }
 
   // Main render method - returns both question and answer
-  async render(template, noteFields, deckId, frontSideContent = null) {
+  async render(template, noteFields, bundleId, frontSideContent = null) {
     const qContent = template.qfmt || ''
     const aContent = template.afmt || ''
 
     // Render question
-    const renderedQuestion = await this._replaceFields(qContent, noteFields, deckId)
+    const renderedQuestion = await this._replaceFields(qContent, noteFields, bundleId)
 
     // Render answer (may include FrontSide)
     const renderedAnswer = await this._replaceFields(
       aContent,
       noteFields,
-      deckId,
+      bundleId,
       frontSideContent || renderedQuestion
     )
 
@@ -31,7 +31,7 @@ export class TemplateRenderer {
   }
 
   // Replace fields and process media URLs
-  async _replaceFields(content, noteFields, deckId, frontSide = '') {
+  async _replaceFields(content, noteFields, bundleId, frontSide = '') {
     let result = content
 
     // Replace {{FrontSide}} with question content
@@ -48,7 +48,7 @@ export class TemplateRenderer {
     })
 
     // Process media URLs
-    result = await mediaManager.replaceMediaUrls(result, deckId)
+    result = await mediaManager.replaceMediaUrls(result, bundleId)
 
     return result
   }
@@ -83,8 +83,8 @@ export class TemplateRenderer {
 
 // Legacy TemplateEngine for backward compatibility
 export class TemplateEngine {
-  constructor(noteType) {
-    this.renderer = new TemplateRenderer(noteType)
+  constructor(bundle) {
+    this.renderer = new TemplateRenderer(bundle)
   }
 
   render(template, noteFields, frontSide = '') {
