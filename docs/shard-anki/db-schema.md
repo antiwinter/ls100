@@ -12,7 +12,7 @@ This document outlines the bundle-based database schema for Anki shards in ls100
 | **Deck** | `did` | **VDeck** | `vdeck[]` | Organizational unit (now tag-based) |
 | **Note** | `nid` | **Note** | `noteId` | Content instance |
 | **Card** | `cid` | **Card** | `cardId` | Study unit |
-| **Template** | `ord` | **Template** | `ord` | Card generation rule |
+| **Template** | `ord, did` | **Template** | `ord, vdeck` | Card generation rule |
 | **Media** | _(global)_ | **Media** | _(global)_ | Resource files |
 | **Virtual Deck** | _(none)_ | **VDeck** | `vdeck[]` | Organizational tags on cards |
 
@@ -56,14 +56,14 @@ db.version(1).stores({
 ### templates
 ```javascript
 // Template: Card generation rules for bundles
-// Schema: { id, bundleId, name, qfmt, afmt, ord, targetVDecks?, created }
+// Schema: { id, bundleId, name, qfmt, afmt, ord, vdeck?, created }
 // - id: unique template identifier (NvId based on content)
 // - bundleId: reference to bundles.id
 // - name: template name (e.g., "Forward", "Reverse")
 // - qfmt: question format template (HTML with field placeholders)
 // - afmt: answer format template (HTML with field placeholders)
 // - ord: template ordinal/order within bundle, 0, 1, 2, 3...
-// - targetVDecks: optional array of vdeck names for template routing
+// - vdeck: optional single vdeck name for template routing (maps from Anki's 'did' field)
 // - created: timestamp when template was created
 // Used by: cardGen for rendering card content, noteManager for template lookup
 ```
@@ -76,7 +76,7 @@ db.version(1).stores({
 // - noteId: reference to notes.id (source note)
 // - templateOrd: template ordinal used to generate this card
 // - bundleId: reference to bundles.id (direct relationship)
-// - vdeck: array of virtual deck names for organization (e.g., ['A Started', 'Vowels'])
+// - vdeck: array of virtual deck names for organization (e.g., ['Spanish::Verbs::Present', 'High Priority'])
 // - due: next review date (timestamp) - MIRRORED from latest fsrs[0].due for fast queries
 // - state: current FSRS state (New/Learning/Review/Relearning) - MIRRORED from fsrs[0].state
 // - fsrs: array of FSRS state history [newest, older, oldest] - source of truth
@@ -114,9 +114,10 @@ Shard
 Virtual decks provide flexible organization without duplicating cards or affecting FSRS tracking.
 
 ### Concept
-- **Cards contain vdeck tags**: `card.vdeck = ['A Started', 'Vowels']`
-- **Multiple membership**: A card can belong to multiple vdecks
+- **Cards contain vdeck tags**: `card.vdeck = ['Spanish::Verbs::Present', 'High Priority']`
+- **Multiple membership**: A card can belong to multiple vdecks independently
 - **Tag-like behavior**: Similar to tags but specifically for study organization
+- **Hierarchy preservation**: Anki deck paths preserved as complete `::` strings
 - **Study filtering**: Users can study cards from specific vdeck(s)
 - **FSRS preservation**: All FSRS tracking remains with the original card
 
@@ -126,25 +127,26 @@ Virtual decks provide flexible organization without duplicating cards or affecti
 card = {
   id: 'card-123',
   bundleId: 'spanish-vocabulary',
-  vdeck: ['Beginner', 'Verbs', 'High Frequency'],
+  vdeck: ['Spanish::Verbs::Present', 'High Frequency', 'Daily Practice'],
   // ... other fields
 }
 
 // Study session filtering
-studySession.filterByVDecks(['Beginner', 'Verbs']) // Cards in either vdeck
-studySession.filterByVDecks(['Beginner'], 'all')   // Cards in all specified vdecks
+studySession.filterByVDecks(['Spanish::Verbs::Present', 'High Frequency']) // Cards in either vdeck
+studySession.filterByVDecks(['High Frequency'], 'all')   // Cards in all specified vdecks
 ```
 
 ### APKG Import Mapping
 During APKG import, original Anki decks become vdeck tags:
 
 ```javascript
-// APKG contains deck structure: Spanish > Verbs > Present Tense
+// APKG contains deck: "Spanish::Verbs::Present Tense"
 // ls100 mapping:
 card.bundleId = 'spanish-bundle'
-card.vdeck = ['Spanish', 'Verbs', 'Present Tense']
+card.vdeck = ['Spanish::Verbs::Present Tense']
 
-// Preserves original organization while simplifying structure
+// Each card belongs to the complete hierarchical deck path from Anki
+// Users can add additional independent vdecks: ['Spanish::Verbs::Present Tense', 'High Priority']
 ```
 
 ## Implementation Strategy
@@ -204,13 +206,21 @@ getMediaDataUrl(filename) // was: getMediaDataUrl(filename, deckId)
 // Create bundles directly from APKG content
 const bundleId = await genNvId('bundle', modelData + deckName)
 
-// Map Anki deck hierarchy to vdeck tags
+// Map Anki deck hierarchy to complete vdeck path
 const deckPath = getAnkiDeckPath(ankiCard.did) // e.g., "Spanish::Verbs::Present"
-card.vdeck = deckPath.split('::') // ['Spanish', 'Verbs', 'Present']
+card.vdeck = [deckPath] // ['Spanish::Verbs::Present'] - preserve complete hierarchy
+
+// Convert Anki template's 'did' field to single vdeck
+if (ankiTemplate.did) {
+  const targetDeckPath = getAnkiDeckPath(ankiTemplate.did)
+  template.vdeck = targetDeckPath // "Spanish::Verbs::Present" - complete path
+}
 
 // Template targeting during card generation
-if (template.targetVDecks) {
-  card.vdeck = [...card.vdeck, ...template.targetVDecks]
+if (template.vdeck) {
+  if (!card.vdeck.includes(template.vdeck)) {
+    card.vdeck.push(template.vdeck)
+  }
 }
 ```
 
@@ -279,14 +289,14 @@ vdeck: ['Languages', 'French'] // Tags without hierarchy enforcement
 
 ### **Template Flexibility Preserved**
 ```javascript
-// Templates can target specific vdecks during card generation
+// Templates can target a specific vdeck during card generation (like Anki)
 templates: [
-  { name: 'French Forward', targetVDecks: ['French'] },
-  { name: 'Spanish Forward', targetVDecks: ['Spanish'] },
-  { name: 'General Review', targetVDecks: ['*'] } // All vdecks
+  { name: 'French Forward', vdeck: 'French' },
+  { name: 'Spanish Forward', vdeck: 'Spanish' },
+  { name: 'General Review', vdeck: null } // No specific targeting
 ]
 
-// Card generation assigns appropriate vdeck based on template
+// Card generation assigns template's vdeck (if specified) to the card's vdeck array
 ```
 
 ### **Migration Strategy for Complex APKGs**
