@@ -48,7 +48,7 @@ export class TemplateRenderer {
     })
 
     // Process media URLs
-    result = await mediaManager.replaceMediaUrls(result, bundleId)
+    result = await mediaManager.replaceMediaUrls(result)
 
     return result
   }

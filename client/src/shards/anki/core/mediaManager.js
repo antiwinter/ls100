@@ -141,7 +141,7 @@ export class MediaManager {
   }
 
   // Replace media URLs in HTML content
-  async replaceMediaUrls(html, bundleId) {
+  async replaceMediaUrls(html) {
     if (!html || typeof html !== 'string') {
       return html
     }
@@ -156,7 +156,7 @@ export class MediaManager {
 
     // Replace each media reference
     for (const filename of mediaReferences) {
-      const dataUrl = await this.getMediaDataUrl(filename, bundleId)
+      const dataUrl = await this.getMediaDataUrl(filename)
       if (dataUrl) {
         // Replace src attributes with data URL
         const patterns = [

@@ -95,8 +95,8 @@ describe('parseApkgFile', () => {
     // Test with multi-deck APKG
   })
 
-  test('should parse media.json correctly', async () => {
-    // Test media mapping file
+  test('should parse media mapping file ("media") correctly', async () => {
+    // Test media mapping file (Anki packs mapping at path "media")
   })
 
   test('should extract numbered media files', async () => {
@@ -218,9 +218,9 @@ describe('StudyEngine.draw', () => {
   })
 
   test('should manage FSRS history properly', async () => {
-    // Test new FSRS entry creation
-    // Verify response_time initialization
-    // Test entry reuse for interrupted sessions
+    // Test new FSRS entry creation when latest is rated or stale (>24h)
+    // Verify response_time is start timestamp until rated, then duration
+    // Test entry reuse for short interruptions
   })
 
   test('should maintain action log for undo', async () => {
@@ -313,7 +313,7 @@ describe('StudyEngine.undo', () => {
   })
 
   test('should clean up FSRS interruption entries', async () => {
-    // Test FSRS entry removal on undo
+    // Test removing only unrated interruption entry on undo
     // Verify timing reset to current time
   })
 
@@ -345,6 +345,11 @@ describe('Parser-Engine Integration', () => {
     // Test API method alignment (getCardsForBundles, etc.)
   })
 
+  test('should import via processData using returned bundleIds', async () => {
+    // Ensure processData uses importApkgData result.bundleIds
+    // Verify shard.metadata.bundleIds populated from return value
+  })
+
   test('should preserve card scheduling data', async () => {
     // Test FSRS state preservation through import
     // Verify due dates and card states
@@ -358,6 +363,10 @@ describe('Database Integration', () => {
   test('should store and retrieve parsed data correctly', async () => {
     // Test note/template/card storage
     // Verify media storage and reference counting
+  })
+
+  test('should render templates with media URL replacement', async () => {
+    // Validate TemplateRenderer + mediaManager.replaceMediaUrls integration
   })
 
   test('should handle concurrent access properly', async () => {
@@ -588,6 +597,33 @@ describe('Session Persistence', () => {
   test('should handle corrupted session data', async () => {
     // Test graceful degradation with invalid state
   })
+})
+```
+
+### Core Module Unit Tests
+```javascript
+describe('TemplateRenderer', () => {
+  test('should replace fields (case-insensitive) and FrontSide', async () => {})
+  test('should replace NvIds with data URLs via mediaManager', async () => {})
+  test('wouldRender should gate empty cards', () => {})
+})
+
+describe('CardGenerator', () => {
+  test('should generate cards only when template would render', async () => {})
+  test('should set default FSRS mirrored fields (due/state/fsrs)', async () => {})
+})
+
+describe('AnkiApi', () => {
+  test('createNote should return note and cards', async () => {})
+  test('getStudyCard should return rendered Q/A with media', async () => {})
+  test('cleanupBundles should remove cards and orphan notes', async () => {})
+})
+
+describe('MediaManager', () => {
+  test('addMedia should map filenames to NvIds and upsert media', async () => {})
+  test('retainMedia/removeMedia should maintain refCounts and cleanup at 0', async () => {})
+  test('replaceMediaUrls should map NvIds to data URLs in HTML', async () => {})
+  test('getMediaDataUrl should cache data URLs', async () => {})
 })
 ```
 

@@ -109,7 +109,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
 
       // Create study engine and initialize session
       const engine = new StudyEngine(sessionStore)
-      await engine.init()
+      await engine.init(sessionStore)
 
       setStudyEngine(engine)
       setMode('study')

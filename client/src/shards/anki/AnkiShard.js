@@ -118,17 +118,20 @@ export const processData = async (shard, _apiCall) => {
 
       for (const bundle of shard.data.bundles) {
         try {
-          await importApkgData(bundle, bundle.bundleId)
+          // Import parsed APKG data; use returned bundleIds actually created by import
+          const result = await importApkgData(bundle)
 
           // Store the first bundle name for consistent cover colors
           if (!bundleName) {
             bundleName = bundle.name
           }
 
-          // Collect bundleIds for metadata
-          bundleIds.push(bundle.bundleId)
+          // Collect returned bundleIds for metadata
+          if (Array.isArray(result?.bundleIds)) {
+            bundleIds.push(...result.bundleIds)
+          }
 
-          log.info('Committed Anki import:', { bundleId: bundle.bundleId, name: bundle.name })
+          log.info('Committed Anki import:', { bundleIds: result?.bundleIds, name: bundle.name })
         } catch (e) {
           log.error('Failed to commit Anki import:', e)
         }

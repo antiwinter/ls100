@@ -226,7 +226,7 @@ export async function demoMedia() {
 
     // Test media URL replacement
     const testHtml = '<img src="test.jpg"> and <img src="another.png">'
-    const processedHtml = await mediaManager.replaceMediaUrls(testHtml, 'demo-bundle')
+    const processedHtml = await mediaManager.replaceMediaUrls(testHtml)
     log.info('🔄 Media replacement test:', { original: testHtml, processed: processedHtml })
 
     // Get media statistics
