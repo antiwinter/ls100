@@ -184,7 +184,7 @@ export async function cleanupDemo() {
 
   try {
     const bundleId = 'demo-bundle'
-    const shardId = 'demo-shard'
+    // const shardId = 'demo-shard'
 
     const cards = await ankiApi.getCardsForBundle(bundleId)
     const noteIds = [...new Set(cards.map(c => c.noteId))]
