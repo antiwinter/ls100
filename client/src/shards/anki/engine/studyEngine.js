@@ -55,15 +55,14 @@ export class StudyEngine {
     let dueCards = await db.cards
       .where('bundleId').anyOf(ss.bundleIds)
       .and(card => card.state !== 'New' && card.due <= now)
-      .orderBy('due')
-      .toArray()
+      .sortBy('due')
 
     // Sort new cards according to user preference
     function _sort(cards) {
       switch (ss.newCardOrder) {
       case 'random': return _.shuffle(cards)
       case 'template-random':
-        return _(cards).sortBy('templateIdx').groupBy('templateIdx').values().map(_.shuffle).flatten().value()
+        return _(cards).sortBy('templateOrd').groupBy('templateOrd').values().map(_.shuffle).flatten().value()
       case 'gather': // fall through
       default:
         return cards

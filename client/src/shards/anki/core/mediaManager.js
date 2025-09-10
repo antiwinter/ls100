@@ -97,20 +97,8 @@ export class MediaManager {
   // Get media metadata for statistics (returns metadata without blobs)
   async getBundleMediaStats(bundleId) {
     try {
-      const mediaRecords = await db.media.where('bundleId').equals(bundleId).toArray()
-      return mediaRecords.map(record => {
-        const cacheKey = `${bundleId}-${record.filename}`
-        // Update cache with metadata while we have it
-        const cached = this.mediaCache.get(cacheKey)
-        const metadata = {
-          filename: record.filename,
-          size: record.size,
-          type: record.type,
-          imported: record.imported
-        }
-        this.mediaCache.set(cacheKey, { ...cached, ...metadata })
-        return metadata
-      })
+      // Delegate to getBundlesMediaStats for consistency
+      return await this.getBundlesMediaStats([bundleId])
     } catch (error) {
       log.error('Failed to get bundle media stats:', error)
       return []
@@ -120,18 +108,42 @@ export class MediaManager {
   // Get media metadata for multiple bundles (for statistics)
   async getBundlesMediaStats(bundleIds) {
     try {
-      const mediaRecords = await db.media.where('bundleId').anyOf(bundleIds).toArray()
+      // Get all media NvIds referenced by bundles
+      const mediaIds = new Set()
+
+      // Get NvIds from notes and templates for these bundles
+      const notes = await db.notes.where('bundleId').anyOf(bundleIds).toArray()
+      const templates = await db.templates.where('bundleId').anyOf(bundleIds).toArray()
+
+      // Extract media references from note fields
+      for (const note of notes) {
+        for (const field of note.fields || []) {
+          const refs = this.extractMediaReferences(field)
+          refs.forEach(ref => mediaIds.add(ref))
+        }
+      }
+
+      // Extract media references from template formats
+      for (const template of templates) {
+        const qRefs = this.extractMediaReferences(template.qfmt || '')
+        const aRefs = this.extractMediaReferences(template.afmt || '')
+        qRefs.forEach(ref => mediaIds.add(ref))
+        aRefs.forEach(ref => mediaIds.add(ref))
+      }
+
+      // Get media records for these NvIds
+      const mediaRecords = await db.media.where('id').anyOf([...mediaIds]).toArray()
+
       return mediaRecords.map(record => {
-        const cacheKey = `${record.bundleId}-${record.filename}`
         // Update cache with metadata while we have it
-        const cached = this.mediaCache.get(cacheKey)
+        const cached = this.mediaCache.get(record.id)
         const metadata = {
           filename: record.filename,
           size: record.size,
           type: record.type,
           imported: record.imported
         }
-        this.mediaCache.set(cacheKey, { ...cached, ...metadata })
+        this.mediaCache.set(record.id, { ...cached, ...metadata })
         return metadata
       })
     } catch (error) {
@@ -323,17 +335,40 @@ export class MediaManager {
   // Remove media files for multiple bundles (cleanup)
   async removeBundlesMedia(bundleIds) {
     try {
-      // Get all media records for deletion
-      const bundlesMedia = await db.media.where('bundleId').anyOf(bundleIds).toArray()
+      const mediaIds = new Set()
 
-      for (const media of bundlesMedia) {
-        await db.media.delete(media.id)
-        // Clear cache entry
-        this.mediaCache.delete(media.id)
+      // Get NvIds from notes and templates for these bundles
+      const notes = await db.notes.where('bundleId').anyOf(bundleIds).toArray()
+      const templates = await db.templates.where('bundleId').anyOf(bundleIds).toArray()
+
+      // Extract media references from note fields
+      for (const note of notes) {
+        for (const field of note.fields || []) {
+          const refs = this.extractMediaReferences(field)
+          refs.forEach(ref => mediaIds.add(ref))
+        }
       }
 
-      log.debug(`Removed ${bundlesMedia.length} media files for bundles: ${bundleIds.join(', ')}`)
-      return bundlesMedia.length
+      // Extract media references from template formats
+      for (const template of templates) {
+        const qRefs = this.extractMediaReferences(template.qfmt || '')
+        const aRefs = this.extractMediaReferences(template.afmt || '')
+        qRefs.forEach(ref => mediaIds.add(ref))
+        aRefs.forEach(ref => mediaIds.add(ref))
+      }
+
+      // Remove media files by decrementing refCount (auto-cleanup will handle deletion)
+      let removedCount = 0
+      for (const mediaId of mediaIds) {
+        const media = await db.media.get(mediaId)
+        if (media) {
+          await this.removeMedia(`<img src="${mediaId}">`) // Trigger refCount decrement
+          removedCount++
+        }
+      }
+
+      log.debug(`Processed ${removedCount} media files for bundles: ${bundleIds.join(', ')}`)
+      return removedCount
     } catch (error) {
       log.error('Failed to remove bundles media:', error)
       return 0
