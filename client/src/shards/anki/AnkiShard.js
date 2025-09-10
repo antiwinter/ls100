@@ -19,7 +19,7 @@ export const detect = async (filename, buffer) => {
   // For .apkg files, we can be highly confident
   const confidence = hasExt ? 0.95 : 0.0
 
-  // Extract deck name from file content when possible; fallback to filename
+  // Extract bundle name from file content when possible; fallback to filename
   let parsedName = null
   let parsedData = null
   if (hasExt) {
@@ -28,7 +28,7 @@ export const detect = async (filename, buffer) => {
       log.debug('Parsed data:', parsedData)
       parsedName = parsedData.name || null
     } catch (e) {
-      log.warn('Deck name extraction failed during detect; falling back to filename:', e)
+      log.warn('Bundle name extraction failed during detect; falling back to filename:', e)
     }
   }
 
@@ -36,7 +36,7 @@ export const detect = async (filename, buffer) => {
     match: hasExt,
     confidence,
     metadata: {
-      type: 'anki-deck',
+      type: 'anki-bundle',
       suggestedName: parsedName || filename.replace(/\.apkg$/i, '').replace(/[-_.]/g, ' ').trim(),
       // Store file for later processing
       file: buffer,
@@ -61,12 +61,12 @@ export const generateCover = (shard) => {
   const cardCount = metadata.totalCards || 0
 
   // Determine title with multiple fallbacks
-  let title = metadata.deckName || shard.name || 'Anki Shard'
+  let title = metadata.bundleName || shard.name || 'Anki Shard'
 
-  // If no deckName but we have decks in metadata (create mode), use first deck name
-  if (!metadata.deckName && metadata.decks?.length > 0) {
-    title = metadata.decks[0].name
-    // Also update the hash source to use the deck name for consistent colors
+  // If no bundleName but we have bundles in metadata (create mode), use first bundle name
+  if (!metadata.bundleName && metadata.bundles?.length > 0) {
+    title = metadata.bundles[0].name
+    // Also update the hash source to use the bundle name for consistent colors
   }
 
   // Create a hash for consistent color selection
@@ -108,43 +108,43 @@ export const shardTypeInfo = {
   color: '#3f51b5' // Anki blue
 }
 
-// Process shard data - commit deck imports and update counts
+// Process shard data - commit bundle imports and update counts
 export const processData = async (shard, _apiCall) => {
   try {
-    // Process decks stored in shard.data.decks
-    if (shard.data?.decks?.length > 0) {
-      let deckName = null
+    // Process bundles stored in shard.data.bundles
+    if (shard.data?.bundles?.length > 0) {
+      let bundleName = null
       const bundleIds = []
 
-      for (const deck of shard.data.decks) {
+      for (const bundle of shard.data.bundles) {
         try {
-          await importApkgData(deck, deck.bundleId)
+          await importApkgData(bundle, bundle.bundleId)
 
-          // Store the first deck name for consistent cover colors
-          if (!deckName) {
-            deckName = deck.name
+          // Store the first bundle name for consistent cover colors
+          if (!bundleName) {
+            bundleName = bundle.name
           }
 
           // Collect bundleIds for metadata
-          bundleIds.push(deck.bundleId)
+          bundleIds.push(bundle.bundleId)
 
-          log.info('Committed Anki import:', { bundleId: deck.bundleId, name: deck.name })
+          log.info('Committed Anki import:', { bundleId: bundle.bundleId, name: bundle.name })
         } catch (e) {
           log.error('Failed to commit Anki import:', e)
         }
       }
 
-      // Store deck info in metadata for lookup
+      // Store bundle info in metadata for lookup
       shard.metadata = {
         ...shard.metadata,
-        deckName,
+        bundleName,
         bundleIds
       }
     }
 
     // Get updated counts from IDB using bundleIds
     if (shard.metadata?.bundleIds?.length > 0) {
-      const cards = await ankiApi.getCardsForDecks(shard.metadata.bundleIds)
+      const cards = await ankiApi.getCardsForBundles(shard.metadata.bundleIds)
       const noteIds = [...new Set(cards.map(c => c.noteId))]
 
       // Store persistent counts in metadata
@@ -174,9 +174,9 @@ export const cleanup = async (shard, allShards = []) => {
   try {
     log.info('Cleaning up Anki shard:', shard.id)
 
-    // Remove all notes and cards for this shard's decks
+    // Remove all notes and cards for this shard's bundles
     if (shard.metadata?.bundleIds?.length > 0) {
-      await ankiApi.cleanupDecks(shard.metadata.bundleIds)
+      await ankiApi.cleanupBundles(shard.metadata.bundleIds)
     }
 
     // Check for remaining Anki shards for potential orphan cleanup

@@ -31,7 +31,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
       }
 
       // Get cards for this shard
-      const cards = await ankiApi.getCardsForDecks(shard.metadata?.bundleIds)
+      const cards = await ankiApi.getCardsForBundles(shard.metadata?.bundleIds)
 
       // Get unique notes from cards
       const noteIds = [...new Set(cards.map(c => c.noteId))]
@@ -49,7 +49,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
 
       // Get media stats
       const mediaStats = shard.metadata?.bundleIds?.length > 0
-        ? await ankiApi.getMediaStatsForDecks(shard.metadata.bundleIds)
+        ? await ankiApi.getMediaStatsForBundles(shard.metadata.bundleIds)
         : { fileCount: 0, totalSize: 0, totalSizeMB: '0.00' }
 
       const data = {
@@ -235,12 +235,12 @@ const AnkiReaderContent = ({ shard, onBack }) => {
       <Box sx={{ flex: 1, overflow: 'hidden' }}>
         {mode === 'browse' ? (
           <BrowseMode
-            selectedDeck={shardData}
+            selectedShard={shardData}
             onStartStudy={handleStartStudy}
           />
         ) : (
           <StudyMode
-            deck={shardData}
+            shard={shardData}
             studyEngine={studyEngine}
             onEndStudy={handleEndStudy}
           />

@@ -28,13 +28,13 @@ export class AnkiApi {
     return await this.cardGen.renderCard(cardId)
   }
 
-  // Get cards for deck
-  async getCardsForDeck(bundleId) {
-    return await this.cardGen.getCardsForDeck(bundleId)
+  // Get cards for bundle
+  async getCardsForBundle(bundleId) {
+    return await this.cardGen.getCardsForBundle(bundleId)
   }
 
-  // Get all cards for decks (efficient Dexie query)
-  async getCardsForDecks(bundleIds) {
+  // Get all cards for bundles (efficient Dexie query)
+  async getCardsForBundles(bundleIds) {
     if (!bundleIds || bundleIds.length === 0) {
       log.debug('No bundleIds provided')
       return []
@@ -43,14 +43,14 @@ export class AnkiApi {
     return await db.cards.where('bundleId').anyOf(bundleIds).toArray()
   }
 
-  // Cleanup all data for deck IDs
-  async cleanupDecks(bundleIds) {
+  // Cleanup all data for bundle IDs
+  async cleanupBundles(bundleIds) {
     let totalCards = 0
     const allNoteIds = new Set()
 
-    // Delete all cards for these decks
+    // Delete all cards for these bundles
     for (const bundleId of bundleIds) {
-      const cards = await this.cardGen.getCardsForDeck(bundleId)
+      const cards = await this.cardGen.getCardsForBundle(bundleId)
       totalCards += cards.length
 
       for (const card of cards) {
@@ -71,7 +71,7 @@ export class AnkiApi {
       }
     }
 
-    log.debug('Decks cleanup completed:', {
+    log.debug('Bundles cleanup completed:', {
       bundleIds,
       cards: totalCards,
       notes: notesRemoved
@@ -86,9 +86,9 @@ export class AnkiApi {
 
 
 
-  // Get media statistics for multiple decks
-  async getMediaStatsForDecks(bundleIds) {
-    return await mediaManager.getMediaStatsForDecks(bundleIds)
+  // Get media statistics for multiple bundles
+  async getMediaStatsForBundles(bundleIds) {
+    return await mediaManager.getMediaStatsForBundles(bundleIds)
   }
 }
 

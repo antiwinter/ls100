@@ -276,7 +276,7 @@ const SessionComplete = ({ sessionData, onRestart, onExit }) => {
   )
 }
 
-export const StudyMode = ({ deck, studyEngine, onEndStudy }) => {
+export const StudyMode = ({ shard, studyEngine, onEndStudy }) => {
   const [currentCard, setCurrentCard] = useState(null)
   const [showAnswer, setShowAnswer] = useState(false)
   const [progress, setProgress] = useState(null)
@@ -403,7 +403,7 @@ export const StudyMode = ({ deck, studyEngine, onEndStudy }) => {
     setError(null)
 
     // Restart session (engine already initialized)
-    if (deck && studyEngine) {
+    if (shard && studyEngine) {
       try {
         // Just restart the session, don't re-initialize the engine
         studyEngine.session.start()
@@ -416,7 +416,7 @@ export const StudyMode = ({ deck, studyEngine, onEndStudy }) => {
     }
   }
 
-  if (!studyEngine || !deck) {
+  if (!studyEngine || !shard) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
         <Alert color="warning">

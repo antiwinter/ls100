@@ -37,9 +37,8 @@ const genUUID = () => {
 
 // Generate ID: prefix-shortHash(seed)-shortUUID
 export const genId = async (prefix, seed) => {
-  const hash = await shortHash(seed)
-  const uuid = genUUID()
-  return `${prefix}-${hash}-${uuid}`
+  const x = [prefix, seed && await shortHash(seed), genUUID()]
+  return x.filter(y => y).join('-')
 }
 
 // Generate non-volatile ID: prefix-longHash(seed)

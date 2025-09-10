@@ -7,6 +7,7 @@
 
 # JS things
 * use yarn instead of npm
+* use yarn lint to check lint error
 * use js (esm style) instead of ts if possible
 * prefer short var/func names to long. e.g. db better then dbModule
 * take advantage of object member names to eliminate intermediate variables. e.g. instead of `fooBar = 5; a = {foo: fooBar}` use `foo = 5; a = {foo}`

@@ -6,7 +6,7 @@ import { genId } from '../../../utils/idGenerator.js'
 
 // Card generation from notes + templates
 export class CardGenerator {
-  // Generate cards for note in specific deck
+  // Generate cards for note in specific bundle
   async genCardsForNote(noteId, bundleId) {
     const note = await noteManager.get(noteId)
     if (!note) throw new Error(`Note not found: ${noteId}`)
@@ -74,8 +74,8 @@ export class CardGenerator {
 
   // Legacy updateCard method removed - FSRS updates handled by studyEngine directly
 
-  // Get cards for deck
-  async getCardsForDeck(bundleId) {
+  // Get cards for bundle
+  async getCardsForBundle(bundleId) {
     return await db.cards.where('bundleId').equals(bundleId).toArray()
   }
 

@@ -77,7 +77,7 @@ const UploadArea = ({ onFileSelect, loading }) => {
       {loading ? (
         <Stack spacing={2} alignItems="center">
           <CircularProgress size="lg" />
-          <Typography color="neutral">Processing deck...</Typography>
+          <Typography color="neutral">Processing bundle...</Typography>
         </Stack>
       ) : (
         <Stack spacing={2} alignItems="center">
@@ -87,7 +87,7 @@ const UploadArea = ({ onFileSelect, loading }) => {
               Drop .apkg file here or click to browse
             </Typography>
             <Typography level="body-sm" color="neutral">
-              Import Anki deck files
+              Import Anki bundle files
             </Typography>
           </div>
         </Stack>
@@ -114,26 +114,26 @@ export const AnkiShardEditor = ({
       log.info('Processing Anki file:', filename, parsedData ? '(using cached data)' : '(parsing)')
 
       const parsed = parsedData || await parseApkgFile(file)
-      const bundleId = await genId('deck', filename + parsed.name)
+      const bundleId = await genId('bundle', filename + parsed.name)
 
       // Store parsed data directly in shardData.data
-      const currentDataDecks = shardData?.data?.decks || []
+      const currentDataBundles = shardData?.data?.bundles || []
       const updatedData = {
         ...shardData?.data,
-        decks: [...currentDataDecks, { ...parsed, bundleId, filename }]
+        bundles: [...currentDataBundles, { ...parsed, bundleId, filename }]
       }
 
-      // Store deck metadata
-      const deckInfo = {
+      // Store bundle metadata
+      const bundleInfo = {
         id: bundleId,
         name: parsed.name,
         filename,
         totalCards: parsed.cards?.length || 0
       }
-      const currentMetaDecks = shardData?.metadata?.decks || []
+      const currentMetaBundles = shardData?.metadata?.bundles || []
       const updatedMetadata = {
         ...shardData?.metadata,
-        decks: [...currentMetaDecks, deckInfo]
+        bundles: [...currentMetaBundles, bundleInfo]
       }
 
       // Update both data and metadata
@@ -162,7 +162,7 @@ export const AnkiShardEditor = ({
     <Stack spacing={3}>
       <Box>
         <Typography level="body-sm" sx={{ mb: 1, fontWeight: 'bold', color: 'text.secondary' }}>
-          Anki Decks
+          Anki Bundles
         </Typography>
 
         {error && (

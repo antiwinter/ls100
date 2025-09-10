@@ -108,8 +108,7 @@ const NoteTable = ({ notes, bundles, onStartStudy: _onStartStudy }) => {
 }
 
 export const BrowseMode = ({
-  decks: _decks = [],
-  selectedDeck = null,
+  selectedShard = null,
   onStartStudy
 }) => {
   const [searchQuery, setSearchQuery] = useState('')
@@ -121,7 +120,7 @@ export const BrowseMode = ({
   // Load notes for selected shard
   useEffect(() => {
     const loadNotesData = async () => {
-      if (!selectedDeck?.id) {
+      if (!selectedShard?.id) {
         setNotes([])
         setNoteTypes({})
         return
@@ -130,7 +129,7 @@ export const BrowseMode = ({
 
       try {
         // Get notes for this shard by finding cards first, then getting unique notes
-        const shardCards = await ankiApi.getCardsForDecks(selectedDeck.metadata?.bundleIds)
+        const shardCards = await ankiApi.getCardsForBundles(selectedShard.metadata?.bundleIds)
         const noteIds = [...new Set(shardCards.map(c => c.noteId))]
 
         const shardNotes = await Promise.all(
@@ -169,7 +168,7 @@ export const BrowseMode = ({
     }
 
     loadNotesData()
-  }, [selectedDeck])
+  }, [selectedShard])
 
   // Process and filter notes
   const processedNotes = useMemo(() => {
@@ -226,29 +225,29 @@ export const BrowseMode = ({
   }, [notes, bundles])
 
   const handleStartStudy = () => {
-    if (!selectedDeck || notes.length === 0) return
+    if (!selectedShard || notes.length === 0) return
     try {
       onStartStudy?.()
-      log.info('Requested study session for deck:', selectedDeck.name)
+      log.info('Requested study session for shard:', selectedShard.name)
     } catch (error) {
       log.error('Failed to start study session:', error)
     }
   }
 
-  if (!selectedDeck) {
+  if (!selectedShard) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography color="neutral">Select a deck to browse notes</Typography>
+        <Typography color="neutral">Select a shard to browse notes</Typography>
       </Box>
     )
   }
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
-      {/* Deck Header */}
+      {/* Shard Header */}
       <Box sx={{ mb: 3 }}>
         <Typography level="h4" sx={{ mb: 1 }}>
-          {selectedDeck.name}
+          {selectedShard.name}
         </Typography>
         {/* Note Statistics */}
         <Stack direction="row" spacing={2} sx={{ mb: 2 }}>

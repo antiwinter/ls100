@@ -4,7 +4,7 @@ import ankiApi from '../core/ankiApi'
 import noteManager from '../core/noteManager'
 import mediaManager from '../core/mediaManager'
 import { log } from '../../../utils/logger'
-import { genNvId } from '../../../utils/idGenerator.js'
+import { genNvId, genId } from '../../../utils/idGenerator.js'
 
 // Browser-compatible .apkg parser using sql.js + jszip
 // Updated to work with new note+template architecture
@@ -73,37 +73,15 @@ export const parseApkgFile = async (file) => {
     db.close()
 
     // Determine deck name: prefer deck that contains cards
-    let deckName = 'Anki Deck'
-
-    if (cards.length > 0) {
-      // Find deck that contains the cards
-      const cardDeckIds = [...new Set(cards.map(c => c.did))]
-
-      for (const bundleId of cardDeckIds) {
-        const deck = decks[bundleId]
-        if (deck && deck.name && deck.name !== 'Default') {
-          deckName = deck.name
-          break
-        }
-      }
-    }
-
-    // Fallback to first non-default deck
-    if (deckName === 'Anki Deck') {
-      const nonDefaultDecks = Object.values(decks || {})
-        .filter(d => d.name && d.name !== 'Default')
-        .map(d => d.name)
-
-      if (nonDefaultDecks.length > 0) {
-        deckName = nonDefaultDecks[0]
-      }
-    }
+    const deckNames = Object.values(decks || {})
+      .filter(d => d.name && d.name !== 'Default')
+      .map(d => d.name)
 
     const result = {
       collection,
       bundles,
       decks,
-      name: deckName,
+      name: deckNames[0] || genId('Anki'),
       notes,
       cards,
       media

@@ -95,7 +95,7 @@ export class MediaManager {
   }
 
   // Get media metadata for statistics (returns metadata without blobs)
-  async getDeckMediaStats(bundleId) {
+  async getBundleMediaStats(bundleId) {
     try {
       const mediaRecords = await db.media.where('bundleId').equals(bundleId).toArray()
       return mediaRecords.map(record => {
@@ -112,13 +112,13 @@ export class MediaManager {
         return metadata
       })
     } catch (error) {
-      log.error('Failed to get deck media stats:', error)
+      log.error('Failed to get bundle media stats:', error)
       return []
     }
   }
 
-  // Get media metadata for multiple decks (for statistics)
-  async getDecksMediaStats(bundleIds) {
+  // Get media metadata for multiple bundles (for statistics)
+  async getBundlesMediaStats(bundleIds) {
     try {
       const mediaRecords = await db.media.where('bundleId').anyOf(bundleIds).toArray()
       return mediaRecords.map(record => {
@@ -135,7 +135,7 @@ export class MediaManager {
         return metadata
       })
     } catch (error) {
-      log.error('Failed to get decks media stats:', error)
+      log.error('Failed to get bundles media stats:', error)
       return []
     }
   }
@@ -320,34 +320,34 @@ export class MediaManager {
     log.debug('Media cache cleared')
   }
 
-  // Remove media files for multiple decks (cleanup)
-  async removeDecksMedia(bundleIds) {
+  // Remove media files for multiple bundles (cleanup)
+  async removeBundlesMedia(bundleIds) {
     try {
       // Get all media records for deletion
-      const decksMedia = await db.media.where('bundleId').anyOf(bundleIds).toArray()
+      const bundlesMedia = await db.media.where('bundleId').anyOf(bundleIds).toArray()
 
-      for (const media of decksMedia) {
+      for (const media of bundlesMedia) {
         await db.media.delete(media.id)
         // Clear cache entry
         this.mediaCache.delete(media.id)
       }
 
-      log.debug(`Removed ${decksMedia.length} media files for decks: ${bundleIds.join(', ')}`)
-      return decksMedia.length
+      log.debug(`Removed ${bundlesMedia.length} media files for bundles: ${bundleIds.join(', ')}`)
+      return bundlesMedia.length
     } catch (error) {
-      log.error('Failed to remove decks media:', error)
+      log.error('Failed to remove bundles media:', error)
       return 0
     }
   }
 
-  // Get storage usage statistics for multiple decks
-  async getMediaStatsForDecks(bundleIds) {
+  // Get storage usage statistics for multiple bundles
+  async getMediaStatsForBundles(bundleIds) {
     try {
-      const decksMedia = await this.getDecksMediaStats(bundleIds)
-      const totalSize = decksMedia.reduce((sum, media) => sum + (media.size || 0), 0)
+      const bundlesMedia = await this.getBundlesMediaStats(bundleIds)
+      const totalSize = bundlesMedia.reduce((sum, media) => sum + (media.size || 0), 0)
 
       return {
-        fileCount: decksMedia.length,
+        fileCount: bundlesMedia.length,
         totalSize,
         totalSizeMB: (totalSize / (1024 * 1024)).toFixed(2)
       }

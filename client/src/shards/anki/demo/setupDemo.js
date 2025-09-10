@@ -86,8 +86,8 @@ export async function setupDemo() {
       }
     ]
 
-    // Demo deck and shard IDs
-    const bundleId = 'demo-deck'
+    // Demo bundle and shard IDs
+    const bundleId = 'demo-bundle'
     const shardId = 'demo-shard'
 
     // Create geography notes (each generates 4 cards)
@@ -117,7 +117,7 @@ export async function setupDemo() {
     }
 
     // Get stats
-    const cards = await ankiApi.getCardsForDeck(bundleId)
+    const cards = await ankiApi.getCardsForBundle(bundleId)
     const totalCards = cards.length
     const geoCards = geoNotes.length * 4 // 4 templates per geography note
     const basicCards = basicNotes.length * 1 // 1 template per basic note
@@ -145,8 +145,8 @@ export async function demoMultiCard() {
   log.info('🔍 Demonstrating multi-card feature...')
 
   try {
-    const bundleId = 'demo-deck'
-    const cards = await ankiApi.getCardsForDeck(bundleId)
+    const bundleId = 'demo-bundle'
+    const cards = await ankiApi.getCardsForBundle(bundleId)
 
     // Find cards from same note (same noteId)
     const cardsByNote = new Map()
@@ -183,15 +183,15 @@ export async function cleanupDemo() {
   log.info('🧹 Cleaning up demo data...')
 
   try {
-    const bundleId = 'demo-deck'
+    const bundleId = 'demo-bundle'
     const shardId = 'demo-shard'
 
-    const cards = await ankiApi.getCardsForDeck(bundleId)
+    const cards = await ankiApi.getCardsForBundle(bundleId)
     const noteIds = [...new Set(cards.map(c => c.noteId))]
 
-    // Remove all notes from shard (triggers cleanup)
+    // Remove all notes (triggers cleanup)
     for (const noteId of noteIds) {
-      await ankiApi.removeNoteFromShard(noteId, shardId)
+      await ankiApi.noteManager.delete(noteId)
     }
 
     log.info(`✅ Cleaned up ${noteIds.length} notes and ${cards.length} cards`)
@@ -218,7 +218,7 @@ export async function demoMedia() {
         'A demo image with <img src="demo-icon.png"> icon'
       ],
       ['media', 'demo'],
-      'demo-deck',
+      'demo-bundle',
       shardId
     )
 
@@ -226,11 +226,11 @@ export async function demoMedia() {
 
     // Test media URL replacement
     const testHtml = '<img src="test.jpg"> and <img src="another.png">'
-    const processedHtml = await mediaManager.replaceMediaUrls(testHtml, 'demo-deck')
+    const processedHtml = await mediaManager.replaceMediaUrls(testHtml, 'demo-bundle')
     log.info('🔄 Media replacement test:', { original: testHtml, processed: processedHtml })
 
     // Get media statistics
-    const mediaStats = await ankiApi.getMediaStatsForDecks(['demo-deck'])
+    const mediaStats = await ankiApi.getMediaStatsForBundles(['demo-bundle'])
     log.info('📊 Media statistics:', mediaStats)
 
     // Test card rendering with media
