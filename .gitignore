@@ -7,3 +7,4 @@ cmudict.txt
 .gemini-clipboard/
 server/data
 client/src/shards/anki/test/parsed
+client/coverage
