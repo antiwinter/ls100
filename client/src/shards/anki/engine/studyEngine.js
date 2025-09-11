@@ -114,15 +114,7 @@ export class StudyEngine {
     if (result?.card) {
       const c0 = ss.currentCard = result.card
 
-      // FSRS History Management:
-      // Each card has fsrs = [newest, older, oldest...] (LIFO order)
-      // Check if we need a new FSRS entry or can reuse existing one
-      // If no fsrs OR latest entry is unrated (>24h old start time), create new entry
-      if ((c0.fsrs?.[0]?.response_time || Infinity) > 24 * 60 * 1000) {
-        c0.fsrs ||= []
-        c0.fsrs.unshift(createEmptyCard(Date.now())) // Add new entry at front
-        c0.fsrs[0].response_time = Date.now() // Store session start time
-      }
+      c0._drawTs = Date.now()
 
       // Action Log: Stack of draw operations for undo functionality
       // Each entry: { id: cardId, from: 'new'|'review' }
@@ -145,14 +137,16 @@ export class StudyEngine {
     // 2. Calculate new FSRS state using user's rating
     // 3. Convert start time (stored in response_time) to actual duration
     const now = new Date()
-    const next = fsrs.repeat(c0.fsrs[0], now)[rating]
 
     // Update the latest FSRS entry with calculated values and final response time
-    c0.fsrs[0] = {
+    const next = fsrs.repeat(c0.fsrs?.[0] || createEmptyCard(Date.now()), now)[rating]
+    c0.fsrs ||= []
+    c0.fsrs.unshift({
       ...next.card,
-      response_time: now.getTime() - c0.fsrs[0].response_time, // Duration in ms
-      rating
-    }
+      rating,
+      response_time: now.getTime() - c0._drawTs
+    })
+    delete c0._drawTs
 
     // Mirror latest FSRS state to card level for fast queries
     await db.cards.update(c0.id, {
@@ -214,7 +208,6 @@ export class StudyEngine {
     // Action stack guarantees c1 was rated (otherwise couldn't draw next card)
     // So c1.fsrs = [unrated_entry_from_interruption, rated_entry, ...]
     c1.fsrs.shift() // Remove interruption entry
-    c1.fsrs[0].response_time = Date.now() // Reset timing for new session
     return c1
   }
 }

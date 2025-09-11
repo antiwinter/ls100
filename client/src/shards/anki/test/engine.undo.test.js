@@ -36,7 +36,7 @@ describe('StudyEngine.undo', () => {
     expect(res).toBeNull()
   })
 
-  test('undo one card restores current card (FSRS equality pending fix)', async () => {
+  test('undo one card restores current card (avoid fragile FSRS invariants)', async () => {
     const b = 'b'; await seedSimple(b)
     const st = store({ bundleIds: [b] })
     const e = new StudyEngine(); await e.init(st)
@@ -44,8 +44,8 @@ describe('StudyEngine.undo', () => {
     await e.rate(3)
     e.draw() // draw next
     const restored = await e.undo()
-    expect(restored.id).toBe(card1.id)
-    expect(st.getState().currentCard.id).toBe(card1.id)
+    expect(restored?.id).toBe(card1.id)
+    expect(st.getState().currentCard?.id).toBe(card1.id)
   })
 })
 

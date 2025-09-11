@@ -24,3 +24,4 @@ dev-dist
 *.sln
 *.sw?
 *.apkg
+src/shards/anki/test/parsed/*
