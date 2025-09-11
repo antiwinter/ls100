@@ -8,7 +8,7 @@ import {
   Alert
 } from '@mui/joy'
 import { Upload } from '@mui/icons-material'
-import { parseApkgFile } from './parser/apkgParser.js'
+import { parseApkgFile } from './apkg/index.js'
 import { log } from '../../utils/logger'
 import { genId } from '../../utils/idGenerator.js'
 

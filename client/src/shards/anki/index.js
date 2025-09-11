@@ -28,7 +28,7 @@ export { default as db } from './storage/db.js'
 export {
   parseApkgFile,
   importApkgData
-} from './parser/apkgParser.js'
+} from './apkg/index.js'
 
 // Study engine utilities
 export {

@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from 'vitest'
-vi.mock('../parser/apkgParser.js', () => ({
+vi.mock('../apkg/index.js', () => ({
   parseApkgFile: vi.fn().mockResolvedValue({ name: null }),
   importApkgData: vi.fn()
 }))

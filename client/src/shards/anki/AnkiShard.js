@@ -1,6 +1,6 @@
 import { AnkiShardEditor } from './AnkiShardEditor.jsx'
 import { AnkiReader as AnkiReaderComponent } from './reader/AnkiReader.jsx'
-import { parseApkgFile, importApkgData } from './parser/apkgParser.js'
+import { parseApkgFile, importApkgData } from './apkg/index.js'
 import ankiApi from './core/ankiApi'
 import { log } from '../../utils/logger'
 
