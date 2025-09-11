@@ -39,44 +39,19 @@ export const parseNotetypes = (db) => {
 
     for (const row of rows) {
       log.debug(`Processing notetype: id=${row.id}, name=${row.name}`)
-      let configText = '{}'
+      
+      // Get fields from separate fields table
+      const fields = parseNotetypeFields(db, row.id)
+      // Get templates from separate templates table  
+      const templates = parseNotetypeTemplates(db, row.id)
 
-      try {
-        // Handle compressed config
-        if (row.config) {
-          let configBuffer
-          log.debug('config type', { string: typeof row.config, ua:row.config instanceof Uint8Array, ab: row.config instanceof ArrayBuffer })
-          if (typeof row.config === 'string') {
-            configBuffer = new TextEncoder().encode(row.config)
-          } else if (row.config instanceof Uint8Array) {
-            configBuffer = row.config
-          } else if (row.config instanceof ArrayBuffer) {
-            configBuffer = new Uint8Array(row.config)
-          } else {
-            configBuffer = new Uint8Array(0)
-          }
-
-          if (isZstdCompressed(configBuffer)) {
-            log.debug(`Decompressing notetype ${row.id} config`)
-            const configBuffer = zstdDecompress(configBuffer)
-          }
-
-          configText = new TextDecoder().decode(configBuffer)
-        }
-
-        const config = JSON.parse(configText)
-        models[row.id.toString()] = {
-          id: row.id,
-          name: row.name,
-          flds: config.flds || [],
-          tmpls: config.tmpls || [],
-          ...config
-        }
-        log.debug(`Parsed notetype: ${row.name}`)
-      } catch (configError) {
-        log.error(`Config parsing failed for notetype ${row.id} (${row.name}): ${configError.message}`)
-        throw new Error(`Failed to parse notetype config for "${row.name}" (ID: ${row.id}): ${configError.message}`)
+      models[row.id.toString()] = {
+        id: row.id,
+        name: row.name,
+        flds: fields,
+        tmpls: templates
       }
+      log.debug(`Parsed notetype: ${row.name}`)
     }
 
     log.debug(`Successfully parsed ${Object.keys(models).length} notetypes`)
@@ -84,6 +59,72 @@ export const parseNotetypes = (db) => {
   } catch (error) {
     log.warn('Modern notetypes parsing failed:', error.message)
     return {}
+  }
+}
+
+// Parse fields for a specific notetype
+const parseNotetypeFields = (db, notetypeId) => {
+  try {
+    const stmt = db.prepare('SELECT * FROM fields WHERE ntid = ? ORDER BY ord')
+    const fields = []
+    stmt.bind([notetypeId])
+    while (stmt.step()) {
+      const row = stmt.getAsObject()
+      fields.push({
+        name: row.name,
+        ord: row.ord || 0
+      })
+    }
+    stmt.free()
+    return fields
+  } catch (error) {
+    log.debug(`Failed to parse fields for notetype ${notetypeId}: ${error.message}`)
+    return [{ name: 'Front', ord: 0 }, { name: 'Back', ord: 1 }]
+  }
+}
+
+// Parse templates for a specific notetype
+const parseNotetypeTemplates = (db, notetypeId) => {
+  try {
+    const stmt = db.prepare('SELECT * FROM templates WHERE ntid = ? ORDER BY ord')
+    const templates = []
+    stmt.bind([notetypeId])
+    while (stmt.step()) {
+      const row = stmt.getAsObject()
+      
+      // Extract template formats from protobuf config if possible
+      let qfmt = '{{Front}}'
+      let afmt = '{{FrontSide}}<hr id="answer">{{Back}}'
+      
+      if (row.config) {
+        try {
+          // Simple extraction - look for common patterns in protobuf data
+          const configBuffer = row.config instanceof Uint8Array ? row.config : new Uint8Array(row.config)
+          const configText = new TextDecoder().decode(configBuffer)
+          
+          // Try to extract template formats using simple string search
+          const qFormatMatch = configText.match(/\x0a([^{]*\{\{[^}]+\}\}[^{]*)/s)
+          const aFormatMatch = configText.match(/\x12([^{]*\{\{[^}]+\}\}[^{]*)/s)
+          
+          if (qFormatMatch) qfmt = qFormatMatch[1].replace(/\x00/g, '')
+          if (aFormatMatch) afmt = aFormatMatch[1].replace(/\x00/g, '')
+        } catch {
+          // Keep defaults if parsing fails
+        }
+      }
+      
+      templates.push({
+        name: row.name,
+        ord: row.ord || 0,
+        qfmt,
+        afmt
+      })
+    }
+    stmt.free()
+    return templates
+  } catch (error) {
+    log.debug(`Failed to parse templates for notetype ${notetypeId}: ${error.message}`)
+    return [{ name: 'Card 1', ord: 0, qfmt: '{{Front}}', afmt: '{{FrontSide}}<hr id="answer">{{Back}}' }]
   }
 }
 
@@ -107,7 +148,6 @@ const parseProtobufMedia = (buffer) => {
         if (filenameMatch) {
           const filename = filenameMatch[1]
           mediaMap[index.toString()] = filename
-          log.debug(`Found media: ${index} -> ${filename}`)
           index++
           offset = i + filename.length
           foundFilename = true
