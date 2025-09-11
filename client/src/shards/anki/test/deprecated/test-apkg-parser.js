@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 // Test the fixed apkgParser with both .apkg files
-import { parseApkgFile } from '../parser/apkgParser.js'
+import { parseApkgFile } from '../../parser/apkgParser.js'
 import { readFileSync } from 'fs'
 
 // Simple log implementation for testing

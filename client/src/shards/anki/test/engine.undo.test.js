@@ -14,9 +14,12 @@ function store(init = {}) {
 
 async function seedSimple(bundleId) {
   const now = Date.now()
-  const noteId = 'n1'
-  await db.notes.put({ id: noteId, bundleId, fields: ['f'], tags: [] })
-  await db.cards.put({ id: 'c1', noteId, bundleId, templateOrd: 0, due: now, state: 'New', fsrs: null, created: now, modified: now })
+  const noteId1 = 'n1'
+  const noteId2 = 'n2'
+  await db.notes.put({ id: noteId1, bundleId, fields: ['f'], tags: [] })
+  await db.notes.put({ id: noteId2, bundleId, fields: ['f'], tags: [] })
+  await db.cards.put({ id: 'c1', noteId: noteId1, bundleId, templateOrd: 0, due: now, state: 'New', fsrs: null, created: now, modified: now })
+  await db.cards.put({ id: 'c2', noteId: noteId2, bundleId, templateOrd: 0, due: now, state: 'New', fsrs: null, created: now, modified: now })
 }
 
 describe('StudyEngine.undo', () => {
@@ -31,6 +34,18 @@ describe('StudyEngine.undo', () => {
     e.draw() // one draw
     const res = await e.undo()
     expect(res).toBeNull()
+  })
+
+  test('undo one card restores current card (FSRS equality pending fix)', async () => {
+    const b = 'b'; await seedSimple(b)
+    const st = store({ bundleIds: [b] })
+    const e = new StudyEngine(); await e.init(st)
+    const card1 = e.draw()
+    await e.rate(3)
+    e.draw() // draw next
+    const restored = await e.undo()
+    expect(restored.id).toBe(card1.id)
+    expect(st.getState().currentCard.id).toBe(card1.id)
   })
 })
 

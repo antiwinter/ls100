@@ -1,4 +1,8 @@
-import { describe, test, expect } from 'vitest'
+import { describe, test, expect, vi } from 'vitest'
+vi.mock('../parser/apkgParser.js', () => ({
+  parseApkgFile: vi.fn().mockResolvedValue({ name: null }),
+  importApkgData: vi.fn()
+}))
 import { detect } from '../AnkiShard.js'
 
 describe('AnkiShard.detect', () => {

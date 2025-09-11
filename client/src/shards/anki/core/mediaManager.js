@@ -197,14 +197,14 @@ export class MediaManager {
       return []
     }
 
-    // Match src attributes containing NvIds (12+ alphanumeric characters)
-    const srcPattern = /src=["']?([a-zA-Z0-9]{12,})["']?/gi
+    // Match src attributes containing NvIds (format: prefix-hash where hash is 64 hex chars)
+    const srcPattern = /src=["']?([a-zA-Z0-9]+-[a-f0-9]{64})["']?/gi
     let match
 
     while ((match = srcPattern.exec(html)) !== null) {
       const possibleNvId = match[1]
-      // Basic NvId validation: should be 12+ characters, alphanumeric
-      if (possibleNvId.length >= 12 && /^[a-zA-Z0-9]+$/.test(possibleNvId)) {
+      // NvId validation: prefix-64charHexHash format
+      if (/^[a-zA-Z0-9]+-[a-f0-9]{64}$/.test(possibleNvId)) {
         nvIds.add(possibleNvId)
       }
     }
