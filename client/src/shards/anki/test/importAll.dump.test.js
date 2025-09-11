@@ -4,6 +4,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import db from '../storage/db'
 import { parseApkgFile, importApkgData } from '../apkg/index.js'
+import { log } from '../../../utils/logger'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -33,6 +34,7 @@ describe('Import all APKGs and dump DB snapshot', () => {
 
     let ok = 0
     for (const name of files) {
+      log.debug(name)
       const buf = fs.readFileSync(path.join(apkgDir, name))
       const out = name.replace('.apkg', '.json')
       try {

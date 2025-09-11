@@ -3,6 +3,45 @@ import initSqlJs from 'sql.js'
 import * as engine21b from './engine-21b.js'
 import { log } from '../../../utils/logger'
 
+// Import all engines
+const engines = [
+  engine21b
+  // Future engines will be added here
+]
+
+// Default engine for versions 2 and 21 (JSON-based)
+const defaultEngine = {
+  compatible: (zipData) => {
+    return zipData.files['collection.anki21'] || zipData.files['collection.anki2']
+  },
+
+  getCollectionFile: (zipData) => {
+    if (zipData.files['collection.anki21']) return zipData.files['collection.anki21']
+    if (zipData.files['collection.anki2']) return zipData.files['collection.anki2']
+    return null
+  },
+
+  processDbBuffer: (buffer) => buffer, // no processing needed
+
+  parseNotetypes: (collection) => {
+    return collection.models && Object.keys(collection.models).length > 0
+      ? collection.models : {}
+  },
+
+  parseMedia: async (zipData) => {
+    try {
+      const mediaFile = zipData.files['media']
+      if (!mediaFile) return {}
+
+      const mediaText = await mediaFile.async('text')
+      return JSON.parse(mediaText || '{}')
+    } catch (error) {
+      log.warn('Failed to parse media file:', error.message)
+      return {}
+    }
+  }
+}
+
 // Browser-compatible .apkg parser using sql.js + jszip
 // Supports multiple Anki versions with engine-based architecture
 
@@ -151,17 +190,21 @@ const parseCards = (db, notes, bundles) => {
   }
 }
 
-// Detect version and select appropriate engine
+// Find compatible engine for the given zipData
 const selectEngine = (zipData) => {
-  // Check for modern format first
-  if (zipData.files['collection.anki21b']) {
-    log.debug('Detected modern Anki format (21b)')
-    return engine21b
+  // Try specialized engines first
+  for (const engine of engines) {
+    if (engine.compatible && engine.compatible(zipData)) {
+      return engine
+    }
   }
 
-  // For now, use 21b engine as fallback (handles legacy formats too)
-  log.debug('Using 21b engine for legacy format')
-  return engine21b
+  // Fall back to default engine
+  if (defaultEngine.compatible(zipData)) {
+    return defaultEngine
+  }
+
+  throw new Error('No compatible engine found for this Anki package')
 }
 
 // Main parsing function
@@ -175,11 +218,11 @@ export const parseApkgFile = async (file) => {
     const zip = new JSZip()
     const zipData = await zip.loadAsync(file)
 
-    // Select appropriate engine
+    // Select compatible engine
     const engine = selectEngine(zipData)
 
-    // Extract database
-    const dbFile = engine.getDbFile(zipData)
+    // Extract and process database
+    const dbFile = engine.getCollectionFile(zipData)
     if (!dbFile) {
       throw new Error('No collection database found in .apkg file')
     }
@@ -190,17 +233,16 @@ export const parseApkgFile = async (file) => {
     // Initialize database
     const db = new SQL.Database(processedBuffer)
 
-    // Parse using engine + shared functions
+    // Parse shared data
     const collection = parseCollection(db)
-
-    // Use engine for version-specific parsing
-    const bundles = collection.models && Object.keys(collection.models).length > 0
-      ? collection.models : engine.parseNotetypes(db)
-
     const decks = parseDecks(db)
     const notes = parseNotes(db)
-    const cards = parseCards(db, notes, bundles)
+
+    // Engine-specific parsing
+    const bundles = engine === defaultEngine
+      ? engine.parseNotetypes(collection) : engine.parseNotetypes(db)
     const media = await engine.parseMedia(zipData)
+    const cards = parseCards(db, notes, bundles)
 
     db.close()
 

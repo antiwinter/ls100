@@ -1,8 +1,28 @@
 import { decompress as zstdDecompress } from 'fzstd'
 import { log } from '../../../utils/logger'
 
-// Modern Anki engine (v2.1.35+ with zstd compression and protobuf)
-// Handles collection.anki21b format
+// Engine for Anki version 21b (protobuf-based format)
+
+// Check if this engine is compatible with the package
+export const compatible = (zipData) => {
+  return !!zipData.files['collection.anki21b']
+}
+
+// Get the collection file from the package
+export const getCollectionFile = (zipData) => {
+  return zipData.files['collection.anki21b']
+}
+
+// Process database buffer (handle compression)
+export const processDbBuffer = async (buffer) => {
+  if (isZstdCompressed(buffer)) {
+    log.debug(`Decompressing zstd: ${buffer.length} bytes`)
+    const decompressed = zstdDecompress(buffer)
+    log.debug(`Decompressed: ${buffer.length} → ${decompressed.length} bytes`)
+    return decompressed
+  }
+  return buffer
+}
 
 // Check if buffer is zstd compressed
 const isZstdCompressed = (buffer) => {
@@ -39,10 +59,10 @@ export const parseNotetypes = (db) => {
 
     for (const row of rows) {
       log.debug(`Processing notetype: id=${row.id}, name=${row.name}`)
-      
+
       // Get fields from separate fields table
       const fields = parseNotetypeFields(db, row.id)
-      // Get templates from separate templates table  
+      // Get templates from separate templates table
       const templates = parseNotetypeTemplates(db, row.id)
 
       models[row.id.toString()] = {
@@ -91,28 +111,29 @@ const parseNotetypeTemplates = (db, notetypeId) => {
     stmt.bind([notetypeId])
     while (stmt.step()) {
       const row = stmt.getAsObject()
-      
+
       // Extract template formats from protobuf config if possible
       let qfmt = '{{Front}}'
       let afmt = '{{FrontSide}}<hr id="answer">{{Back}}'
-      
+
       if (row.config) {
         try {
           // Simple extraction - look for common patterns in protobuf data
-          const configBuffer = row.config instanceof Uint8Array ? row.config : new Uint8Array(row.config)
+          const configBuffer = row.config instanceof Uint8Array
+            ? row.config : new Uint8Array(row.config)
           const configText = new TextDecoder().decode(configBuffer)
-          
+
           // Try to extract template formats using simple string search
-          const qFormatMatch = configText.match(/\x0a([^{]*\{\{[^}]+\}\}[^{]*)/s)
-          const aFormatMatch = configText.match(/\x12([^{]*\{\{[^}]+\}\}[^{]*)/s)
-          
-          if (qFormatMatch) qfmt = qFormatMatch[1].replace(/\x00/g, '')
-          if (aFormatMatch) afmt = aFormatMatch[1].replace(/\x00/g, '')
+          const qFormatMatch = configText.match(/\\x0a([^{]*\{\{[^}]+\}\}[^{]*)/s)
+          const aFormatMatch = configText.match(/\\x12([^{]*\{\{[^}]+\}\}[^{]*)/s)
+
+          if (qFormatMatch) qfmt = qFormatMatch[1].replace(/\\x00/g, '')
+          if (aFormatMatch) afmt = aFormatMatch[1].replace(/\\x00/g, '')
         } catch {
           // Keep defaults if parsing fails
         }
       }
-      
+
       templates.push({
         name: row.name,
         ord: row.ord || 0,
@@ -207,14 +228,3 @@ export const parseMedia = async (zipData) => {
   return media
 }
 
-// Get appropriate database file for modern format
-export const getDbFile = (zipData) => {
-  return zipData.files['collection.anki21b'] ||
-         zipData.files['collection.anki21'] ||
-         zipData.files['collection.anki2']
-}
-
-// Process database buffer (handle compression)
-export const processDbBuffer = async (dbBuffer) => {
-  return handleCompression(dbBuffer)
-}
