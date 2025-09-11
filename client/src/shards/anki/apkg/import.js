@@ -1,12 +1,16 @@
 import ankiApi from '../core/ankiApi'
 import noteManager from '../core/noteManager'
 import mediaManager from '../core/mediaManager'
+import db from '../storage/db.js'
 import { log } from '../../../utils/logger'
 import { genId } from '../../../utils/idGenerator.js'
 
 // Convert parsed Anki data to internal format and import to database
-export const importApkgData = async (parsedData) => {
-  const { bundles, notes: ankiNotes, media } = parsedData
+export const importApkgData = async (parsedData, options = {}) => {
+  const {
+    preserveScheduling = false // Option to import scheduling data
+  } = options
+  const { bundles, notes: ankiNotes, media, reviewHistory = {} } = parsedData
   const createdNotes = []
   const bundleIds = []
   const bundleMap = new Map() // modelId -> bundleId
@@ -29,9 +33,12 @@ export const importApkgData = async (parsedData) => {
 
     // Create templates with cooked formats
     for (const template of model.tmpls) {
-      // Ensure template formats are strings
-      const qfmt = typeof template.qfmt === 'string' ? template.qfmt : String(template.qfmt || '')
-      const afmt = typeof template.afmt === 'string' ? template.afmt : String(template.afmt || '')
+      // Validate template formats
+      if (typeof template.qfmt !== 'string' || typeof template.afmt !== 'string') {
+        throw new Error(`Invalid template format: qfmt and afmt must be strings, got qfmt: ${typeof template.qfmt}, afmt: ${typeof template.afmt}`)
+      }
+      const qfmt = template.qfmt
+      const afmt = template.afmt
 
       // Cook template formats: filename → NvId + increment refCount
       const cookedQfmt = await mediaManager.addMedia(qfmt, media)
@@ -76,6 +83,32 @@ export const importApkgData = async (parsedData) => {
       cookedFields,
       tagsArray
     )
+
+    // If preserveScheduling is enabled, update cards with original scheduling data
+    if (preserveScheduling && result.cards) {
+      const originalCards = parsedData.cards?.filter(card => card.nid === ankiNote.id) || []
+
+      for (const generatedCard of result.cards) {
+        // Find matching original card by template ordinal
+        const originalCard = originalCards.find(c => c.ord === generatedCard.templateOrd)
+
+        if (originalCard && reviewHistory[originalCard.id]) {
+          // Convert Anki scheduling to FSRS format
+          const fsrsHistory = reviewHistory[originalCard.id]
+
+          // Update card with scheduling data
+          await db.cards.update(generatedCard.id, {
+            due: originalCard.due > 1000000000 ? originalCard.due :
+              Date.now() + originalCard.due * 24 * 60 * 60 * 1000,
+            state: originalCard.type === 0 ? 'New' :
+              originalCard.type === 1 ? 'Learning' : 'Review',
+            fsrs: fsrsHistory // Store the converted FSRS history
+          })
+
+          log.debug(`Updated card ${generatedCard.id} with ${fsrsHistory.length} review entries`)
+        }
+      }
+    }
 
     createdNotes.push(result)
   }

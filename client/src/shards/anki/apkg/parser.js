@@ -1,7 +1,8 @@
 import JSZip from 'jszip'
 import initSqlJs from 'sql.js'
-import * as engine21b from './engine-21b.js'
 import { log } from '../../../utils/logger'
+import * as engine21b from './engine-21b.js'
+import * as defaultEngine from './engine-default.js'
 
 // Import all engines
 const engines = [
@@ -9,76 +10,6 @@ const engines = [
   // Future engines will be added here
 ]
 
-// Default engine for versions 2 and 21 (JSON-based)
-const defaultEngine = {
-  name: 'default',
-
-  compatible: (zipData) => {
-    return zipData.files['collection.anki21'] || zipData.files['collection.anki2']
-  },
-
-  getCollectionFile: (zipData) => {
-    if (zipData.files['collection.anki21']) return zipData.files['collection.anki21']
-    if (zipData.files['collection.anki2']) return zipData.files['collection.anki2']
-    return null
-  },
-
-  processDbBuffer: (buffer) => buffer, // no processing needed
-
-  parseNotetypes: (db) => {
-    try {
-      // Parse models from col table
-      // Note: Using explicit field selection because SELECT * sometimes doesn't
-      // return all fields properly
-      const modelsStmt = db.prepare('SELECT models FROM col')
-      modelsStmt.step()
-      const modelsRow = modelsStmt.getAsObject()
-      modelsStmt.free()
-
-      if (modelsRow.models) {
-        try {
-          const models = JSON.parse(modelsRow.models)
-          log.debug(`Default engine - parsed ${Object.keys(models).length} models from col.models`)
-          return models
-        } catch (error) {
-          log.debug(`Default engine - JSON parse error: ${error.message}`)
-          return {}
-        }
-      } else {
-        log.debug('Default engine - no models data found in col table')
-        return {}
-      }
-    } catch (error) {
-      log.debug('Default engine - failed to parse notetypes:', error.message)
-      return {}
-    }
-  },
-
-  parseMedia: async (zipData) => {
-    try {
-      const mediaFile = zipData.files['media']
-      if (!mediaFile) return {}
-
-      const mediaText = await mediaFile.async('text')
-      const mediaMapping = JSON.parse(mediaText || '{}')
-
-      // Create media blobs: descriptive filename -> blob data
-      const media = {}
-      for (const [key, filename] of Object.entries(mediaMapping)) {
-        const file = zipData.files[key]
-        if (file) {
-          const blob = await file.async('arraybuffer')
-          media[filename] = blob
-        }
-      }
-
-      return media
-    } catch (error) {
-      log.warn('Default engine - failed to parse media file:', error.message)
-      return {}
-    }
-  }
-}
 
 // Browser-compatible .apkg parser using sql.js + jszip
 // Supports multiple Anki versions with engine-based architecture
@@ -95,27 +26,6 @@ const initSQL = async () => {
 }
 
 
-// Parse decks (shared across versions)
-const parseDecks = (db) => {
-  try {
-    const stmt = db.prepare('SELECT decks FROM col LIMIT 1')
-    if (stmt.step()) {
-      const row = stmt.getAsObject()
-      stmt.free()
-
-      const decksJson = row.decks
-      if (decksJson && typeof decksJson === 'string') {
-        return JSON.parse(decksJson)
-      }
-    }
-    stmt.free()
-    log.warn('No decks data found in database')
-    return {}
-  } catch (error) {
-    log.warn('Failed to parse decks:', error.message)
-    return {}
-  }
-}
 
 // Parse notes (shared across versions)
 const parseNotes = (db) => {
@@ -144,8 +54,8 @@ const parseNotes = (db) => {
     log.debug(`Parsed ${notes.length} notes`)
     return notes
   } catch (error) {
-    log.warn('Failed to parse notes:', error.message)
-    return []
+    log.error('Failed to parse notes:', error.message)
+    throw new Error(`Invalid APKG: Failed to parse notes - ${error.message}`)
   }
 }
 
@@ -193,8 +103,8 @@ const parseCards = (db, notes, bundles) => {
     log.debug(`Parsed ${cards.length} cards`)
     return cards
   } catch (error) {
-    log.warn('Failed to parse cards:', error.message)
-    return []
+    log.error('Failed to parse cards:', error.message)
+    throw new Error(`Invalid APKG: Failed to parse cards - ${error.message}`)
   }
 }
 
@@ -246,13 +156,14 @@ export const parseApkgFile = async (file) => {
     // Initialize database
     const db = new SQL.Database(processedBuffer)
 
-    // Parse shared data - only what's truly shared
-    const decks = parseDecks(db)
+    // Parse shared data
     const notes = parseNotes(db)
 
-    // Engine-specific parsing - clean interface
+    // Engine-specific parsing - standardized interface
+    const decks = engine.parseDecks(db)
     const bundles = engine.parseNotetypes(db)
     const media = await engine.parseMedia(zipData)
+    const reviewHistory = engine.parseReviewHistory(db)
     const cards = parseCards(db, notes, bundles)
 
     db.close()
@@ -272,6 +183,7 @@ export const parseApkgFile = async (file) => {
       notes,
       cards,
       media,
+      reviewHistory,
       deckName
     }
   } catch (error) {

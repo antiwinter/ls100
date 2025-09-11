@@ -1,5 +1,6 @@
 import { decompress as zstdDecompress } from 'fzstd'
 import { log } from '../../../utils/logger'
+import * as defaultEngine from './engine-default.js'
 
 // Engine for Anki version 21b (protobuf-based format)
 
@@ -54,7 +55,9 @@ export const parseNotetypes = (db) => {
     }
     stmt.free()
 
-    if (rows.length === 0) return {}
+    if (rows.length === 0) {
+      throw new Error('Invalid APKG: No notetypes found in modern format')
+    }
 
     log.debug(`Found ${rows.length} notetypes in modern format`)
     const models = {}
@@ -79,8 +82,8 @@ export const parseNotetypes = (db) => {
     log.debug(`Successfully parsed ${Object.keys(models).length} notetypes`)
     return models
   } catch (error) {
-    log.warn('Modern notetypes parsing failed:', error.message)
-    return {}
+    log.error('Modern notetypes parsing failed:', error.message)
+    throw new Error(`Invalid APKG: Failed to parse modern notetypes - ${error.message}`)
   }
 }
 
@@ -100,8 +103,8 @@ const parseNotetypeFields = (db, notetypeId) => {
     stmt.free()
     return fields
   } catch (error) {
-    log.debug(`Failed to parse fields for notetype ${notetypeId}: ${error.message}`)
-    return [{ name: 'Front', ord: 0 }, { name: 'Back', ord: 1 }]
+    log.error(`Failed to parse fields for notetype ${notetypeId}: ${error.message}`)
+    throw new Error(`Invalid APKG: Failed to parse fields for notetype ${notetypeId} - ${error.message}`)
   }
 }
 
@@ -114,25 +117,48 @@ const parseNotetypeTemplates = (db, notetypeId) => {
     while (stmt.step()) {
       const row = stmt.getAsObject()
 
-      // Extract template formats from protobuf config if possible
+      // Extract template formats from protobuf config
       let qfmt = '{{Front}}'
       let afmt = '{{FrontSide}}<hr id="answer">{{Back}}'
 
-      if (row.config) {
+      // First check if template formats are stored directly in columns
+      if (row.qfmt && row.afmt) {
+        qfmt = row.qfmt
+        afmt = row.afmt
+      } else if (row.config) {
+        // Fall back to protobuf parsing
         try {
-          // Simple extraction - look for common patterns in protobuf data
           const configBuffer = row.config instanceof Uint8Array
             ? row.config : new Uint8Array(row.config)
           const configText = new TextDecoder().decode(configBuffer)
 
-          // Try to extract template formats using simple string search
-          const qFormatMatch = configText.match(/\\x0a([^{]*\{\{[^}]+\}\}[^{]*)/s)
-          const aFormatMatch = configText.match(/\\x12([^{]*\{\{[^}]+\}\}[^{]*)/s)
+          // Extract template formats from protobuf using proper parsing
+          // Look for template content in the protobuf data
+          const templateText = configText.replace(/[^\x20-\x7E]/g, ' ')
+          const templateParts = templateText.split(/\s+/).filter(part => part.includes('{{') && part.includes('}}'))
 
-          if (qFormatMatch) qfmt = qFormatMatch[1].replace(/\\x00/g, '')
-          if (aFormatMatch) afmt = aFormatMatch[1].replace(/\\x00/g, '')
-        } catch {
-          // Keep defaults if parsing fails
+          if (templateParts.length >= 1) {
+            qfmt = templateParts[0]
+          }
+
+          if (templateParts.length >= 2) {
+            afmt = templateParts.slice(1).join(' ')
+          }
+
+          // Fallback: try traditional protobuf regex patterns
+          if (qfmt === '{{Front}}' || afmt === '{{FrontSide}}<hr id="answer">{{Back}}') {
+            const qFormatMatch = configText.match(/\\x0a([^{]*\{\{[^}]+\}\}[^{]*)/s)
+            const aFormatMatch = configText.match(/\\x12([^{]*\{\{[^}]+\}\}[^{]*)/s)
+
+            if (qFormatMatch && qfmt === '{{Front}}') {
+              qfmt = qFormatMatch[1].replace(/\\x00/g, '')
+            }
+            if (aFormatMatch && afmt === '{{FrontSide}}<hr id="answer">{{Back}}') {
+              afmt = aFormatMatch[1].replace(/\\x00/g, '')
+            }
+          }
+        } catch (error) {
+          log.warn(`Failed to parse template protobuf for ${row.name}:`, error.message)
         }
       }
 
@@ -146,8 +172,8 @@ const parseNotetypeTemplates = (db, notetypeId) => {
     stmt.free()
     return templates
   } catch (error) {
-    log.debug(`Failed to parse templates for notetype ${notetypeId}: ${error.message}`)
-    return [{ name: 'Card 1', ord: 0, qfmt: '{{Front}}', afmt: '{{FrontSide}}<hr id="answer">{{Back}}' }]
+    log.error(`Failed to parse templates for notetype ${notetypeId}: ${error.message}`)
+    throw new Error(`Invalid APKG: Failed to parse templates for notetype ${notetypeId} - ${error.message}`)
   }
 }
 
@@ -187,6 +213,35 @@ const parseProtobufMedia = (buffer) => {
   log.debug(`Extracted ${index} media filenames from protobuf`)
   return mediaMap
 }
+
+// Parse decks from modern deck table
+export const parseDecks = (db) => {
+  try {
+    const stmt = db.prepare('SELECT * FROM decks')
+    const decks = {}
+
+    while (stmt.step()) {
+      const row = stmt.getAsObject()
+      // For modern format, deck names are stored directly
+      decks[row.id] = {
+        id: row.id,
+        name: row.name,
+        // Note: common and kind are protobuf, but name is sufficient for our use
+        mtime_secs: row.mtime_secs,
+        usn: row.usn
+      }
+    }
+    stmt.free()
+
+    log.debug(`Engine-21b parsed ${Object.keys(decks).length} decks`)
+    return decks
+  } catch (error) {
+    log.warn('Failed to parse decks from modern format:', error.message)
+    // Deck parsing failure is not critical for import - return empty
+    return {}
+  }
+}
+
 
 // Parse modern media with protobuf support
 export const parseMedia = async (zipData) => {
@@ -229,4 +284,7 @@ export const parseMedia = async (zipData) => {
   log.debug(`Parsed ${Object.keys(media).length} media files`)
   return media
 }
+
+// Parse review history - delegate to default engine since logic is identical
+export const parseReviewHistory = defaultEngine.parseReviewHistory
 
