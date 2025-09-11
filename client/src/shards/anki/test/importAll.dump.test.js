@@ -43,6 +43,7 @@ describe('Import all APKGs and dump DB snapshot', () => {
         await importApkgData(parsed)
         ok++
       } catch (e) {
+        log.error(`Failed to process ${name}:`, e.message || e)
         fs.writeFileSync(path.join(parsedDir, out), JSON.stringify({ error: String(e?.message || e) }, null, 2))
       }
     }

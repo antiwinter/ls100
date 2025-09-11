@@ -1,4 +1,5 @@
 
+import { log } from '../../../utils/logger'
 import mediaManager from './mediaManager'
 
 // Template renderer for Anki cards with media support
@@ -62,6 +63,12 @@ export class TemplateRenderer {
 
   // Check if template would render (non-empty after field substitution)
   wouldRender(template, noteFields) {
+    // Ensure template is a string
+    if (typeof template !== 'string') {
+      log.warn('wouldRender received non-string template:', typeof template, template)
+      template = String(template || '')
+    }
+
     const fieldPattern = /\{\{([^}]+)\}\}/g
     const matches = template.match(fieldPattern)
 

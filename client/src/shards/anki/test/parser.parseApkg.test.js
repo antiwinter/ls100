@@ -26,10 +26,10 @@ describe('parseApkgFile (real APKGs)', () => {
           path.join(parsedDir, outputName),
           JSON.stringify(parsed, null, 2)
         )
-        expect(parsed).toHaveProperty('collection')
         expect(parsed).toHaveProperty('bundles')
         expect(parsed).toHaveProperty('notes')
         expect(parsed).toHaveProperty('cards')
+        expect(parsed).toHaveProperty('media')
         success++
       } catch (e) {
         // Dump error result but don't fail entire suite

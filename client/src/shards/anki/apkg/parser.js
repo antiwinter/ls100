@@ -60,7 +60,19 @@ const defaultEngine = {
       if (!mediaFile) return {}
 
       const mediaText = await mediaFile.async('text')
-      return JSON.parse(mediaText || '{}')
+      const mediaMapping = JSON.parse(mediaText || '{}')
+
+      // Create media blobs: descriptive filename -> blob data
+      const media = {}
+      for (const [key, filename] of Object.entries(mediaMapping)) {
+        const file = zipData.files[key]
+        if (file) {
+          const blob = await file.async('arraybuffer')
+          media[filename] = blob
+        }
+      }
+
+      return media
     } catch (error) {
       log.warn('Default engine - failed to parse media file:', error.message)
       return {}

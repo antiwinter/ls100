@@ -29,16 +29,20 @@ export const importApkgData = async (parsedData) => {
 
     // Create templates with cooked formats
     for (const template of model.tmpls) {
+      // Ensure template formats are strings
+      const qfmt = typeof template.qfmt === 'string' ? template.qfmt : String(template.qfmt || '')
+      const afmt = typeof template.afmt === 'string' ? template.afmt : String(template.afmt || '')
+
       // Cook template formats: filename → NvId + increment refCount
-      const cookedQfmt = await mediaManager.addMedia(template.qfmt, media)
-      const cookedAfmt = await mediaManager.addMedia(template.afmt, media)
+      const cookedQfmt = await mediaManager.addMedia(qfmt, media)
+      const cookedAfmt = await mediaManager.addMedia(afmt, media)
 
       await noteManager.createTemplate(
         bundleId,
         template.name,
-        template.ord,
         cookedQfmt,
-        cookedAfmt
+        cookedAfmt,
+        template.ord
       )
       log.debug(`Created template: ${template.name}`)
     }
@@ -62,10 +66,15 @@ export const importApkgData = async (parsedData) => {
       cookedFields.push(cookedField)
     }
 
+    // Convert tags to array (Anki stores tags as space-separated string, tests might pass arrays)
+    const tagsArray = Array.isArray(ankiNote.tags)
+      ? ankiNote.tags
+      : ankiNote.tags ? ankiNote.tags.trim().split(/\s+/).filter(Boolean) : []
+
     const result = await ankiApi.createNote(
       bundleId,
       cookedFields,
-      ankiNote.tags
+      tagsArray
     )
 
     createdNotes.push(result)
@@ -79,8 +88,8 @@ export const importApkgData = async (parsedData) => {
   return {
     bundleIds,
     noteIds: createdNotes.map(note => note.id),
-    noteTypeCount: bundleIds.length,
-    noteCount: createdNotes.length,
-    cardCount: createdNotes.reduce((sum, note) => sum + (note.cards?.length || 0), 0)
+    bundles: bundleIds.length,
+    notes: createdNotes.length,
+    cards: createdNotes.reduce((sum, note) => sum + (note.cards?.length || 0), 0)
   }
 }
