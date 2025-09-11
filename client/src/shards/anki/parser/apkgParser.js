@@ -390,6 +390,54 @@ const parseCards = (db, notes, bundles) => {
   }
 }
 
+// Simple protobuf parser for Anki media mapping
+const parseProtobufMedia = (buffer) => {
+  const mediaMap = {}
+  let offset = 0
+  let index = 0
+  
+  while (offset < buffer.length) {
+    try {
+      // Skip any non-filename data - look for readable filename patterns
+      let foundFilename = false
+      
+      // Scan for what looks like a filename (contains common extensions)
+      for (let i = offset; i < Math.min(offset + 200, buffer.length - 10); i++) {
+        // Look for common file extensions in the byte stream
+        const slice = buffer.slice(i, i + 50)
+        const text = new TextDecoder('utf-8', { fatal: false }).decode(slice)
+        
+        // Check if this looks like a filename with extension
+        const filenameMatch = text.match(/^([a-zA-Z0-9_-]+\.(png|jpg|jpeg|gif|svg|mp3|wav|ogg|mp4|webm|css|js))/i)
+        if (filenameMatch) {
+          const filename = filenameMatch[1]
+          mediaMap[index.toString()] = filename
+          log.debug(`Found media file: ${index} -> ${filename}`)
+          index++
+          offset = i + filename.length
+          foundFilename = true
+          break
+        }
+      }
+      
+      if (!foundFilename) {
+        offset++
+      }
+      
+      // Safety check to prevent infinite loops
+      if (index > 10000) {
+        log.warn('Too many media files found, stopping parsing')
+        break
+      }
+    } catch (e) {
+      offset++
+    }
+  }
+  
+  log.debug(`Extracted ${index} media filenames from protobuf`)
+  return mediaMap
+}
+
 // Parse media files
 const parseMedia = async (zipData) => {
   try {
@@ -423,10 +471,17 @@ const parseMedia = async (zipData) => {
       const mediaText = new TextDecoder().decode(finalMediaBuffer)
       try {
         mediaMap = JSON.parse(mediaText || '{}')
+        log.debug('Successfully parsed JSON media mapping')
       } catch (error) {
-        log.warn('Media file is not JSON (likely protobuf format), skipping media mapping')
-        log.debug('Media parsing error:', error.message)
-        mediaMap = {} // Use empty mapping - media files will be accessed by numbered names
+        log.debug('Media file is not JSON, attempting protobuf parsing')
+        try {
+          // Simple protobuf parsing for Anki media format
+          mediaMap = parseProtobufMedia(finalMediaBuffer)
+          log.debug(`Parsed protobuf media mapping: ${Object.keys(mediaMap).length} entries`)
+        } catch (protobufError) {
+          log.warn('Failed to parse media mapping:', protobufError.message)
+          mediaMap = {} // Use empty mapping as last resort
+        }
       }
     }
 

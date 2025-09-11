@@ -231,8 +231,7 @@ export class MediaManager {
 
     cookedContent = await this._replaceAsync(cookedContent, srcPattern, async (match, filename) => {
       if (!mediaBlobs[filename]) {
-        log.warn(`Media blob not found for filename: ${filename}, keeping original reference`)
-        return match // Keep original media reference unchanged
+        throw new Error(`Media blob not found for filename: ${filename}`)
       }
 
       // Generate NvId from blob content
