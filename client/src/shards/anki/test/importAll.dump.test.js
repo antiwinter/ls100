@@ -3,7 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import db from '../storage/db'
-import { parseApkgFile, importApkgData } from '../parser/apkgParser.js'
+import { parseApkgFile, importApkgData } from '../apkg/index.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)

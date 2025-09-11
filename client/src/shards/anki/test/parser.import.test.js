@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach } from 'vitest'
 import ankiApi from '../core/ankiApi'
 import db from '../storage/db'
-import { importApkgData } from '../parser/apkgParser.js'
+import { importApkgData } from '../apkg/index.js'
 
 describe('importApkgData', () => {
   beforeEach(async () => {

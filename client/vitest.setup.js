@@ -18,7 +18,9 @@ globalThis.fetch = async (input, init) => {
       const bytes = await fs.promises.readFile(sqlWasmPath)
       return new Response(bytes, { status: 200, headers: { 'Content-Type': 'application/wasm' } })
     }
-  } catch {}
+  } catch {
+    // Ignore fetch errors for WASM loading
+  }
   return originalFetch(input, init)
 }
 
