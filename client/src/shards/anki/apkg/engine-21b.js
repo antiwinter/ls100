@@ -3,6 +3,8 @@ import { log } from '../../../utils/logger'
 
 // Engine for Anki version 21b (protobuf-based format)
 
+export const name = 'engine-21b'
+
 // Check if this engine is compatible with the package
 export const compatible = (zipData) => {
   return !!zipData.files['collection.anki21b']

@@ -11,6 +11,8 @@ const engines = [
 
 // Default engine for versions 2 and 21 (JSON-based)
 const defaultEngine = {
+  name: 'default',
+
   compatible: (zipData) => {
     return zipData.files['collection.anki21'] || zipData.files['collection.anki2']
   },
@@ -23,9 +25,33 @@ const defaultEngine = {
 
   processDbBuffer: (buffer) => buffer, // no processing needed
 
-  parseNotetypes: (collection) => {
-    return collection.models && Object.keys(collection.models).length > 0
-      ? collection.models : {}
+  parseNotetypes: (db) => {
+    try {
+      // Parse models from col table
+      // Note: Using explicit field selection because SELECT * sometimes doesn't
+      // return all fields properly
+      const modelsStmt = db.prepare('SELECT models FROM col')
+      modelsStmt.step()
+      const modelsRow = modelsStmt.getAsObject()
+      modelsStmt.free()
+
+      if (modelsRow.models) {
+        try {
+          const models = JSON.parse(modelsRow.models)
+          log.debug(`Default engine - parsed ${Object.keys(models).length} models from col.models`)
+          return models
+        } catch (error) {
+          log.debug(`Default engine - JSON parse error: ${error.message}`)
+          return {}
+        }
+      } else {
+        log.debug('Default engine - no models data found in col table')
+        return {}
+      }
+    } catch (error) {
+      log.debug('Default engine - failed to parse notetypes:', error.message)
+      return {}
+    }
   },
 
   parseMedia: async (zipData) => {
@@ -36,7 +62,7 @@ const defaultEngine = {
       const mediaText = await mediaFile.async('text')
       return JSON.parse(mediaText || '{}')
     } catch (error) {
-      log.warn('Failed to parse media file:', error.message)
+      log.warn('Default engine - failed to parse media file:', error.message)
       return {}
     }
   }
@@ -56,36 +82,6 @@ const initSQL = async () => {
   return SQL
 }
 
-// Parse collection metadata (shared across versions)
-const parseCollection = (db) => {
-  try {
-    const stmt = db.prepare('SELECT * FROM col')
-    const row = stmt.getAsObject()
-    stmt.free()
-
-    const config = JSON.parse(row.conf || '{}')
-    const models = JSON.parse(row.models || '{}')
-    const decks = JSON.parse(row.decks || '{}')
-
-    return {
-      id: row.id,
-      crt: row.crt,
-      mod: row.mod,
-      scm: row.scm,
-      ver: row.ver,
-      dty: row.dty,
-      usn: row.usn,
-      ls: row.ls,
-      config,
-      models,
-      decks,
-      tags: row.tags
-    }
-  } catch (error) {
-    log.warn('Failed to parse collection:', error.message)
-    return {}
-  }
-}
 
 // Parse decks (shared across versions)
 const parseDecks = (db) => {
@@ -192,6 +188,10 @@ const parseCards = (db, notes, bundles) => {
 
 // Find compatible engine for the given zipData
 const selectEngine = (zipData) => {
+  const files = Object.keys(zipData.files)
+  const collectionFiles = files.filter(f => f.startsWith('collection.'))
+  log.debug(`Collection files found: ${collectionFiles.join(', ')}`)
+
   // Try specialized engines first
   for (const engine of engines) {
     if (engine.compatible && engine.compatible(zipData)) {
@@ -220,6 +220,7 @@ export const parseApkgFile = async (file) => {
 
     // Select compatible engine
     const engine = selectEngine(zipData)
+    log.debug(`Selected engine: ${engine.name}`)
 
     // Extract and process database
     const dbFile = engine.getCollectionFile(zipData)
@@ -233,14 +234,12 @@ export const parseApkgFile = async (file) => {
     // Initialize database
     const db = new SQL.Database(processedBuffer)
 
-    // Parse shared data
-    const collection = parseCollection(db)
+    // Parse shared data - only what's truly shared
     const decks = parseDecks(db)
     const notes = parseNotes(db)
 
-    // Engine-specific parsing
-    const bundles = engine === defaultEngine
-      ? engine.parseNotetypes(collection) : engine.parseNotetypes(db)
+    // Engine-specific parsing - clean interface
+    const bundles = engine.parseNotetypes(db)
     const media = await engine.parseMedia(zipData)
     const cards = parseCards(db, notes, bundles)
 
@@ -256,7 +255,6 @@ export const parseApkgFile = async (file) => {
     log.debug(`Parsing complete: { decks: ${Object.keys(decks).length}, notes: ${notes.length}, cards: ${cards.length}, media: ${Object.keys(media).length} }`)
 
     return {
-      collection,
       bundles,
       decks,
       notes,
