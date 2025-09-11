@@ -1,5 +1,6 @@
 import JSZip from 'jszip'
 import initSqlJs from 'sql.js'
+import { decompress as zstdDecompress } from 'fzstd'
 import ankiApi from '../core/ankiApi'
 import noteManager from '../core/noteManager'
 import mediaManager from '../core/mediaManager'
@@ -45,7 +46,28 @@ export const parseApkgFile = async (file) => {
     }
 
     const dbBuffer = await dbFile.async('uint8array')
-    const db = new SQL.Database(dbBuffer)
+    
+    // Check if database is zstd compressed (modern Anki format)
+    // Zstd magic bytes: 0x28 0xb5 0x2f 0xfd
+    const isZstdCompressed = dbBuffer.length >= 4 && 
+      dbBuffer[0] === 0x28 && dbBuffer[1] === 0xb5 && 
+      dbBuffer[2] === 0x2f && dbBuffer[3] === 0xfd
+    
+    let finalDbBuffer
+    if (isZstdCompressed) {
+      log.debug('Detected zstd compressed database, decompressing...')
+      try {
+        finalDbBuffer = zstdDecompress(dbBuffer)
+        log.debug(`Decompressed: ${dbBuffer.length} → ${finalDbBuffer.length} bytes`)
+      } catch (error) {
+        log.error('Failed to decompress zstd database:', error)
+        throw new Error(`Failed to decompress database: ${error.message}`)
+      }
+    } else {
+      finalDbBuffer = dbBuffer
+    }
+    
+    const db = new SQL.Database(finalDbBuffer)
 
     // Get colSample for bundles extraction
     const colSampleStmt = db.prepare('SELECT * FROM col LIMIT 1')
@@ -56,9 +78,14 @@ export const parseApkgFile = async (file) => {
     const collection = parseCollection(db)
 
     // Use the models data we already extracted (workaround for parseNoteTypes db access issue)
-    const bundles = colSample && colSample.models
+    const bundles = colSample && colSample.models && colSample.models.trim().length > 2 // must have content beyond "{}"
       ? JSON.parse(colSample.models)
       : parseNoteTypes(db)
+    
+    log.debug(`Final bundles object:`, Object.keys(bundles).length, 'models found')
+    for (const [modelId, model] of Object.entries(bundles)) {
+      log.debug(`Model ${modelId}: ${model.name}, fields: ${model.flds?.length || 0}, templates: ${model.tmpls?.length || 0}`)
+    }
 
     // Parse decks
     const decks = parseDecks(db)
@@ -109,9 +136,16 @@ const parseCollection = (db) => {
     const row = stmt.getAsObject()
     stmt.free()
 
+    log.debug('Col table row keys:', Object.keys(row))
+    log.debug('Col table models field length:', (row.models || '').length)
+    log.debug('Col table decks field length:', (row.decks || '').length)
+
     const config = JSON.parse(row.conf || '{}')
     const models = JSON.parse(row.models || '{}')
     const decks = JSON.parse(row.decks || '{}')
+    
+    log.debug('Parsed models count:', Object.keys(models).length)
+    log.debug('Parsed decks count:', Object.keys(decks).length)
 
     return {
       id: row.id,
@@ -137,11 +171,113 @@ const parseCollection = (db) => {
 // Parse note types (templates) - fallback function (currently has db access issues)
 const parseNoteTypes = (db) => {
   try {
+    // First try modern Anki format with separate notetypes table
+    try {
+      const stmt = db.prepare('SELECT * FROM notetypes')
+      const rows = []
+      while (stmt.step()) {
+        rows.push(stmt.getAsObject())
+      }
+      stmt.free()
+      
+      if (rows.length > 0) {
+        log.debug(`Found ${rows.length} notetypes in modern format`)
+        const models = {}
+        for (const row of rows) {
+          log.debug(`Processing notetype row: id=${row.id}, name=${row.name}`)
+          let configText = '{}' // Declare outside try block to avoid scoping issues
+          try {
+            // Check if config might be compressed
+            configText = '{}' // Reset default
+            if (row.config) {
+              // Convert to Uint8Array if needed
+              let configBuffer
+              if (typeof row.config === 'string') {
+                configBuffer = new TextEncoder().encode(row.config)
+              } else if (row.config instanceof Uint8Array) {
+                configBuffer = row.config
+              } else if (row.config instanceof ArrayBuffer) {
+                configBuffer = new Uint8Array(row.config)
+              } else {
+                configBuffer = new Uint8Array(0)
+              }
+              
+              // Check for zstd magic bytes
+              const isZstdCompressed = configBuffer.length >= 4 && 
+                configBuffer[0] === 0x28 && configBuffer[1] === 0xb5 && 
+                configBuffer[2] === 0x2f && configBuffer[3] === 0xfd
+              
+              if (isZstdCompressed) {
+                log.debug(`Notetype ${row.id} config appears to be zstd compressed, attempting decompression`)
+                try {
+                  const decompressed = zstdDecompress(configBuffer)
+                  configText = new TextDecoder().decode(decompressed)
+                  log.debug(`Decompressed notetype config: ${configBuffer.length} → ${decompressed.length} bytes`)
+                } catch (decompError) {
+                  log.warn(`Failed to decompress notetype config:`, decompError.message)
+                  configText = '{}'
+                }
+              } else {
+                // Try as plain text
+                configText = new TextDecoder().decode(configBuffer)
+              }
+            }
+            
+            const config = JSON.parse(configText)
+            models[row.id.toString()] = {
+              id: row.id,
+              name: row.name,
+              flds: config.flds || [],
+              tmpls: config.tmpls || [],
+              ...config
+            }
+            log.debug(`Parsed notetype: ${row.name} (id: ${row.id})`)
+          } catch (configError) {
+            log.warn(`Failed to parse config for notetype ${row.id}:`, configError.message)
+            log.debug(`Config preview:`, JSON.stringify((configText || '').substring(0, 50)))
+            
+            // Create a basic model structure from available fields
+            // For modern Anki, we'll create a minimal working model
+            models[row.id.toString()] = {
+              id: row.id,
+              name: row.name || `Geography_${row.id}`,
+              flds: [
+                { name: 'Front', ord: 0 },
+                { name: 'Back', ord: 1 }
+              ],
+              tmpls: [
+                { 
+                  name: 'Card 1', 
+                  ord: 0, 
+                  qfmt: '{{Front}}', 
+                  afmt: '{{FrontSide}}<hr id="answer">{{Back}}' 
+                }
+              ],
+              css: '',
+              mod: Date.now(),
+              type: 0
+            }
+            log.debug(`Created fallback model for notetype: ${row.name || 'Unknown'} (id: ${row.id})`)
+          }
+        }
+        log.debug(`Successfully parsed ${Object.keys(models).length} notetypes`)
+        log.debug(`Returning models:`, Object.keys(models))
+        return models
+      }
+    } catch (modernError) {
+      log.debug('Modern format failed:', modernError.message)
+      log.debug('No modern notetypes table, trying legacy format')
+    }
+    
+    // Fallback to legacy format from col.models
+    log.debug('Trying legacy format fallback')
     const stmt = db.prepare('SELECT * FROM col')
     const row = stmt.getAsObject()
     stmt.free()
 
     const models = JSON.parse(row.models || '{}')
+    log.debug(`Found ${Object.keys(models).length} models in legacy format`)
+    log.debug(`Legacy models:`, Object.keys(models))
     return models
   } catch (error) {
     log.warn('Failed to parse note types:', error)
@@ -263,8 +399,35 @@ const parseMedia = async (zipData) => {
     let mediaMap = {}
     const mediaFile = zipData.files['media']
     if (mediaFile) {
-      const mediaText = await mediaFile.async('text')
-      mediaMap = JSON.parse(mediaText || '{}')
+      const mediaBuffer = await mediaFile.async('uint8array')
+      
+      // Check if media file is also zstd compressed
+      const isZstdCompressed = mediaBuffer.length >= 4 && 
+        mediaBuffer[0] === 0x28 && mediaBuffer[1] === 0xb5 && 
+        mediaBuffer[2] === 0x2f && mediaBuffer[3] === 0xfd
+      
+      let finalMediaBuffer
+      if (isZstdCompressed) {
+        log.debug('Detected zstd compressed media file, decompressing...')
+        try {
+          finalMediaBuffer = zstdDecompress(mediaBuffer)
+          log.debug(`Media decompressed: ${mediaBuffer.length} → ${finalMediaBuffer.length} bytes`)
+        } catch (error) {
+          log.error('Failed to decompress zstd media file:', error)
+          finalMediaBuffer = mediaBuffer
+        }
+      } else {
+        finalMediaBuffer = mediaBuffer
+      }
+      
+      const mediaText = new TextDecoder().decode(finalMediaBuffer)
+      try {
+        mediaMap = JSON.parse(mediaText || '{}')
+      } catch (error) {
+        log.warn('Media file is not JSON (likely protobuf format), skipping media mapping')
+        log.debug('Media parsing error:', error.message)
+        mediaMap = {} // Use empty mapping - media files will be accessed by numbered names
+      }
     }
 
     // Extract numbered media files (0, 1, 2, etc.)
@@ -300,9 +463,12 @@ export const importApkgData = async (parsedData) => {
     const bundleIds = []
     const bundleMap = new Map() // modelId -> bundleId
 
-    // 1. Create Bundles and Templates (one bundle per Anki note type)
-    for (const [modelId, model] of Object.entries(bundles)) {
-      const bundleId = await genNvId('bundle', `${model.name}-${JSON.stringify(model.flds.map(f => f.name))}`)
+  // 1. Create Bundles and Templates (one bundle per Anki note type)
+  log.debug(`Import: Processing ${Object.keys(bundles).length} bundles`)
+  log.debug(`Bundle IDs available:`, Object.keys(bundles))
+  
+  for (const [modelId, model] of Object.entries(bundles)) {
+      const bundleId = await genId('bundle', `${model.name}-${JSON.stringify(model.flds.map(f => f.name))}`)
       bundleMap.set(modelId, bundleId)
       bundleIds.push(bundleId)
 
@@ -333,6 +499,13 @@ export const importApkgData = async (parsedData) => {
     // 2. Import Notes with cooked fields
     for (const ankiNote of ankiNotes) {
       const bundleId = bundleMap.get(ankiNote.mid.toString())
+      
+      if (!bundleId) {
+        log.error(`No bundle found for note model ID: ${ankiNote.mid}`)
+        log.debug('Available bundle IDs:', Array.from(bundleMap.keys()))
+        log.debug('Note details:', { id: ankiNote.id, mid: ankiNote.mid })
+        continue // Skip this note
+      }
 
       // Cook fields: filename → NvId + increment refCount
       const cookedFields = []
