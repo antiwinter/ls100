@@ -3,8 +3,7 @@ import { Box, Typography, ToggleButtonGroup, Button, Stack, Alert, IconButton } 
 import { MenuBook, School, ArrowBack } from '@mui/icons-material'
 import { BrowseMode } from './BrowseMode.jsx'
 import { StudyMode } from './StudyMode.jsx'
-import ankiApi from '../core/ankiApi'
-import { StudyEngine } from '../engine/studyEngine.js'
+import { ankiApi, mediaManager, StudyEngine } from '../core'
 import { useAnkiSessionStore } from '../storage/useSessionStore.js'
 import { apiCall } from '../../../config/api.js'
 import { log } from '../../../utils/logger'
@@ -49,7 +48,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
 
       // Get media stats
       const mediaStats = shard.metadata?.bundleIds?.length > 0
-        ? await ankiApi.getMediaStatsForBundles(shard.metadata.bundleIds)
+        ? await mediaManager.getMediaStatsForBundles(shard.metadata.bundleIds)
         : { fileCount: 0, totalSize: 0, totalSizeMB: '0.00' }
 
       const data = {

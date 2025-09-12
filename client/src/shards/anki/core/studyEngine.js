@@ -1,6 +1,6 @@
 import { FSRS, Rating, createEmptyCard } from 'ts-fsrs'
-import db from '../storage/db.js'
-import { log } from '../../../utils/logger'
+import db from './db.js'
+import { log } from '../../../utils/logger.js'
 import { TimeSegments } from '../../../utils/timeTracker.js'
 import _ from 'lodash'
 
@@ -175,8 +175,6 @@ export class StudyEngine {
     // Update session store - complete session
     this.session.finish()
   }
-
-  // getProgress removed, use session.getState().history instead
 
   // Undo last step using action log
   async undo() {

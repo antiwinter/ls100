@@ -13,7 +13,7 @@ import {
 } from '@mui/joy'
 import { Search, PlayArrow, Collections } from '@mui/icons-material'
 
-import ankiApi from '../core/ankiApi'
+import { ankiApi } from '../core'
 import { log } from '../../../utils/logger'
 
 const NoteTable = ({ notes, bundles, onStartStudy: _onStartStudy }) => {
@@ -148,7 +148,7 @@ export const BrowseMode = ({
         const types = {}
         for (const note of validNotes) {
           if (!types[note.bundleId]) {
-            types[note.bundleId] = await ankiApi.noteManager.getType(note.bundleId)
+            types[note.bundleId] = await ankiApi.getBundle(note.bundleId)
           }
         }
 

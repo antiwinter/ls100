@@ -12,7 +12,7 @@ db.version(1).stores({
   // - fields: array of field values (text content)
   // - tags: array of tag strings for organization
   // - created/modified: timestamps (auto-managed by hooks)
-  // Used by: noteManager for CRUD operations, cardGen for rendering
+  // Used by: noteManager for CRUD operations, cardRender for rendering
   bundles: 'id, name',
   // Bundles table: Defines note structure and templates (formerly bundles)
   // Schema: { id, name, fields[], created }
@@ -32,7 +32,7 @@ db.version(1).stores({
   // - ord: template ordinal/order within bundle, 0, 1, 2, 3...
   // - vdeck: target virtual deck (single string, e.g., "Spanish::Verbs")
   // - created: timestamp when template was created
-  // Used by: cardGen for rendering card content, noteManager for template lookup
+  // Used by: cardRender for rendering card content, noteManager for template lookup
   cards: 'id, noteId, bundleId, due, state',
   // Cards table: Individual study cards with scheduling data
   // Schema: { id, noteId, templateOrd, bundleId, vdeck[], due, state, fsrs[], created, modified }
@@ -45,7 +45,7 @@ db.version(1).stores({
   // - state: current FSRS state (New/Learning/Review/Relearning) - MIRRORED from fsrs[0].state
   // - fsrs: array of FSRS state history [newest, older, oldest] - source of truth
   // - created/modified: timestamps
-  // Used by: studyEngine for scheduling (fast filters on due/state), cardGen for CRUD operations
+  // Used by: studyEngine for scheduling (fast filters on due/state), ankiApi for CRUD operations
   media: 'id, filename'
   // Media table: Global binary media files (images, audio, etc.)
   // Schema: { id, filename, blob, size, type, refCount, imported }

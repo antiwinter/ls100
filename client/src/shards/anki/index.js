@@ -15,14 +15,14 @@ export { BrowseMode } from './reader/BrowseMode.jsx'
 export { StudyMode } from './reader/StudyMode.jsx'
 
 // Core API and modules
-export { default as ankiApi } from './core/ankiApi.js'
-export { default as noteManager } from './core/noteManager.js'
-export { default as cardGen } from './core/cardGen.js'
-export { default as mediaManager } from './core/mediaManager.js'
-export { default as TemplateRenderer } from './core/templateEngine.js'
-
-// Database
-export { default as db } from './storage/db.js'
+export {
+  ankiApi,
+  noteManager,
+  cardRender,
+  mediaManager,
+  db,
+  StudyEngine
+} from './core'
 
 // Parser utilities
 export {
@@ -37,7 +37,7 @@ export {
   STATES,
   formatInterval,
   getRatingLabel
-} from './engine/studyEngine.js'
+} from './core/studyEngine.js'
 
 // Demo utilities
 export {

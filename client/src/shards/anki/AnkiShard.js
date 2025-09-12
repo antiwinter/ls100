@@ -1,7 +1,7 @@
 import { AnkiShardEditor } from './AnkiShardEditor.jsx'
 import { AnkiReader as AnkiReaderComponent } from './reader/AnkiReader.jsx'
 import { parseApkgFile, importApkgData } from './apkg/index.js'
-import ankiApi from './core/ankiApi'
+import { ankiApi } from './core'
 import { log } from '../../utils/logger'
 
 // Anki Shard Engine
@@ -179,7 +179,7 @@ export const cleanup = async (shard, allShards = []) => {
 
     // Remove all notes and cards for this shard's bundles
     if (shard.metadata?.bundleIds?.length > 0) {
-      await ankiApi.cleanupBundles(shard.metadata.bundleIds)
+      await ankiApi.removeBundles(shard.metadata.bundleIds)
     }
 
     // Check for remaining Anki shards for potential orphan cleanup

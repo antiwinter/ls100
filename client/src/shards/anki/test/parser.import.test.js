@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from 'vitest'
-import ankiApi from '../core/ankiApi'
+import { ankiApi } from '../core'
 import db from '../storage/db'
 import { importApkgData } from '../apkg/index.js'
 

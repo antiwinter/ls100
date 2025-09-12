@@ -1,7 +1,6 @@
-import ankiApi from '../core/ankiApi'
-import noteManager from '../core/noteManager'
+import { ankiApi } from '../core'
 import mediaManager from '../core/mediaManager'
-import db from '../storage/db.js'
+import db from '../core/db.js'
 import { log } from '../../../utils/logger'
 import { genId } from '../../../utils/idGenerator.js'
 
@@ -28,7 +27,7 @@ export const importApkgData = async (parsedData, options = {}) => {
     const fields = model.flds.map(field => field.name)
 
     // Create bundle
-    await noteManager.createType(bundleId, model.name, fields)
+    await ankiApi.addBundle(bundleId, model.name, fields)
     log.debug(`Created bundle: ${model.name}`)
 
     // Create templates with cooked formats
@@ -44,7 +43,7 @@ export const importApkgData = async (parsedData, options = {}) => {
       const cookedQfmt = await mediaManager.addMedia(qfmt, media)
       const cookedAfmt = await mediaManager.addMedia(afmt, media)
 
-      await noteManager.createTemplate(
+      await ankiApi.addTemplate(
         bundleId,
         template.name,
         cookedQfmt,
@@ -78,7 +77,7 @@ export const importApkgData = async (parsedData, options = {}) => {
       ? ankiNote.tags
       : ankiNote.tags ? ankiNote.tags.trim().split(/\s+/).filter(Boolean) : []
 
-    const result = await ankiApi.createNote(
+    const result = await ankiApi.addNote(
       bundleId,
       cookedFields,
       tagsArray

@@ -1,0 +1,97 @@
+import db from './db.js'
+import mediaManager from './mediaManager'
+
+// Card rendering with built-in template processing
+export class CardRender {
+  // Main render method - gets all needed data from card
+  async render(card) {
+    // Get note data
+    const note = await db.notes.get(card.noteId)
+    if (!note) throw new Error(`Note not found: ${card.noteId}`)
+
+    // Get bundle data
+    const bundle = await db.bundles.get(note.bundleId)
+    if (!bundle) throw new Error(`Bundle not found: ${note.bundleId}`)
+
+    // Get template data
+    const templates = await db.templates.where('bundleId').equals(note.bundleId).toArray()
+    const template = templates.find(t => t.ord === card.templateOrd)
+    if (!template) throw new Error(`Template not found: ${card.templateOrd}`)
+
+    // Render the template
+    const fieldNames = bundle.fields.map(f => f.name || f)
+    const rendered = await this._renderTemplate(template, note.fields, card.bundleId, fieldNames)
+
+    return {
+      id: card.id,
+      question: rendered.question,
+      answer: rendered.answer,
+      template: template.name,
+      note: {
+        id: note.id,
+        fields: note.fields,
+        tags: note.tags
+      }
+    }
+  }
+
+
+  // Template rendering methods (moved from templateEngine.js)
+  // Main render method - returns both question and answer
+  async _renderTemplate(template, noteFields, bundleId, fieldNames, frontSideContent = null) {
+    const qContent = template.qfmt || ''
+    const aContent = template.afmt || ''
+
+    // Render question
+    const renderedQuestion = await this._replaceFields(qContent, noteFields, bundleId, fieldNames)
+
+    // Render answer (may include FrontSide)
+    const renderedAnswer = await this._replaceFields(
+      aContent,
+      noteFields,
+      bundleId,
+      fieldNames,
+      frontSideContent || renderedQuestion
+    )
+
+    return {
+      question: renderedQuestion,
+      answer: renderedAnswer
+    }
+  }
+
+  // Replace fields and process media URLs
+  async _replaceFields(content, noteFields, bundleId, fieldNames, frontSide = '') {
+    let result = content
+
+    // Replace {{FrontSide}} with question content
+    result = result.replace(/\{\{FrontSide\}\}/g, frontSide)
+
+    // Replace {{FieldName}} with field values
+    result = result.replace(/\{\{([^}]+)\}\}/g, (match, fieldName) => {
+      if (fieldName === 'FrontSide') {
+        return frontSide
+      }
+
+      const index = this._getFieldIndex(fieldName, fieldNames)
+      return index !== -1 ? (noteFields[index] || '') : ''
+    })
+
+    // Process media URLs
+    result = await mediaManager.replaceMediaUrls(result)
+
+    return result
+  }
+
+  // Get field index (case-insensitive)
+  _getFieldIndex(fieldName, fieldNames) {
+    return fieldNames.findIndex(name =>
+      name.toLowerCase() === fieldName.toLowerCase()
+    )
+  }
+
+}
+
+// Singleton instance
+export const cardRender = new CardRender()
+export default cardRender

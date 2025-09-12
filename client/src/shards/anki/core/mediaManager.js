@@ -1,4 +1,4 @@
-import db from '../storage/db.js'
+import db from './db.js'
 import { log } from '../../../utils/logger'
 import { genNvId } from '../../../utils/idGenerator.js'
 

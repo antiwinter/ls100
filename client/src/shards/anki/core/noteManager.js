@@ -1,4 +1,4 @@
-import db from '../storage/db.js'
+import db from './db.js'
 import { log } from '../../../utils/logger'
 import { genNvId } from '../../../utils/idGenerator.js'
 import mediaManager from './mediaManager.js'
@@ -15,7 +15,7 @@ export class NoteManager {
 
   // Create new note with cooked fields (for APKG import)
   async create(bundleId, fields, tags = []) {
-    const bundle = await this.getType(bundleId)
+    const bundle = await db.bundles.get(bundleId)
     if (!bundle) throw new Error(`NoteType not found: ${bundleId}`)
 
     // Fields should already be cooked (contain NvIds) when passed in
@@ -72,33 +72,6 @@ export class NoteManager {
     return updated
   }
 
-  // Add reference (increment refCount) - for compatibility
-  async addRef(noteId) {
-    const note = await this.get(noteId)
-    if (!note) throw new Error(`Note not found: ${noteId}`)
-
-    note.refCount = (note.refCount || 0) + 1
-    await db.notes.put(note)
-    log.debug('Note ref added:', noteId, 'refCount:', note.refCount)
-    return note
-  }
-
-  // Remove reference (decrement refCount, cleanup if 0) - for compatibility
-  async removeRef(noteId) {
-    const note = await this.get(noteId)
-    if (!note) return
-
-    note.refCount = Math.max(0, (note.refCount || 1) - 1)
-
-    if (note.refCount === 0) {
-      // Cleanup note and related cards
-      await this.cleanup(noteId)
-      log.debug('Note cleaned up:', noteId)
-    } else {
-      await db.notes.put(note)
-      log.debug('Note ref removed:', noteId, 'refCount:', note.refCount)
-    }
-  }
 
   // Delete note directly
   async delete(noteId) {
@@ -126,43 +99,6 @@ export class NoteManager {
     log.debug('Note and cards cleaned up:', noteId)
   }
 
-  // Get bundle
-  async getType(bundleId) {
-    return await db.bundles.get(bundleId)
-  }
-
-  // Create bundle
-  async createType(id, name, fields) {
-    const bundle = { id, name, fields, created: Date.now() }
-    await db.bundles.put(bundle)
-    return bundle
-  }
-
-  // Get templates for bundle
-  async getTemplates(bundleId) {
-    return await db.templates.where('bundleId').equals(bundleId).toArray()
-  }
-
-  // Create template with cooked formats (for APKG import)
-  async createTemplate(bundleId, name, qfmt, afmt, ord = 0, vdeck = null) {
-    const template = {
-      id: await genNvId('template', bundleId + name + qfmt + afmt),
-      bundleId,
-      name,
-      qfmt,
-      afmt,
-      ord,
-      vdeck,
-      created: Date.now()
-    }
-    await db.templates.put(template)
-
-    // Retain media references from cooked template formats
-    await mediaManager.retainMedia(qfmt)
-    await mediaManager.retainMedia(afmt)
-
-    return template
-  }
 
 
 }

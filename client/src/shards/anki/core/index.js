@@ -1,0 +1,7 @@
+// Core Anki functionality exports
+export { default as ankiApi } from './api.js'
+export { default as noteManager } from './noteManager.js'
+export { default as cardRender } from './renderDefault.js'
+export { default as mediaManager } from './mediaManager.js'
+export { default as db } from './db.js'
+export { StudyEngine } from './studyEngine.js'
