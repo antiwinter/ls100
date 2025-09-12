@@ -2,389 +2,377 @@ import db from './db.js'
 import { log } from '../../../utils/logger'
 import { genNvId } from '../../../utils/idGenerator.js'
 
-// Media file management for Anki cards
-export class MediaManager {
-  constructor() {
-    // Unified KV cache structure:
-    // key: "filename" (global media)
-    // value: {
-    //   dataUrl?: string,     // Generated data URL for templates (hot path)
-    //   size?: number,        // File size for statistics
-    //   type?: string,        // MIME type
-    //   filename?: string,    // Original filename
-    //   imported?: number,    // Import timestamp
-    //   data?: any,          // Future extensible field (thumbnails, transforms, etc.)
-    //   ...                  // Other future extensions
-    // }
-    this.mediaCache = new Map()
+// Unified KV cache structure:
+// key: "filename" (global media)
+// value: {
+//   dataUrl?: string,     // Generated data URL for templates (hot path)
+//   size?: number,        // File size for statistics
+//   type?: string,        // MIME type
+//   filename?: string,    // Original filename
+//   imported?: number,    // Import timestamp
+//   data?: any,          // Future extensible field (thumbnails, transforms, etc.)
+//   ...                  // Other future extensions
+// }
+const mediaCache = new Map()
+
+// Get or load media metadata into unified cache (internal)
+async function _ensureMetadata(cacheKey, filename) {
+  let cached = mediaCache.get(cacheKey)
+
+  // If we have complete metadata, return it
+  if (cached?.filename && cached?.size !== undefined) {
+    return cached
   }
 
-  // Get or load media metadata into unified cache
-  async _ensureMetadata(cacheKey, filename) {
-    let cached = this.mediaCache.get(cacheKey)
-
-    // If we have complete metadata, return it
-    if (cached?.filename && cached?.size !== undefined) {
-      return cached
-    }
-
-    // Load from DB and merge with existing cache entry
-    try {
-      const mediaRecord = await db.media.get(cacheKey)
-      if (mediaRecord) {
-        const updated = {
-          ...cached, // Preserve existing cache (e.g., dataUrl)
-          filename: mediaRecord.filename,
-          size: mediaRecord.size,
-          type: mediaRecord.type,
-          imported: mediaRecord.imported
-        }
-        this.mediaCache.set(cacheKey, updated)
-        return updated
+  // Load from DB and merge with existing cache entry
+  try {
+    const mediaRecord = await db.media.get(cacheKey)
+    if (mediaRecord) {
+      const updated = {
+        ...cached, // Preserve existing cache (e.g., dataUrl)
+        filename: mediaRecord.filename,
+        size: mediaRecord.size,
+        type: mediaRecord.type,
+        imported: mediaRecord.imported
       }
-    } catch (error) {
-      log.warn('Failed to retrieve media metadata:', filename, error)
+      mediaCache.set(cacheKey, updated)
+      return updated
     }
-
-    return null
+  } catch (error) {
+    log.warn('Failed to retrieve media metadata:', filename, error)
   }
 
-  // Convert blob to data URL on demand
-  async _blobToDataUrl(blob) {
-    return new Promise((resolve) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(reader.result)
-      reader.readAsDataURL(blob)
-    })
+  return null
+}
+
+// Convert blob to data URL (internal)
+async function _blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+  })
+}
+
+// Get media data URL for template rendering
+export async function getMediaDataUrl(filename) {
+  if (!filename) return null
+
+  const cacheKey = filename
+
+  // Try memory cache first
+  const cached = mediaCache.get(cacheKey)
+  if (cached?.dataUrl) {
+    return cached.dataUrl
   }
 
-  // Get data URL for media (with caching) - primary method for template rendering
-  async getMediaDataUrl(filename) {
-    const cacheKey = filename
+  // Load from database
+  try {
+    const mediaRecord = await db.media.get(cacheKey)
+    if (mediaRecord?.blob) {
+      const dataUrl = await _blobToDataUrl(mediaRecord.blob)
 
-    // Check if dataUrl already cached
-    let cached = this.mediaCache.get(cacheKey)
-    if (cached?.dataUrl) {
-      return cached.dataUrl
+      // Cache for future use (merge with existing metadata)
+      const updated = { ...cached, dataUrl }
+      mediaCache.set(cacheKey, updated)
+
+      return dataUrl
     }
-
-    // Generate dataUrl from blob and cache it
-    try {
-      const mediaRecord = await db.media.get(cacheKey)
-      if (mediaRecord?.blob) {
-        const dataUrl = await this._blobToDataUrl(mediaRecord.blob)
-
-        // Update unified cache with dataUrl (preserve existing metadata if any)
-        const updated = {
-          ...cached,
-          dataUrl,
-          // Also cache metadata while we have it
-          filename: mediaRecord.filename,
-          size: mediaRecord.size,
-          type: mediaRecord.type,
-          imported: mediaRecord.imported
-        }
-        this.mediaCache.set(cacheKey, updated)
-        return dataUrl
-      }
-    } catch (error) {
-      log.warn('Failed to retrieve media for data URL:', filename, error)
-    }
-
-    return null
+  } catch (error) {
+    log.warn('Failed to retrieve media for template:', filename, error)
   }
 
-  // Get media metadata for statistics (returns metadata without blobs)
-  // getBundleMediaStats removed - use getBundlesMediaStats([bundleId]) directly
+  return null
+}
 
-  // Get media metadata for multiple bundles (for statistics)
-  async getBundlesMediaStats(bundleIds) {
-    try {
-      // Get all media NvIds referenced by bundles
-      const mediaIds = new Set()
+// Get media metadata for multiple bundles (for statistics)
+export async function getBundlesMediaStats(bundleIds) {
+  try {
+    // Get all media NvIds referenced by bundles
+    const mediaIds = new Set()
 
-      // Get NvIds from notes and templates for these bundles
-      const notes = await db.notes.where('bundleId').anyOf(bundleIds).toArray()
-      const templates = await db.templates.where('bundleId').anyOf(bundleIds).toArray()
+    // Get media from notes
+    const notes = await db.notes.where('bundleId').anyOf(bundleIds).toArray()
+    const templates = await db.templates.where('bundleId').anyOf(bundleIds).toArray()
 
-      // Extract media references from note fields
-      for (const note of notes) {
-        for (const field of note.fields || []) {
-          const refs = this.extractMediaReferences(field)
-          refs.forEach(ref => mediaIds.add(ref))
+    // Extract NvIds from note fields
+    for (const note of notes) {
+      for (const field of note.fields) {
+        const matches = field.match(/\[sound:([^\]]+)\]/g)
+        if (matches) {
+          for (const match of matches) {
+            const nvId = match.match(/\[sound:([^\]]+)\]/)?.[1]
+            if (nvId) mediaIds.add(nvId)
+          }
         }
       }
+    }
 
-      // Extract media references from template formats
-      for (const template of templates) {
-        const qRefs = this.extractMediaReferences(template.qfmt || '')
-        const aRefs = this.extractMediaReferences(template.afmt || '')
-        qRefs.forEach(ref => mediaIds.add(ref))
-        aRefs.forEach(ref => mediaIds.add(ref))
-      }
-
-      // Get media records for these NvIds
-      const mediaRecords = await db.media.where('id').anyOf([...mediaIds]).toArray()
-
-      return mediaRecords.map(record => {
-        // Update cache with metadata while we have it
-        const cached = this.mediaCache.get(record.id)
-        const metadata = {
-          filename: record.filename,
-          size: record.size,
-          type: record.type,
-          imported: record.imported
+    // Extract NvIds from template formats
+    for (const template of templates) {
+      const formats = [template.qfmt, template.afmt].filter(Boolean)
+      for (const format of formats) {
+        const matches = format.match(/\[sound:([^\]]+)\]/g)
+        if (matches) {
+          for (const match of matches) {
+            const nvId = match.match(/\[sound:([^\]]+)\]/)?.[1]
+            if (nvId) mediaIds.add(nvId)
+          }
         }
-        this.mediaCache.set(record.id, { ...cached, ...metadata })
-        return metadata
-      })
-    } catch (error) {
-      log.error('Failed to get bundles media stats:', error)
-      return []
-    }
-  }
-
-  // Replace media URLs in HTML content
-  async replaceMediaUrls(html) {
-    if (!html || typeof html !== 'string') {
-      return html
-    }
-
-    // Find all media references in the HTML
-    const mediaReferences = this.extractMediaReferences(html)
-    if (mediaReferences.length === 0) {
-      return html
-    }
-
-    let processedHtml = html
-
-    // Replace each media reference
-    for (const filename of mediaReferences) {
-      const dataUrl = await this.getMediaDataUrl(filename)
-      if (dataUrl) {
-        // Replace src attributes with data URL
-        const patterns = [
-          new RegExp(`src=["']${this.escapeRegExp(filename)}["']`, 'gi'),
-          new RegExp(`src=${this.escapeRegExp(filename)}(?=\\s|>)`, 'gi')
-        ]
-
-        for (const pattern of patterns) {
-          processedHtml = processedHtml.replace(pattern, `src="${dataUrl}"`)
-        }
-
-        log.debug(`Replaced media reference: ${filename}`)
-      } else {
-        log.warn(`Media file not found: ${filename}`)
-        // Could optionally replace with placeholder image
       }
     }
 
-    return processedHtml
-  }
-
-  // Extract media NvIds from cooked HTML content
-  extractMediaReferences(html) {
-    const nvIds = new Set()
-    if (!html || typeof html !== 'string') {
+    if (mediaIds.size === 0) {
       return []
     }
 
-    // Match src attributes containing NvIds (format: prefix-hash where hash is 64 hex chars)
-    const srcPattern = /src=["']?([a-zA-Z0-9]+-[a-f0-9]{64})["']?/gi
-    let match
+    // Get media records for all referenced NvIds
+    const mediaRecords = await db.media.where('id').anyOf([...mediaIds]).toArray()
 
-    while ((match = srcPattern.exec(html)) !== null) {
-      const possibleNvId = match[1]
-      // NvId validation: prefix-64charHexHash format
-      if (/^[a-zA-Z0-9]+-[a-f0-9]{64}$/.test(possibleNvId)) {
-        nvIds.add(possibleNvId)
-      }
+    // Return metadata without blobs for performance
+    return mediaRecords.map(record => ({
+      id: record.id,
+      filename: record.filename,
+      type: record.type,
+      size: record.size,
+      imported: record.imported
+    }))
+  } catch (error) {
+    log.error('Failed to get bundles media stats:', error)
+    return []
+  }
+}
+
+// Replace media URLs in HTML content
+export async function replaceMediaUrls(html) {
+  if (!html) return html
+
+  // Replace [sound:filename] with data URLs for browser playback
+  return await _replaceAsync(html, /\[sound:([^\]]+)\]/g, async (match, filename) => {
+    const dataUrl = await getMediaDataUrl(filename)
+    if (dataUrl) {
+      // Create audio element with data URL
+      return `<audio controls><source src="${dataUrl}" type="audio/mpeg"></audio>`
     }
+    return match // Keep original if no media found
+  })
+}
 
-    return Array.from(nvIds)
+// Add media files to database and replace content with NvIds
+export async function addMedia(content, mediaBlobs) {
+  if (!content || !mediaBlobs || Object.keys(mediaBlobs).length === 0) {
+    return content
   }
 
-  // Helper: Escape special regex characters
-  escapeRegExp(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  }
+  let processedContent = content
 
-  // Add media from raw content with blob context (Raw → Cooked)
-  async addMedia(content, mediaBlobs) {
-    if (!content || typeof content !== 'string') return content
-    if (!mediaBlobs) {
-      throw new Error('mediaBlobs required for addMedia - cannot add media without blob data')
+  // Process each media reference
+  for (const [filename, blob] of Object.entries(mediaBlobs)) {
+    if (!blob) continue
+
+    try {
+      // Generate NvId for this media file
+      const mediaId = await genNvId('media', filename + blob.size + blob.type)
+
+      // Store media in database
+      const mediaRecord = {
+        id: mediaId,
+        filename,
+        blob,
+        type: blob.type,
+        size: blob.size,
+        refCount: 0,
+        imported: Date.now()
+      }
+
+      await db.media.put(mediaRecord)
+
+      // Replace filename with NvId in content
+      const filenameRegex = new RegExp(`\\[sound:${filename.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]`, 'g')
+      processedContent = processedContent.replace(filenameRegex, `[sound:${mediaId}]`)
+
+      log.debug('Media processed:', { filename, mediaId, size: blob.size })
+    } catch (error) {
+      log.error('Failed to process media:', filename, error)
     }
-
-    let cookedContent = content
-
-    // Extract filenames and replace with NvIds
-    const srcPattern = /src=["']?([^"'\s>]+\.(jpg|jpeg|png|gif|webp|svg|mp3|wav|ogg|mp4|webm))["']?/gi
-
-    cookedContent = await this._replaceAsync(cookedContent, srcPattern, async (match, filename) => {
-      if (!mediaBlobs[filename]) {
-        throw new Error(`Media blob not found for filename: ${filename}`)
-      }
-
-      // Generate NvId from blob content
-      const mediaData = mediaBlobs[filename]
-      const nvId = await genNvId('media', mediaData.blob)
-
-      // Upsert media record
-      const existingMedia = await db.media.get(nvId)
-      if (existingMedia) {
-        // Media exists: increment refCount
-        await db.media.where('id').equals(nvId).modify(media => {
-          media.refCount = (media.refCount || 0) + 1
-        })
-      } else {
-        // New media: create record
-        await db.media.put({
-          id: nvId,
-          filename,
-          blob: mediaData.blob,
-          size: mediaData.size,
-          type: mediaData.type,
-          refCount: 1,
-          imported: Date.now()
-        })
-      }
-
-      // Replace filename with NvId
-      return match.replace(filename, nvId)
-    })
-
-    return cookedContent
   }
 
-  // Remove media references from cooked content (decrement refCount, auto-cleanup)
-  async removeMedia(content) {
-    if (!content || typeof content !== 'string') return []
+  return processedContent
+}
 
-    const nvIds = this.extractMediaReferences(content)
-    for (const nvId of nvIds) {
-      // Decrement refCount
-      await db.media.where('id').equals(nvId).modify(media => {
-        media.refCount = Math.max(0, (media.refCount || 1) - 1)
-      })
+// Remove media references (decrease refCount)
+export async function removeMedia(content) {
+  if (!content) return
 
-      // Auto-cleanup if refCount reaches 0
+  // Extract all NvIds from content
+  const matches = content.match(/\[sound:([^\]]+)\]/g)
+  if (!matches) return
+
+  for (const match of matches) {
+    const nvId = match.match(/\[sound:([^\]]+)\]/)?.[1]
+    if (!nvId) continue
+
+    try {
       const media = await db.media.get(nvId)
-      if (media && media.refCount <= 0) {
-        await db.media.delete(nvId)
-        this.mediaCache.delete(nvId)
-        log.info(`🗑️ Auto-removed unused media: ${nvId}`)
-      }
-    }
-    return nvIds
-  }
-
-  // Retain media references from cooked content (increment refCount for existing NvIds)
-  async retainMedia(content) {
-    if (!content || typeof content !== 'string') return []
-
-    const nvIds = this.extractMediaReferences(content)
-    for (const nvId of nvIds) {
-      await db.media.where('id').equals(nvId).modify(media => {
-        media.refCount = (media.refCount || 0) + 1
-      })
-    }
-    return nvIds
-  }
-
-  // Helper: Async string replacement
-  async _replaceAsync(str, regex, asyncFn) {
-    const promises = []
-    const matches = []
-
-    // Collect all matches first
-    str.replace(regex, (match, ...args) => {
-      matches.push({ match, args })
-      return match
-    })
-
-    // Process matches with async function
-    for (const { match, args } of matches) {
-      promises.push(asyncFn(match, ...args))
-    }
-
-    const replacements = await Promise.all(promises)
-
-    // Apply replacements
-    let result = str
-    let index = 0
-    result = result.replace(regex, () => replacements[index++])
-
-    return result
-  }
-
-  // Clear cache for memory management
-  clearCache() {
-    this.mediaCache.clear()
-    log.debug('Media cache cleared')
-  }
-
-  // Remove media files for multiple bundles (cleanup)
-  async removeBundlesMedia(bundleIds) {
-    try {
-      const mediaIds = new Set()
-
-      // Get NvIds from notes and templates for these bundles
-      const notes = await db.notes.where('bundleId').anyOf(bundleIds).toArray()
-      const templates = await db.templates.where('bundleId').anyOf(bundleIds).toArray()
-
-      // Extract media references from note fields
-      for (const note of notes) {
-        for (const field of note.fields || []) {
-          const refs = this.extractMediaReferences(field)
-          refs.forEach(ref => mediaIds.add(ref))
+      if (media) {
+        const newRefCount = Math.max(0, (media.refCount || 0) - 1)
+        if (newRefCount === 0) {
+          await db.media.delete(nvId)
+          mediaCache.delete(nvId)
+          log.debug('Media deleted:', nvId)
+        } else {
+          await db.media.update(nvId, { refCount: newRefCount })
         }
       }
-
-      // Extract media references from template formats
-      for (const template of templates) {
-        const qRefs = this.extractMediaReferences(template.qfmt || '')
-        const aRefs = this.extractMediaReferences(template.afmt || '')
-        qRefs.forEach(ref => mediaIds.add(ref))
-        aRefs.forEach(ref => mediaIds.add(ref))
-      }
-
-      // Remove media files by decrementing refCount (auto-cleanup will handle deletion)
-      let removedCount = 0
-      for (const mediaId of mediaIds) {
-        const media = await db.media.get(mediaId)
-        if (media) {
-          await this.removeMedia(`<img src="${mediaId}">`) // Trigger refCount decrement
-          removedCount++
-        }
-      }
-
-      log.debug(`Processed ${removedCount} media files for bundles: ${bundleIds.join(', ')}`)
-      return removedCount
     } catch (error) {
-      log.error('Failed to remove bundles media:', error)
-      return 0
-    }
-  }
-
-  // Get storage usage statistics for multiple bundles
-  async getMediaStatsForBundles(bundleIds) {
-    try {
-      const bundlesMedia = await this.getBundlesMediaStats(bundleIds)
-      const totalSize = bundlesMedia.reduce((sum, media) => sum + (media.size || 0), 0)
-
-      return {
-        fileCount: bundlesMedia.length,
-        totalSize,
-        totalSizeMB: (totalSize / (1024 * 1024)).toFixed(2)
-      }
-    } catch (error) {
-      log.error('Failed to get media stats:', error)
-      return { fileCount: 0, totalSize: 0, totalSizeMB: '0.00' }
+      log.error('Failed to remove media reference:', nvId, error)
     }
   }
 }
 
-// Singleton instance
-export const mediaManager = new MediaManager()
-export default mediaManager
+// Retain media references (increase refCount)
+export async function retainMedia(content) {
+  if (!content) return
+
+  // Extract all NvIds from content
+  const matches = content.match(/\[sound:([^\]]+)\]/g)
+  if (!matches) return
+
+  for (const match of matches) {
+    const nvId = match.match(/\[sound:([^\]]+)\]/)?.[1]
+    if (!nvId) continue
+
+    try {
+      await db.media.update(nvId, (media) => ({
+        ...media,
+        refCount: (media.refCount || 0) + 1
+      }))
+    } catch (error) {
+      log.error('Failed to retain media reference:', nvId, error)
+    }
+  }
+}
+
+// Helper for async string replacement (internal)
+async function _replaceAsync(str, regex, asyncFn) {
+  const promises = []
+  let match
+
+  // Reset regex lastIndex to ensure we start from the beginning
+  regex.lastIndex = 0
+
+  while ((match = regex.exec(str)) !== null) {
+    const promise = asyncFn(match[0], match[1], match.index)
+    promises.push(promise)
+
+    // Prevent infinite loop on global regex
+    if (!regex.global) break
+  }
+
+  const data = await Promise.all(promises)
+  let result = str
+
+  // Replace in reverse order to maintain correct indices
+  const matches = []
+  regex.lastIndex = 0
+  while ((match = regex.exec(str)) !== null) {
+    matches.push({ match: match[0], index: match.index })
+    if (!regex.global) break
+  }
+
+  for (let i = matches.length - 1; i >= 0; i--) {
+    const { match, index } = matches[i]
+    const replacement = data[i]
+    result = result.substring(0, index) + replacement + result.substring(index + match.length)
+  }
+
+  return result
+}
+
+// Remove media for bundles (cleanup)
+export async function removeBundlesMedia(bundleIds) {
+  try {
+    const stats = { mediaFilesRemoved: 0, mediaSizeFreed: 0 }
+
+    // Get all media NvIds that should be removed
+    const mediaIdsToRemove = new Set()
+
+    // Get media from notes
+    const notes = await db.notes.where('bundleId').anyOf(bundleIds).toArray()
+    const templates = await db.templates.where('bundleId').anyOf(bundleIds).toArray()
+
+    // Extract NvIds from note fields
+    for (const note of notes) {
+      for (const field of note.fields) {
+        const matches = field.match(/\[sound:([^\]]+)\]/g)
+        if (matches) {
+          for (const match of matches) {
+            const nvId = match.match(/\[sound:([^\]]+)\]/)?.[1]
+            if (nvId) mediaIdsToRemove.add(nvId)
+          }
+        }
+      }
+    }
+
+    // Extract NvIds from template formats
+    for (const template of templates) {
+      const formats = [template.qfmt, template.afmt].filter(Boolean)
+      for (const format of formats) {
+        const matches = format.match(/\[sound:([^\]]+)\]/g)
+        if (matches) {
+          for (const match of matches) {
+            const nvId = match.match(/\[sound:([^\]]+)\]/)?.[1]
+            if (nvId) mediaIdsToRemove.add(nvId)
+          }
+        }
+      }
+    }
+
+    // Remove media records
+    for (const nvId of mediaIdsToRemove) {
+      const media = await db.media.get(nvId)
+      if (media) {
+        stats.mediaSizeFreed += media.size || 0
+        await db.media.delete(nvId)
+        mediaCache.delete(nvId)
+        stats.mediaFilesRemoved++
+      }
+    }
+
+    return stats
+  } catch (error) {
+    log.error('Failed to remove bundles media:', error)
+    return { mediaFilesRemoved: 0, mediaSizeFreed: 0 }
+  }
+}
+
+// Get media statistics for bundles (wrapper for getBundlesMediaStats)
+export async function getMediaStatsForBundles(bundleIds) {
+  try {
+    const bundlesMedia = await getBundlesMediaStats(bundleIds)
+
+    if (bundlesMedia.length === 0) {
+      return { fileCount: 0, totalSize: 0, totalSizeMB: '0.00' }
+    }
+
+    const totalSize = bundlesMedia.reduce((sum, media) => sum + (media.size || 0), 0)
+    const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(2)
+
+    return {
+      fileCount: bundlesMedia.length,
+      totalSize,
+      totalSizeMB
+    }
+  } catch (error) {
+    log.error('Failed to get media stats:', error)
+    return { fileCount: 0, totalSize: 0, totalSizeMB: '0.00' }
+  }
+}
+
+// Clear cache (for testing)
+export function clearCache() {
+  mediaCache.clear()
+}
+
+// No default export needed - use named exports directly

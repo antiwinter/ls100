@@ -1,100 +1,138 @@
 import db from './db.js'
 import { log } from '../../../utils/logger'
-import { genNvId } from '../../../utils/idGenerator.js'
-import mediaManager from './mediaManager.js'
+import { genNvId, genId } from '../../../utils/idGenerator.js'
+import { retainMedia, removeMedia } from './mediaManager.js'
+import { render } from './renderDefault.js'
 
-// Note manager for Anki collection
-export class NoteManager {
-  constructor() {
-    this.STORES = {
-      notes: 'notes',
-      bundles: 'bundles',
-      templates: 'templates'
-    }
+// Create new note with cooked fields (for APKG import)
+async function _create(bundleId, fields, tags = []) {
+  const bundle = await db.bundles.get(bundleId)
+  if (!bundle) throw new Error(`NoteType not found: ${bundleId}`)
+
+  // Fields should already be cooked (contain NvIds) when passed in
+  const note = {
+    id: await genNvId('note', bundleId + fields.join('') + tags.join('')),
+    bundleId,
+    fields: fields.slice(0, bundle.fields.length), // Ensure correct field count
+    tags,
+    refCount: 0,
+    created: Date.now(),
+    modified: Date.now()
   }
 
-  // Create new note with cooked fields (for APKG import)
-  async create(bundleId, fields, tags = []) {
-    const bundle = await db.bundles.get(bundleId)
-    if (!bundle) throw new Error(`NoteType not found: ${bundleId}`)
+  await db.notes.put(note)
 
-    // Fields should already be cooked (contain NvIds) when passed in
-    const note = {
-      id: await genNvId('note', bundleId + fields.join('') + tags.join('')),
-      bundleId,
-      fields: fields.slice(0, bundle.fields.length), // Ensure correct field count
-      tags,
-      refCount: 0,
-      created: Date.now(),
-      modified: Date.now()
-    }
-
-    await db.notes.put(note)
-
-    // Retain media references from cooked fields
-    for (const field of note.fields) {
-      await mediaManager.retainMedia(field)
-    }
-
-    return note
+  // Retain media references from cooked fields
+  for (const field of note.fields) {
+    await retainMedia(field)
   }
 
-  // Get note by id
-  async get(noteId) {
-    return await db.notes.get(noteId)
-  }
-
-  // Update note fields (expects cooked fields with NvIds)
-  async update(noteId, fields, tags) {
-    const note = await this.get(noteId)
-    if (!note) throw new Error(`Note not found: ${noteId}`)
-
-    // Handle media refCount updates if fields changed
-    if (fields !== undefined) {
-      // Remove old media references from existing cooked fields
-      for (const field of note.fields) {
-        await mediaManager.removeMedia(field)
-      }
-
-      // Retain media references from new cooked fields
-      for (const field of fields) {
-        await mediaManager.retainMedia(field)
-      }
-    }
-
-    const updates = { modified: Date.now() }
-    if (fields !== undefined) updates.fields = fields
-    if (tags !== undefined) updates.tags = tags
-
-    const updated = { ...note, ...updates }
-    await db.notes.put(updated)
-    log.debug('Note updated:', noteId)
-    return updated
-  }
-
-
-  // Delete note and related data
-  async delete(note) {
-    if (note) {
-      // Remove media references from all fields
-      for (const field of note.fields) {
-        await mediaManager.removeMedia(field)
-      }
-    }
-
-    // Delete note
-    await db.notes.delete(note.id)
-
-    // Delete related cards
-    await db.cards.where('noteId').equals(note.id).delete()
-
-    log.debug('Note deleted:', note.id)
-  }
-
-
-
+  return note
 }
 
-// Singleton instance
-export const noteManager = new NoteManager()
-export default noteManager
+
+// Generate cards for note in specific bundle (standalone function)
+async function _genCardsForNote(note) {
+  const bundle = await db.bundles.get(note.bundleId)
+  if (!bundle) throw new Error(`NoteType not found: ${note.bundleId}`)
+
+  const templates = await db.templates.where('bundleId').equals(note.bundleId).toArray()
+  const cards = []
+
+  for (const template of templates) {
+    const now = Date.now()
+    const card = {
+      id: await genId('card', note.id + template.ord + note.bundleId),
+      noteId: note.id,
+      templateOrd: template.ord,
+      bundleId: note.bundleId,
+      // Default scheduling
+      due: now,
+      state: 'New', // FSRS state mirrored for fast queries
+      // FSRS progress stored with the card
+      fsrs: null,
+      created: now,
+      modified: now
+    }
+
+    try {
+      // Test if card can be rendered (has content) - pass pre-fetched data
+      const rendered = await render(card, { note, bundle, template })
+      // Check if question has meaningful content
+      const questionContent = rendered.question?.trim()
+      if (questionContent && questionContent.length > 0) {
+        await db.cards.put(card)
+        cards.push(card)
+      }
+    } catch (error) {
+      // Card cannot be rendered, skip it
+      log.debug(`Skipping card for template ${template.ord}: render failed`, error.message)
+    }
+  }
+
+  return cards
+}
+
+// Add note with cards - automatically generates cards for the note
+export async function create(bundleId, fields, tags) {
+  // Create note
+  const note = await _create(bundleId, fields, tags)
+
+  // Generate cards
+  const cards = await _genCardsForNote(note)
+
+  return { note, cards }
+}
+
+// Get note by id
+export async function get(noteId) {
+  return await db.notes.get(noteId)
+}
+
+// Update note fields (expects cooked fields with NvIds)
+export async function update(noteId, fields, tags) {
+  const note = await get(noteId)
+  if (!note) throw new Error(`Note not found: ${noteId}`)
+
+  // Handle media refCount updates if fields changed
+  if (fields !== undefined) {
+    // Remove old media references from existing cooked fields
+    for (const field of note.fields) {
+      await removeMedia(field)
+    }
+
+    // Retain media references from new cooked fields
+    for (const field of fields) {
+      await retainMedia(field)
+    }
+  }
+
+  const updates = { modified: Date.now() }
+  if (fields !== undefined) updates.fields = fields
+  if (tags !== undefined) updates.tags = tags
+
+  const updated = { ...note, ...updates }
+  await db.notes.put(updated)
+  log.debug('Note updated:', noteId)
+  return updated
+}
+
+// Delete note and related data
+export async function deleteNote(note) {
+  if (note) {
+    // Remove media references from all fields
+    for (const field of note.fields) {
+      await removeMedia(field)
+    }
+  }
+
+  // Delete note
+  await db.notes.delete(note.id)
+
+  // Delete related cards
+  await db.cards.where('noteId').equals(note.id).delete()
+
+  log.debug('Note deleted:', note.id)
+}
+
+// No default export needed - use named exports directly

@@ -3,7 +3,10 @@ import { Box, Typography, ToggleButtonGroup, Button, Stack, Alert, IconButton } 
 import { MenuBook, School, ArrowBack } from '@mui/icons-material'
 import { BrowseMode } from './BrowseMode.jsx'
 import { StudyMode } from './StudyMode.jsx'
-import { ankiApi, mediaManager, StudyEngine } from '../core'
+import { getCardsForBundles } from '../core/api.js'
+import { getMediaStatsForBundles } from '../core/mediaManager.js'
+import { get as getNote } from '../core/noteManager.js'
+import { StudyEngine } from '../core/studyEngine.js'
 import { useAnkiSessionStore } from '../storage/useSessionStore.js'
 import { apiCall } from '../../../config/api.js'
 import { log } from '../../../utils/logger'
@@ -30,14 +33,14 @@ const AnkiReaderContent = ({ shard, onBack }) => {
       }
 
       // Get cards for this shard
-      const cards = await ankiApi.getCardsForBundles(shard.metadata?.bundleIds)
+      const cards = await getCardsForBundles(shard.metadata?.bundleIds)
 
       // Get unique notes from cards
       const noteIds = [...new Set(cards.map(c => c.noteId))]
       const notes = await Promise.all(
         noteIds.map(async (id) => {
           try {
-            return await ankiApi.noteManager.get(id)
+            return await getNote(id)
           } catch (err) {
             log.warn('Failed to load note:', id, err)
             return null
@@ -48,7 +51,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
 
       // Get media stats
       const mediaStats = shard.metadata?.bundleIds?.length > 0
-        ? await mediaManager.getMediaStatsForBundles(shard.metadata.bundleIds)
+        ? await getMediaStatsForBundles(shard.metadata.bundleIds)
         : { fileCount: 0, totalSize: 0, totalSizeMB: '0.00' }
 
       const data = {
