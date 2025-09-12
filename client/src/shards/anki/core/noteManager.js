@@ -73,16 +73,8 @@ export class NoteManager {
   }
 
 
-  // Delete note directly
-  async delete(noteId) {
-    await this.cleanup(noteId)
-    log.debug('Note deleted:', noteId)
-  }
-
-  // Cleanup note and related data
-  async cleanup(noteId) {
-    // Get note before deletion to remove media references
-    const note = await this.get(noteId)
+  // Delete note and related data
+  async delete(note) {
     if (note) {
       // Remove media references from all fields
       for (const field of note.fields) {
@@ -91,12 +83,12 @@ export class NoteManager {
     }
 
     // Delete note
-    await db.notes.delete(noteId)
+    await db.notes.delete(note.id)
 
     // Delete related cards
-    await db.cards.where('noteId').equals(noteId).delete()
+    await db.cards.where('noteId').equals(note.id).delete()
 
-    log.debug('Note and cards cleaned up:', noteId)
+    log.debug('Note deleted:', note.id)
   }
 
 

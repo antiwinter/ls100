@@ -3,19 +3,24 @@ import mediaManager from './mediaManager'
 
 // Card rendering with built-in template processing
 export class CardRender {
-  // Main render method - gets all needed data from card
-  async render(card) {
-    // Get note data
-    const note = await db.notes.get(card.noteId)
+  // Main render method - gets all needed data from card or accepts pre-fetched data
+  async render(card, options = {}) {
+    // Use pre-fetched data if available, otherwise fetch from database
+    const note = options.note || await db.notes.get(card.noteId)
     if (!note) throw new Error(`Note not found: ${card.noteId}`)
 
-    // Get bundle data
-    const bundle = await db.bundles.get(note.bundleId)
+    const bundle = options.bundle || await db.bundles.get(note.bundleId)
     if (!bundle) throw new Error(`Bundle not found: ${note.bundleId}`)
 
-    // Get template data
-    const templates = await db.templates.where('bundleId').equals(note.bundleId).toArray()
-    const template = templates.find(t => t.ord === card.templateOrd)
+    let template
+    if (options.template) {
+      template = options.template
+    } else if (options.templates) {
+      template = options.templates.find(t => t.ord === card.templateOrd)
+    } else {
+      const templates = await db.templates.where('bundleId').equals(note.bundleId).toArray()
+      template = templates.find(t => t.ord === card.templateOrd)
+    }
     if (!template) throw new Error(`Template not found: ${card.templateOrd}`)
 
     // Render the template

@@ -95,15 +95,7 @@ export class MediaManager {
   }
 
   // Get media metadata for statistics (returns metadata without blobs)
-  async getBundleMediaStats(bundleId) {
-    try {
-      // Delegate to getBundlesMediaStats for consistency
-      return await this.getBundlesMediaStats([bundleId])
-    } catch (error) {
-      log.error('Failed to get bundle media stats:', error)
-      return []
-    }
-  }
+  // getBundleMediaStats removed - use getBundlesMediaStats([bundleId]) directly
 
   // Get media metadata for multiple bundles (for statistics)
   async getBundlesMediaStats(bundleIds) {
