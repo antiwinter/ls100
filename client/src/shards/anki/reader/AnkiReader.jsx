@@ -3,10 +3,7 @@ import { Box, Typography, ToggleButtonGroup, Button, Stack, Alert, IconButton } 
 import { MenuBook, School, ArrowBack } from '@mui/icons-material'
 import { BrowseMode } from './BrowseMode.jsx'
 import { StudyMode } from './StudyMode.jsx'
-import { getCardsForBundles } from '../core/api.js'
-import { getMediaStatsForBundles } from '../core/mediaManager.js'
-import { get as getNote } from '../core/noteManager.js'
-import { StudyEngine } from '../core/studyEngine.js'
+import anki from '../core/index.js'
 import { useAnkiSessionStore } from '../storage/useSessionStore.js'
 import { apiCall } from '../../../config/api.js'
 import { log } from '../../../utils/logger'
@@ -33,14 +30,14 @@ const AnkiReaderContent = ({ shard, onBack }) => {
       }
 
       // Get cards for this shard
-      const cards = await getCardsForBundles(shard.metadata?.bundleIds)
+      const cards = await anki.getCardsForBundles(shard.metadata?.bundleIds)
 
       // Get unique notes from cards
       const noteIds = [...new Set(cards.map(c => c.noteId))]
       const notes = await Promise.all(
         noteIds.map(async (id) => {
           try {
-            return await getNote(id)
+            return await anki.noteManager.get(id)
           } catch (err) {
             log.warn('Failed to load note:', id, err)
             return null
@@ -51,7 +48,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
 
       // Get media stats
       const mediaStats = shard.metadata?.bundleIds?.length > 0
-        ? await getMediaStatsForBundles(shard.metadata.bundleIds)
+        ? await anki.mediaManager.getMediaStatsForBundles(shard.metadata.bundleIds)
         : { fileCount: 0, totalSize: 0, totalSizeMB: '0.00' }
 
       const data = {
@@ -110,7 +107,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
       sessionStore.setState({ bundleIds: shard.metadata?.bundleIds || [] })
 
       // Create study engine and initialize session
-      const engine = new StudyEngine(sessionStore)
+      const engine = new anki.StudyEngine(sessionStore)
       await engine.init(sessionStore)
 
       setStudyEngine(engine)

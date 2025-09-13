@@ -13,7 +13,7 @@ import {
 import { Close, Refresh } from '@mui/icons-material'
 
 import { Rating } from 'ts-fsrs'
-import { render } from '../core/renderDefault.js'
+import anki from '../core/index.js'
 import { log } from '../../../utils/logger'
 
 // FSRS Rating constants
@@ -92,7 +92,7 @@ const CardDisplay = ({ card, showAnswer, onShowAnswer }) => {
 
       try {
         setLoading(true)
-        const rendered = await render(card)
+        const rendered = await anki.render(card)
         setRenderedCard(rendered)
       } catch (err) {
         log.error('Failed to render card:', err)

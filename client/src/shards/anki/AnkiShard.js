@@ -1,7 +1,7 @@
 import { AnkiShardEditor } from './AnkiShardEditor.jsx'
 import { AnkiReader as AnkiReaderComponent } from './reader/AnkiReader.jsx'
 import { parseApkgFile, importApkgData } from './apkg/index.js'
-import { getCardsForBundles, removeBundles } from './core/api.js'
+import anki from './core/index.js'
 import { log } from '../../utils/logger'
 
 // Anki Shard Engine
@@ -147,7 +147,7 @@ export const processData = async (shard, _apiCall) => {
 
     // Get updated counts from IDB using bundleIds
     if (shard.metadata?.bundleIds?.length > 0) {
-      const cards = await getCardsForBundles(shard.metadata.bundleIds)
+      const cards = await anki.getCardsForBundles(shard.metadata.bundleIds)
       const noteIds = [...new Set(cards.map(c => c.noteId))]
 
       // Store persistent counts in metadata
@@ -179,7 +179,7 @@ export const cleanup = async (shard, allShards = []) => {
 
     // Remove all notes and cards for this shard's bundles
     if (shard.metadata?.bundleIds?.length > 0) {
-      await removeBundles(shard.metadata.bundleIds)
+      await anki.removeBundles(shard.metadata.bundleIds)
     }
 
     // Check for remaining Anki shards for potential orphan cleanup

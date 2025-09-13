@@ -1,5 +1,5 @@
 import db from './db.js'
-import { replaceMediaUrls } from './mediaManager'
+import mediaManager from './mediaManager.js'
 
 // Main render method - gets all needed data from card or accepts pre-fetched data
 export async function render(card, options = {}) {
@@ -86,7 +86,7 @@ async function _replaceFields(content, noteFields, bundleId, fieldNames, frontSi
   })
 
   // Process media URLs
-  result = await replaceMediaUrls(result)
+  result = await mediaManager.replaceMediaUrls(result)
 
   return result
 }
@@ -97,5 +97,3 @@ function _getFieldIndex(fieldName, fieldNames) {
     name.toLowerCase() === fieldName.toLowerCase()
   )
 }
-
-// No default export needed - use named exports directly

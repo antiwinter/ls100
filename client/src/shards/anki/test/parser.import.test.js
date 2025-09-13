@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from 'vitest'
-import { ankiApi } from '../core'
+import anki from '../core/index.js'
 import db from '../storage/db'
 import { importApkgData } from '../apkg/index.js'
 
@@ -36,7 +36,7 @@ describe('importApkgData', () => {
     expect(res.notes).toBe(1)
     expect(res.cards).toBe(1)
 
-    const cards = await ankiApi.getCardsForBundles(res.bundleIds)
+    const cards = await anki.getCardsForBundles(res.bundleIds)
     expect(cards.length).toBe(1)
     expect(cards[0].state).toBe('New')
   })

@@ -15,35 +15,6 @@ import { genNvId } from '../../../utils/idGenerator.js'
 // }
 const mediaCache = new Map()
 
-// Get or load media metadata into unified cache (internal)
-async function _ensureMetadata(cacheKey, filename) {
-  let cached = mediaCache.get(cacheKey)
-
-  // If we have complete metadata, return it
-  if (cached?.filename && cached?.size !== undefined) {
-    return cached
-  }
-
-  // Load from DB and merge with existing cache entry
-  try {
-    const mediaRecord = await db.media.get(cacheKey)
-    if (mediaRecord) {
-      const updated = {
-        ...cached, // Preserve existing cache (e.g., dataUrl)
-        filename: mediaRecord.filename,
-        size: mediaRecord.size,
-        type: mediaRecord.type,
-        imported: mediaRecord.imported
-      }
-      mediaCache.set(cacheKey, updated)
-      return updated
-    }
-  } catch (error) {
-    log.warn('Failed to retrieve media metadata:', filename, error)
-  }
-
-  return null
-}
 
 // Convert blob to data URL (internal)
 async function _blobToDataUrl(blob) {
@@ -56,7 +27,7 @@ async function _blobToDataUrl(blob) {
 }
 
 // Get media data URL for template rendering
-export async function getMediaDataUrl(filename) {
+async function getMediaDataUrl(filename) {
   if (!filename) return null
 
   const cacheKey = filename
@@ -87,7 +58,7 @@ export async function getMediaDataUrl(filename) {
 }
 
 // Get media metadata for multiple bundles (for statistics)
-export async function getBundlesMediaStats(bundleIds) {
+async function getBundlesMediaStats(bundleIds) {
   try {
     // Get all media NvIds referenced by bundles
     const mediaIds = new Set()
@@ -145,7 +116,7 @@ export async function getBundlesMediaStats(bundleIds) {
 }
 
 // Replace media URLs in HTML content
-export async function replaceMediaUrls(html) {
+async function replaceMediaUrls(html) {
   if (!html) return html
 
   // Replace [sound:filename] with data URLs for browser playback
@@ -160,7 +131,7 @@ export async function replaceMediaUrls(html) {
 }
 
 // Add media files to database and replace content with NvIds
-export async function addMedia(content, mediaBlobs) {
+async function addMedia(content, mediaBlobs) {
   if (!content || !mediaBlobs || Object.keys(mediaBlobs).length === 0) {
     return content
   }
@@ -202,7 +173,7 @@ export async function addMedia(content, mediaBlobs) {
 }
 
 // Remove media references (decrease refCount)
-export async function removeMedia(content) {
+async function removeMedia(content) {
   if (!content) return
 
   // Extract all NvIds from content
@@ -232,7 +203,7 @@ export async function removeMedia(content) {
 }
 
 // Retain media references (increase refCount)
-export async function retainMedia(content) {
+async function retainMedia(content) {
   if (!content) return
 
   // Extract all NvIds from content
@@ -291,7 +262,7 @@ async function _replaceAsync(str, regex, asyncFn) {
 }
 
 // Remove media for bundles (cleanup)
-export async function removeBundlesMedia(bundleIds) {
+async function removeBundlesMedia(bundleIds) {
   try {
     const stats = { mediaFilesRemoved: 0, mediaSizeFreed: 0 }
 
@@ -348,7 +319,7 @@ export async function removeBundlesMedia(bundleIds) {
 }
 
 // Get media statistics for bundles (wrapper for getBundlesMediaStats)
-export async function getMediaStatsForBundles(bundleIds) {
+async function getMediaStatsForBundles(bundleIds) {
   try {
     const bundlesMedia = await getBundlesMediaStats(bundleIds)
 
@@ -370,9 +341,11 @@ export async function getMediaStatsForBundles(bundleIds) {
   }
 }
 
-// Clear cache (for testing)
-export function clearCache() {
-  mediaCache.clear()
+export default {
+  getMediaStatsForBundles,
+  removeBundlesMedia,
+  retainMedia,
+  removeMedia,
+  addMedia,
+  replaceMediaUrls
 }
-
-// No default export needed - use named exports directly

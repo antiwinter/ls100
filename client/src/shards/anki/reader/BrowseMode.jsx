@@ -13,8 +13,7 @@ import {
 } from '@mui/joy'
 import { Search, PlayArrow, Collections } from '@mui/icons-material'
 
-import { getBundle, getCardsForBundles } from '../core/api.js'
-import { get as getNote } from '../core/noteManager.js'
+import anki from '../core/index.js'
 import { log } from '../../../utils/logger'
 
 const NoteTable = ({ notes, bundles, onStartStudy: _onStartStudy }) => {
@@ -130,13 +129,13 @@ export const BrowseMode = ({
 
       try {
         // Get notes for this shard by finding cards first, then getting unique notes
-        const shardCards = await getCardsForBundles(selectedShard.metadata?.bundleIds)
+        const shardCards = await anki.getCardsForBundles(selectedShard.metadata?.bundleIds)
         const noteIds = [...new Set(shardCards.map(c => c.noteId))]
 
         const shardNotes = await Promise.all(
           noteIds.map(async (id) => {
             try {
-              return await getNote(id)
+              return await anki.noteManager.get(id)
             } catch (err) {
               log.warn('Failed to load note:', id, err)
               return null
@@ -149,7 +148,7 @@ export const BrowseMode = ({
         const types = {}
         for (const note of validNotes) {
           if (!types[note.bundleId]) {
-            types[note.bundleId] = await getBundle(note.bundleId)
+            types[note.bundleId] = await anki.getBundle(note.bundleId)
           }
         }
 

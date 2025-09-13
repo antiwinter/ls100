@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach } from 'vitest'
 import db from '../storage/db'
-import { addMedia, retainMedia, removeMedia, clearCache } from '../core/mediaManager.js'
+import anki from '../core/index.js'
 
 function makeBlob(str, type = 'text/plain') {
   return new Blob([str], { type })
@@ -9,12 +9,12 @@ function makeBlob(str, type = 'text/plain') {
 describe('MediaManager', () => {
   beforeEach(async () => {
     await db.media.clear()
-    clearCache()
+    anki.mediaManager.clearCache()
   })
 
   test('addMedia maps filenames to NvIds and upserts media', async () => {
     const html = '<img src="a.png">'
-    const cooked = await addMedia(html, {
+    const cooked = await anki.mediaManager.addMedia(html, {
       'a.png': { blob: makeBlob('imgdata'), size: 7, type: 'image/png' }
     })
     expect(cooked).not.toContain('a.png')
@@ -22,7 +22,7 @@ describe('MediaManager', () => {
 
   test('retain/remove maintains refCounts and cleans up at 0', async () => {
     const html = '<img src="a.png">'
-    const cooked = await addMedia(html, {
+    const cooked = await anki.mediaManager.addMedia(html, {
       'a.png': { blob: makeBlob('imgdata'), size: 7, type: 'image/png' }
     })
     // Get the created media record id (nvId)
@@ -31,13 +31,13 @@ describe('MediaManager', () => {
     const nvId = all[0].id
 
     // Retain should increment refCount to 2
-    await retainMedia(cooked)
+    await anki.mediaManager.retainMedia(cooked)
     const afterRetain = await db.media.get(nvId)
     expect(afterRetain.refCount).toBe(2)
 
     // Remove twice should drop to 0 and delete
-    await removeMedia(cooked)
-    await removeMedia(cooked)
+    await anki.mediaManager.removeMedia(cooked)
+    await anki.mediaManager.removeMedia(cooked)
     const afterRemove = await db.media.get(nvId)
     expect(afterRemove).toBeUndefined()
   })

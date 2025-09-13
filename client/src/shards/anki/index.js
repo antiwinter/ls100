@@ -14,35 +14,8 @@ export { AnkiShardEditor } from './AnkiShardEditor.jsx'
 export { BrowseMode } from './reader/BrowseMode.jsx'
 export { StudyMode } from './reader/StudyMode.jsx'
 
-// Core API and modules - direct function exports
-export {
-  // API functions
-  addTemplate,
-  getTemplates,
-  removeTemplate,
-  getBundle,
-  getCardsForBundles,
-  removeBundles,
-  addBundle,
-  // Note functions
-  create,
-  get,
-  update,
-  delete,
-  // Render functions
-  render,
-  // Media functions
-  addMedia,
-  removeMedia,
-  retainMedia,
-  replaceMediaUrls,
-  getBundlesMediaStats,
-  getMediaStatsForBundles,
-  removeBundlesMedia,
-  clearCache,
-  // Study engine
-  StudyEngine
-} from './core'
+// Core API - export the structured API
+export { default as anki } from './core'
 
 // Parser utilities
 export {
@@ -50,7 +23,7 @@ export {
   importApkgData
 } from './apkg/index.js'
 
-// Study engine utilities
+// Study engine utilities - import and re-export from studyEngine directly
 export {
   RATINGS,
   STATES,

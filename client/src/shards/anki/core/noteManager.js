@@ -1,7 +1,7 @@
 import db from './db.js'
 import { log } from '../../../utils/logger'
 import { genNvId, genId } from '../../../utils/idGenerator.js'
-import { retainMedia, removeMedia } from './mediaManager.js'
+import mediaManager from './mediaManager.js'
 import { render } from './renderDefault.js'
 
 // Create new note with cooked fields (for APKG import)
@@ -24,7 +24,7 @@ async function _create(bundleId, fields, tags = []) {
 
   // Retain media references from cooked fields
   for (const field of note.fields) {
-    await retainMedia(field)
+    await mediaManager.retainMedia(field)
   }
 
   return note
@@ -74,7 +74,7 @@ async function _genCardsForNote(note) {
 }
 
 // Add note with cards - automatically generates cards for the note
-export async function create(bundleId, fields, tags) {
+async function create(bundleId, fields, tags) {
   // Create note
   const note = await _create(bundleId, fields, tags)
 
@@ -85,12 +85,12 @@ export async function create(bundleId, fields, tags) {
 }
 
 // Get note by id
-export async function get(noteId) {
+async function get(noteId) {
   return await db.notes.get(noteId)
 }
 
 // Update note fields (expects cooked fields with NvIds)
-export async function update(noteId, fields, tags) {
+async function update(noteId, fields, tags) {
   const note = await get(noteId)
   if (!note) throw new Error(`Note not found: ${noteId}`)
 
@@ -98,12 +98,12 @@ export async function update(noteId, fields, tags) {
   if (fields !== undefined) {
     // Remove old media references from existing cooked fields
     for (const field of note.fields) {
-      await removeMedia(field)
+      await mediaManager.removeMedia(field)
     }
 
     // Retain media references from new cooked fields
     for (const field of fields) {
-      await retainMedia(field)
+      await mediaManager.retainMedia(field)
     }
   }
 
@@ -118,11 +118,11 @@ export async function update(noteId, fields, tags) {
 }
 
 // Delete note and related data
-export async function deleteNote(note) {
+async function delete_(note) {
   if (note) {
     // Remove media references from all fields
     for (const field of note.fields) {
-      await removeMedia(field)
+      await mediaManager.removeMedia(field)
     }
   }
 
@@ -136,3 +136,9 @@ export async function deleteNote(note) {
 }
 
 // No default export needed - use named exports directly
+export default {
+  create,
+  get,
+  update,
+  delete: delete_
+}
