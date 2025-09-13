@@ -22,7 +22,8 @@ describe('parse/import single APKG (debug)', () => {
     if (!fs.existsSync(parsedDir)) fs.mkdirSync(parsedDir, { recursive: true })
 
     const files = fs.readdirSync(apkgDir).filter(f => f.endsWith('.apkg'))
-    const target = process.env.ANKI_APKG || files[0]
+    const preferred = 'Ultimate Geography [ZH].apkg'
+    const target = process.env.ANKI_APKG || (files.includes(preferred) ? preferred : files[0])
     const apkgPath = path.join(apkgDir, target)
 
     if (!fs.existsSync(apkgPath)) {

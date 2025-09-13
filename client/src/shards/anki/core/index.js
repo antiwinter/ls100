@@ -112,11 +112,9 @@ async function _removeTemplate(template) {
 
 // Clean up orphaned data whose bundles no longer exist (internal)
 async function _cleanupOrphans() {
-  // Get all remaining bundle IDs using iteration
-  const validBundleIds = new Set()
-  await db.bundles.each((bundle) => {
-    validBundleIds.add(bundle.id)
-  })
+  // Collect valid bundle IDs first (bundles are typically few)
+  const validBundleIds = new Set((await db.bundles.toArray()).map(b => b.id))
+  const valid = Array.from(validBundleIds)
 
   const stats = {
     templatesRemoved: 0,
@@ -124,31 +122,37 @@ async function _cleanupOrphans() {
     cardsRemoved: 0
   }
 
-  // Clean up orphaned templates using iteration
-  await db.templates.each(async (template) => {
-    if (!validBundleIds.has(template.bundleId)) {
+  const BATCH = 500
+
+  // Remove orphaned templates in batches (indexed by bundleId)
+  while (true) {
+    const batch = await db.templates.where('bundleId').noneOf(valid).limit(BATCH).toArray()
+    if (batch.length === 0) break
+    for (const template of batch) {
       await _removeTemplate(template)
       stats.templatesRemoved++
     }
-  })
+  }
 
-  // Clean up orphaned notes using iteration
-  await db.notes.each(async (note) => {
-    if (!validBundleIds.has(note.bundleId)) {
+  // Remove orphaned notes in batches (indexed by bundleId)
+  while (true) {
+    const batch = await db.notes.where('bundleId').noneOf(valid).limit(BATCH).toArray()
+    if (batch.length === 0) break
+    for (const note of batch) {
       await noteManager.delete(note) // Handles media cleanup
       stats.notesRemoved++
       log.debug('Removed orphaned note:', note)
     }
-  })
+  }
 
-  // Clean up orphaned cards using iteration
-  await db.cards.each(async (card) => {
-    if (!validBundleIds.has(card.bundleId)) {
-      await db.cards.delete(card.id)
-      stats.cardsRemoved++
-      log.debug('Removed orphaned card:', card)
-    }
-  })
+  // Remove orphaned cards in batches (indexed by bundleId)
+  while (true) {
+    const batch = await db.cards.where('bundleId').noneOf(valid).limit(BATCH).toArray()
+    if (batch.length === 0) break
+    await db.cards.bulkDelete(batch.map(c => c.id))
+    stats.cardsRemoved += batch.length
+    for (const card of batch) log.debug('Removed orphaned card:', card)
+  }
 
   return stats
 }
