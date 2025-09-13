@@ -24,7 +24,7 @@ export const detect = async (filename, buffer) => {
     try {
       parsedData = await parseApkgFile(buffer)
       log.debug('Parsed data:', parsedData)
-      parsedName = parsedData.name || null
+      parsedName = parsedData.deckName || null
     } catch (e) {
       log.warn('Bundle name extraction failed during detect; falling back to filename:', e)
     }

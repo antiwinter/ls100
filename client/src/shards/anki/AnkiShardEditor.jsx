@@ -114,19 +114,19 @@ export const AnkiShardEditor = ({
       log.info('Processing Anki file:', filename, parsedData ? '(using cached data)' : '(parsing)')
 
       const parsed = parsedData || await parseApkgFile(file)
-      const bundleId = await genId('bundle', filename + parsed.name)
+      const bundleId = await genId('bundle', filename + (parsed.deckName || parsed.name || ''))
 
       // Store parsed data directly in shardData.data
       const currentDataBundles = shardData?.data?.bundles || []
       const updatedData = {
         ...shardData?.data,
-        bundles: [...currentDataBundles, { ...parsed, bundleId, filename }]
+        bundles: [...currentDataBundles, { ...parsed, bundleId, filename, name: parsed.deckName || parsed.name }]
       }
 
       // Store bundle metadata
       const bundleInfo = {
         id: bundleId,
-        name: parsed.name,
+        name: parsed.deckName || parsed.name,
         filename,
         totalCards: parsed.cards?.length || 0
       }
