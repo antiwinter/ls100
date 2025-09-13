@@ -13,15 +13,43 @@ db.version(1).stores({
 async function blob2NvId(blob) {
   if (!blob) return null
 
-  // Use blob content hash - size + type + first/last bytes for uniqueness
-  const arrayBuffer = await blob.arrayBuffer()
-  const bytes = new Uint8Array(arrayBuffer)
+  // Normalize to Uint8Array for hashing; support multiple runtimes
+  let bytes
+  try {
+    if (typeof blob.arrayBuffer === 'function') {
+      const ab = await blob.arrayBuffer()
+      bytes = new Uint8Array(ab)
+    } else if (typeof blob.text === 'function') {
+      const text = await blob.text()
+      bytes = new TextEncoder().encode(text)
+    } else if (typeof Buffer !== 'undefined' && Buffer.isBuffer?.(blob)) {
+      bytes = new Uint8Array(blob)
+    } else if (blob instanceof Uint8Array) {
+      bytes = blob
+    } else if (ArrayBuffer.isView(blob)) {
+      bytes = new Uint8Array(blob.buffer, blob.byteOffset, blob.byteLength)
+    } else if (blob instanceof ArrayBuffer) {
+      bytes = new Uint8Array(blob)
+    } else {
+      // Last-resort: try constructing a Blob from the input and read as text
+      const fallback = new Blob([blob])
+      const text = await fallback.text()
+      bytes = new TextEncoder().encode(text)
+    }
+  } catch (e) {
+    // As an absolute fallback, stringify
+    const text = String(blob)
+    bytes = new TextEncoder().encode(text)
+  }
+
+  const type = blob.type || 'application/octet-stream'
+  const size = blob.size || bytes.length
 
   // Create content signature: size + type + first 1KB + last 1KB
   const firstBytes = bytes.slice(0, Math.min(1024, bytes.length))
   const lastBytes = bytes.length > 1024 ? bytes.slice(-1024) : new Uint8Array()
 
-  const signature = blob.size + blob.type +
+  const signature = size + type +
     Array.from(firstBytes).join(',') +
     Array.from(lastBytes).join(',')
 
@@ -136,5 +164,14 @@ export default {
   blob2NvId,
   add,
   remove,
-  getStats
+  getStats,
+  // Test-helper & maintenance: clear all media records
+  async clear() {
+    try {
+      await db.media.clear()
+      log.debug('Media database cleared')
+    } catch (error) {
+      log.error('Failed to clear media database:', error)
+    }
+  }
 }

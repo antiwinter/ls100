@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach } from 'vitest'
 import db from '../core/db.js'
-import anki from '../core/index.js'
+import { anki } from '../core/index.js'
 
 describe('CardRender Template Rendering', () => {
   beforeEach(async () => {

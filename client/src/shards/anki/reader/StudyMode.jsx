@@ -294,7 +294,7 @@ export const StudyMode = ({ shard, studyEngine, onEndStudy }) => {
 
       if (!result) {
         // Session complete - end session and notify parent
-        studyEngine.end()
+        studyEngine.finish()
         setSessionComplete(true)
         setProgress(null)
         log.info('Study session completed naturally')

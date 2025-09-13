@@ -1,5 +1,6 @@
 import { describe, test, expect, beforeEach } from 'vitest'
-import db from '../storage/db'
+import db from '../core/db.js'
+import mediaManager from '../../../utils/mediaManager.js'
 import { processData } from '../AnkiShard.js'
 
 describe('AnkiShard.processData', () => {
@@ -8,7 +9,7 @@ describe('AnkiShard.processData', () => {
     await db.bundles.clear()
     await db.templates.clear()
     await db.cards.clear()
-    await db.media.clear()
+    await mediaManager.clear()
   })
 
   test('populates metadata.bundleIds using importApkgData return', async () => {

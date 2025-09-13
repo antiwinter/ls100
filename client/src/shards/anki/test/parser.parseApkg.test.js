@@ -9,7 +9,7 @@ const __dirname = path.dirname(__filename)
 
 describe('parseApkgFile (real APKGs)', () => {
   test('should parse all sample APKG files and save results (best-effort)', async () => {
-    const apkgDir = path.resolve(__dirname, 'apkg')
+    const apkgDir = __dirname
     const parsedDir = path.resolve(__dirname, 'parsed')
     if (!fs.existsSync(parsedDir)) fs.mkdirSync(parsedDir, { recursive: true })
 

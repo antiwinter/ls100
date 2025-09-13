@@ -1,6 +1,7 @@
 import { describe, test, expect, beforeEach } from 'vitest'
-import db from '../storage/db'
-import { StudyEngine } from '../engine/studyEngine.js'
+import db from '../core/db.js'
+import mediaManager from '../../../utils/mediaManager.js'
+import { StudyEngine } from '../core/studyEngine.js'
 
 // Minimal session store mock matching useAnkiSessionStore API
 function createSessionStore(initial = {}) {
@@ -54,7 +55,7 @@ describe('StudyEngine', () => {
     await db.bundles.clear()
     await db.templates.clear()
     await db.cards.clear()
-    await db.media.clear()
+    await mediaManager.clear()
   })
 
   test('init builds queues and draw selects a card', async () => {

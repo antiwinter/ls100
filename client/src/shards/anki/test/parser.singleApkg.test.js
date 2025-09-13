@@ -2,7 +2,8 @@ import { describe, test, expect } from 'vitest'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import db from '../storage/db'
+import db from '../core/db.js'
+import mediaManager from '../../../utils/mediaManager.js'
 import { parseApkgFile, importApkgData } from '../apkg/index.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -16,11 +17,12 @@ async function dumpDb(destFile) {
 
 describe('parse/import single APKG (debug)', () => {
   test('parse one specific .apkg and write outputs', async () => {
-    const apkgDir = path.resolve(__dirname, 'apkg')
+    const apkgDir = __dirname
     const parsedDir = path.resolve(__dirname, 'parsed')
     if (!fs.existsSync(parsedDir)) fs.mkdirSync(parsedDir, { recursive: true })
 
-    const target = process.env.ANKI_APKG || 'Ultimate Geography [ZH].apkg'
+    const files = fs.readdirSync(apkgDir).filter(f => f.endsWith('.apkg'))
+    const target = process.env.ANKI_APKG || files[0]
     const apkgPath = path.join(apkgDir, target)
 
     if (!fs.existsSync(apkgPath)) {
@@ -33,7 +35,7 @@ describe('parse/import single APKG (debug)', () => {
     await db.bundles.clear()
     await db.templates.clear()
     await db.cards.clear()
-    await db.media.clear()
+    await mediaManager.clear()
 
     const buffer = fs.readFileSync(apkgPath)
     const outputName = target.replace('.apkg', '.json')

@@ -1,6 +1,7 @@
 import { describe, test, expect, beforeEach } from 'vitest'
-import anki from '../core/index.js'
+import { anki } from '../core/index.js'
 import db from '../core/db.js'
+import mediaManager from '../../../utils/mediaManager.js'
 import { importApkgData } from '../apkg/index.js'
 
 describe('importApkgData', () => {
@@ -9,7 +10,7 @@ describe('importApkgData', () => {
     await db.bundles.clear()
     await db.templates.clear()
     await db.cards.clear()
-    await db.media.clear()
+    await mediaManager.clear()
   })
 
   test('should create bundles, templates, notes and return stats', async () => {

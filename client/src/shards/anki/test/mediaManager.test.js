@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from 'vitest'
-import anki from '../core/index.js'
+import { anki } from '../core/index.js'
 import mediaManager from '../../../utils/mediaManager.js'
 
 function makeBlob(content, type = 'text/plain') {

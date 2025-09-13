@@ -243,3 +243,5 @@ export const anki = {
 
   // No default export needed - use named exports directly
 }
+
+export default anki

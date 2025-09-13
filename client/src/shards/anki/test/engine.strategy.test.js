@@ -1,6 +1,7 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest'
-import db from '../storage/db'
-import { StudyEngine } from '../engine/studyEngine.js'
+import db from '../core/db.js'
+import mediaManager from '../../../utils/mediaManager.js'
+import { StudyEngine } from '../core/studyEngine.js'
 
 function store(init = {}) {
   let s = {
@@ -28,7 +29,7 @@ async function seed(bundleId, { n = 0, r = 0, siblings = false } = {}) {
 
 describe('StudyEngine strategies', () => {
   beforeEach(async () => {
-    await db.notes.clear(); await db.bundles.clear(); await db.templates.clear(); await db.cards.clear(); await db.media.clear()
+    await db.notes.clear(); await db.bundles.clear(); await db.templates.clear(); await db.cards.clear(); await mediaManager.clear()
   })
 
   test('new-first draws all new before review', async () => {

@@ -2,7 +2,8 @@ import { describe, test, expect, beforeEach } from 'vitest'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import db from '../storage/db'
+import db from '../core/db.js'
+import mediaManager from '../../../utils/mediaManager.js'
 import { parseApkgFile, importApkgData } from '../apkg/index.js'
 import { log } from '../../../utils/logger'
 
@@ -21,11 +22,11 @@ describe('Import all APKGs and dump DB snapshot', () => {
     await db.bundles.clear()
     await db.templates.clear()
     await db.cards.clear()
-    await db.media.clear()
+    await mediaManager.clear()
   })
 
   test('parse+import all and write parsed outputs + db snapshot', async () => {
-    const apkgDir = path.resolve(__dirname, 'apkg')
+    const apkgDir = __dirname
     const parsedDir = path.resolve(__dirname, 'parsed')
     if (!fs.existsSync(parsedDir)) fs.mkdirSync(parsedDir, { recursive: true })
 

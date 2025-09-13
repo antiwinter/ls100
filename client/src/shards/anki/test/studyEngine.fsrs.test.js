@@ -1,6 +1,7 @@
 import { describe, test, expect, beforeEach } from 'vitest'
-import db from '../storage/db'
-import { StudyEngine } from '../engine/studyEngine.js'
+import db from '../core/db.js'
+import mediaManager from '../../../utils/mediaManager.js'
+import { StudyEngine } from '../core/studyEngine.js'
 
 function store(init = {}) {
   let s = {
@@ -21,7 +22,7 @@ async function seedOne(bundleId) {
 
 describe('StudyEngine FSRS history basics', () => {
   beforeEach(async () => {
-    await db.notes.clear(); await db.bundles.clear(); await db.templates.clear(); await db.cards.clear(); await db.media.clear()
+    await db.notes.clear(); await db.bundles.clear(); await db.templates.clear(); await db.cards.clear(); await mediaManager.clear()
   })
 
   test('rate creates fsrs entry with rating and response_time', async () => {

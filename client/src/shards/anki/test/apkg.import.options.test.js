@@ -1,10 +1,11 @@
 import { describe, test, expect, beforeEach } from 'vitest'
-import db from '../storage/db'
+import db from '../core/db.js'
+import mediaManager from '../../../utils/mediaManager.js'
 import { importApkgData } from '../apkg/import.js'
 
 describe('APKG import options', () => {
   beforeEach(async () => {
-    await db.notes.clear(); await db.bundles.clear(); await db.templates.clear(); await db.cards.clear(); await db.media.clear()
+    await db.notes.clear(); await db.bundles.clear(); await db.templates.clear(); await db.cards.clear(); await mediaManager.clear()
   })
 
   test('preserveScheduling=true stores fsrs history and mirrors due/state', async () => {

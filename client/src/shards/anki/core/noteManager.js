@@ -1,7 +1,7 @@
 import db from './db.js'
 import { log } from '../../../utils/logger'
 import { genId } from '../../../utils/idGenerator.js'
-import mediaManager from './mediaManager.js'
+import mediaManager from '../../../utils/mediaManager.js'
 import { render } from './renderDefault.js'
 
 // Create new note with cooked fields (for APKG import)
