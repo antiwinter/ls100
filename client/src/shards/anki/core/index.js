@@ -53,16 +53,14 @@ async function _processMediaFile(filename, blobs, mediaArray) {
   if (!filename || !blobs[filename]) return null
 
   const blob = blobs[filename]
-  const nvId = await genNvId('media', filename + blob.size + blob.type)
+  const nvId = await mediaManager.blob2NvId(blob)
 
   // Add to media array (avoid duplicates)
   if (!mediaArray.find(m => m.nvId === nvId)) {
     mediaArray.push({
       nvId,
       filename,
-      blob,
-      type: blob.type,
-      size: blob.size
+      blob
     })
   }
 

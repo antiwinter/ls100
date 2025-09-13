@@ -1,5 +1,6 @@
 import Dexie from 'dexie'
 import { log } from './logger'
+import { genNvId } from './idGenerator.js'
 
 // Media database - separate from AnkiDB
 const db = new Dexie('MediaDB')
@@ -8,12 +9,31 @@ db.version(1).stores({
   // Schema: { id, filename, blob, type, size, refCount, created }
 })
 
+// Generate nvId from blob content (single source of truth)
+async function blob2NvId(blob) {
+  if (!blob) return null
+
+  // Use blob content hash - size + type + first/last bytes for uniqueness
+  const arrayBuffer = await blob.arrayBuffer()
+  const bytes = new Uint8Array(arrayBuffer)
+
+  // Create content signature: size + type + first 1KB + last 1KB
+  const firstBytes = bytes.slice(0, Math.min(1024, bytes.length))
+  const lastBytes = bytes.length > 1024 ? bytes.slice(-1024) : new Uint8Array()
+
+  const signature = blob.size + blob.type +
+    Array.from(firstBytes).join(',') +
+    Array.from(lastBytes).join(',')
+
+  return await genNvId('media', signature)
+}
+
 // Add media to database with refCount management
 async function add(mediaArray) {
   if (!Array.isArray(mediaArray)) return
 
-  for (const { nvId, filename, blob, type, size } of mediaArray) {
-    if (!nvId) continue
+  for (const { nvId, filename, blob } of mediaArray) {
+    if (!nvId || !blob) continue
 
     try {
       const existing = await db.media.get(nvId)
@@ -25,8 +45,8 @@ async function add(mediaArray) {
           id: nvId,
           filename,
           blob,
-          type,
-          size,
+          type: blob.type,
+          size: blob.size,
           refCount: 1,
           created: Date.now()
         })
@@ -113,6 +133,7 @@ async function getStats() {
 }
 
 export default {
+  blob2NvId,
   add,
   remove,
   getStats
