@@ -1,10 +1,10 @@
 import { describe, test, expect, beforeEach } from 'vitest'
-import db from '../storage/db'
+import db from '../core/db.js'
 import anki from '../core/index.js'
 
 describe('CardRender Template Rendering', () => {
   beforeEach(async () => {
-    await db.notes.clear(); await db.bundles.clear(); await db.templates.clear(); await db.cards.clear(); await db.media.clear()
+    await db.notes.clear(); await db.bundles.clear(); await db.templates.clear(); await db.cards.clear()
   })
 
   test('renders card with fields and FrontSide', async () => {

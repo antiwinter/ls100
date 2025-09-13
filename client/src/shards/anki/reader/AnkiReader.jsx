@@ -46,10 +46,8 @@ const AnkiReaderContent = ({ shard, onBack }) => {
       )
       const validNotes = notes.filter(Boolean)
 
-      // Get media stats
-      const mediaStats = shard.metadata?.bundleIds?.length > 0
-        ? await anki.mediaManager.getMediaStatsForBundles(shard.metadata.bundleIds)
-        : { fileCount: 0, totalSize: 0, totalSizeMB: '0.00' }
+      // Get media stats (now returns all media categorized by type)
+      const mediaStats = await anki.mediaManager.getStats()
 
       const data = {
         id: shard.id,

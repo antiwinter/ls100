@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach } from 'vitest'
 import anki from '../core/index.js'
-import db from '../storage/db'
+import db from '../core/db.js'
 import { importApkgData } from '../apkg/index.js'
 
 describe('importApkgData', () => {
