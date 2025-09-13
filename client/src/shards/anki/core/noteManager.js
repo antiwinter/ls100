@@ -1,6 +1,6 @@
 import db from './db.js'
 import { log } from '../../../utils/logger'
-import { genNvId, genId } from '../../../utils/idGenerator.js'
+import { genId } from '../../../utils/idGenerator.js'
 import mediaManager from './mediaManager.js'
 import { render } from './renderDefault.js'
 
@@ -11,7 +11,7 @@ async function _create(bundleId, fields, tags = []) {
 
   // Fields should already be cooked (contain NvIds) when passed in
   const note = {
-    id: await genNvId('note', bundleId + fields.join('') + tags.join('')),
+    id: await genId('note', bundleId + fields.join('') + tags.join('')),
     bundleId,
     fields: fields.slice(0, bundle.fields.length), // Ensure correct field count
     tags,

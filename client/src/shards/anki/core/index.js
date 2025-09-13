@@ -4,7 +4,7 @@ import mediaManager from './mediaManager.js'
 import { render } from './renderDefault.js'
 import { StudyEngine } from './studyEngine.js'
 import { log } from '../../../utils/logger.js'
-import { genNvId } from '../../../utils/idGenerator.js'
+import { genId } from '../../../utils/idGenerator.js'
 
 
 // Remove a template and its media references
@@ -72,7 +72,7 @@ export const anki = {
   // Add template to bundle
   async  addTemplate(bundleId, name, qfmt, afmt, ord = 0, vdeck = null) {
     const template = {
-      id: await genNvId('template', bundleId + name + qfmt + afmt),
+      id: await genId('template', bundleId + name + qfmt + afmt),
       bundleId,
       name,
       qfmt,
