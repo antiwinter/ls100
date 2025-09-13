@@ -120,7 +120,15 @@ export const AnkiShardEditor = ({
       const currentDataBundles = shardData?.data?.bundles || []
       const updatedData = {
         ...shardData?.data,
-        bundles: [...currentDataBundles, { ...parsed, bundleId, filename, name: parsed.deckName || parsed.name }]
+        bundles: [
+          ...currentDataBundles,
+          {
+            ...parsed,
+            bundleId,
+            filename,
+            name: parsed.deckName || parsed.name
+          }
+        ]
       }
 
       // Store bundle metadata

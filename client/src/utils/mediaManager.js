@@ -22,7 +22,7 @@ async function blob2NvId(blob) {
     } else if (typeof blob.text === 'function') {
       const text = await blob.text()
       bytes = new TextEncoder().encode(text)
-    } else if (typeof Buffer !== 'undefined' && Buffer.isBuffer?.(blob)) {
+    } else if (typeof globalThis !== 'undefined' && typeof globalThis.Buffer !== 'undefined' && globalThis.Buffer.isBuffer?.(blob)) {
       bytes = new Uint8Array(blob)
     } else if (blob instanceof Uint8Array) {
       bytes = blob
@@ -36,7 +36,7 @@ async function blob2NvId(blob) {
       const text = await fallback.text()
       bytes = new TextEncoder().encode(text)
     }
-  } catch (e) {
+  } catch {
     // As an absolute fallback, stringify
     const text = String(blob)
     bytes = new TextEncoder().encode(text)
