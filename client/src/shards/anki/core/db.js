@@ -33,7 +33,7 @@ db.version(1).stores({
   // - vdeck: target virtual deck (single string, e.g., "Spanish::Verbs")
   // - created: timestamp when template was created
   // Used by: cardRender for rendering card content, noteManager for template lookup
-  cards: 'id, noteId, bundleId, due, state',
+  cards: 'id, noteId, bundleId, due, state'
   // Cards table: Individual study cards with scheduling data
   // Schema: { id, noteId, templateOrd, bundleId, vdeck[], due, state, fsrs[], created, modified }
   // - id: unique card identifier (generated)
@@ -46,17 +46,6 @@ db.version(1).stores({
   // - fsrs: array of FSRS state history [newest, older, oldest] - source of truth
   // - created/modified: timestamps
   // Used by: studyEngine for scheduling (fast filters on due/state), ankiApi for CRUD operations
-  media: 'id, filename'
-  // Media table: Global binary media files (images, audio, etc.)
-  // Schema: { id, filename, blob, size, type, refCount, imported }
-  // - id: unique media identifier (filename-based)
-  // - filename: original filename from APKG
-  // - blob: binary data blob (source of truth)
-  // - size: file size in bytes
-  // - type: MIME type (image/png, audio/mp3, etc.)
-  // - refCount: reference counter for garbage collection
-  // - imported: timestamp when media was imported
-  // Used by: mediaManager for caching, templateEngine for rendering, apkgParser for import
 })
 
 // Auto-timestamps for notes

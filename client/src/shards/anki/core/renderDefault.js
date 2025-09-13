@@ -1,5 +1,4 @@
 import db from './db.js'
-import mediaManager from './mediaManager.js'
 
 // Main render method - gets all needed data from card or accepts pre-fetched data
 export async function render(card, options = {}) {
@@ -85,8 +84,7 @@ async function _replaceFields(content, noteFields, bundleId, fieldNames, frontSi
     return index !== -1 ? (noteFields[index] || '') : ''
   })
 
-  // Process media URLs
-  result = await mediaManager.replaceMediaUrls(result)
+  // Media URLs already processed - cooked fields contain /media/ URLs served by service worker
 
   return result
 }

@@ -22,9 +22,11 @@ async function _create(bundleId, fields, tags = []) {
 
   await db.notes.put(note)
 
-  // Retain media references from cooked fields
-  for (const field of note.fields) {
-    await mediaManager.retainMedia(field)
+  // Add media references (fields should already be cooked with nvIds)
+  const { anki } = await import('./index.js')
+  const result = await anki.parseFields(note.fields, {})
+  if (result.media.length > 0) {
+    await mediaManager.add(result.media)
   }
 
   return note
@@ -96,14 +98,23 @@ async function update(noteId, fields, tags) {
 
   // Handle media refCount updates if fields changed
   if (fields !== undefined) {
-    // Remove old media references from existing cooked fields
-    for (const field of note.fields) {
-      await mediaManager.removeMedia(field)
+    // Parse old and new fields to get media diff
+    const { anki } = await import('./index.js')
+    const oldResult = await anki.parseFields(note.fields, {})
+    const newResult = await anki.parseFields(fields, {})
+
+    const oldNvIds = oldResult.media.map(m => m.nvId)
+    const newNvIds = newResult.media.map(m => m.nvId)
+
+    // Remove old media that's no longer referenced
+    const toRemove = oldNvIds.filter(id => !newNvIds.includes(id))
+    if (toRemove.length > 0) {
+      await mediaManager.remove(toRemove)
     }
 
-    // Retain media references from new cooked fields
-    for (const field of fields) {
-      await mediaManager.retainMedia(field)
+    // Add new media references
+    if (newResult.media.length > 0) {
+      await mediaManager.add(newResult.media)
     }
   }
 
@@ -121,8 +132,11 @@ async function update(noteId, fields, tags) {
 async function delete_(note) {
   if (note) {
     // Remove media references from all fields
-    for (const field of note.fields) {
-      await mediaManager.removeMedia(field)
+    const { anki } = await import('./index.js')
+    const result = await anki.parseFields(note.fields, {})
+    const nvIds = result.media.map(m => m.nvId)
+    if (nvIds.length > 0) {
+      await mediaManager.remove(nvIds)
     }
   }
 

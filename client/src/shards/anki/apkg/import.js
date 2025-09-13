@@ -1,4 +1,5 @@
 import anki from '../core/index.js'
+import mediaManager from '../../../utils/mediaManager.js'
 import db from '../core/db.js'
 import { log } from '../../../utils/logger'
 import { genId } from '../../../utils/idGenerator.js'
@@ -38,9 +39,18 @@ export const importApkgData = async (parsedData, options = {}) => {
       const qfmt = template.qfmt
       const afmt = template.afmt
 
-      // Cook template formats: filename → NvId + increment refCount
-      const cookedQfmt = await anki.mediaManager.addMedia(qfmt, media)
-      const cookedAfmt = await anki.mediaManager.addMedia(afmt, media)
+      // Parse template formats: filename → NvId + extract media
+      const qResult = await anki.parseFields(qfmt, media)
+      const aResult = await anki.parseFields(afmt, media)
+      
+      // Add all media found in templates
+      const templateMedia = [...qResult.media, ...aResult.media]
+      if (templateMedia.length > 0) {
+        await mediaManager.add(templateMedia)
+      }
+      
+      const cookedQfmt = qResult.cooked
+      const cookedAfmt = aResult.cooked
 
       await anki.addTemplate(
         bundleId,
@@ -64,12 +74,15 @@ export const importApkgData = async (parsedData, options = {}) => {
       continue // Skip this note
     }
 
-    // Cook fields: filename → NvId + increment refCount
-    const cookedFields = []
-    for (const field of ankiNote.flds) {
-      const cookedField = await anki.mediaManager.addMedia(field, media)
-      cookedFields.push(cookedField)
+    // Parse fields: filename → NvId + extract media
+    const fieldsResult = await anki.parseFields(ankiNote.flds, media)
+    
+    // Add all media found in note fields
+    if (fieldsResult.media.length > 0) {
+      await mediaManager.add(fieldsResult.media)
     }
+    
+    const cookedFields = fieldsResult.cooked
 
     // Convert tags to array (Anki stores tags as space-separated string, tests might pass arrays)
     const tagsArray = Array.isArray(ankiNote.tags)

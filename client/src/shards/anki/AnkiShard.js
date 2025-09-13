@@ -7,8 +7,6 @@ import { log } from '../../utils/logger'
 // Anki Shard Engine
 // Handles .apkg file detection, parsing, and integration with shard system
 
-// Media URL replacement now handled by MediaManager in TemplateRenderer
-
 // File detection with confidence scoring
 export const detect = async (filename, buffer) => {
   log.debug('Detecting Anki file:', filename, 'size:', buffer.byteLength || buffer.length)
