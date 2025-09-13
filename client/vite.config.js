@@ -14,9 +14,12 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       registerType: 'autoUpdate',
       devOptions: {
-        enabled: false // Disable PWA in development mode to prevent blank page
+        enabled: true
       },
       manifest: {
         name: APP.name,
@@ -41,30 +44,6 @@ export default defineConfig({
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'
-          }
-        ]
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,json,srt,vtt}'],
-        runtimeCaching: [
-          {
-            urlPattern: /\/api\/subtitles\/.*/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'subtitles-cache',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 * 7
-              }
-            }
-          },
-          {
-            urlPattern: /\/api\/shards.*/,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'shards-cache',
-              networkTimeoutSeconds: 5
-            }
           }
         ]
       }
