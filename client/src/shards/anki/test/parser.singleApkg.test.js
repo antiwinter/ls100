@@ -17,23 +17,14 @@ async function dumpDb(destFile) {
 
 describe('parse/import single APKG (debug)', () => {
   test('parse one specific .apkg and write outputs', async () => {
-    const apkgDir = __dirname
+    const apkgDir = path.resolve(__dirname, 'apkg')
     const parsedDir = path.resolve(__dirname, 'parsed')
     if (!fs.existsSync(parsedDir)) fs.mkdirSync(parsedDir, { recursive: true })
 
     const files = fs.readdirSync(apkgDir).filter(f => f.endsWith('.apkg'))
     const preferred = 'Ultimate Geography [ZH].apkg'
     const target = process.env.ANKI_APKG || (files.includes(preferred) ? preferred : files[0])
-
-    // Gracefully skip if no sample APKG available and no override provided
-    if (!target) {
-      // still exercise dump path
-      const parsedDir = path.resolve(__dirname, 'parsed')
-      fs.writeFileSync(path.join(parsedDir, 'db-snapshot-single.json'), JSON.stringify({ skipped: true }, null, 2))
-      expect(true).toBe(true)
-      return
-    }
-
+    if (!target) throw new Error(`No .apkg samples found in ${apkgDir}; add fixtures under test/apkg or set ANKI_APKG`)
     const apkgPath = path.join(apkgDir, target)
 
     if (!fs.existsSync(apkgPath)) {

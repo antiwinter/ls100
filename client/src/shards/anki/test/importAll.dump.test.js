@@ -26,18 +26,12 @@ describe('Import all APKGs and dump DB snapshot', () => {
   })
 
   test('parse+import all and write parsed outputs + db snapshot', async () => {
-    const apkgDir = __dirname
+    const apkgDir = path.resolve(__dirname, 'apkg')
     const parsedDir = path.resolve(__dirname, 'parsed')
     if (!fs.existsSync(parsedDir)) fs.mkdirSync(parsedDir, { recursive: true })
 
     const files = fs.readdirSync(apkgDir).filter(f => f.endsWith('.apkg'))
-    // Gracefully skip when no sample APKGs present
-    if (files.length === 0) {
-      const dumpFile = path.join(parsedDir, 'db-snapshot.json')
-      await dumpDb(dumpFile)
-      expect(fs.existsSync(dumpFile)).toBe(true)
-      return
-    }
+    if (files.length === 0) throw new Error(`No .apkg samples found in ${apkgDir}; add fixtures under test/apkg`)
 
     let ok = 0
     for (const name of files) {
@@ -59,7 +53,7 @@ describe('Import all APKGs and dump DB snapshot', () => {
     const dumpFile = path.join(parsedDir, 'db-snapshot.json')
     await dumpDb(dumpFile)
     expect(fs.existsSync(dumpFile)).toBe(true)
-    // When samples exist, at least one should succeed
+    // At least one should succeed
     expect(ok).toBeGreaterThan(0)
   }, 180_000)
 })

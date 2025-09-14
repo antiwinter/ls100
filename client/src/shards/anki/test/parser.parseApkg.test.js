@@ -9,17 +9,12 @@ const __dirname = path.dirname(__filename)
 
 describe('parseApkgFile (real APKGs)', () => {
   test('should parse all sample APKG files and save results (best-effort)', async () => {
-    const apkgDir = __dirname
+    const apkgDir = path.resolve(__dirname, 'apkg')
     const parsedDir = path.resolve(__dirname, 'parsed')
     if (!fs.existsSync(parsedDir)) fs.mkdirSync(parsedDir, { recursive: true })
 
     const apkgFiles = fs.readdirSync(apkgDir).filter(f => f.endsWith('.apkg'))
-    if (apkgFiles.length === 0) {
-      // No samples locally; treat as skipped but keep test green
-      fs.writeFileSync(path.join(parsedDir, 'skipped.json'), JSON.stringify({ skipped: true }, null, 2))
-      expect(true).toBe(true)
-      return
-    }
+    if (apkgFiles.length === 0) throw new Error(`No .apkg samples found in ${apkgDir}; add fixtures under test/apkg`)
 
     let success = 0, failed = 0
     for (const filename of apkgFiles) {
