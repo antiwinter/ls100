@@ -21,7 +21,7 @@ export const importApkgData = async (parsedData, options = {}) => {
 
   // 1. Create Bundles and Templates (one bundle per Anki note type)
   for (const [modelId, model] of Object.entries(bundles)) {
-    const bundleId = await genId('bundle', `${model.name}-${JSON.stringify(model.flds.map(f => f.name))}`)
+    const bundleId = genId('bundle', `${model.name}-${JSON.stringify(model.flds.map(f => f.name))}`)
     bundleMap.set(modelId, bundleId)
     bundleIds.push(bundleId)
 

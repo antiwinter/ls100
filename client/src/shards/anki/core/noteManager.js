@@ -15,7 +15,7 @@ async function _create(bundleId, fields, tags = [], media = {}) {
   const cookedFields = Array.isArray(result.cooked) ? result.cooked : [result.cooked]
 
   const note = {
-    id: await genId('note', bundleId + cookedFields.join('') + tags.join('')),
+    id: genId('note', bundleId + cookedFields.join('') + tags.join('')),
     bundleId,
     fields: cookedFields.slice(0, bundle.fields.length), // Ensure correct field count
     tags,
@@ -46,7 +46,7 @@ async function _genCardsForNote(note) {
   for (const template of templates) {
     const now = Date.now()
     const card = {
-      id: await genId('card', note.id + template.ord + note.bundleId),
+      id: genId('card', note.id + template.ord + note.bundleId),
       noteId: note.id,
       templateOrd: template.ord,
       bundleId: note.bundleId,

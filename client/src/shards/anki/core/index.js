@@ -188,7 +188,7 @@ export const anki = {
     const aResult = await parseFields(afmt, media)
 
     const template = {
-      id: await genId('template', bundleId + name + qResult.cooked + aResult.cooked),
+      id: genId('template', bundleId + name + qResult.cooked + aResult.cooked),
       bundleId,
       name,
       qfmt: qResult.cooked,

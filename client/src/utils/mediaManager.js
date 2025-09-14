@@ -53,7 +53,7 @@ async function blob2NvId(blob) {
     Array.from(firstBytes).join(',') +
     Array.from(lastBytes).join(',')
 
-  return await genNvId('media', signature)
+  return genNvId('media', signature)
 }
 
 // Add media to database with refCount management
