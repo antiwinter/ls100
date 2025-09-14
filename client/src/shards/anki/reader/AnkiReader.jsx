@@ -17,9 +17,7 @@ const ITEM_HEIGHT = 90     // Fixed height per note row
 
 
 // Note row component for FixedSizeList
-const NoteRow = ({ note, bundles, fieldNames, style }) => {
-  const bundle = bundles[note.bundleId]
-
+const NoteRow = ({ index, note, fieldNames, style }) => {
   return (
     <Box
       style={{
@@ -33,36 +31,40 @@ const NoteRow = ({ note, bundles, fieldNames, style }) => {
         '&:hover': { bgcolor: 'background.level1' }
       }}
     >
-      {/* Bundle type column */}
-      <Box sx={{ minWidth: 120, pr: 2 }}>
-        <Typography level="body-sm" color="primary">
-          {bundle?.name || 'Unknown'}
+      {/* Index column */}
+      <Box sx={{ minWidth: 60, pr: 2, textAlign: 'center' }}>
+        <Typography level="body-sm" fontWeight="bold">
+          {index + 1}
         </Typography>
       </Box>
 
       {/* Dynamic field columns */}
       {fieldNames.map((fieldName, idx) => (
         <Box key={fieldName} sx={{ flex: 1, pr: 2, minWidth: 0 }}>
-          <Typography level="body-xs" color="neutral" sx={{ mb: 0.5 }}>
-            {fieldName}
-          </Typography>
-          <Typography
-            level="body-sm"
+          <Box
             sx={{
+              fontSize: 'sm',
+              lineHeight: 1.4,
+              color: 'text.primary',
               display: '-webkit-box',
               WebkitLineClamp: 2,
               WebkitBoxOrient: 'vertical',
               overflow: 'hidden',
-              textOverflow: 'ellipsis'
+              textOverflow: 'ellipsis',
+              '& img': {
+                maxHeight: '40px',
+                maxWidth: '80px',
+                objectFit: 'contain'
+              }
             }}
-          >
-            {(note.fields?.[idx] || '').replace(/<[^>]*>/g, '')}
-          </Typography>
+            dangerouslySetInnerHTML={{ __html: note.fields?.[idx] || '' }}
+          />
         </Box>
       ))}
     </Box>
   )
 }
+
 
 const AnkiReaderContent = ({ shard, onBack }) => {
   const [shardData, setShardData] = useState(null)
@@ -247,9 +249,9 @@ const AnkiReaderContent = ({ shard, onBack }) => {
 
     return (
       <NoteRow
+        index={index}
         style={style}
         note={note}
-        bundles={bundles}
         fieldNames={fieldNames}
       />
     )
@@ -353,9 +355,9 @@ const AnkiReaderContent = ({ shard, onBack }) => {
           flexShrink: 0
         }}
       >
-        <Box sx={{ minWidth: 120, pr: 2 }}>
+        <Box sx={{ minWidth: 60, pr: 2, textAlign: 'center' }}>
           <Typography level="body-sm" fontWeight="bold">
-            Type
+            #
           </Typography>
         </Box>
         {fieldNames.map((fieldName) => (
