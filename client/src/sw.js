@@ -65,8 +65,8 @@ async function handleMediaRequest(request, url) {
     if (!rangeHeader) {
       return new Response(blob, {
         headers: {
-          'Content-Type': type,
-          'Cache-Control': 'public, max-age=31536000, immutable'
+          'Content-Type': type
+          // 'Cache-Control': 'public, max-age=31536000, immutable'
         }
       })
     }
@@ -90,8 +90,7 @@ async function handleMediaRequest(request, url) {
       headers: {
         'Content-Type': type,
         'Content-Range': `bytes ${start}-${end}/${size}`,
-        'Accept-Ranges': 'bytes',
-        'Cache-Control': 'public, max-age=31536000, immutable'
+        'Accept-Ranges': 'bytes'
       }
     })
   } catch (err) {
