@@ -9,47 +9,19 @@ db.version(1).stores({
   // Schema: { id, filename, blob, type, size, refCount, created }
 })
 
-// Generate nvId from blob content (single source of truth)
+// Generate nvId from blob content (deterministic)
 async function blob2NvId(blob) {
   if (!blob) return null
 
-  // Normalize to Uint8Array for hashing; support multiple runtimes
-  let bytes
-  try {
-    if (typeof blob.arrayBuffer === 'function') {
-      const ab = await blob.arrayBuffer()
-      bytes = new Uint8Array(ab)
-    } else if (typeof blob.text === 'function') {
-      const text = await blob.text()
-      bytes = new TextEncoder().encode(text)
-    } else if (typeof globalThis !== 'undefined' && typeof globalThis.Buffer !== 'undefined' && globalThis.Buffer.isBuffer?.(blob)) {
-      bytes = new Uint8Array(blob)
-    } else if (blob instanceof Uint8Array) {
-      bytes = blob
-    } else if (ArrayBuffer.isView(blob)) {
-      bytes = new Uint8Array(blob.buffer, blob.byteOffset, blob.byteLength)
-    } else if (blob instanceof ArrayBuffer) {
-      bytes = new Uint8Array(blob)
-    } else {
-      // Last-resort: try constructing a Blob from the input and read as text
-      const fallback = new Blob([blob])
-      const text = await fallback.text()
-      bytes = new TextEncoder().encode(text)
-    }
-  } catch {
-    // As an absolute fallback, stringify
-    const text = String(blob)
-    bytes = new TextEncoder().encode(text)
-  }
-
-  const type = blob.type || 'application/octet-stream'
-  const size = blob.size || bytes.length
+  // Get bytes from Blob (we know it's always a proper Blob from JSZip)
+  const ab = await blob.arrayBuffer()
+  const bytes = new Uint8Array(ab)
 
   // Create content signature: size + type + first 1KB + last 1KB
   const firstBytes = bytes.slice(0, Math.min(1024, bytes.length))
   const lastBytes = bytes.length > 1024 ? bytes.slice(-1024) : new Uint8Array()
 
-  const signature = size + type +
+  const signature = blob.size + blob.type +
     Array.from(firstBytes).join(',') +
     Array.from(lastBytes).join(',')
 
@@ -87,7 +59,7 @@ async function add(mediaArray) {
           refCount: 1,
           created: Date.now()
         })
-        log.debug('Media added:', { nvId, filename })
+        // log.debug('Media added:', { nvId, filename })
       } else {
         // Media doesn't exist and no blob to create it
         log.warn('Cannot reference non-existent media without blob:', { nvId, filename })
@@ -111,7 +83,7 @@ async function remove(nvIds) {
         const newRefCount = Math.max(0, (media.refCount || 0) - 1)
         if (newRefCount === 0) {
           await db.media.delete(nvId)
-          log.debug('Media deleted:', nvId)
+          // log.debug('Media deleted:', nvId)
         } else {
           await db.media.update(nvId, { refCount: newRefCount })
           log.debug('Media refCount decreased:', { nvId, refCount: newRefCount })

@@ -73,7 +73,7 @@ export const parseMedia = async (zipData) => {
     for (const [key, filename] of Object.entries(mediaMapping)) {
       const file = zipData.files[key]
       if (file) {
-        const blob = await file.async('arraybuffer')
+        const blob = await file.async('blob')
         media[filename] = blob
       }
     }

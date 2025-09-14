@@ -115,10 +115,9 @@ export const importApkgData = async (parsedData, options = {}) => {
     createdNotes.push(result)
   }
 
-  log.debug('✅ Import complete:')
-  log.debug(`   • NoteTypes: ${bundleIds.length}`)
-  log.debug(`   • Notes: ${createdNotes.length}`)
-  log.debug(`   • Cards: ${createdNotes.reduce((sum, note) => sum + (note.cards?.length || 0), 0)}`)
+  log.debug('✅ Import complete:', { bundles, notes: createdNotes,
+    templates: await anki.getTemplates(bundleIds[0]),
+    cards: await anki.getCardsForBundles(bundleIds) })
 
   return {
     bundleIds,

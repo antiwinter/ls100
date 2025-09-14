@@ -273,11 +273,7 @@ export const parseMedia = async (zipData) => {
       const originalName = mediaMap[filename] || filename
       const blob = await file.async('blob')
 
-      media[originalName] = {
-        filename: originalName,
-        blob: blob,
-        size: blob.size
-      }
+      media[originalName] = blob
     }
   }
 
