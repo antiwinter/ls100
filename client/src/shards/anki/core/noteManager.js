@@ -98,7 +98,7 @@ async function update(noteId, fields, tags) {
 
   // Handle media refCount updates if fields changed
   if (fields !== undefined) {
-    // Parse old and new fields to get media diff
+    // Parse old and new fields to get media diff (now works with cooked fields)
     const { anki } = await import('./index.js')
     const oldResult = await anki.parseFields(note.fields, {})
     const newResult = await anki.parseFields(fields, {})
@@ -112,9 +112,11 @@ async function update(noteId, fields, tags) {
       await mediaManager.remove(toRemove)
     }
 
-    // Add new media references
-    if (newResult.media.length > 0) {
-      await mediaManager.add(newResult.media)
+    // Add new media references (only truly new ones)
+    const toAdd = newNvIds.filter(id => !oldNvIds.includes(id))
+    if (toAdd.length > 0) {
+      const newMediaToAdd = newResult.media.filter(m => toAdd.includes(m.nvId))
+      await mediaManager.add(newMediaToAdd)
     }
   }
 

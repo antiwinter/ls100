@@ -21,6 +21,17 @@ async function parseFields(fields, blobs = {}) {
 
     let result = field
 
+    // Always extract existing /media/ URLs first
+    const mediaRegex = /\/media\/([a-zA-Z0-9-_]+)/g
+    let match
+    while ((match = mediaRegex.exec(field)) !== null) {
+      const nvId = match[1]
+      if (!media.find(m => m.nvId === nvId)) {
+        media.push({ nvId, filename: null, blob: null })
+      }
+    }
+
+    // Then process raw media if blobs provided
     // Handle [sound:filename] tags (for audio/video)
     result = await _replaceAsync(result, /\[sound:([^\]]+)\]/g, async (match, filename) => {
       const nvId = await _processMediaFile(filename, blobs, media)

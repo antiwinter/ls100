@@ -58,6 +58,64 @@ describe('noteManager advanced coverage', () => {
     mediaAdd.mockRestore()
   })
 
+  test('update with overlapping media avoids duplicate reference counting', async () => {
+    const bid = 'b-overlap'
+    await anki.addBundle(bid, 'TwoFields', ['F1', 'F2'])
+    await anki.addTemplate(bid, 't', '{{F1}} {{F2}}', '{{F1}} {{F2}}', 0)
+
+    const blobs = {
+      'a.png': makeBlob('AAAAA very unique content for media A with lots of different data and unique identifier AAAAA', 'image/png'),
+      'b.png': makeBlob('BBBBB completely different content for media B with totally different data and identifier BBBBB', 'image/png'),
+      'c.png': makeBlob('CCCCC another unique content for media C with distinctive data and special identifier CCCCC', 'image/png')
+    }
+
+    // Create note with media A and B
+    const resultA = await anki.parseFields('<img src="a.png">', blobs)
+    const resultB = await anki.parseFields('<img src="b.png">', blobs)
+    const { note } = await anki.noteManager.create(bid, [resultA.cooked, resultB.cooked], [])
+
+    const mediaAddSpy = vi.spyOn(mediaManager, 'add')
+    const mediaRemoveSpy = vi.spyOn(mediaManager, 'remove')
+
+    // Simulate editor behavior: Editor processes mixed fields with blobs for ALL media
+    // This happens because editor loads cooked fields, fetches blobs from /media/ URLs, 
+    // then user adds new media C
+    const updateBlobs = {
+      'b.png': makeBlob('BBBBB completely different content for media B with totally different data and identifier BBBBB', 'image/png'), // Editor has blob for existing media B
+      'c.png': makeBlob('CCCCC another unique content for media C with distinctive data and special identifier CCCCC', 'image/png')  // User added new media C
+    }
+
+    // Update: Mix of cooked (existing B) + raw (new C) with blobs for both
+    const mixedFields = [
+      note.fields[1], // Cooked field with /media/ URL for B
+      '<img src="c.png">' // Raw field with filename for C
+    ]
+    
+    // Editor processes fields before calling update
+    const updateResult = await anki.parseFields(mixedFields, updateBlobs)
+    await anki.noteManager.update(note.id, updateResult.cooked)
+
+    // Verify correct behavior (test should FAIL when bug is present)
+    expect(mediaRemoveSpy).toHaveBeenCalled() // A should be removed ✅
+    expect(mediaAddSpy).toHaveBeenCalled() // Media should be added ✅
+    
+    const addCalls = mediaAddSpy.mock.calls
+    const addedMedia = addCalls.flat().flat()
+    
+    // Find the nvIds 
+    const addedNvIds = addedMedia.map(m => m.nvId)
+    const bNvId = resultB.media[0].nvId
+    const cNvId = updateResult.media.find(m => m.filename === 'c.png').nvId
+    
+    // CORRECT EXPECTATIONS: Only new media C should be added
+    expect(addedMedia.length).toBe(1) // Only C should be added
+    expect(addedNvIds).not.toContain(bNvId) // B should NOT be re-added
+    expect(addedNvIds).toContain(cNvId) // C should be added
+
+    mediaAddSpy.mockRestore()
+    mediaRemoveSpy.mockRestore()
+  })
+
   test('delete removes note, cards and media references', async () => {
     const bid = 'b-del'
     await anki.addBundle(bid, 'Basic', ['F'])
