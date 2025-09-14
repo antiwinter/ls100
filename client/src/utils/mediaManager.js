@@ -61,18 +61,14 @@ async function add(mediaArray) {
   if (!Array.isArray(mediaArray)) return
 
   for (const { nvId: _nvid, filename, blob } of mediaArray) {
-    if (!blob) {
-      log.warn('Rejecting media without blob:', { _nvid, filename })
-      continue
-    }
-
     try {
-      // Always recalculate nvId from blob content (single source of truth)
-      const nvId = await blob2NvId(blob)
+      // Calculate or use provided nvId
+      const nvId = await blob2NvId(blob) || _nvid
 
       // Warn if provided nvId doesn't match calculated one
-      if (_nvid && _nvid !== nvId) {
-        log.warn('Provided nvId does not match calculated nvId:', { provided: _nvid, calculated: nvId, filename })
+      if (!nvId || _nvid !== nvId) {
+        log.warn('Invalid media entry:', { filename, _nvid, nvId, blob })
+        continue
       }
 
       const existing = await db.media.get(nvId)
@@ -80,7 +76,7 @@ async function add(mediaArray) {
         // Media already exists, just increment refCount
         await db.media.update(nvId, { refCount: (existing.refCount || 0) + 1 })
         log.debug('Media retained:', { nvId, filename, refCount: (existing.refCount || 0) + 1 })
-      } else {
+      } else if (blob) {
         // New media with blob data
         await db.media.put({
           id: nvId,
@@ -92,9 +88,12 @@ async function add(mediaArray) {
           created: Date.now()
         })
         log.debug('Media added:', { nvId, filename })
+      } else {
+        // Media doesn't exist and no blob to create it
+        log.warn('Cannot reference non-existent media without blob:', { nvId, filename })
       }
     } catch (error) {
-      log.error('Failed to add media:', _nvid, error)
+      log.error('Failed to add media:', { nvId: _nvid, filename }, error)
     }
   }
 }
