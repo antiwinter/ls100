@@ -9,8 +9,9 @@ import { Home, EditShard, Explore, Friends, Me, Hint } from './pages'
 import { BottomNav } from './components/BottomNav'
 import { detectPlatform } from './utils/useDetectPlatform'
 import { APP } from './config/constants'
+import { log } from './utils/logger'
 
-const isDev = window?.location?.hostname?.match(/localhost|127\.0\.0\.1/)
+const isDev = window?.location?.hostname?.match(/localhost|127\.0\.0\.1|192\.168\./)
 
 const MainApp = () => {
   const [homeEditMode, setHomeEditMode] = useState(false)
@@ -72,8 +73,9 @@ const MobileHintRedirect = ({ children }) => {
   const location = useLocation()
 
   useEffect(() => {
-    const { isMobileBrowser } = detectPlatform()
+    const { isMobileBrowser, os } = detectPlatform()
 
+    log.debug('MobileHintRedirect', { isMobileBrowser, os })
     if (isMobileBrowser && !isDev) {
       navigate('/hint', { replace: true })
     } else if (location.pathname === '/hint') {
