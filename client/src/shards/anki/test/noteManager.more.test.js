@@ -91,9 +91,8 @@ describe('noteManager advanced coverage', () => {
       '<img src="c.png">' // Raw field with filename for C
     ]
     
-    // Editor processes fields before calling update
-    const updateResult = await anki.parseFields(mixedFields, updateBlobs)
-    await anki.noteManager.update(note.id, updateResult.cooked)
+    // Use new API - update handles mixed fields and media internally
+    await anki.noteManager.update(note.id, mixedFields, undefined, updateBlobs)
 
     // Verify correct behavior (test should FAIL when bug is present)
     expect(mediaRemoveSpy).toHaveBeenCalled() // A should be removed ✅
@@ -105,7 +104,9 @@ describe('noteManager advanced coverage', () => {
     // Find the nvIds 
     const addedNvIds = addedMedia.map(m => m.nvId)
     const bNvId = resultB.media[0].nvId
-    const cNvId = updateResult.media.find(m => m.filename === 'c.png').nvId
+    // Get nvId for C from the media that should have been processed
+    const cResult = await anki.parseFields('<img src="c.png">', updateBlobs)
+    const cNvId = cResult.media.find(m => m.filename === 'c.png').nvId
     
     // CORRECT EXPECTATIONS: Only new media C should be added
     expect(addedMedia.length).toBe(1) // Only C should be added

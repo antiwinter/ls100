@@ -1,5 +1,4 @@
 import anki from '../core/index.js'
-import mediaManager from '../../../utils/mediaManager.js'
 import db from '../core/db.js'
 import { log } from '../../../utils/logger'
 import { genId } from '../../../utils/idGenerator.js'
@@ -17,6 +16,9 @@ export const importApkgData = async (parsedData, options = {}) => {
   log.debug(`Import: Processing ${Object.keys(bundles).length} bundles`)
   log.debug('Bundle IDs available:', Object.keys(bundles))
 
+  // Track ord mappings for preserveScheduling (bundleId -> originalOrd -> newOrd)
+  const bundleOrdMappings = new Map()
+
   // 1. Create Bundles and Templates (one bundle per Anki note type)
   for (const [modelId, model] of Object.entries(bundles)) {
     const bundleId = await genId('bundle', `${model.name}-${JSON.stringify(model.flds.map(f => f.name))}`)
@@ -30,7 +32,8 @@ export const importApkgData = async (parsedData, options = {}) => {
     await anki.addBundle(bundleId, model.name, fields)
     log.debug(`Created bundle: ${model.name}`)
 
-    // Create templates with cooked formats
+    // Create templates with cooked formats and track ord mapping for preserveScheduling
+    const ordMapping = new Map() // originalOrd -> newOrd
     for (const template of model.tmpls) {
       // Validate template formats
       if (typeof template.qfmt !== 'string' || typeof template.afmt !== 'string') {
@@ -39,28 +42,22 @@ export const importApkgData = async (parsedData, options = {}) => {
       const qfmt = template.qfmt
       const afmt = template.afmt
 
-      // Parse template formats: filename → NvId + extract media
-      const qResult = await anki.parseFields(qfmt, media)
-      const aResult = await anki.parseFields(afmt, media)
-
-      // Add all media found in templates
-      const templateMedia = [...qResult.media, ...aResult.media]
-      if (templateMedia.length > 0) {
-        await mediaManager.add(templateMedia)
-      }
-
-      const cookedQfmt = qResult.cooked
-      const cookedAfmt = aResult.cooked
-
-      await anki.addTemplate(
+      // addTemplate will handle both raw formats and media processing
+      const assignedOrd = await anki.addTemplate(
         bundleId,
         template.name,
-        cookedQfmt,
-        cookedAfmt,
-        template.ord
+        qfmt, // Raw format with filenames
+        afmt, // Raw format with filenames
+        media // Blob data for processing
       )
-      log.debug(`Created template: ${template.name}`)
+
+      // Map original ord to new ord for preserveScheduling
+      ordMapping.set(template.ord, assignedOrd)
+      log.debug(`Created template: ${template.name}, original ord: ${template.ord} -> new ord: ${assignedOrd}`)
     }
+
+    // Store ord mapping for this bundle
+    bundleOrdMappings.set(bundleId, ordMapping)
   }
 
   // 2. Import Notes with cooked fields
@@ -74,34 +71,28 @@ export const importApkgData = async (parsedData, options = {}) => {
       continue // Skip this note
     }
 
-    // Parse fields: filename → NvId + extract media
-    const fieldsResult = await anki.parseFields(ankiNote.flds, media)
-
-    // Add all media found in note fields
-    if (fieldsResult.media.length > 0) {
-      await mediaManager.add(fieldsResult.media)
-    }
-
-    const cookedFields = fieldsResult.cooked
-
     // Convert tags to array (Anki stores tags as space-separated string, tests might pass arrays)
     const tagsArray = Array.isArray(ankiNote.tags)
       ? ankiNote.tags
       : ankiNote.tags ? ankiNote.tags.trim().split(/\s+/).filter(Boolean) : []
 
+    // noteManager.create will handle both raw fields and media processing
     const result = await anki.noteManager.create(
       bundleId,
-      cookedFields,
-      tagsArray
+      ankiNote.flds, // Raw fields with filenames
+      tagsArray,
+      media // Blob data for processing
     )
 
     // If preserveScheduling is enabled, update cards with original scheduling data
     if (preserveScheduling && result.cards) {
       const originalCards = parsedData.cards?.filter(card => card.nid === ankiNote.id) || []
+      const ordMapping = bundleOrdMappings.get(bundleId)
 
       for (const generatedCard of result.cards) {
-        // Find matching original card by template ordinal
-        const originalCard = originalCards.find(c => c.ord === generatedCard.templateOrd)
+        // Find matching original card using ord mapping
+        const originalCard = originalCards.find(c => ordMapping.get(c.ord)
+        === generatedCard.templateOrd)
 
         if (originalCard && reviewHistory[originalCard.id]) {
           // Convert Anki scheduling to FSRS format

@@ -175,29 +175,37 @@ export const anki = {
   StudyEngine,
   parseFields,
 
-  // Add template to bundle
-  async  addTemplate(bundleId, name, qfmt, afmt, ord = 0, vdeck = null) {
+  // Add template to bundle - handles both raw and cooked formats
+  async addTemplate(bundleId, name, qfmt, afmt, media = {}) {
+    // Auto-increment ord
+    const existingTemplates = await db.templates.where('bundleId').equals(bundleId).toArray()
+    const maxOrd = existingTemplates.length > 0
+      ? Math.max(...existingTemplates.map(t => t.ord)) : -1
+    const ord = maxOrd + 1
+
+    // Process formats with media (handles both raw and cooked)
+    const qResult = await parseFields(qfmt, media)
+    const aResult = await parseFields(afmt, media)
+
     const template = {
-      id: await genId('template', bundleId + name + qfmt + afmt),
+      id: await genId('template', bundleId + name + qResult.cooked + aResult.cooked),
       bundleId,
       name,
-      qfmt,
-      afmt,
+      qfmt: qResult.cooked,
+      afmt: aResult.cooked,
       ord,
-      vdeck,
+      vdeck: null,
       created: Date.now()
     }
     await db.templates.put(template)
 
-    // Add media references from cooked template formats
-    const qResult = await parseFields(qfmt, {})
-    const aResult = await parseFields(afmt, {})
+    // Add media references
     const allMedia = [...qResult.media, ...aResult.media]
     if (allMedia.length > 0) {
       await mediaManager.add(allMedia)
     }
 
-    return template
+    return ord // Return the assigned ord for mapping
   },
 
   async  getTemplates(bundleId) {
@@ -205,7 +213,7 @@ export const anki = {
   },
 
   async removeTemplate(tp) {
-    _removeTemplate(tp)
+    await _removeTemplate(tp)
   },
 
   async  getBundle(bundleId) {

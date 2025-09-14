@@ -4,16 +4,20 @@ import { genId } from '../../../utils/idGenerator.js'
 import mediaManager from '../../../utils/mediaManager.js'
 import { render } from './renderDefault.js'
 
-// Create new note with cooked fields (for APKG import)
-async function _create(bundleId, fields, tags = []) {
+// Create new note - handles both raw and cooked fields
+async function _create(bundleId, fields, tags = [], media = {}) {
   const bundle = await db.bundles.get(bundleId)
   if (!bundle) throw new Error(`NoteType not found: ${bundleId}`)
 
-  // Fields should already be cooked (contain NvIds) when passed in
+  // Process fields with media (handles both raw and cooked)
+  const { anki } = await import('./index.js')
+  const result = await anki.parseFields(fields, media)
+  const cookedFields = Array.isArray(result.cooked) ? result.cooked : [result.cooked]
+
   const note = {
-    id: await genId('note', bundleId + fields.join('') + tags.join('')),
+    id: await genId('note', bundleId + cookedFields.join('') + tags.join('')),
     bundleId,
-    fields: fields.slice(0, bundle.fields.length), // Ensure correct field count
+    fields: cookedFields.slice(0, bundle.fields.length), // Ensure correct field count
     tags,
     refCount: 0,
     created: Date.now(),
@@ -22,9 +26,7 @@ async function _create(bundleId, fields, tags = []) {
 
   await db.notes.put(note)
 
-  // Add media references (fields should already be cooked with nvIds)
-  const { anki } = await import('./index.js')
-  const result = await anki.parseFields(note.fields, {})
+  // Add media references
   if (result.media.length > 0) {
     await mediaManager.add(result.media)
   }
@@ -76,9 +78,9 @@ async function _genCardsForNote(note) {
 }
 
 // Add note with cards - automatically generates cards for the note
-async function create(bundleId, fields, tags) {
+async function create(bundleId, fields, tags, media = {}) {
   // Create note
-  const note = await _create(bundleId, fields, tags)
+  const note = await _create(bundleId, fields, tags, media)
 
   // Generate cards
   const cards = await _genCardsForNote(note)
@@ -91,17 +93,17 @@ async function get(noteId) {
   return await db.notes.get(noteId)
 }
 
-// Update note fields (expects cooked fields with NvIds)
-async function update(noteId, fields, tags) {
+// Update note fields - handles both raw and cooked fields
+async function update(noteId, fields, tags, media = {}) {
   const note = await get(noteId)
   if (!note) throw new Error(`Note not found: ${noteId}`)
 
   // Handle media refCount updates if fields changed
   if (fields !== undefined) {
-    // Parse old and new fields to get media diff (now works with cooked fields)
+    // Process both old and new fields with media support
     const { anki } = await import('./index.js')
-    const oldResult = await anki.parseFields(note.fields, {})
-    const newResult = await anki.parseFields(fields, {})
+    const oldResult = await anki.parseFields(note.fields, {}) // Old fields are always cooked
+    const newResult = await anki.parseFields(fields, media) // New fields can be mixed
 
     const oldNvIds = oldResult.media.map(m => m.nvId)
     const newNvIds = newResult.media.map(m => m.nvId)
@@ -118,6 +120,9 @@ async function update(noteId, fields, tags) {
       const newMediaToAdd = newResult.media.filter(m => toAdd.includes(m.nvId))
       await mediaManager.add(newMediaToAdd)
     }
+
+    // Use processed cooked fields
+    fields = Array.isArray(newResult.cooked) ? newResult.cooked : [newResult.cooked]
   }
 
   const updates = { modified: Date.now() }
