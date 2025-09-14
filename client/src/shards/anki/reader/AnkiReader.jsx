@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Box, Typography, ToggleButtonGroup, Button, Stack, Alert, IconButton } from '@mui/joy'
 import { MenuBook, School, ArrowBack } from '@mui/icons-material'
 import { BrowseMode } from './BrowseMode.jsx'
@@ -7,6 +7,33 @@ import anki from '../core/index.js'
 import { useAnkiSessionStore } from '../storage/useSessionStore.js'
 import { apiCall } from '../../../config/api.js'
 import { log } from '../../../utils/logger'
+
+// Hook to get counts dynamically from bundleIds
+const useCounts = (bundleIds) => {
+  const [counts, setCounts] = useState({ cards: 0, notes: 0 })
+
+  useEffect(() => {
+    if (!bundleIds?.length) {
+      setCounts({ cards: 0, notes: 0 })
+      return
+    }
+
+    const fetchCounts = async () => {
+      try {
+        const cards = await anki.getCardsForBundles(bundleIds)
+        const noteIds = [...new Set(cards.map(c => c.noteId))]
+        setCounts({ cards: cards.length, notes: noteIds.length })
+      } catch (error) {
+        log.error('Failed to fetch counts:', error)
+        setCounts({ cards: 0, notes: 0 })
+      }
+    }
+
+    fetchCounts()
+  }, [bundleIds])
+
+  return counts
+}
 
 const AnkiReaderContent = ({ shard, onBack }) => {
   const [mode, setMode] = useState('browse')
@@ -17,6 +44,13 @@ const AnkiReaderContent = ({ shard, onBack }) => {
 
   // Session store for persistent study settings
   const sessionStore = useAnkiSessionStore(shard?.id)
+
+  // Get bundleIds and counts (must be at top level)
+  const bundleIds = useMemo(() =>
+    shardData?.metadata?.bundles?.map(b => b.id) || [],
+  [shardData?.metadata?.bundles]
+  )
+  const counts = useCounts(bundleIds)
 
   // Load shard data using new architecture
   const loadShardData = useCallback(async () => {
@@ -29,51 +63,19 @@ const AnkiReaderContent = ({ shard, onBack }) => {
         return
       }
 
-      // Get cards for this shard
-      const cards = await anki.getCardsForBundles(shard.metadata?.bundleIds)
-
-      // Get unique notes from cards
-      const noteIds = [...new Set(cards.map(c => c.noteId))]
-      const notes = await Promise.all(
-        noteIds.map(async (id) => {
-          try {
-            return await anki.noteManager.get(id)
-          } catch (err) {
-            log.warn('Failed to load note:', id, err)
-            return null
-          }
-        })
-      )
-      const validNotes = notes.filter(Boolean)
-
-      // Get media stats (now returns all media categorized by type)
-      const mediaStats = await anki.mediaManager.getStats()
-
+      // Minimal shardData - just metadata for single source of truth
       const data = {
         id: shard.id,
         name: shard.name || 'Anki Shard',
-        cards,
-        notes: validNotes,
-        metadata: shard.metadata, // Include original metadata for BrowseMode
-        stats: {
-          totalCards: cards.length,
-          totalNotes: validNotes.length,
-          newCards: cards.filter(c => c.state === 'New').length,
-          dueCards: cards.filter(c => {
-            const due = typeof c.due === 'string' ? Date.parse(c.due) : c.due
-            return due <= Date.now()
-          }).length,
-          mediaFiles: mediaStats.fileCount,
-          mediaSize: mediaStats.totalSizeMB
-        }
+        metadata: shard.metadata
       }
 
       setShardData(data)
+
+      const bundleIds = shard.metadata?.bundles?.map(b => b.id) || []
       log.info('✅ Loaded shard data:', {
         shardId: shard.id,
-        cards: data.stats.totalCards,
-        notes: data.stats.totalNotes,
-        media: data.stats.mediaFiles
+        bundles: bundleIds.length
       })
 
     } catch (err) {
@@ -95,14 +97,14 @@ const AnkiReaderContent = ({ shard, onBack }) => {
   }
 
   const handleStartStudy = async () => {
-    if (!shardData?.cards?.length) {
+    if (!counts.cards) {
       setError('No cards available for study')
       return
     }
 
     try {
       // Configure session store with shard's bundleIds before initializing engine
-      sessionStore.setState({ bundleIds: shard.metadata?.bundleIds || [] })
+      sessionStore.setState({ bundleIds })
 
       // Create study engine and initialize session
       const engine = new anki.StudyEngine(sessionStore)
@@ -118,7 +120,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
         day: sessionState.day,
         newCards: sessionState.pile?.new?.length || 0,
         reviewCards: sessionState.pile?.review?.length || 0,
-        totalCards: shardData.cards.length
+        totalCards: counts.cards
       })
     } catch (err) {
       log.error('Failed to start study session:', err)
@@ -165,11 +167,11 @@ const AnkiReaderContent = ({ shard, onBack }) => {
     )
   }
 
-  if (!shardData || !shardData.cards || shardData.cards.length === 0) {
+  if (!bundleIds.length) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
         <Typography color="neutral" sx={{ mb: 2 }}>
-          No cards available. Import some .apkg files to get started.
+          No content available. Import some .apkg files to get started.
         </Typography>
       </Box>
     )
@@ -198,7 +200,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
           </Typography>
 
           <Typography level="body-sm" color="neutral" sx={{ mr: 2 }}>
-            {shardData?.stats?.totalNotes || 0} notes • {shardData?.stats?.totalCards || 0} cards
+            {counts.notes} notes • {counts.cards} cards
           </Typography>
 
           <ToggleButtonGroup
@@ -232,12 +234,13 @@ const AnkiReaderContent = ({ shard, onBack }) => {
       <Box sx={{ flex: 1, overflow: 'hidden' }}>
         {mode === 'browse' ? (
           <BrowseMode
-            selectedShard={shardData}
+            bundleIds={bundleIds}
+            shardName={shardData.name}
             onStartStudy={handleStartStudy}
           />
         ) : (
           <StudyMode
-            shard={shardData}
+            bundleIds={bundleIds}
             studyEngine={studyEngine}
             onEndStudy={handleEndStudy}
           />

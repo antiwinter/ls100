@@ -108,7 +108,8 @@ const NoteTable = ({ notes, bundles, onStartStudy: _onStartStudy }) => {
 }
 
 export const BrowseMode = ({
-  selectedShard = null,
+  bundleIds = [],
+  shardName = '',
   onStartStudy
 }) => {
   const [searchQuery, setSearchQuery] = useState('')
@@ -117,19 +118,18 @@ export const BrowseMode = ({
   const [bundles, setNoteTypes] = useState({})
 
 
-  // Load notes for selected shard
+  // Load notes for bundle IDs
   useEffect(() => {
     const loadNotesData = async () => {
-      if (!selectedShard?.id) {
+      if (!bundleIds.length) {
         setNotes([])
         setNoteTypes({})
         return
       }
 
-
       try {
-        // Get notes for this shard by finding cards first, then getting unique notes
-        const shardCards = await anki.getCardsForBundles(selectedShard.metadata?.bundleIds)
+        // Get notes for these bundles by finding cards first, then getting unique notes
+        const shardCards = await anki.getCardsForBundles(bundleIds)
         const noteIds = [...new Set(shardCards.map(c => c.noteId))]
 
         const shardNotes = await Promise.all(
@@ -154,7 +154,7 @@ export const BrowseMode = ({
 
         setNotes(validNotes)
         setNoteTypes(types)
-        log.debug('Loaded shard notes:', {
+        log.debug('Loaded notes data:', {
           notes: validNotes.length,
           bundles: Object.keys(types).length
         })
@@ -162,13 +162,11 @@ export const BrowseMode = ({
         log.error('Failed to load notes data:', error)
         setNotes([])
         setNoteTypes({})
-      } finally {
-        // Loading complete
       }
     }
 
     loadNotesData()
-  }, [selectedShard])
+  }, [bundleIds])
 
   // Process and filter notes
   const processedNotes = useMemo(() => {
@@ -225,19 +223,19 @@ export const BrowseMode = ({
   }, [notes, bundles])
 
   const handleStartStudy = () => {
-    if (!selectedShard || notes.length === 0) return
+    if (!bundleIds.length || notes.length === 0) return
     try {
       onStartStudy?.()
-      log.info('Requested study session for shard:', selectedShard.name)
+      log.info('Requested study session for shard:', shardName)
     } catch (error) {
       log.error('Failed to start study session:', error)
     }
   }
 
-  if (!selectedShard) {
+  if (!bundleIds.length) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography color="neutral">Select a shard to browse notes</Typography>
+        <Typography color="neutral">No content available to browse</Typography>
       </Box>
     )
   }
@@ -247,7 +245,7 @@ export const BrowseMode = ({
       {/* Shard Header */}
       <Box sx={{ mb: 3 }}>
         <Typography level="h4" sx={{ mb: 1 }}>
-          {selectedShard.name}
+          {shardName}
         </Typography>
         {/* Note Statistics */}
         <Stack direction="row" spacing={2} sx={{ mb: 2 }}>

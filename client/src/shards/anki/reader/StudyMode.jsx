@@ -276,7 +276,7 @@ const SessionComplete = ({ sessionData, onRestart, onExit }) => {
   )
 }
 
-export const StudyMode = ({ shard, studyEngine, onEndStudy }) => {
+export const StudyMode = ({ bundleIds, studyEngine, onEndStudy }) => {
   const [currentCard, setCurrentCard] = useState(null)
   const [showAnswer, setShowAnswer] = useState(false)
   const [progress, setProgress] = useState(null)
