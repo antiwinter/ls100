@@ -145,7 +145,7 @@ export const processData = async (shard, _apiCall) => {
 export const cleanup = async (shard, allShards = []) => {
   try {
     log.info('🧹 Cleaning up Anki shard:', shard.id)
-    log.info('📋 Shard metadata:', { 
+    log.info('📋 Shard metadata:', {
       metadata: shard.metadata,
       bundles: shard.metadata?.bundles,
       bundlesLength: shard.metadata?.bundles?.length || 0
