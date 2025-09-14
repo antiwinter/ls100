@@ -153,7 +153,7 @@ async function delete_(note) {
   // Delete related cards
   await db.cards.where('noteId').equals(note.id).delete()
 
-  log.debug('Note deleted:', note.id)
+  // log.debug('Note deleted:', note.id)
 }
 
 // No default export needed - use named exports directly

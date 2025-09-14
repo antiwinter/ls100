@@ -26,9 +26,10 @@ describe('AnkiShard.processData', () => {
     }
     const shard = { id: 's1', name: 'Test', data: { bundles: [parsed] }, metadata: {} }
     await processData(shard)
-    expect(Array.isArray(shard.metadata.bundleIds)).toBe(true)
-    expect(shard.metadata.bundleIds.length).toBeGreaterThan(0)
-    expect(shard.metadata.totalCards).toBe(1)
+    expect(Array.isArray(shard.metadata.bundles)).toBe(true)
+    expect(shard.metadata.bundles.length).toBeGreaterThan(0)
+    expect(shard.metadata.bundles[0]).toHaveProperty('id')
+    expect(shard.metadata.bundles[0]).toHaveProperty('name')
   })
 })
 

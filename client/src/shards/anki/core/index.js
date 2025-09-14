@@ -152,7 +152,7 @@ async function _cleanupOrphans() {
     for (const note of batch) {
       await noteManager.delete(note) // Handles media cleanup
       stats.notesRemoved++
-      log.debug('Removed orphaned note:', note)
+      // log.debug('Removed orphaned note:', note)
     }
   }
 
@@ -162,7 +162,7 @@ async function _cleanupOrphans() {
     if (batch.length === 0) break
     await db.cards.bulkDelete(batch.map(c => c.id))
     stats.cardsRemoved += batch.length
-    for (const card of batch) log.debug('Removed orphaned card:', card)
+    // for (const card of batch) log.debug('Removed orphaned card:', card)
   }
 
   return stats

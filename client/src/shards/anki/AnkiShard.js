@@ -53,10 +53,7 @@ export const detect = async (filename, buffer) => {
 
 // Generate cover for shard preview
 export const generateCover = (shard) => {
-  // Handle case where metadata might not exist yet
   const metadata = shard.metadata || {}
-  const noteCount = metadata.totalNotes || 0
-  const cardCount = metadata.totalCards || 0
 
   // Determine title with multiple fallbacks
   let title = metadata.bundleName || shard.name || 'Anki Shard'
@@ -64,7 +61,6 @@ export const generateCover = (shard) => {
   // If no bundleName but we have bundles in metadata (create mode), use first bundle name
   if (!metadata.bundleName && metadata.bundles?.length > 0) {
     title = metadata.bundles[0].name
-    // Also update the hash source to use the bundle name for consistent colors
   }
 
   // Create a hash for consistent color selection
@@ -92,9 +88,7 @@ export const generateCover = (shard) => {
     style: 'anki-card',
     background: gradient,
     textColor: '#ffffff',
-    subtitle: noteCount > 0
-      ? `${noteCount} notes • ${cardCount} cards`
-      : 'No content yet',
+    subtitle: 'Anki Flashcards',
     icon: '🧠' // Brain emoji for learning
   }
 }
@@ -111,22 +105,16 @@ export const processData = async (shard, _apiCall) => {
   try {
     // Process bundles stored in shard.data.bundles
     if (shard.data?.bundles?.length > 0) {
-      let bundleName = null
-      const bundleIds = []
+      const bundles = []
 
       for (const bundle of shard.data.bundles) {
         try {
-          // Import parsed APKG data; use returned bundleIds actually created by import
+          // Import parsed APKG data
           const result = await importApkgData(bundle)
 
-          // Store the first bundle name for consistent cover colors
-          if (!bundleName) {
-            bundleName = bundle.name
-          }
-
-          // Collect returned bundleIds for metadata
+          // Store bundle info (id + name) for cleanup
           if (Array.isArray(result?.bundleIds)) {
-            bundleIds.push(...result.bundleIds)
+            bundles.push(...result.bundleIds.map(id => ({ id, name: bundle.name })))
           }
 
           log.info('Committed Anki import:', { bundleIds: result?.bundleIds, name: bundle.name })
@@ -135,27 +123,11 @@ export const processData = async (shard, _apiCall) => {
         }
       }
 
-      // Store bundle info in metadata for lookup
+      // Store bundles array in metadata
       shard.metadata = {
         ...shard.metadata,
-        bundleName,
-        bundleIds
+        bundles
       }
-    }
-
-    // Get updated counts from IDB using bundleIds
-    if (shard.metadata?.bundleIds?.length > 0) {
-      const cards = await anki.getCardsForBundles(shard.metadata.bundleIds)
-      const noteIds = [...new Set(cards.map(c => c.noteId))]
-
-      // Store persistent counts in metadata
-      shard.metadata = {
-        ...shard.metadata,
-        totalNotes: noteIds.length,
-        totalCards: cards.length
-      }
-
-      log.info('Shard metadata updated:', { totalNotes: noteIds.length, totalCards: cards.length })
     }
 
     // Clear data to save bandwidth - backend doesn't need it
@@ -163,7 +135,6 @@ export const processData = async (shard, _apiCall) => {
 
   } catch (error) {
     log.error('Failed to process shard data:', error)
-    // Keep default fallback
     shard.data = {}
   }
 }
@@ -173,11 +144,22 @@ export const processData = async (shard, _apiCall) => {
 // Cleanup function called when shard is deleted
 export const cleanup = async (shard, allShards = []) => {
   try {
-    log.info('Cleaning up Anki shard:', shard.id)
+    log.info('🧹 Cleaning up Anki shard:', shard.id)
+    log.info('📋 Shard metadata:', { 
+      metadata: shard.metadata,
+      bundles: shard.metadata?.bundles,
+      bundlesLength: shard.metadata?.bundles?.length || 0
+    })
 
-    // Remove all notes and cards for this shard's bundles
-    if (shard.metadata?.bundleIds?.length > 0) {
-      await anki.removeBundles(shard.metadata.bundleIds)
+    // Extract bundleIds from bundles array
+    const bundleIds = shard.metadata?.bundles?.map(b => b.id) || []
+    log.info('📦 Extracted bundleIds:', { bundleIds, count: bundleIds.length })
+
+    if (bundleIds.length > 0) {
+      log.info('🗑️ Starting bundle removal...')
+      await anki.removeBundles(bundleIds)
+    } else {
+      log.warn('⚠️ No bundleIds found - skipping database cleanup!')
     }
 
     // Check for remaining Anki shards for potential orphan cleanup

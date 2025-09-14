@@ -21,9 +21,10 @@ router.get('/', requireAuth, async (req, res) => {
       shards = await shardModel.findByOwnerWithProgress(req.userId, sort)
     }
     
-    // Include engine-specific data for each shard
+    // Include engine-specific data for each shard and parse metadata consistently
     const shardsWithData = await Promise.all(shards.map(async shard => ({
       ...shard,
+      metadata: JSON.parse(shard.metadata),
       data: await engineGetData(shard.type, shard.id)
     })))
     

@@ -135,8 +135,7 @@ export const AnkiShardEditor = ({
       const bundleInfo = {
         id: bundleId,
         name: parsed.deckName || parsed.name,
-        filename,
-        totalCards: parsed.cards?.length || 0
+        filename
       }
       const currentMetaBundles = shardData?.metadata?.bundles || []
       const updatedMetadata = {
