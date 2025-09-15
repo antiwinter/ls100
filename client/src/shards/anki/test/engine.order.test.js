@@ -1,16 +1,24 @@
 import { describe, test, expect, beforeEach } from 'vitest'
+import { proxy } from 'valtio'
 import db from '../core/db.js'
 import mediaManager from '../../../utils/mediaManager.js'
 import { StudyEngine } from '../core/studyEngine.js'
 
 function store(init = {}) {
-  let s = {
+  return proxy({
     bundleIds: [], newCardOrder: 'gather', newReviewOrder: 'mixed',
     autoBurySiblings: false, maxNewCards: 9999, maxReviewCards: 9999,
     timeSegments: [], actionLog: [], pile: { new: [], review: [], done: [] }, day: 0, currentCard: null,
-    ...init
-  }
-  return { start() {}, finish() {}, getState: () => s, updateTimeSegments: v => { s.timeSegments = v }, updateHistory: () => {}, setState: v => { s = { ...s, ...v } } }
+    ...init,
+    
+    // Mock session methods
+    start() { return true },
+    finish() {},
+    updateHistory: () => {},
+    setPreferences(pref) {
+      Object.assign(this, pref || {})
+    }
+  })
 }
 
 async function seedWithTemplateOrd(bundleId) {
@@ -31,16 +39,14 @@ describe('StudyEngine new card ordering', () => {
     const b = 'b'; await seedWithTemplateOrd(b)
     const st = store({ bundleIds: [b], newCardOrder: 'gather' })
     const e = new StudyEngine(); await e.init(st)
-    const ss = st.getState()
-    expect(ss.pile.new.map(c => c.id)).toEqual(['c0', 'c1', 'c2'])
+    expect(st.pile.new.map(c => c.id)).toEqual(['c0', 'c1', 'c2'])
   })
 
   test('template-random groups by templateOrd', async () => {
     const b = 'b'; await seedWithTemplateOrd(b)
     const st = store({ bundleIds: [b], newCardOrder: 'template-random' })
     const e = new StudyEngine(); await e.init(st)
-    const ss = st.getState()
-    const ords = ss.pile.new.map(c => c.templateOrd)
+    const ords = st.pile.new.map(c => c.templateOrd)
     expect(new Set(ords)).toEqual(new Set([0,1,2]))
   })
 })

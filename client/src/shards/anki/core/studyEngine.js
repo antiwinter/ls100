@@ -174,7 +174,7 @@ export class StudyEngine {
 
   // Undo last step using action log
   async undo() {
-    const ss = this.session.getState()
+    const ss = this.session
     // Need at least 2 actions: can't undo if only one card drawn (not rated yet)
     if ((ss.actionLog?.length || 0) < 2)
       return null

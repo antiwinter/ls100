@@ -1,11 +1,12 @@
 import { describe, test, expect, beforeEach } from 'vitest'
+import { proxy } from 'valtio'
 import db from '../core/db.js'
 import mediaManager from '../../../utils/mediaManager.js'
 import { StudyEngine } from '../core/studyEngine.js'
 
-// Minimal session store mock matching useAnkiSessionStore API
+// Valtio-compatible session store mock
 function createSessionStore(initial = {}) {
-  let state = {
+  const state = proxy({
     bundleIds: [],
     newCardOrder: 'gather',
     newReviewOrder: 'mixed',
@@ -17,16 +18,21 @@ function createSessionStore(initial = {}) {
     pile: { new: [], review: [], done: [] },
     day: 0,
     currentCard: null,
-    ...initial
-  }
-  return {
-    start() {},
+    ...initial,
+    
+    // Mock session methods
+    start() { 
+      // Always start a new session for tests
+      return true 
+    },
     finish() {},
-    getState: () => state,
-    updateTimeSegments: (segments) => { state.timeSegments = segments },
     updateHistory: () => {},
-    setState: (partial) => { state = { ...state, ...partial } }
-  }
+    setPreferences(pref) {
+      Object.assign(this, pref || {})
+    }
+  })
+  
+  return state
 }
 
 async function seedCards(bundleId, counts) {
@@ -64,8 +70,7 @@ describe('StudyEngine', () => {
     const session = createSessionStore({ bundleIds: [bundleId] })
     const engine = new StudyEngine()
     await engine.init(session)
-    const ss = session.getState()
-    expect(ss.pile.new.length + ss.pile.review.length).toBeGreaterThan(0)
+    expect(session.pile.new.length + session.pile.review.length).toBeGreaterThan(0)
     const card = engine.draw()
     expect(card).not.toBeNull()
   })

@@ -1,16 +1,24 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest'
+import { proxy } from 'valtio'
 import db from '../core/db.js'
 import mediaManager from '../../../utils/mediaManager.js'
 import { StudyEngine } from '../core/studyEngine.js'
 
 function store(init = {}) {
-  let s = {
+  return proxy({
     bundleIds: [], newCardOrder: 'gather', newReviewOrder: 'mixed',
     autoBurySiblings: true, maxNewCards: 9999, maxReviewCards: 9999,
     timeSegments: [], actionLog: [], pile: { new: [], review: [], done: [] }, day: 0, currentCard: null,
-    ...init
-  }
-  return { start() {}, finish() {}, getState: () => s, updateTimeSegments: v => { s.timeSegments = v }, updateHistory: () => {}, setState: v => { s = { ...s, ...v } } }
+    ...init,
+    
+    // Mock session methods
+    start() { return true },
+    finish() {},
+    updateHistory: () => {},
+    setPreferences(pref) {
+      Object.assign(this, pref || {})
+    }
+  })
 }
 
 async function seed(bundleId, { n = 0, r = 0, siblings = false } = {}) {
@@ -61,9 +69,8 @@ describe('StudyEngine strategies', () => {
     const b = 'b'; await seed(b, { n: 3, r: 3, siblings: true })
     const st = store({ bundleIds: [b], autoBurySiblings: true })
     const e = new StudyEngine(); await e.init(st)
-    const s = st.getState()
-    const noteIdsNew = new Set(s.pile.new.map(c => c.noteId))
-    const noteIdsRev = new Set(s.pile.review.map(c => c.noteId))
+    const noteIdsNew = new Set(st.pile.new.map(c => c.noteId))
+    const noteIdsRev = new Set(st.pile.review.map(c => c.noteId))
     expect(noteIdsNew.size).toBeLessThanOrEqual(1)
     expect(noteIdsRev.size).toBeLessThanOrEqual(1)
   })
