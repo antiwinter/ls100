@@ -312,7 +312,7 @@ export const StudyMode = ({ bundleIds: _bundleIds, studyEngine, onEndStudy }) =>
       setShowAnswer(false)
 
       // Update progress from session store
-      const sessionState = studyEngine.session.getState()
+      const sessionState = studyEngine.session
       const cardsStudied = sessionState.pile?.done?.length || 0
       const cardsRemaining = (sessionState.pile?.new?.length || 0) +
                            (sessionState.pile?.review?.length || 0)
@@ -437,7 +437,7 @@ export const StudyMode = ({ bundleIds: _bundleIds, studyEngine, onEndStudy }) =>
 
   if (sessionComplete) {
     // Build session data from current session state
-    const sessionState = studyEngine.session.getState()
+    const sessionState = studyEngine.session
     const cardsStudied = sessionState.pile?.done?.length || 0
     const timeSpent = studyEngine.timeTracker?.total() || 0
 

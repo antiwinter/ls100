@@ -5,7 +5,7 @@ import anki from '../core/index.js'
 import { StudyMode } from './StudyMode.jsx'
 import { FixedSizeList as List } from 'react-window'
 import { Toolbar } from './overlay/Toolbar.jsx'
-import { useAnkiSessionStore } from '../storage/useSessionStore.js'
+import { AnkiSessionStore } from '../core/sessionStore.js'
 import { apiCall } from '../../../config/api.js'
 import { log } from '../../../utils/logger'
 
@@ -75,8 +75,8 @@ const AnkiReaderContent = ({ shard, onBack }) => {
   const [notes, setNotes] = useState([])
   const [bundles, setBundles] = useState({})
 
-  // Session store for study functionality
-  const sessionStore = useAnkiSessionStore(shard?.id)
+  // Session store for study functionality (Valtio proxy)
+  const sessionStore = AnkiSessionStore(shard?.id)
 
   // Get bundleIds (must be at top level)
   const bundleIds = useMemo(() =>
@@ -208,8 +208,8 @@ const AnkiReaderContent = ({ shard, onBack }) => {
     }
 
     try {
-      // Configure session store with shard's bundleIds before initializing engine
-      sessionStore.setState({ bundleIds })
+      // Configure session with bundleIds
+      sessionStore.bundleIds = bundleIds
 
       // Create study engine and initialize session
       const engine = new anki.StudyEngine(sessionStore)
@@ -218,7 +218,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
       setStudyEngine(engine)
       setMode('study')
 
-      const sessionState = sessionStore.getState()
+      const sessionState = sessionStore
       log.info('Study session started:', {
         shardId: shard.id,
         bundleIds: sessionState.bundleIds,

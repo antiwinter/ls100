@@ -11,7 +11,7 @@ import {
   Settings,
   Search
 } from '@mui/icons-material'
-import { useAnkiSessionStore } from '../../storage/useSessionStore.js'
+import { AnkiSessionStore } from '../../core/sessionStore.js'
 import { log } from '../../../../utils/logger'
 
 // Button styles for consistency
@@ -35,7 +35,7 @@ export const Toolbar = ({
   onBack,
   onToolSelect
 }) => {
-  const _sessionStore = useAnkiSessionStore(shardId)
+  const _sessionStore = AnkiSessionStore(shardId)
 
   const handleToolClick = (tool) => {
     log.debug('Anki tool selected:', tool)

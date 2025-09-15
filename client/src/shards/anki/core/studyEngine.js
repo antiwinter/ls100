@@ -1,5 +1,6 @@
 import { FSRS, Rating, createEmptyCard } from 'ts-fsrs'
 import db from './db.js'
+import { snapshot } from 'valtio'
 import { log } from '../../../utils/logger.js'
 import { TimeSegments } from '../../../utils/timeTracker.js'
 import _ from 'lodash'
@@ -15,16 +16,14 @@ export class StudyEngine {
 
   // Initialize study session with proper session management
   async init(session) {
-    // Start session (handles day checks, previous session compaction, etc.)
-    session.start()
+    // Valtio session
     this.session = session
+    session.start()
 
     await this._buildQueues()
 
-    // Initialize time tracking with persistence
-    const ss = session.getState()
     this.timeTracker = new TimeSegments({
-      segments: ss.timeSegments,
+      segments: session.timeSegments,
       onSegmentChange: (segments) => {
         session.updateTimeSegments(segments)
       }
@@ -33,17 +32,17 @@ export class StudyEngine {
     this.timeTracker.open()
 
     log.info('Study session initialized:', {
-      day: ss.day,
-      bundleIds: ss.bundleIds
+      day: session.day,
+      bundleIds: session.bundleIds
     })
 
-    return ss
+    return session
   }
 
   // Build study queues with FSRS + sibling filtering
   async _buildQueues() {
     const now = Date.now()
-    const ss = this.session.getState()
+    const ss = this.session
 
     // Get new cards for bundles (optimized database query using mirrored state)
     let newCards = await db.cards
@@ -86,7 +85,7 @@ export class StudyEngine {
 
   // Card Drawing with Strategy-Based Selection
   draw() {
-    const ss = this.session.getState()
+    const ss = this.session
     const { pile } = ss
 
     // Helper: Extract card from pile if available
@@ -127,7 +126,7 @@ export class StudyEngine {
 
   // Rate current card and update scheduling
   async rate(rating) {
-    const ss = this.session.getState()
+    const ss = this.session
     const c0 = ss.currentCard
     if (!c0)
       throw new Error('No active card or session')
@@ -150,7 +149,7 @@ export class StudyEngine {
 
     // Mirror latest FSRS state to card level for fast queries
     await db.cards.update(c0.id, {
-      fsrs: c0.fsrs,
+      fsrs: snapshot(c0.fsrs),
       due: c0.fsrs[0].due,
       state: c0.fsrs[0].state
     })
