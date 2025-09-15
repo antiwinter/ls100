@@ -132,31 +132,29 @@ const parseNotetypeTemplates = (db, notetypeId) => {
             ? row.config : new Uint8Array(row.config)
           const configText = new TextDecoder().decode(configBuffer)
 
-          // Extract template formats from protobuf using proper parsing
-          // Look for template content in the protobuf data
-          const templateText = configText.replace(/[^\x20-\x7E]/g, ' ')
-          const templateParts = templateText.split(/\s+/).filter(part => part.includes('{{') && part.includes('}}'))
+          // Extract template formats from protobuf data
+          // Try to decode the complete template content from the protobuf binary
+          // First, try to find the template content in readable form
+          // eslint-disable-next-line no-control-regex
+          let cleanText = configText.replace(/[\x00-\x1F\x7F-\xFF]/g, ' ').replace(/\s+/g, ' ')
 
-          if (templateParts.length >= 1) {
-            qfmt = templateParts[0]
+          // Look for template patterns in the decoded text
+          // Ultimate Geography uses conditional templates like {{#Field}}content{{/Field}}
+          const templatePattern = /\{\{#?\w+\}\}.*?\{\{\/?\w*\}\}/gs
+          const allTemplates = cleanText.match(templatePattern) || []
+
+          if (allTemplates.length >= 1) {
+            qfmt = allTemplates[0]
+          }
+          if (allTemplates.length >= 2) {
+            afmt = allTemplates[1]
           }
 
-          if (templateParts.length >= 2) {
-            afmt = templateParts.slice(1).join(' ')
-          }
-
-          // Fallback: try traditional protobuf regex patterns
+          // Log if we get default templates - might indicate need for additional parsing logic
           if (qfmt === '{{Front}}' || afmt === '{{FrontSide}}<hr id="answer">{{Back}}') {
-            const qFormatMatch = configText.match(/\\x0a([^{]*\{\{[^}]+\}\}[^{]*)/s)
-            const aFormatMatch = configText.match(/\\x12([^{]*\{\{[^}]+\}\}[^{]*)/s)
-
-            if (qFormatMatch && qfmt === '{{Front}}') {
-              qfmt = qFormatMatch[1].replace(/\\x00/g, '')
-            }
-            if (aFormatMatch && afmt === '{{FrontSide}}<hr id="answer">{{Back}}') {
-              afmt = aFormatMatch[1].replace(/\\x00/g, '')
-            }
+            log.warn(`Template parsing may be incomplete for ${row.name}: qfmt=${qfmt}, afmt=${afmt}`)
           }
+
         } catch (error) {
           log.warn(`Failed to parse template protobuf for ${row.name}:`, error.message)
         }

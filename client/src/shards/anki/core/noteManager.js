@@ -60,6 +60,12 @@ async function _genCardsForNote(note) {
     }
 
     try {
+      // Check Anki conditional requirements before rendering
+      if (!_checkConditionalRequirements(template.qfmt, note.fields, bundle.fields)) {
+        log.debug(`Skipping card for template ${template.ord}: conditional field requirements not met`)
+        continue
+      }
+
       // Test if card can be rendered (has content) - pass pre-fetched data
       const rendered = await render(card, { note, bundle, template })
       // Check if question has meaningful content
@@ -75,6 +81,43 @@ async function _genCardsForNote(note) {
   }
 
   return cards
+}
+
+// Check if template's conditional requirements are met (internal)
+function _checkConditionalRequirements(qfmt, noteFields, bundleFields) {
+  // Extract conditional field names from template qfmt
+  // Pattern: {{#FieldName}} requires FieldName to be non-empty
+  const conditionalMatches = qfmt.match(/\{\{#([^}]+)\}\}/g)
+
+  if (!conditionalMatches) {
+    // No conditional requirements, card should be generated
+    return true
+  }
+
+  // Check each conditional requirement
+  for (const match of conditionalMatches) {
+    const fieldName = match.replace(/\{\{#([^}]+)\}\}/, '$1').trim()
+
+    // Find field index
+    const fieldIndex = bundleFields.findIndex(field => {
+      const name = field.name || field
+      return name.toLowerCase() === fieldName.toLowerCase()
+    })
+
+    if (fieldIndex === -1) {
+      // Field not found, skip this card
+      return false
+    }
+
+    // Check if field has content
+    const fieldValue = noteFields[fieldIndex]
+    if (!fieldValue || fieldValue.trim() === '') {
+      // Required field is empty, skip this card
+      return false
+    }
+  }
+
+  return true
 }
 
 // Add note with cards - automatically generates cards for the note
