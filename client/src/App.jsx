@@ -11,7 +11,8 @@ import { detectPlatform } from './utils/useDetectPlatform'
 import { APP } from './config/constants'
 import { log } from './utils/logger'
 
-const isDev = window?.location?.hostname?.match(/localhost|127\.0\.0\.1|192\.168\./)
+const isDev = window?.location?.hostname?.match(/localhost|127\.0\.0\.1/)
+      || import.meta.env.DEV || import.meta.env.MODE === 'development'
 
 const MainApp = () => {
   const [homeEditMode, setHomeEditMode] = useState(false)
