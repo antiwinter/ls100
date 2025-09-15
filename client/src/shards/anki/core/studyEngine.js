@@ -18,24 +18,21 @@ export class StudyEngine {
   async init(session) {
     // Valtio session
     this.session = session
-    session.start()
 
-    await this._buildQueues()
+    if (session.start())
+      // new session, build queues
+      await this._buildQueues()
 
     this.timeTracker = new TimeSegments({
-      segments: session.timeSegments,
-      onSegmentChange: (segments) => {
-        session.updateTimeSegments(segments)
+      segments: session.timeTracking?.segments,
+      onSegmentChange: (segments, total) => {
+        session.timeTracking = { segments, total }
       }
     })
 
     this.timeTracker.open()
 
-    log.info('Study session initialized:', {
-      day: session.day,
-      bundleIds: session.bundleIds
-    })
-
+    log.info('Study session initialized:', snapshot(session))
     return session
   }
 

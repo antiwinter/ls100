@@ -217,16 +217,6 @@ const AnkiReaderContent = ({ shard, onBack }) => {
 
       setStudyEngine(engine)
       setMode('study')
-
-      const sessionState = sessionStore
-      log.info('Study session started:', {
-        shardId: shard.id,
-        bundleIds: sessionState.bundleIds,
-        day: sessionState.day,
-        newCards: sessionState.pile?.new?.length || 0,
-        reviewCards: sessionState.pile?.review?.length || 0,
-        totalNotes: notes.length
-      })
     } catch (err) {
       log.error('Failed to start study session:', err)
       setError('Failed to start study session: ' + err.message)

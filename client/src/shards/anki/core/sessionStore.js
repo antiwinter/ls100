@@ -1,4 +1,5 @@
 import { proxy, subscribe, snapshot } from 'valtio'
+import { log } from '../../../utils/logger.js'
 
 const stores = new Map()
 
@@ -53,51 +54,42 @@ export const AnkiSessionStore = (shardId) => {
     // Start a new (or resume existing) session for today
     start() {
       const today = this.getCurrentDay()
-      if (this.day && this.day !== today) this.updateHistory()
-      if (this.day === today) return
+      if (this.day && this.day !== today) {
+        this.updateHistory()
+        log.info('New day, cleanup history', this.day)
+      }
+      if (this.day === today) {
+        log.info('Same day, resume session', this.day)
+        return
+      }
+      log.info('New session', this.day)
       this.day = today
       this.currentCard = null
       this.pile = { new: [], review: [], done: [] }
       this.actionLog = []
-      this.timeSegments = []
+      this.timeTracking = null
+      return true
     },
 
     // Finish current session; compact stats into history
     finish() {
       if (this.day) this.updateHistory()
-      this.day = null
     },
 
     // Compact the finished session into history (per-day aggregate)
     updateHistory() {
       if (!this.day) return
-      const cardCounts = { new: 0, learning: 0, review: 0, relearning: 0 }
+      const res = { new: 0, learning: 0, review: 0, relearning: 0 }
       this.pile.done.forEach(card => {
-        if (card?.fsrs?.state) {
-          const s = card.fsrs.state.toLowerCase()
-          if (s in cardCounts) cardCounts[s]++
-        } else {
-          cardCounts.new++
-        }
+        res[card.state?.toLowerCase() || 'new']++
       })
-      const totalTime = this.timeSegments.reduce((sum, seg) => {
-        if (seg.start && seg.end) return sum + (seg.end - seg.start)
-        if (seg.start && !seg.end) return sum + (Date.now() - seg.start)
-        return sum
-      }, 0)
-      const totalCards = this.pile.new.length + this.pile.review.length + this.pile.done.length
-      const completion = totalCards > 0 ? this.pile.done.length / totalCards : 0
-      this.history[this.day] = {
-        ...cardCounts,
-        totalTime,
-        segments: [...this.timeSegments],
-        completion: Math.round(completion * 100) / 100
-      }
-    },
 
-    // Replace current segments (used by TimeSegments listener)
-    updateTimeSegments(segments) {
-      this.timeSegments = [...(segments || [])]
+      const totalCards = this.pile.new.length + this.pile.review.length + this.pile.done.length
+      this.history[this.day] = {
+        ...res,
+        ...this.timeTracking,
+        completion: Math.round(this.pile.done.length / (totalCards + 0.01))
+      }
     }
   })
 

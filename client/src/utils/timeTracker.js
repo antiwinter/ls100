@@ -14,7 +14,7 @@ export class TimeSegments {
     }
 
     // Fire initial change to sync any restored segments
-    this.onSegmentChange?.(this.segments)
+    this.onSegmentChange?.(this.segments, this.total())
   }
 
   open() {

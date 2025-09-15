@@ -277,33 +277,26 @@ const SessionComplete = ({ sessionData, onRestart, onExit }) => {
 }
 
 export const StudyMode = ({ bundleIds: _bundleIds, studyEngine, onEndStudy }) => {
+  // Minimal local UI state per coding rules
   const [currentCard, setCurrentCard] = useState(null)
   const [showAnswer, setShowAnswer] = useState(false)
   const [progress, setProgress] = useState(null)
-  const [sessionComplete, setSessionComplete] = useState(false)
-  const [intervals, setIntervals] = useState(null)
   const [error, setError] = useState(null)
-  const [autoEndTimeout, setAutoEndTimeout] = useState(null)
 
   // Define functions before useEffects that use them
   const loadNextCard = useCallback(() => {
     if (!studyEngine) return
 
     try {
-      const result = studyEngine.draw()
+      // Elegant resume: prefer the session's currentCard; otherwise draw
+      const result = studyEngine.session.currentCard || studyEngine.draw()
 
       if (!result) {
         // Session complete - end session and notify parent
         studyEngine.finish()
-        setSessionComplete(true)
+        // session complete UI handled below when piles are empty and no currentCard
         setProgress(null)
         log.info('Study session completed naturally')
-
-        // Automatically notify parent that session ended after delay
-        const timeoutId = setTimeout(() => {
-          onEndStudy()
-        }, 3000) // Give user 3 seconds to see completion screen
-        setAutoEndTimeout(timeoutId)
 
         return
       }
@@ -311,27 +304,22 @@ export const StudyMode = ({ bundleIds: _bundleIds, studyEngine, onEndStudy }) =>
       setCurrentCard(result)
       setShowAnswer(false)
 
-      // Update progress from session store
-      const sessionState = studyEngine.session
-      const cardsStudied = sessionState.pile?.done?.length || 0
-      const cardsRemaining = (sessionState.pile?.new?.length || 0) +
-                           (sessionState.pile?.review?.length || 0)
-
+      const ss = studyEngine.session
+      const cardsStudied = ss.pile?.done?.length || 0
+      const cardsRemaining = (ss.pile?.new?.length || 0) + (ss.pile?.review?.length || 0)
       setProgress({
         cardsStudied,
         cardsRemaining,
         timeElapsed: studyEngine.timeTracker?.total() || 0,
-        accuracy: cardsStudied > 0 ? 0.85 : 0 // TODO: Calculate from ratings
+        accuracy: cardsStudied > 0 ? 0.85 : 0
       })
       setError(null)
-
-      setIntervals(null)
 
     } catch (err) {
       log.error('Failed to load next card:', err)
       setError('Failed to load next card')
     }
-  }, [studyEngine, onEndStudy])
+  }, [studyEngine])
 
   const handleRate = useCallback(async (rating) => {
     if (!studyEngine || !currentCard) return
@@ -340,10 +328,8 @@ export const StudyMode = ({ bundleIds: _bundleIds, studyEngine, onEndStudy }) =>
       await studyEngine.rate(rating)
       // log.debug('Card rated:', { cardId: currentCard.id, rating: getRatingLabel(rating) })
 
-      // Load next card
-      setTimeout(() => {
-        loadNextCard()
-      }, 300) // Small delay for better UX
+      // Load next card after small UX delay
+      setTimeout(loadNextCard, 300)
 
     } catch (err) {
       log.error('Failed to rate card:', err)
@@ -355,10 +341,8 @@ export const StudyMode = ({ bundleIds: _bundleIds, studyEngine, onEndStudy }) =>
     setShowAnswer(true)
   }
 
-  // Load next card on mount and after rating
-  useEffect(() => {
-    loadNextCard()
-  }, [studyEngine, loadNextCard])
+  // On mount/resume: show current or draw
+  useEffect(() => { loadNextCard() }, [studyEngine, loadNextCard])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -381,23 +365,7 @@ export const StudyMode = ({ bundleIds: _bundleIds, studyEngine, onEndStudy }) =>
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [showAnswer, handleRate])
 
-  // Cleanup timeout on component unmount
-  useEffect(() => {
-    return () => {
-      if (autoEndTimeout) {
-        clearTimeout(autoEndTimeout)
-      }
-    }
-  }, [autoEndTimeout])
-
   const handleRestart = async () => {
-    // Clear auto-end timeout if restarting
-    if (autoEndTimeout) {
-      clearTimeout(autoEndTimeout)
-      setAutoEndTimeout(null)
-    }
-
-    setSessionComplete(false)
     setCurrentCard(null)
     setShowAnswer(false)
     setError(null)
@@ -428,14 +396,12 @@ export const StudyMode = ({ bundleIds: _bundleIds, studyEngine, onEndStudy }) =>
 
   // Clean up auto-end timeout on manual exit
   const handleManualExit = () => {
-    if (autoEndTimeout) {
-      clearTimeout(autoEndTimeout)
-      setAutoEndTimeout(null)
-    }
     onEndStudy()
   }
 
-  if (sessionComplete) {
+  if ((studyEngine.session?.pile?.new?.length || 0) === 0 &&
+      (studyEngine.session?.pile?.review?.length || 0) === 0 &&
+      !studyEngine.session?.currentCard) {
     // Build session data from current session state
     const sessionState = studyEngine.session
     const cardsStudied = sessionState.pile?.done?.length || 0
@@ -480,10 +446,7 @@ export const StudyMode = ({ bundleIds: _bundleIds, studyEngine, onEndStudy }) =>
         />
 
         {showAnswer && (
-          <RatingButtons
-            onRate={handleRate}
-            intervals={intervals}
-          />
+          <RatingButtons onRate={handleRate} />
         )}
       </Box>
     </Box>
