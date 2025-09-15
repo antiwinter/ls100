@@ -15,11 +15,12 @@ export default defineConfig({
     react(),
     VitePWA({
       strategies: 'injectManifest',
-      srcDir: 'src',
-      filename: 'sw.js',
+      srcDir: 'src/sw',
+      filename: 'main.js',
+      injectRegister: 'auto',
       registerType: 'autoUpdate',
       devOptions: {
-        enabled: true
+        enabled: false
       },
       manifest: {
         name: APP.name,
