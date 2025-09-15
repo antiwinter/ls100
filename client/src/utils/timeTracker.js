@@ -27,7 +27,7 @@ export class TimeSegments {
 
     this.segments.push({ start: Date.now(), end: null })
     log.debug('TimeSegments: opened new segment')
-    this.onSegmentChange?.(this.segments)
+    this.onSegmentChange?.(this.segments, this.total())
   }
 
   close() {
@@ -39,7 +39,7 @@ export class TimeSegments {
 
     last.end = Date.now()
     log.debug('TimeSegments: closed segment')
-    this.onSegmentChange?.(this.segments)
+    this.onSegmentChange?.(this.segments, this.total())
   }
 
   total() {
