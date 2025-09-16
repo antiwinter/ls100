@@ -1,5 +1,5 @@
 import db from '../core/db.js'
-import { renderTemplate } from '../template/template.js'
+import { renderTemplate } from '../template/index.js'
 
 // Main render method - gets all needed data from card or accepts pre-fetched data
 export async function render(card, options = {}) {
@@ -21,14 +21,17 @@ export async function render(card, options = {}) {
   }
   if (!template) throw new Error(`Template not found: ${card.templateOrd}`)
 
-  // Render the template via template engine
-  const fieldNames = bundle.fields.map(f => f.name || f)
-  const rendered = await renderTemplate(template, note.fields, fieldNames)
+  // Render both sides via template engine in one call
+  const fieldDefs = bundle.fields
+  const { question, answer } = await renderTemplate(
+    template,
+    { fieldValues: note.fields, fieldDefs, bundleCss: bundle.css }
+  )
 
   return {
     id: card.id,
-    question: rendered.question,
-    answer: rendered.answer,
+    question,
+    answer,
     template: template.name,
     note: {
       id: note.id,
