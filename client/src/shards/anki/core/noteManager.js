@@ -3,6 +3,7 @@ import { log } from '../../../utils/logger'
 import { genId } from '../../../utils/idGenerator.js'
 import mediaManager from '../../../utils/mediaManager.js'
 import { render } from '../render/renderDefault.js'
+import { checkConditionalRequirements } from '../template/template.js'
 
 // Create new note - handles both raw and cooked fields
 async function _create(bundleId, fields, tags = [], media = {}) {
@@ -61,7 +62,7 @@ async function _genCardsForNote(note) {
 
     try {
       // Check Anki conditional requirements before rendering
-      if (!_checkConditionalRequirements(template.qfmt, note.fields, bundle.fields)) {
+      if (!checkConditionalRequirements(template.qfmt, note.fields, bundle.fields)) {
         // log.debug(`Skipping card for template ${template.ord
         // }: conditional field requirements not met`)
         continue

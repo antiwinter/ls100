@@ -1,4 +1,5 @@
 import db from '../core/db.js'
+import { renderTemplate } from '../template/template.js'
 
 // Main render method - gets all needed data from card or accepts pre-fetched data
 export async function render(card, options = {}) {
@@ -20,9 +21,9 @@ export async function render(card, options = {}) {
   }
   if (!template) throw new Error(`Template not found: ${card.templateOrd}`)
 
-  // Render the template
+  // Render the template via template engine
   const fieldNames = bundle.fields.map(f => f.name || f)
-  const rendered = await _renderTemplate(template, note.fields, fieldNames)
+  const rendered = await renderTemplate(template, note.fields, fieldNames)
 
   return {
     id: card.id,
@@ -35,61 +36,4 @@ export async function render(card, options = {}) {
       tags: note.tags
     }
   }
-}
-
-// Template rendering methods (moved from templateEngine.js)
-// Main render method - returns both question and answer (internal)
-async function _renderTemplate(
-  template,
-  noteFields,
-  fieldNames,
-  frontSideContent = null
-) {
-  const qContent = template.qfmt || ''
-  const aContent = template.afmt || ''
-
-  // Render question
-  const renderedQuestion = await _replaceFields(qContent, noteFields, fieldNames)
-
-  // Render answer (may include FrontSide)
-  const renderedAnswer = await _replaceFields(
-    aContent,
-    noteFields,
-    fieldNames,
-    frontSideContent || renderedQuestion
-  )
-
-  return {
-    question: renderedQuestion,
-    answer: renderedAnswer
-  }
-}
-
-// Replace fields and process media URLs (internal)
-async function _replaceFields(content, noteFields, fieldNames, frontSide = '') {
-  let result = content
-
-  // Replace {{FrontSide}} with question content
-  result = result.replace(/\{\{FrontSide\}\}/g, frontSide)
-
-  // Replace {{FieldName}} with field values
-  result = result.replace(/\{\{([^}]+)\}\}/g, (match, fieldName) => {
-    if (fieldName === 'FrontSide') {
-      return frontSide
-    }
-
-    const index = _getFieldIndex(fieldName, fieldNames)
-    return index !== -1 ? (noteFields[index] || '') : ''
-  })
-
-  // Media URLs already processed - cooked fields contain /media/ URLs served by service worker
-
-  return result
-}
-
-// Get field index (case-insensitive) (internal)
-function _getFieldIndex(fieldName, fieldNames) {
-  return fieldNames.findIndex(name =>
-    name.toLowerCase() === fieldName.toLowerCase()
-  )
 }

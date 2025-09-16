@@ -92,3 +92,12 @@ function _getFieldIndex(fieldName, fieldNames) {
     name.toLowerCase() === fieldName.toLowerCase()
   )
 }
+
+// Public API: thin wrappers to keep call sites clean
+export function checkConditionalRequirements(qfmt, noteFields, bundleFields) {
+  return _checkConditionalRequirements(qfmt, noteFields, bundleFields)
+}
+
+export async function renderTemplate(template, noteFields, fieldNames, frontSideContent = null) {
+  return _renderTemplate(template, noteFields, fieldNames, frontSideContent)
+}
