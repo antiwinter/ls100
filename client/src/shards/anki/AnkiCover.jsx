@@ -1,3 +1,5 @@
+import { formatCoverText, pickTextColorForBackground } from '../../utils/formatText.js'
+
 export const AnkiCover = ({ shard }) => {
   const metadata = shard?.metadata || {}
 
@@ -22,7 +24,7 @@ export const AnkiCover = ({ shard }) => {
   ]
 
   const background = gradients[Math.abs(hash) % gradients.length]
-  const textColor = '#ffffff'
+  const textColor = pickTextColorForBackground(background)
 
   return (
     <div style={{
@@ -45,7 +47,23 @@ export const AnkiCover = ({ shard }) => {
         textShadow: '0 1px 2px rgba(0,0,0,0.7)',
         letterSpacing: 0.5
       }}>
-        {title?.toUpperCase()}
+        {(() => {
+          const formatted = formatCoverText(title)
+          if (formatted.lines.length === 0) return title?.toUpperCase()
+          return formatted.lines.map((line, index) => (
+            <div key={index} style={{
+              fontSize: line.size === 'large' ? 16 : (line.size === 'medium' ? 13 : 11),
+              fontWeight: 900,
+              fontFamily: 'Inter, Roboto, Arial Black, sans-serif',
+              lineHeight: 0.9,
+              textShadow: textColor === '#ffffff' ? '0 1px 2px rgba(0,0,0,0.7)' : '0 1px 2px rgba(255,255,255,0.7)',
+              letterSpacing: 0.5,
+              marginBottom: index < formatted.lines.length - 1 ? 3 : 0
+            }}>
+              {line.text}
+            </div>
+          ))
+        })()}
       </div>
     </div>
   )
