@@ -122,19 +122,8 @@ const ShardItem = ({
             width: '100%',
             height: 100,
             borderRadius: 8,
-            background: (() => {
-              // If custom cover exists, use solid color background (image will overlay)
-              if (shard.cover) {
-                return '#f0f0f0'
-              }
-              // Otherwise use dynamic generation via shard engine
-              const dynamicCover = engineGenCover(shard)
-              return dynamicCover.background
-            })(),
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            position: 'relative'
+            position: 'relative',
+            overflow: 'hidden'
           }}
         >
           {editing && (
@@ -154,7 +143,6 @@ const ShardItem = ({
             </Box>
           )}
 
-          {/* Private indicator */}
           {!shard.public && (
             <Box
               sx={{
@@ -169,87 +157,19 @@ const ShardItem = ({
             </Box>
           )}
 
-          <Box
-            sx={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              textAlign: 'center',
-              p: 1,
-              lineHeight: 1,
-              userSelect: 'none'
-            }}
-          >
-            {(() => {
-              // If custom cover exists, try to load it
-              if (shard.cover) {
-                return (
-                  <img
-                    src={shard.cover}
-                    alt={`${shard.name} cover`}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      borderRadius: 8
-                    }}
-                    onError={(e) => {
-                      // Fallback to dynamic cover if image fails to load
-                      e.target.style.display = 'none'
-                      const fallbackElement = e.target.nextSibling
-                      if (fallbackElement) {
-                        fallbackElement.style.display = 'flex'
-                      }
-                    }}
-                  />
-                )
-              }
-
-              // Use dynamic generation via shard engine
-              const dynamicCover = engineGenCover(shard)
-
-              if (dynamicCover.formattedText && dynamicCover.formattedText.lines) {
-                return dynamicCover.formattedText.lines.map((line, index) => (
-                  <Box
-                    key={index}
-                    sx={{
-                      ...(line.styles || {
-                        fontSize: '14px',
-                        fontWeight: 900,
-                        fontFamily: '"Inter", "Roboto", "Arial Black", sans-serif',
-                        lineHeight: 0.9,
-                        color: dynamicCover.textColor || '#ffffff',
-                        textShadow: '0 1px 2px rgba(0,0,0,0.7)',
-                        mb: index < dynamicCover.formattedText.lines.length - 1 ? 0.3 : 0,
-                        letterSpacing: '0.5px'
-                      }),
-                      userSelect: 'none'
-                    }}
-                  >
-                    {line.text}
-                  </Box>
-                ))
-              }
-
-              // Fallback
-              return (
-                <Box sx={{
-                  fontSize: '14px',
-                  fontWeight: 900,
-                  fontFamily: '"Inter", "Roboto", "Arial Black", sans-serif',
-                  color: dynamicCover.textColor || '#ffffff',
-                  textShadow: '0 1px 2px rgba(0,0,0,0.7)',
-                  letterSpacing: '0.5px',
-                  userSelect: 'none'
-                }}>
-                  {(dynamicCover.title || shard.name).toUpperCase()}
-                </Box>
-              )
-            })()}
-          </Box>
+          {shard.cover ? (
+            <img
+              src={shard.cover}
+              alt={`${shard.name} cover`}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover'
+              }}
+            />
+          ) : (
+            engineGenCover(shard)
+          )}
         </Box>
 
         {/* Info */}

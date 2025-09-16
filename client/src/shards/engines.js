@@ -1,3 +1,4 @@
+import React from 'react'
 import * as subtitleEngine from './subtitle/SubtitleShard.js'
 import * as ankiEngine from './anki/AnkiShard.js'
 
@@ -16,17 +17,45 @@ export const getEngine = (shardType) => {
 export const engineGenCover = (shard) => {
   const engine = getEngine(shard.type)
 
-  if (!engine || !engine.generateCover) {
-    // Fallback for unknown types or engines without cover generation
-    return {
-      type: 'text',
-      title: shard.name,
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      textColor: '#ffffff'
-    }
+  if (engine?.CoverComponent) {
+    const Cover = engine.CoverComponent
+    return React.createElement(Cover, { shard })
   }
 
-  return engine.generateCover(shard)
+  // Fallback simple cover element
+  const title = shard?.name || 'SHARD'
+  const background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+  const textColor = '#ffffff'
+
+  return React.createElement(
+    'div',
+    {
+      style: {
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        textAlign: 'center',
+        background,
+        color: textColor,
+        padding: 8,
+        lineHeight: 1
+      }
+    },
+    React.createElement(
+      'div',
+      {
+        style: {
+          fontSize: 14,
+          fontWeight: 900,
+          fontFamily: 'Inter, Roboto, Arial Black, sans-serif',
+          textShadow: '0 1px 2px rgba(0,0,0,0.7)'
+        }
+      },
+      title.toUpperCase()
+    )
+  )
 }
 
 // Get shard type info/tags

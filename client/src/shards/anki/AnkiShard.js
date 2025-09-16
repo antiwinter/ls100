@@ -1,4 +1,5 @@
 import { AnkiShardEditor } from './AnkiShardEditor.jsx'
+import { AnkiCover } from './AnkiCover.jsx'
 import { AnkiReader as AnkiReaderComponent } from './reader/AnkiReader.jsx'
 import { parseApkgFile, importApkgData } from './apkg/index.js'
 import anki from './core/index.js'
@@ -52,46 +53,7 @@ export const detect = async (filename, buffer) => {
 // Old generateSide function removed - now using TemplateEngine
 
 // Generate cover for shard preview
-export const generateCover = (shard) => {
-  const metadata = shard.metadata || {}
-
-  // Determine title with multiple fallbacks
-  let title = metadata.bundleName || shard.name || 'Anki Shard'
-
-  // If no bundleName but we have bundles in metadata (create mode), use first bundle name
-  if (!metadata.bundleName && metadata.bundles?.length > 0) {
-    title = metadata.bundles[0].name
-  }
-
-  // Create a hash for consistent color selection
-  let hash = 0
-  const str = title
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash) + str.charCodeAt(i)
-    hash = hash & hash
-  }
-
-  // Anki-themed gradients
-  const gradients = [
-    'linear-gradient(135deg, #3f51b5 0%, #1a237e 100%)', // Anki blue
-    'linear-gradient(135deg, #2196f3 0%, #0d47a1 100%)', // Blue
-    'linear-gradient(135deg, #009688 0%, #004d40 100%)', // Teal
-    'linear-gradient(135deg, #4caf50 0%, #1b5e20 100%)', // Green
-    'linear-gradient(135deg, #ff9800 0%, #e65100 100%)'  // Orange
-  ]
-
-  const gradient = gradients[Math.abs(hash) % gradients.length]
-
-  return {
-    type: 'text',
-    title,
-    style: 'anki-card',
-    background: gradient,
-    textColor: '#ffffff',
-    subtitle: 'Anki Flashcards',
-    icon: '🧠' // Brain emoji for learning
-  }
-}
+// Deprecated attribute-based cover generator removed; use CoverComponent instead
 
 // Shard type metadata
 export const shardTypeInfo = {
@@ -178,5 +140,6 @@ export const cleanup = async (shard, allShards = []) => {
 // Engine components
 export const EditorComponent = AnkiShardEditor
 export const ReaderComponent = AnkiReaderComponent
+export const CoverComponent = AnkiCover
 
 log.debug('Anki shard engine initialized')

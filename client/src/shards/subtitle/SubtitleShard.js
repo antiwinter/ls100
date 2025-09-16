@@ -1,6 +1,7 @@
 
 import { detectLanguageWithConfidence } from '../../utils/languageDetection'
 import { SubtitleShardEditor } from './SubtitleShardEditor.jsx'
+import { SubtitleCover } from './SubtitleCover.jsx'
 import { SubtitleReader } from './reader/SubtitleReader.jsx'
 import { log } from '../../utils/logger'
 
@@ -142,128 +143,7 @@ const parseMovieInfo = (filename) => {
   }
 }
 
-// Preset color schemes for covers
-const COVER_GRADIENTS = [
-  'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', // Purple-blue
-  'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', // Pink-red
-  'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', // Blue-cyan
-  'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', // Green-teal
-  'linear-gradient(135deg, #fa709a 0%, #fee140 100%)'  // Pink-yellow
-]
-
-// Smart text formatting for cover titles
-const formatCoverText = (title) => {
-  if (!title) return ''
-
-  const words = title.toUpperCase().split(' ').filter(word => word.length > 0)
-  if (words.length === 0) return ''
-
-  // For single word, return as is
-  if (words.length === 1) {
-    return {
-      lines: [{ text: words[0], size: 'large' }]
-    }
-  }
-
-  // For two words, put each on separate line
-  if (words.length === 2) {
-    return {
-      lines: [
-        { text: words[0], size: 'large' },
-        { text: words[1], size: 'large' }
-      ]
-    }
-  }
-
-  // For 3+ words, group intelligently
-  const lines = []
-  let currentLine = []
-
-  for (const word of words) {
-    // If word is very long, put it on its own line with smaller size
-    if (word.length > 8) {
-      if (currentLine.length > 0) {
-        lines.push({ text: currentLine.join(' '), size: 'medium' })
-        currentLine = []
-      }
-      lines.push({ text: word, size: 'small' })
-    } else {
-      currentLine.push(word)
-      // If we have 2 words or line is getting long, start new line
-      if (currentLine.length === 2 || currentLine.join(' ').length > 12) {
-        lines.push({ text: currentLine.join(' '), size: currentLine.length === 1 ? 'large' : 'medium' })
-        currentLine = []
-      }
-    }
-  }
-
-  // Add remaining words
-  if (currentLine.length > 0) {
-    lines.push({ text: currentLine.join(' '), size: 'medium' })
-  }
-
-  return { lines }
-}
-
-// Generate text-based cover with improved styling
-export const generateCover = (shard) => {
-  const title = shard.data?.languages?.[0]?.movie_name || shard.name
-
-  // Create a simple hash from the identifier for better distribution
-  let hash = 0
-  const str = title || 'default'
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash) + str.charCodeAt(i)
-    hash = hash & hash // Convert to 32-bit integer
-  }
-  const gradientIndex = Math.abs(hash) % COVER_GRADIENTS.length
-  const gradient = COVER_GRADIENTS[gradientIndex]
-
-  // Calculate text color based on background brightness
-  const getTextColor = (background) => {
-    const colorMatch = background.match(/#([a-f\d]{6})/gi)
-    if (!colorMatch) return '#ffffff'
-
-    const hex = colorMatch[0].replace('#', '')
-    const r = parseInt(hex.substr(0, 2), 16)
-    const g = parseInt(hex.substr(2, 2), 16)
-    const b = parseInt(hex.substr(4, 2), 16)
-
-    const brightness = (r * 299 + g * 587 + b * 114) / 1000
-    return brightness > 140 ? '#000000' : '#ffffff'
-  }
-
-  const textColor = getTextColor(gradient)
-  const formattedText = formatCoverText(title)
-
-  // Add complete styling to each line for consistent rendering across browser and preview
-  const styledFormattedText = {
-    ...formattedText,
-    lines: formattedText.lines.map((line, index) => ({
-      ...line,
-      styles: {
-        fontSize: line.size === 'large' ? '16px' :
-          line.size === 'medium' ? '13px' : '11px',
-        fontWeight: 900,
-        fontFamily: '"Inter", "Roboto", "Arial Black", sans-serif',
-        lineHeight: 0.9,
-        color: textColor,
-        textShadow: textColor === '#ffffff' ? '0 1px 2px rgba(0,0,0,0.7)' : '0 1px 2px rgba(255,255,255,0.7)',
-        mb: index < formattedText.lines.length - 1 ? 0.3 : 0,
-        letterSpacing: '0.5px'
-      }
-    }))
-  }
-
-  return {
-    type: 'text',
-    title,
-    formattedText: styledFormattedText,
-    style: 'movie-poster',
-    background: gradient,
-    textColor: textColor
-  }
-}
+// Deprecated attribute-based cover generator removed; use CoverComponent instead
 
 // Shard type metadata
 export const shardTypeInfo = {
@@ -275,6 +155,7 @@ export const shardTypeInfo = {
 // Engine components
 export const EditorComponent = SubtitleShardEditor
 export const ReaderComponent = SubtitleReader
+export const CoverComponent = SubtitleCover
 
 
 

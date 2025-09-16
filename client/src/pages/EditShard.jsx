@@ -312,70 +312,17 @@ export const EditShard = () => {
                   }}
                 />
               ) : (
-                (() => {
-                  if (!shardData.type) {
-                    return (
-                      <Box sx={{
-                        fontSize: '11px',
-                        color: 'text.tertiary',
-                        textAlign: 'center'
-                      }}>
-                        No Preview
-                      </Box>
-                    )
-                  }
-
-                  const cover = engineGenCover(shardData)
-
-                  return (
-                    <Box
-                      sx={{
-                        width: '100%',
-                        height: '100%',
-                        background: cover.background,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: cover.textColor,
-                        textAlign: 'center',
-                        p: 1,
-                        borderRadius: 8,
-                        lineHeight: 1
-                      }}
-                    >
-                      {cover.formattedText?.lines ?
-                        cover.formattedText.lines.map((line, index) => (
-                          <Box
-                            key={index}
-                            sx={line.styles || {
-                              fontSize: '11px',
-                              fontWeight: 900,
-                              fontFamily: '"Inter", "Roboto", "Arial Black", sans-serif',
-                              lineHeight: 0.9,
-                              color: cover.textColor,
-                              textShadow: cover.textColor === '#ffffff' ? '0 1px 2px rgba(0,0,0,0.7)' : '0 1px 2px rgba(255,255,255,0.7)',
-                              mb: index < cover.formattedText.lines.length - 1 ? 0.2 : 0,
-                              letterSpacing: '0.3px'
-                            }}
-                          >
-                            {line.text}
-                          </Box>
-                        )) :
-                        <Box sx={{
-                          fontSize: '11px',
-                          fontWeight: 900,
-                          fontFamily: '"Inter", "Roboto", "Arial Black", sans-serif',
-                          color: cover.textColor,
-                          textShadow: cover.textColor === '#ffffff' ? '0 1px 2px rgba(0,0,0,0.7)' : '0 1px 2px rgba(255,255,255,0.7)',
-                          letterSpacing: '0.3px'
-                        }}>
-                          {cover.title?.toUpperCase() || 'SHARD'}
-                        </Box>
-                      }
-                    </Box>
-                  )
-                })()
+                shardData.type ? (
+                  engineGenCover(shardData)
+                ) : (
+                  <Box sx={{
+                    fontSize: '11px',
+                    color: 'text.tertiary',
+                    textAlign: 'center'
+                  }}>
+                    No Preview
+                  </Box>
+                )
               )}
             </Box>
           </Box>
