@@ -62,7 +62,8 @@ async function _genCardsForNote(note) {
     try {
       // Check Anki conditional requirements before rendering
       if (!_checkConditionalRequirements(template.qfmt, note.fields, bundle.fields)) {
-        log.debug(`Skipping card for template ${template.ord}: conditional field requirements not met`)
+        // log.debug(`Skipping card for template ${template.ord
+        // }: conditional field requirements not met`)
         continue
       }
 
