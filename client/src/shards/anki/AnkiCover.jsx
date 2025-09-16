@@ -17,14 +17,14 @@ export const AnkiCover = ({ shard }) => {
 
   // Multi-color palettes for a more colorful star
   const colorSets = [
-    ['#ff4d4d', '#ff9900', '#ffe53b'],
-    ['#00eaff', '#0078ff', '#00ff87'],
-    ['#ff00cc', '#ff6a00', '#ffe600'],
-    ['#00f5d4', '#00bbf9', '#f15bb5'],
-    ['#7c4dff', '#e040fb', '#ff1744'],
-    ['#1de9b6', '#00e676', '#76ff03']
+    ['#34D399', '#10B981', '#06B6D4'], // green
+    ['#F83600', '#F9D423', '#FEE140'], // yellow
+    ['#8A2BE2', '#FF1493', '#FFD700'], // purple
+    ['#FEE140', '#FA709A', '#F9484A'], // red
+    ['#00F5A0', '#00D9F5', '#0061FF'] // blue
   ]
   const colors = colorSets[Math.abs(hash) % colorSets.length]
+  const borderGradient = `linear-gradient(135deg, ${colors.join(', ')})`
   const textColor = 'var(--joy-palette-neutral-100)'
   const gradientId = `ankiStarGrad-${Math.abs(hash)}`
 
@@ -38,19 +38,23 @@ export const AnkiCover = ({ shard }) => {
       justifyContent: 'center',
       flexDirection: 'column',
       textAlign: 'center',
-      backgroundColor: 'var(--joy-palette-neutral-800)',
       color: textColor,
       padding: 8,
       lineHeight: 1,
-      overflow: 'hidden'
+      overflow: 'hidden',
+      borderRadius: 10,
+      border: '1px solid transparent',
+      backgroundImage: `linear-gradient(var(--joy-palette-neutral-800), var(--joy-palette-neutral-800)), ${borderGradient}`,
+      backgroundOrigin: 'border-box',
+      backgroundClip: 'padding-box, border-box'
     }}>
       {/* Big rotated colorful gradient star (under text) */}
       <svg
-        width="100%"
-        height="100%"
-        viewBox="-10 -20 120 100"
+        width="110%"
+        height="110%"
+        viewBox="-15 -10 120 100"
         style={{ position: 'absolute', top: '0%', left: '10%',
-          transform: 'rotate(-30deg)', opacity: 0.9, zIndex: 0,
+          transform: 'rotate(-30deg)', opacity: 1, zIndex: 0,
           pointerEvents: 'none' }}
         aria-hidden
         focusable="false"
