@@ -1,28 +1,33 @@
 import Dexie from 'dexie'
 import { decompress as dec } from 'fzstd'
 import { log } from './util.js'
+import { fileTypeFromBuffer } from 'file-type'
 
 // Simple media DB used by both dev and prod service workers
 const db = new Dexie('MediaDB')
 db.version(1).stores({ media: 'id, type, refCount, created' })
 
-// Decompress blob based on compression type
-const tryDec = async (media) => {
+// Decompress and detect proper MIME type
+const processMedia = async (media) => {
   const { blob } = media
   try {
-    const x = new Uint8Array(await blob.arrayBuffer())
+    let x = new Uint8Array(await blob.arrayBuffer())
 
-    if (x.length >= 4 &&
-        x[0] === 0x28 && x[1] === 0xb5 &&
-        x[2] === 0x2f && x[3] === 0xfd) {
-      const d = dec(x)
-      log.debug('Decompressed zstd', media.filename, x.length / 1000, d.length / 1000)
-      return new Blob([d], { type: blob.type })
+    // Check if zstd compressed and decompress
+    let type = await fileTypeFromBuffer(x)
+    let _l = x.length
+    if (type?.ext === 'zst') {
+      x = dec(x)
+      type = await fileTypeFromBuffer(x)
     }
+
+    type = type?.mime || media.type || blob.type || 'application/octet-stream'
+    // log.debug('processed media', media.filename, type, _l, x.length)
+    return new Blob([x], { type })
   } catch (error) {
-    log.warn('tryDec failed', error)
+    log.warn('processMedia failed', error)
+    return blob
   }
-  return blob
 }
 
 export function attachMediaHandler(selfRef = self) {
@@ -46,13 +51,16 @@ export async function handleMediaRequest(request, url) {
       return new Response('Media Not Found', { status: 404 })
     }
 
-    // Decompress blob if needed
-    // log.debug('Try dec media', media)
-    const blob = await tryDec(media)
+    // Decompress and detect proper MIME type
+    const blob = await processMedia(media)
 
     const rangeHeader = request.headers.get('Range')
     if (!rangeHeader) {
-      return new Response(blob)
+      return new Response(blob, {
+        headers: {
+          'Content-Type': blob.type
+        }
+      })
     }
 
     const size = blob.size
@@ -71,6 +79,7 @@ export async function handleMediaRequest(request, url) {
     return new Response(sliced, {
       status: 206,
       headers: {
+        'Content-Type': blob.type,
         'Content-Range': `bytes ${start}-${end}/${size}`,
         'Accept-Ranges': 'bytes'
       }

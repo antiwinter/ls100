@@ -1,6 +1,7 @@
 import Dexie from 'dexie'
 import { log } from './logger'
 import { genNvId } from './idGenerator.js'
+import { lookup } from 'mrmime'
 
 // Media database - separate from AnkiDB
 const db = new Dexie('MediaDB')
@@ -54,12 +55,12 @@ async function add(mediaArray) {
           id: nvId,
           filename,
           blob,
-          type: blob.type,
+          type: lookup(filename) || blob.type,
           size: blob.size,
           refCount: 1,
           created: Date.now()
         })
-        // log.debug('Media added:', { nvId, filename })
+        // log.debug('Media added:', { nvId, filename, mimeType: lookup(filename) })
       } else {
         // Media doesn't exist and no blob to create it
         log.warn('Cannot reference non-existent media without blob:', { nvId, filename })
