@@ -18,7 +18,7 @@ if (import.meta.env.DEV) {
     })
 
   // Listen for messages from SW
-  navigator.serviceWorker.addEventListener('message', event => {
+  navigator.serviceWorker?.addEventListener('message', event => {
     if (event.data.type === 'sw-log') {
       const logFn = log[event.data.level] || log.info
       logFn('[SW]', event.data.message)

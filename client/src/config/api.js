@@ -1,17 +1,17 @@
 // Centralized API configuration
 const getApiBaseUrl = () => {
-  // Environment variable takes precedence (works in both dev and prod)
-  if (window.location.hostname.includes('vercel.app')) {
-    return 'http://8.153.193.204:9666'
+  const { protocol: _hp, hostname } = window.location
+  // Development fallback: auto-detect protocol and hostname
+  // if (import.meta.env.DEV)
+  //   return `${_hp}//${hostname}:3001`
+
+  // Production: frontend deploys
+  if (hostname.includes('vercel.app')) {
+    return `https://${hostname.split('.')[0]}.flj.icu`
   }
 
-  // Production: same origin (no CORS needed)
-  if (import.meta.env.PROD) {
-    return ''
-  }
-
-  // Development fallback: auto-detect from current hostname
-  return `http://${window.location.hostname}:3001`
+  // same origin (no CORS needed)
+  return ''
 }
 
 export const API_CONFIG = {
