@@ -1,4 +1,4 @@
-import db from './db.js'
+import db from '../core/db.js'
 
 // Main render method - gets all needed data from card or accepts pre-fetched data
 export async function render(card, options = {}) {
@@ -22,7 +22,7 @@ export async function render(card, options = {}) {
 
   // Render the template
   const fieldNames = bundle.fields.map(f => f.name || f)
-  const rendered = await _renderTemplate(template, note.fields, card.bundleId, fieldNames)
+  const rendered = await _renderTemplate(template, note.fields, fieldNames)
 
   return {
     id: card.id,
@@ -42,7 +42,6 @@ export async function render(card, options = {}) {
 async function _renderTemplate(
   template,
   noteFields,
-  bundleId,
   fieldNames,
   frontSideContent = null
 ) {
@@ -50,13 +49,12 @@ async function _renderTemplate(
   const aContent = template.afmt || ''
 
   // Render question
-  const renderedQuestion = await _replaceFields(qContent, noteFields, bundleId, fieldNames)
+  const renderedQuestion = await _replaceFields(qContent, noteFields, fieldNames)
 
   // Render answer (may include FrontSide)
   const renderedAnswer = await _replaceFields(
     aContent,
     noteFields,
-    bundleId,
     fieldNames,
     frontSideContent || renderedQuestion
   )
@@ -68,7 +66,7 @@ async function _renderTemplate(
 }
 
 // Replace fields and process media URLs (internal)
-async function _replaceFields(content, noteFields, bundleId, fieldNames, frontSide = '') {
+async function _replaceFields(content, noteFields, fieldNames, frontSide = '') {
   let result = content
 
   // Replace {{FrontSide}} with question content

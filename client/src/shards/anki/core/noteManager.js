@@ -2,7 +2,7 @@ import db from './db.js'
 import { log } from '../../../utils/logger'
 import { genId } from '../../../utils/idGenerator.js'
 import mediaManager from '../../../utils/mediaManager.js'
-import { render } from './renderDefault.js'
+import { render } from '../render/renderDefault.js'
 
 // Create new note - handles both raw and cooked fields
 async function _create(bundleId, fields, tags = [], media = {}) {
@@ -74,6 +74,8 @@ async function _genCardsForNote(note) {
       if (questionContent && questionContent.length > 0) {
         await db.cards.put(card)
         cards.push(card)
+      } else {
+        // TODO: test and see if this enters
       }
     } catch (error) {
       // Card cannot be rendered, skip it
@@ -82,43 +84,6 @@ async function _genCardsForNote(note) {
   }
 
   return cards
-}
-
-// Check if template's conditional requirements are met (internal)
-function _checkConditionalRequirements(qfmt, noteFields, bundleFields) {
-  // Extract conditional field names from template qfmt
-  // Pattern: {{#FieldName}} requires FieldName to be non-empty
-  const conditionalMatches = qfmt.match(/\{\{#([^}]+)\}\}/g)
-
-  if (!conditionalMatches) {
-    // No conditional requirements, card should be generated
-    return true
-  }
-
-  // Check each conditional requirement
-  for (const match of conditionalMatches) {
-    const fieldName = match.replace(/\{\{#([^}]+)\}\}/, '$1').trim()
-
-    // Find field index
-    const fieldIndex = bundleFields.findIndex(field => {
-      const name = field.name || field
-      return name.toLowerCase() === fieldName.toLowerCase()
-    })
-
-    if (fieldIndex === -1) {
-      // Field not found, skip this card
-      return false
-    }
-
-    // Check if field has content
-    const fieldValue = noteFields[fieldIndex]
-    if (!fieldValue || fieldValue.trim() === '') {
-      // Required field is empty, skip this card
-      return false
-    }
-  }
-
-  return true
 }
 
 // Add note with cards - automatically generates cards for the note

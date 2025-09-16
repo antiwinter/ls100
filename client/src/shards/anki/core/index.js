@@ -1,7 +1,7 @@
 import db from './db.js'
 import noteManager from './noteManager.js'
 import mediaManager from '../../../utils/mediaManager.js'
-import { render } from './renderDefault.js'
+import { render } from '../render/renderDefault.js'
 import { StudyEngine } from './studyEngine.js'
 import { log } from '../../../utils/logger.js'
 import { genId } from '../../../utils/idGenerator.js'
