@@ -251,11 +251,12 @@ export const anki = {
 
 
   // Add bundle/NoteType
-  async  addBundle(id, name, fields) {
+  async  addBundle(id, name, fields, css = '') {
     const bundle = {
       id,
       name,
       fields, // Array of field definitions
+      css,
       created: Date.now(),
       modified: Date.now()
     }

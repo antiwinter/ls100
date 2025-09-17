@@ -29,7 +29,7 @@ export const importApkgData = async (parsedData, options = {}) => {
     const fields = model.flds.map(field => field.name)
 
     // Create bundle
-    await anki.addBundle(bundleId, model.name, fields)
+    await anki.addBundle(bundleId, model.name, fields, model.css || '')
     log.debug(`Created bundle: ${model.name}`)
 
     // Create templates with cooked formats and track ord mapping for preserveScheduling

@@ -1,1 +1,7 @@
 - [x] cover from bundle name instead of shard name
+- filter cat into several files, prioritiezed
+- each some filter, leave low priority ones empty
+- move conditional to filter
+- check # in 21b,
+- add create render context function, put fields/css/<filename,nvid> map in them
+- move audio to filter, remove cook feature. can use nvid map in ctx

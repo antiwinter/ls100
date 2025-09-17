@@ -23,7 +23,7 @@ export async function render(card, options = {}) {
 
   // Render both sides via template engine in one call
   const fieldDefs = bundle.fields
-  const { question, answer } = await renderTemplate(
+  const { question, answer, css } = await renderTemplate(
     template,
     { fieldValues: note.fields, fieldDefs, bundleCss: bundle.css }
   )
@@ -32,6 +32,7 @@ export async function render(card, options = {}) {
     id: card.id,
     question,
     answer,
+    css,
     template: template.name,
     note: {
       id: note.id,

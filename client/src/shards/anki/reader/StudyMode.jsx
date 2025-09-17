@@ -126,6 +126,10 @@ const CardDisplay = ({ card, showAnswer, onShowAnswer }) => {
       minHeight: 300
     }}>
       <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        {/* Inject bundle-scoped CSS if available */}
+        {renderedCard.css ? (
+          <style>{renderedCard.css}</style>
+        ) : null}
         {/* Card info */}
         <Typography level="body-sm" color="neutral" sx={{ mb: 2, textAlign: 'center' }}>
           {renderedCard.template} • Card {card.id}

@@ -49,10 +49,10 @@ export async function renderTemplate(template, ctx) {
     return out
   }
 
-  async function renderContent(src, frontSideHtml) {
+  async function renderContent(src, side, frontSideHtml) {
     const src2 = resolveBlocks(src)
     const parts = parseTemplate(src2 || '')
-    const env = { fieldNames, noteFields: fieldValues, side: 'front' }
+    const env = { fieldNames, noteFields: fieldValues, side }
     const out = parts.map(p => {
       if (p.type !== 'token') return p.value
       const t = parseToken(p.token)
@@ -69,8 +69,8 @@ export async function renderTemplate(template, ctx) {
     return out.join('')
   }
 
-  const question = await renderContent(template?.qfmt || '', '')
-  const answer = await renderContent(template?.afmt || '', question)
+  const question = await renderContent(template?.qfmt || '', 'front', '')
+  const answer = await renderContent(template?.afmt || '', 'back', question)
   return { question, answer, css: bundleCss, meta: {} }
 }
 
