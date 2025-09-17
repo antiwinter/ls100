@@ -1,77 +1,69 @@
-import { parseTemplate, parseToken } from './parser.js'
-import { applyFilters } from './filters/index.js'
+import { Filters } from './filters/index.js'
+import { parseTemplate } from './ast.js'
+
+function processToken(token) {
+  const segs = token.split(':')
+
+  let v = segs.pop()
+  segs.forEach(f => {
+    const fn = Filters.get(f)
+    if (fn) v = fn(v)
+  } )
+
+  return v
+}
+
+function processCloze(token) {
+  return token?.split('::').pop()
+}
 
 // Public surface, small and focused
+export class AnkiRender {
+  constructor({ fieldDefs, css, templates }) {
+    this.fieldDefs = fieldDefs
+    this.fieldIdx = {}
+    this.css = css
+    this.ast = []
 
-export function checkEligibility(template, { fieldValues, fieldDefs }) {
-  const qfmt = template?.qfmt || ''
-  const fields = fieldValues || []
-  const defs = fieldDefs || []
-
-  // Minimal implementation: reuse internal conditional detector
-  const conditionalMatches = qfmt.match(/\{\{#([^}]+)\}\}/g)
-  if (!conditionalMatches) return true
-  for (const m of conditionalMatches) {
-    const name = m.replace(/\{\{#([^}]+)\}\}/, '$1').trim()
-    const idx = defs.findIndex(f => (f.name || f).toLowerCase() === name.toLowerCase())
-    if (idx === -1) return false
-    const val = fields[idx]
-    if (!val || val.trim() === '') return false
-  }
-  return true
-}
-
-export async function renderTemplate(template, ctx) {
-  const { fieldValues = [], fieldDefs = [], bundleCss } = ctx || {}
-
-  const fieldNames = fieldDefs.map(f => f.name || f)
-
-  function hasContent(field) {
-    const i = fieldNames.findIndex(n => n.toLowerCase() === (field || '').toLowerCase())
-    const v = i !== -1 ? (fieldValues[i] || '') : ''
-    return !!(v && String(v).trim())
-  }
-
-  function resolveBlocks(str) {
-    if (!str) return ''
-    const re = /\{\{([#^])\s*([^}]+)\}\}([\s\S]*?)\{\{\/\s*\2\s*\}\}/g
-    let prev
-    let out = str
-    // Iterate until no more blocks (to handle simple nesting)
-    do {
-      prev = out
-      out = out.replace(re, (_m, sig, name, body) => {
-        const ok = hasContent(name)
-        if (sig === '#') return ok ? body : ''
-        else return ok ? '' : body
+    templates.forEach(({ qfmt, afmt }) => {
+      this.ast.push({
+        q: parseTemplate(qfmt),
+        a: parseTemplate(afmt)
       })
-    } while (out !== prev)
-    return out
-  }
-
-  async function renderContent(src, side, frontSideHtml) {
-    const src2 = resolveBlocks(src)
-    const parts = parseTemplate(src2 || '')
-    const env = { fieldNames, noteFields: fieldValues, side }
-    const out = parts.map(p => {
-      if (p.type !== 'token') return p.value
-      const t = parseToken(p.token)
-      if (t.kind === 'front') return frontSideHtml || ''
-      if (t.kind === 'field') {
-        const i = fieldNames.findIndex(n => n.toLowerCase() === t.field.toLowerCase())
-        return i !== -1 ? (fieldValues[i] || '') : ''
-      }
-      if (t.kind === 'filtered') {
-        return applyFilters(t.field, t.filters, env)
-      }
-      return ''
     })
-    return out.join('')
+
+    fieldDefs.forEach((f, i) => this.fieldIdx[f] = i)
   }
 
-  const question = await renderContent(template?.qfmt || '', 'front', '')
-  const answer = await renderContent(template?.afmt || '', 'back', question)
-  return { question, answer, css: bundleCss, meta: {} }
+  getField(f, k) {
+    const i = this.fieldIdx[k]
+    return (i ?? f[i]) || ''
+  }
+
+  render(note) {
+    function renderNodes(nodes, fields, front) {
+      let out = ''
+      for (const n of nodes) {
+        const f = this.getField(fields, n.name)
+        switch (n.type) {
+        case 'block':
+          out += !!f === !n.inverted ? renderNodes(n.children, fields, front) : ''
+          break
+        case 'text':
+          out += n.value
+          break
+        case 'token':
+          out += n.token === 'FrontSide' ? front :
+            n.isCloze ? processCloze(n.token)
+              : processToken(n.token)
+        }
+      }
+      return out
+    }
+
+    const { q, a } = this.ast[note.templateOrd]
+    const front = renderNodes(q, note.fields)
+    const back = front && renderNodes(a, note.fields, front)
+    return  { front, back, css: this.css, meta: {} }
+  }
 }
-
-
