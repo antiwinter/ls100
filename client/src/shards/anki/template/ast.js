@@ -1,12 +1,89 @@
 
 // Parse template into Abastract Strutural Tree (AST)
 // with support for nesting
-// Nodes:
-// - { type: 'text', value }
-// - { type: 'block', name, inverted, children: Node[] }
-// - { type: 'token', token } // raw token string inside text
-// normalizeFilters is available if needed when promoting tokens later
-// import { normalizeFilters } from './filters/index.js'
+//
+// {{#Front}}
+//   <div class="question">{{Front}}</div>
+//   {{#Extra}}
+//     <p>{{hint:Extra}}</p>
+//   {{/Extra}}
+// {{/Front}}
+
+// {{^Front}}
+//   <span>No front content</span>
+// {{/Front}}
+
+// <!-- This is a comment -->
+// {{cloze:Text}}
+
+// {{#c1}}
+//   <div class="cloze-card">{{c1::deletion}}</div>
+// {{/c1}}
+
+// [
+//   {
+//     type: 'block',
+//     name: 'Front',
+//     isCloze: false,
+//     inverted: false,
+//     children: [
+//       { type: 'text', value: '\n  <div class="question">' },
+//       { type: 'token', token: 'Front' },
+//       { type: 'text', value: '</div>\n  ' },
+//       {
+//         type: 'block',
+//         name: 'Extra',
+//         isCloze: false,
+//         inverted: false,
+//         children: [
+//           { type: 'text', value: '\n    <p>' },
+//           { type: 'token', token: 'hint:Extra' },
+//           { type: 'text', value: '</p>\n  ' }
+//         ]
+//       },
+//       { type: 'text', value: '\n' }
+//     ]
+//   },
+//   { type: 'text', value: '\n\n' },
+//   {
+//     type: 'block',
+//     name: 'Front',
+//     isCloze: false,
+//     inverted: true,  // {{^Front}}
+//     children: [
+//       { type: 'text', value: '\n  <span>No front content</span>\n' }
+//     ]
+//   },
+//   { type: 'text', value: '\n\n<!-- This is a comment -->\n' },
+//   { type: 'token', token: 'cloze:Text' },
+//   { type: 'text', value: '\n\n' },
+//   {
+//     type: 'block',
+//     name: 'c1',
+//     isCloze: true,   // Recognized cloze conditional
+//     inverted: false,
+//     children: [
+//       { type: 'text', value: '\n  <div class="cloze-card">' },
+//       { type: 'token', token: 'c1::deletion' },  // This would be processed as text, not cloze
+//       { type: 'text', value: '</div>\n' }
+//     ]
+//   }
+// ]
+//
+// Key Features Covered:
+// Nested blocks: {{#Front}} containing {{#Extra}}
+// Inverted blocks: {{^Front}}
+// Field tokens: {{Front}}
+// Filtered tokens: {{hint:Extra}}, {{cloze:Text}}
+// Cloze conditionals: {{#c1}} (marked with isCloze: true)
+// Mixed content: HTML, text, comments, whitespace
+// Complex nesting: Multiple levels of conditions
+// During Evaluation:
+// Blocks check field presence/cloze existence → include/exclude children
+// Tokens get field values and apply filters
+// Text nodes pass through unchanged
+// Result: flattened string ready for display
+
 export function parseTemplate(str) {
   if (!str) return [{ type: 'text', value: '' }]
 
