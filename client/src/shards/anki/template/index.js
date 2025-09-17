@@ -1,22 +1,6 @@
 import { Filters } from './filters/index.js'
 import { parseTemplate } from './ast.js'
 
-function processToken(token) {
-  const segs = token.split(':')
-
-  let v = segs.pop()
-  segs.forEach(f => {
-    const fn = Filters.get(f)
-    if (fn) v = fn(v)
-  } )
-
-  return v
-}
-
-function processCloze(token) {
-  return token?.split('::').pop()
-}
-
 // Public surface, small and focused
 export class AnkiRender {
   constructor({ fieldDefs, css, templates }) {
@@ -35,16 +19,33 @@ export class AnkiRender {
     fieldDefs.forEach((f, i) => this.fieldIdx[f] = i)
   }
 
-  getField(f, k) {
+  _getField(f, k) {
     const i = this.fieldIdx[k]
-    return (i ?? f[i]) || ''
+    return (i !== undefined && f[i]) || ''
+  }
+
+  _processToken(token, fields) {
+    const segs = token.split(':')
+
+    let v = this._getField(fields, segs.pop())
+    segs.forEach(f => {
+      const fn = Filters.get(f)
+      if (fn) v = fn(v)
+    } )
+
+    return v
+  }
+
+  _processCloze(token, fields) {
+    // TODO
+    return this._getField(fields, token?.split('::').pop())
   }
 
   render(note) {
-    function renderNodes(nodes, fields, front) {
+    const renderNodes = (nodes, fields, front) => {
       let out = ''
       for (const n of nodes) {
-        const f = this.getField(fields, n.name)
+        const f = this._getField(fields, n.name)
         switch (n.type) {
         case 'block':
           out += !!f === !n.inverted ? renderNodes(n.children, fields, front) : ''
@@ -54,8 +55,8 @@ export class AnkiRender {
           break
         case 'token':
           out += n.token === 'FrontSide' ? front :
-            n.isCloze ? processCloze(n.token)
-              : processToken(n.token)
+            n.isCloze ? this._processCloze(n.token, fields)
+              : this._processToken(n.token, fields)
         }
       }
       return out

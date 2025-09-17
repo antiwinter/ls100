@@ -11,3 +11,5 @@
 
 - [ ] each some filter, leave low priority ones empty
 - [ ] filter cat into several files, prioritiezed
+
+- [ ] cloze && Add cloze conditional detection (/^c\d+$/)
