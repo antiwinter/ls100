@@ -1,7 +1,7 @@
 import loglevel from 'loglevel'
 
 // Set level based on environment
-if (import.meta.env.DEV) {
+if (import.meta.env?.DEV) {
   loglevel.setLevel('debug')
 } else {
   loglevel.setLevel('warn')

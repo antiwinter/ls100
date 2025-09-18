@@ -1,5 +1,5 @@
 import { Filters } from './filters/index.js'
-import { parseTemplate } from './ast.js'
+import { parseTemplate } from './ast2.js'
 
 // Public surface, small and focused
 export class AnkiRender {
@@ -24,7 +24,7 @@ export class AnkiRender {
     return (i !== undefined && f[i]) || ''
   }
 
-  _processToken(token, fields) {
+  _applyFilters(token, fields) {
     const segs = token.split(':')
 
     let v = this._getField(fields, segs.pop())
@@ -41,28 +41,27 @@ export class AnkiRender {
     return this._getField(fields, token?.split('::').pop())
   }
 
-  render(note) {
-    const renderNodes = (nodes, fields, front) => {
+  render(note, ord) {
+    const renderNodes = (tree, fields, front) => {
       let out = ''
-      for (const n of nodes) {
+      for (const n of tree) {
         const f = this._getField(fields, n.name)
         switch (n.type) {
         case 'block':
-          out += !!f === !n.inverted ? renderNodes(n.children, fields, front) : ''
+          out += !!f === !n.inv ? renderNodes(n.sub, fields, front) : ''
           break
         case 'text':
-          out += n.value
+          out += n.text
           break
-        case 'token':
-          out += n.token === 'FrontSide' ? front :
-            n.isCloze ? this._processCloze(n.token, fields)
-              : this._processToken(n.token, fields)
+        case 'field':
+          out += n.name === 'FrontSide' ? front
+            : this._applyFilters(n.token, fields)
         }
       }
       return out
     }
 
-    const { q, a } = this.ast[note.templateOrd]
+    const { q, a } = this.ast[ord]
     const front = renderNodes(q, note.fields)
     const back = front && renderNodes(a, note.fields, front)
     return  { front, back, css: this.css, meta: {} }
