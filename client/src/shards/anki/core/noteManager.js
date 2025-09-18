@@ -1,7 +1,7 @@
 import db from './db.js'
 import { log } from '../../../utils/logger'
 import { genId } from '../../../utils/idGenerator.js'
-import mediaManager from '../../../utils/mediaManager.js'
+import mediaManager from '../../../utils/oss.js'
 import { render } from '../render/renderDefault.js'
 import { checkEligibility } from '../template/index.js'
 
@@ -29,7 +29,7 @@ async function _create(bundleId, fields, tags = [], media = {}) {
 
   // Add media references
   if (result.media.length > 0) {
-    await mediaManager.add(result.media)
+    await mediaManager.add(result.media, note.id)
   }
 
   return note
@@ -121,14 +121,14 @@ async function update(noteId, fields, tags, media = {}) {
     // Remove old media that's no longer referenced
     const toRemove = oldNvIds.filter(id => !newNvIds.includes(id))
     if (toRemove.length > 0) {
-      await mediaManager.remove(toRemove)
+      await mediaManager.remove(toRemove, noteId)
     }
 
     // Add new media references (only truly new ones)
     const toAdd = newNvIds.filter(id => !oldNvIds.includes(id))
     if (toAdd.length > 0) {
       const newMediaToAdd = newResult.media.filter(m => toAdd.includes(m.nvId))
-      await mediaManager.add(newMediaToAdd)
+      await mediaManager.add(newMediaToAdd, noteId)
     }
   }
 
@@ -150,7 +150,7 @@ async function delete_(note) {
     const result = await anki.findMedia(note.fields, {})
     const nvIds = result.media.map(m => m.nvId)
     if (nvIds.length > 0) {
-      await mediaManager.remove(nvIds)
+      await mediaManager.remove(nvIds, note.id)
     }
   }
 

@@ -3,7 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import db from '../core/db.js'
-import mediaManager from '../../../utils/mediaManager.js'
+import mediaManager from '../../../utils/oss.js'
 import { parseApkgFile, importApkgData } from '../apkg/index.js'
 
 const __filename = fileURLToPath(import.meta.url)

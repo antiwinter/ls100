@@ -1,6 +1,6 @@
 import db from './db.js'
 import noteManager from './noteManager.js'
-import mediaManager from '../../../utils/mediaManager.js'
+import mediaManager from '../../../utils/oss.js'
 import { render } from '../render/renderDefault.js'
 import { StudyEngine } from './studyEngine.js'
 import { log } from '../../../utils/logger.js'
@@ -64,7 +64,7 @@ async function _removeTemplate(template) {
   const aResult = await findMedia(template.afmt, {})
   const allNvIds = [...qResult.media.map(m => m.nvId), ...aResult.media.map(m => m.nvId)]
   if (allNvIds.length > 0) {
-    await mediaManager.remove(allNvIds)
+    await mediaManager.remove(allNvIds, template.id)
   }
   // Remove template from database
   await db.templates.delete(template.id)
@@ -153,7 +153,7 @@ export const anki = {
     // Add media references
     const allMedia = [...qResult.media, ...aResult.media]
     if (allMedia.length > 0) {
-      await mediaManager.add(allMedia)
+      await mediaManager.add(allMedia, template.id)
     }
 
     return ord // Return the assigned ord for mapping

@@ -44,9 +44,9 @@ export async function createRender(cards) {
 
   // 3. Find filename of each nvId with mediaManager
   const f2nvid = {}
-  // Import MediaDB directly from mediaManager
+  // Import OssDB directly from mediaManager
   const Dexie = (await import('dexie')).default
-  const mediaDb = new Dexie('MediaDB')
+  const mediaDb = new Dexie('OssDB')
   mediaDb.version(1).stores({ media: 'id, type, refCount, created' })
   await mediaDb.open()
 

@@ -4,7 +4,7 @@ import { log } from './util.js'
 import { fileTypeFromBuffer } from 'file-type'
 
 // Simple media DB used by both dev and prod service workers
-const db = new Dexie('MediaDB')
+const db = new Dexie('OssDB')
 db.version(1).stores({ media: 'id, type, refCount, created' })
 
 // Decompress and detect proper MIME type

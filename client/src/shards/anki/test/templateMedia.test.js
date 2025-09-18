@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest'
 import { anki } from '../core/index.js'
 import db from '../core/db.js'
-import mediaManager from '../../../utils/mediaManager.js'
+import mediaManager from '../../../utils/oss.js'
 
 function makeBlob(content, type = 'text/plain') {
   return new Blob([content], { type })
@@ -112,7 +112,7 @@ describe('Template Media Operations', () => {
       'existing.png': makeBlob('existing media content', 'image/png')
     }
     const existingResult = await anki.findMedia('<img src="existing.png">', existingBlobs)
-    await mediaManager.add(existingResult.media)
+    await mediaManager.add(existingResult.media, 'test-template')
 
     const allBlobs = {
       'existing.png': makeBlob('existing media content', 'image/png'), // Same content, should not duplicate
@@ -139,7 +139,7 @@ describe('Template Media Operations', () => {
     
     const addedMedia = mediaAddSpy.mock.calls.flat().flat()
     
-    // Should handle existing media (increment refCount) and add new media
+    // Should handle existing media (add user) and add new media
     expect(addedMedia.length).toBeGreaterThanOrEqual(1)
 
     mediaAddSpy.mockRestore()
