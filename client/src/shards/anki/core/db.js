@@ -15,7 +15,7 @@ db.version(1).stores({
   // Used by: noteManager for CRUD operations, cardRender for rendering
   bundles: 'id, name',
   // Bundles table: Defines note structure and templates (formerly bundles)
-  // Schema: { id, name, fields[], created }
+  // Schema: { id, name, fields[], created, css }
   // - id: unique bundle identifier
   // - name: human-readable bundle name
   // - fields: array of field definitions/names

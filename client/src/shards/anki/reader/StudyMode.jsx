@@ -96,7 +96,7 @@ const CardDisplay = ({ card, showAnswer, onShowAnswer }) => {
         setRenderedCard(rendered)
       } catch (err) {
         log.error('Failed to render card:', err)
-        setRenderedCard({ question: 'Error loading card', answer: 'Error loading card' })
+        setRenderedCard({ front: 'Error loading card', back: 'Error loading card' })
       } finally {
         setLoading(false)
       }
@@ -154,7 +154,7 @@ const CardDisplay = ({ card, showAnswer, onShowAnswer }) => {
                   fontSize: '1.1em'
                 }
               }}
-              dangerouslySetInnerHTML={{ __html: renderedCard.question }}
+              dangerouslySetInnerHTML={{ __html: renderedCard.front }}
             />
           ) : (
             // Show Answer Side Only
@@ -173,7 +173,7 @@ const CardDisplay = ({ card, showAnswer, onShowAnswer }) => {
                   fontSize: '1.1em'
                 }
               }}
-              dangerouslySetInnerHTML={{ __html: renderedCard.answer }}
+              dangerouslySetInnerHTML={{ __html: renderedCard.back }}
             />
           )}
         </Box>

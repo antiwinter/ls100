@@ -3,11 +3,12 @@ import { parseTemplate } from './ast2.js'
 
 // Public surface, small and focused
 export class AnkiRender {
-  constructor({ fieldDefs, css, templates }) {
+  constructor({ fieldDefs, css, templates, f2nvid }) {
     this.fieldDefs = fieldDefs
     this.fieldIdx = {}
     this.css = css
     this.ast = []
+    this.f2nvid = f2nvid || {}
 
     templates.forEach(({ qfmt, afmt }) => {
       this.ast.push({
@@ -34,11 +35,6 @@ export class AnkiRender {
     } )
 
     return v
-  }
-
-  _processCloze(token, fields) {
-    // TODO
-    return this._getField(fields, token?.split('::').pop())
   }
 
   render(note, ord) {

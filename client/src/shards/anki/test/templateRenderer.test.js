@@ -17,9 +17,9 @@ describe('CardRender Template Rendering', () => {
     const card = cards[0]
     
     const res = await anki.render(card)
-    expect(res.question).toBe('Q')
-    expect(res.answer).toContain('Q')
-    expect(res.answer).toContain('A')
+    expect(res.front).toBe('Q')
+    expect(res.back).toContain('Q')
+    expect(res.back).toContain('A')
   })
 })
 

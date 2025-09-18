@@ -70,9 +70,9 @@ async function _genCardsForNote(note) {
 
       // Test if card can be rendered (has content) - pass pre-fetched data
       const rendered = await render(card, { note, bundle, template })
-      // Check if question has meaningful content
-      const questionContent = rendered.question?.trim()
-      if (questionContent && questionContent.length > 0) {
+      // Check if front has meaningful content
+      const frontContent = rendered.front?.trim()
+      if (frontContent && frontContent.length > 0) {
         await db.cards.put(card)
         cards.push(card)
       } else {

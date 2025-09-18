@@ -19,7 +19,7 @@ describe('AnkiApi', () => {
     expect(all.length).toBe(1)
 
     const rendered = await anki.render(all[0])
-    expect(rendered.question).toBe('Q')
+    expect(rendered.front).toBe('Q')
   })
 })
 
