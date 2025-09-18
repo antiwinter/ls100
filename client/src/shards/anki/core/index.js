@@ -6,62 +6,39 @@ import { StudyEngine } from './studyEngine.js'
 import { log } from '../../../utils/logger.js'
 import { genId } from '../../../utils/idGenerator.js'
 
-// Parse HTML content and extract media references
-async function parseFields(fields, blobs = {}) {
+// Extract media references from fields (no content modification)
+async function findMedia(fields, blobs = {}) {
   if (!Array.isArray(fields)) fields = [fields]
 
   const media = []
-  const cooked = []
 
   for (const field of fields) {
-    if (!field) {
-      cooked.push('')
-      continue
+    if (!field) continue
+
+    // Extract filenames from [sound:filename] tags
+    const soundMatches = field.match(/\[sound:([^\]]+)\]/g) || []
+    for (const match of soundMatches) {
+      const filename = match.replace(/\[sound:([^\]]+)\]/, '$1')
+      await _linkMedia(filename, blobs, media)
     }
 
-    let result = field
-
-    // Always extract existing /media/ URLs first
-    const mediaRegex = /\/media\/([a-zA-Z0-9-_]+)/g
-    let match
-    while ((match = mediaRegex.exec(field)) !== null) {
-      const nvId = match[1]
-      if (!media.find(m => m.nvId === nvId)) {
-        media.push({ nvId, filename: null, blob: null })
+    // Extract filenames from HTML media tags
+    const htmlMatches = field.match(/<(img|audio|video|source|object)\b[^>]*\b(?:src|data)=["']?([^"'\s>]+)["']?[^>]*>/gi) || []
+    for (const match of htmlMatches) {
+      const srcMatch = match.match(/\b(?:src|data)=["']?([^"'\s>]+)["']?/)
+      if (srcMatch) {
+        const filename = srcMatch[1]
+        await _linkMedia(filename, blobs, media)
       }
     }
-
-    // Then process raw media if blobs provided
-    // Handle [sound:filename] tags (for audio/video)
-    result = await _replaceAsync(result, /\[sound:([^\]]+)\]/g, async (match, filename) => {
-      const nvId = await _processMediaFile(filename, blobs, media)
-      return nvId ? `<audio controls><source src="/media/${nvId}"></audio>` : match
-    })
-
-    // Handle HTML media tags: <img>, <audio>, <video>, <source>, <object>
-    result = await _replaceAsync(result,
-      /<(img|audio|video|source|object)\b[^>]*\b(?:src|data)=["']?([^"'\s>]+)["']?[^>]*>/gi,
-      async (match, tag, filename) => {
-        const nvId = await _processMediaFile(filename, blobs, media)
-        if (!nvId) return match
-
-        // Replace src/data attribute with /media/ URL
-        return match.replace(/\b(?:src|data)=["']?[^"'\s>]+["']?/, `src="/media/${nvId}"`)
-      }
-    )
-
-    cooked.push(result)
   }
 
-  return {
-    cooked: cooked.length === 1 ? cooked[0] : cooked,
-    media
-  }
+  return { media }
 }
 
 // Process individual media file (internal)
-async function _processMediaFile(filename, blobs, mediaArray) {
-  if (!filename || !blobs[filename]) return null
+async function _linkMedia(filename, blobs, mediaArray) {
+  if (!filename || !blobs[filename]) return
 
   const blob = blobs[filename]
   const nvId = await mediaManager.blob2NvId(blob)
@@ -74,34 +51,8 @@ async function _processMediaFile(filename, blobs, mediaArray) {
       blob
     })
   }
-
-  return nvId
 }
 
-// Helper for async string replacement
-async function _replaceAsync(str, regex, asyncFn) {
-  const matches = []
-  let match
-
-  while ((match = regex.exec(str)) !== null) {
-    matches.push(match)
-    if (!regex.global) break
-  }
-
-  const replacements = await Promise.all(
-    matches.map(match => asyncFn(match[0], match[1], match[2], match.index))
-  )
-
-  let result = str
-  for (let i = matches.length - 1; i >= 0; i--) {
-    const match = matches[i]
-    const replacement = replacements[i]
-    result = result.substring(0, match.index) + replacement +
-      result.substring(match.index + match[0].length)
-  }
-
-  return result
-}
 
 
 // Remove a template and its media references
@@ -109,8 +60,8 @@ async function _removeTemplate(template) {
   if (!template) return false
 
   // Remove media references from template formats
-  const qResult = await parseFields(template.qfmt, {})
-  const aResult = await parseFields(template.afmt, {})
+  const qResult = await findMedia(template.qfmt, {})
+  const aResult = await findMedia(template.afmt, {})
   const allNvIds = [...qResult.media.map(m => m.nvId), ...aResult.media.map(m => m.nvId)]
   if (allNvIds.length > 0) {
     await mediaManager.remove(allNvIds)
@@ -173,7 +124,7 @@ export const anki = {
   mediaManager,
   render,
   StudyEngine,
-  parseFields,
+  findMedia,
 
   // Add template to bundle - handles both raw and cooked formats
   async addTemplate(bundleId, name, qfmt, afmt, media = {}) {
@@ -184,8 +135,8 @@ export const anki = {
     const ord = maxOrd + 1
 
     // Process formats with media (handles both raw and cooked)
-    const qResult = await parseFields(qfmt, media)
-    const aResult = await parseFields(afmt, media)
+    const qResult = await findMedia(qfmt, media)
+    const aResult = await findMedia(afmt, media)
 
     const template = {
       id: genId('template', bundleId + name + qResult.cooked + aResult.cooked),

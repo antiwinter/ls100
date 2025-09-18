@@ -14,12 +14,12 @@ describe('MediaManager', () => {
     await mediaDb.media.clear()
   })
 
-  test('parseFields + add workflow maps filenames to nvIds', async () => {
+  test('findMedia + add workflow maps filenames to nvIds', async () => {
     const html = '<img src="a.png">'
     const blobs = { 'a.png': makeBlob('imgdata', 'image/png') }
     
     // Parse fields to get cooked content and media
-    const result = await anki.parseFields(html, blobs)
+    const result = await anki.findMedia(html, blobs)
     
     expect(result.cooked).toMatch(/src="\/media\//)
     expect(result.media).toHaveLength(1)
@@ -41,7 +41,7 @@ describe('MediaManager', () => {
     const html = '<img src="a.png">'
     const blobs = { 'a.png': makeBlob('imgdata', 'image/png') }
     
-    const result = await anki.parseFields(html, blobs)
+    const result = await anki.findMedia(html, blobs)
     const nvId = result.media[0].nvId
     
     // Add media twice
@@ -71,8 +71,8 @@ describe('MediaManager', () => {
       'audio.mp3': makeBlob('audiodata', 'audio/mpeg')
     }
     
-    const result1 = await anki.parseFields('<img src="image.png">', blobs)
-    const result2 = await anki.parseFields('[sound:audio.mp3]', blobs)
+    const result1 = await anki.findMedia('<img src="image.png">', blobs)
+    const result2 = await anki.findMedia('[sound:audio.mp3]', blobs)
     
     await mediaManager.add([...result1.media, ...result2.media])
     

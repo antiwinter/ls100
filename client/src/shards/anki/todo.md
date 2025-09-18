@@ -4,10 +4,11 @@
 - [x] check # in 21b,
 
 - [x] add create render context function, put templates/fields/css/<filename,nvid> map in them, elimanite query bundle things each render() call
-- [ ] move audio to filter, remove cook feature. can use nvid map in ctx
+- [x] move audio to filter, remove cook feature. can use nvid map in ctx
+- [x] move _replaceAsync/parseFields/_processMediaFile to template, name proper names
 
-- [ ] move _removeTemplate/_replaceAsync/parseFields/_processMediaFile to template, name proper names
-
+- [ ] rework media manager to 2 table
+- [ ] check _removeTemplate
 
 - [ ] each some filter, leave low priority ones empty
 - [ ] filter cat into several files, prioritiezed

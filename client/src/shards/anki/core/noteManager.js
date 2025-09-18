@@ -5,20 +5,20 @@ import mediaManager from '../../../utils/mediaManager.js'
 import { render } from '../render/renderDefault.js'
 import { checkEligibility } from '../template/index.js'
 
-// Create new note - handles both raw and cooked fields
+// Create new note
 async function _create(bundleId, fields, tags = [], media = {}) {
   const bundle = await db.bundles.get(bundleId)
   if (!bundle) throw new Error(`NoteType not found: ${bundleId}`)
 
-  // Process fields with media (handles both raw and cooked)
+  // Extract media from fields
   const { anki } = await import('./index.js')
-  const result = await anki.parseFields(fields, media)
-  const cookedFields = Array.isArray(result.cooked) ? result.cooked : [result.cooked]
+  const result = await anki.findMedia(fields, media)
+
 
   const note = {
-    id: genId('note', bundleId + cookedFields.join('') + tags.join('')),
+    id: genId('note', bundleId + fields.join('') + tags.join('')),
     bundleId,
-    fields: cookedFields.slice(0, bundle.fields.length), // Ensure correct field count
+    fields,
     tags,
     refCount: 0,
     created: Date.now(),
@@ -103,17 +103,17 @@ async function get(noteId) {
   return await db.notes.get(noteId)
 }
 
-// Update note fields - handles both raw and cooked fields
+// Update note fields
 async function update(noteId, fields, tags, media = {}) {
   const note = await get(noteId)
   if (!note) throw new Error(`Note not found: ${noteId}`)
 
   // Handle media refCount updates if fields changed
   if (fields !== undefined) {
-    // Process both old and new fields with media support
+    // Extract media from old and new fields
     const { anki } = await import('./index.js')
-    const oldResult = await anki.parseFields(note.fields, {}) // Old fields are always cooked
-    const newResult = await anki.parseFields(fields, media) // New fields can be mixed
+    const oldResult = await anki.findMedia(note.fields, {})
+    const newResult = await anki.findMedia(fields, media)
 
     const oldNvIds = oldResult.media.map(m => m.nvId)
     const newNvIds = newResult.media.map(m => m.nvId)
@@ -130,9 +130,6 @@ async function update(noteId, fields, tags, media = {}) {
       const newMediaToAdd = newResult.media.filter(m => toAdd.includes(m.nvId))
       await mediaManager.add(newMediaToAdd)
     }
-
-    // Use processed cooked fields
-    fields = Array.isArray(newResult.cooked) ? newResult.cooked : [newResult.cooked]
   }
 
   const updates = { modified: Date.now() }
@@ -150,7 +147,7 @@ async function delete_(note) {
   if (note) {
     // Remove media references from all fields
     const { anki } = await import('./index.js')
-    const result = await anki.parseFields(note.fields, {})
+    const result = await anki.findMedia(note.fields, {})
     const nvIds = result.media.map(m => m.nvId)
     if (nvIds.length > 0) {
       await mediaManager.remove(nvIds)

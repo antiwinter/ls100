@@ -20,7 +20,7 @@ describe('anki core/index.js API coverage', () => {
     const bundleId = 'b-index-1'
     await anki.addBundle(bundleId, 'Basic', ['Front', 'Back'])
 
-    // addTemplate does not add media (parseFields called with {}), only stores template
+    // addTemplate does not add media (findMedia called with {}), only stores template
     await anki.addTemplate(bundleId, 'Card 1', '{{Front}}', '{{Front}}<hr>{{Back}}', 0)
 
     const templates = await anki.getTemplates(bundleId)
@@ -45,16 +45,16 @@ describe('anki core/index.js API coverage', () => {
     expect(await anki.getCardsForBundles([])).toEqual([])
   })
 
-  test('parseFields returns cooked content and media when blobs provided', async () => {
+  test('findMedia returns media array when blobs provided', async () => {
     const html = '<img src="img.png"> [sound:audio.mp3]'
     const blobs = {
       'img.png': makeBlob('img', 'image/png'),
       'audio.mp3': makeBlob('a', 'audio/mpeg')
     }
-    const res = await anki.parseFields(html, blobs)
-    expect(res.cooked).toMatch(/src="\/media\//)
-    expect(res.cooked).toMatch(/<audio/)
+    const res = await anki.findMedia(html, blobs)
     expect(res.media.length).toBe(2)
+    expect(res.media.find(m => m.filename === 'img.png')).toBeTruthy()
+    expect(res.media.find(m => m.filename === 'audio.mp3')).toBeTruthy()
   })
 
   test('removeTemplate deletes template record (eventually)', async () => {

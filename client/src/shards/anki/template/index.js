@@ -25,11 +25,8 @@ export class AnkiRender {
     return (i !== undefined && f[i]) || ''
   }
 
-  _applyFilters(token, fields) {
-    const segs = token.split(':')
-
-    let v = this._getField(fields, segs.pop())
-    segs.forEach(f => {
+  _applyFilters(v, filters) {
+    filters.forEach(f => {
       const fn = Filters.get(f)
       if (fn) v = fn(v)
     } )
@@ -37,24 +34,41 @@ export class AnkiRender {
     return v
   }
 
+  _tune(str) {
+    // Replace [sound:filename] with <audio> tags
+    str = str.replace(/\[sound:([^\]]+)\]/g, (match, filename) => {
+      const nvId = this.f2nvid[filename]
+      return nvId ? `<audio controls><source src="/media/${nvId}"></audio>` : match
+    })
+
+    // Replace filename references in HTML media tags with /media/nvid
+    str = str.replace(/<(img|audio|video|source|object)\b[^>]*\b(?:src|data)=["']?([^"'\s>]+)["']?[^>]*>/gi, (match, tag, src) => {
+      const nvId = this.f2nvid[src]
+      return nvId ? match.replace(/\b(?:src|data)=["']?[^"'\s>]+["']?/, `src="/media/${nvId}"`) : match
+    })
+
+    return str
+  }
+
   render(note, ord) {
     const renderNodes = (tree, fields, front) => {
       let out = ''
       for (const n of tree) {
-        const f = this._getField(fields, n.name)
+        const v = this._getField(fields, n.name)
         switch (n.type) {
         case 'block':
-          out += !!f === !n.inv ? renderNodes(n.sub, fields, front) : ''
+          out += !!v === !n.inv ? renderNodes(n.sub, fields, front) : ''
           break
         case 'text':
           out += n.text
           break
         case 'field':
           out += n.name === 'FrontSide' ? front
-            : this._applyFilters(n.token, fields)
+            : this._applyFilters(v, n.filters)
         }
       }
-      return out
+
+      return this._tune(out)
     }
 
     const { q, a } = this.ast[ord]

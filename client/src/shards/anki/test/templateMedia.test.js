@@ -111,7 +111,7 @@ describe('Template Media Operations', () => {
     const existingBlobs = {
       'existing.png': makeBlob('existing media content', 'image/png')
     }
-    const existingResult = await anki.parseFields('<img src="existing.png">', existingBlobs)
+    const existingResult = await anki.findMedia('<img src="existing.png">', existingBlobs)
     await mediaManager.add(existingResult.media)
 
     const allBlobs = {
