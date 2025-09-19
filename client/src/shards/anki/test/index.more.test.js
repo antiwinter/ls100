@@ -45,16 +45,12 @@ describe('anki core/index.js API coverage', () => {
     expect(await anki.getCardsForBundles([])).toEqual([])
   })
 
-  test('findMedia returns media array when blobs provided', async () => {
+  test('findMedia returns filenames array', async () => {
     const html = '<img src="img.png"> [sound:audio.mp3]'
-    const blobs = {
-      'img.png': makeBlob('img', 'image/png'),
-      'audio.mp3': makeBlob('a', 'audio/mpeg')
-    }
-    const res = await anki.findMedia(html, blobs)
-    expect(res.media.length).toBe(2)
-    expect(res.media.find(m => m.filename === 'img.png')).toBeTruthy()
-    expect(res.media.find(m => m.filename === 'audio.mp3')).toBeTruthy()
+    const filenames = await anki.findMedia(html)
+    expect(filenames.length).toBe(2)
+    expect(filenames).toContain('img.png')
+    expect(filenames).toContain('audio.mp3')
   })
 
   test('removeTemplate deletes template record (eventually)', async () => {

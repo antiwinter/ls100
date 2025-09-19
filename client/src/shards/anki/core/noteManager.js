@@ -4,6 +4,7 @@ import { genId } from '../../../utils/idGenerator.js'
 import mediaManager from './mediaManager.js'
 import { render } from '../render/renderDefault.js'
 import { checkEligibility } from '../template/index.js'
+import _ from 'lodash'
 
 // Create new note
 async function _create(bundleId, fields, tags = [], media = {}) {
@@ -12,7 +13,7 @@ async function _create(bundleId, fields, tags = [], media = {}) {
 
   // Extract media from fields
   const { anki } = await import('./index.js')
-  const result = await anki.findMedia(fields, media)
+  const filenames = await anki.findMedia(fields)
 
 
   const note = {
@@ -28,8 +29,9 @@ async function _create(bundleId, fields, tags = [], media = {}) {
   await db.notes.put(note)
 
   // Add media references
-  if (result.media.length > 0) {
-    await mediaManager.add(result.media, { noteId: note.id })
+  if (filenames.length > 0) {
+    const mediaObject = _.pick(media, filenames)
+    await mediaManager.add(bundleId, note.id, mediaObject)
   }
 
   return note
@@ -112,25 +114,23 @@ async function update(noteId, fields, tags, media = {}) {
   if (fields !== undefined) {
     // Extract media from old and new fields
     const { anki } = await import('./index.js')
-    const oldResult = await anki.findMedia(note.fields, {})
-    const newResult = await anki.findMedia(fields, media)
+    const oldFilenames = await anki.findMedia(note.fields)
+    const newFilenames = await anki.findMedia(fields)
 
 
-    // Get old and new filenames for comparison
-    const oldFilenames = oldResult.media.map(m => m.filename)
-    const newFilenames = newResult.media.map(m => m.filename)
+    // Compare old and new filenames
 
     // Remove old media that's no longer referenced
     const toRemove = oldFilenames.filter(f => !newFilenames.includes(f))
     if (toRemove.length > 0) {
-      await mediaManager.remove(toRemove, { noteId })
+      await mediaManager.remove(note.bundleId, noteId, toRemove)
     }
 
     // Add new media references (only truly new ones)
     const toAdd = newFilenames.filter(f => !oldFilenames.includes(f))
     if (toAdd.length > 0) {
-      const newMediaToAdd = newResult.media.filter(m => toAdd.includes(m.filename))
-      await mediaManager.add(newMediaToAdd, { noteId })
+      const mediaObject = _.pick(media, toAdd)
+      await mediaManager.add(note.bundleId, noteId, mediaObject)
     }
   }
 
@@ -149,10 +149,9 @@ async function delete_(note) {
   if (note) {
     // Remove media references from all fields
     const { anki } = await import('./index.js')
-    const result = await anki.findMedia(note.fields, {})
-    const filenames = result.media.map(m => m.filename)
+    const filenames = await anki.findMedia(note.fields)
     if (filenames.length > 0) {
-      await mediaManager.remove(filenames, { noteId: note.id })
+      await mediaManager.remove(note.bundleId, note.id, filenames)
     }
   }
 

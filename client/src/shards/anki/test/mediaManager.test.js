@@ -18,17 +18,17 @@ describe('MediaManager', () => {
     const html = '<img src="a.png">'
     const blobs = { 'a.png': makeBlob('imgdata', 'image/png') }
     
-    const result = await anki.findMedia(html, blobs)
-    expect(result.media).toHaveLength(1)
-    expect(result.media[0].filename).toBe('a.png')
-    expect(result.media[0].blob).toBeTruthy()
+    const filenames = await anki.findMedia(html)
+    expect(filenames).toHaveLength(1)
+    expect(filenames[0]).toBe('a.png')
     
     // Add media to database  
-    await mediaManager.add(result.media, { noteId: 'test-note-1' })
+    const mediaObject = { [filenames[0]]: blobs[filenames[0]] }
+    await mediaManager.add('test-bundle-1', 'test-note-1', mediaObject)
     
     // Verify media reference was stored locally
     const ref = await db.media.where('filename').equals('a.png').first()
-    expect(ref.noteId).toBe('test-note-1')
+    expect(ref.userId).toBe('test-note-1')
     expect(ref.filename).toBe('a.png')
     expect(ref.nvId).toBeTruthy()
   })
@@ -37,55 +37,43 @@ describe('MediaManager', () => {
     const html = '<img src="a.png">'
     const blobs = { 'a.png': makeBlob('imgdata', 'image/png') }
     
-    const result = await anki.findMedia(html, blobs)
-    const filename = result.media[0].filename
+    const filenames = await anki.findMedia(html)
+    const filename = filenames[0]
     
     // Add media with different contexts
-    await mediaManager.add(result.media, { noteId: 'test-note-1' })
-    await mediaManager.add(result.media, { bundleId: 'test-bundle-1', templateOrd: 0 })
+    const mediaObject = { [filename]: blobs[filename] }
+    await mediaManager.add('test-bundle-1', 'test-note-1', mediaObject)
+    await mediaManager.add('test-bundle-1', 0, mediaObject)
     
     // Should have 2 references in local media table
     const count = await db.media.where('filename').equals(filename).count()
     expect(count).toBe(2) // One for note, one for template
 
     // Remove note reference should keep media (template still using it)
-    await mediaManager.remove([filename], { noteId: 'test-note-1' })
+    await mediaManager.remove('test-bundle-1', 'test-note-1', [filename])
     const afterRemove1 = await db.media.where('filename').equals(filename).count()
     expect(afterRemove1).toBe(1) // Template reference remains
 
     // Remove template reference should delete media (no references left)
-    await mediaManager.remove([filename], { bundleId: 'test-bundle-1', templateOrd: 0 })
+    await mediaManager.remove('test-bundle-1', 0, [filename])
     const afterRemove2 = await db.media.where('filename').equals(filename).count()
     expect(afterRemove2).toBe(0) // No references left
   })
 
-  test('getStats returns categorized media statistics', async () => {
-    const blobs = {
-      'image.png': makeBlob('imgdata', 'image/png'),
-      'audio.mp3': makeBlob('audiodata', 'audio/mpeg')
-    }
-    
-    const result1 = await anki.findMedia('<img src="image.png">', blobs)
-    const result2 = await anki.findMedia('[sound:audio.mp3]', blobs)
-    
-    await mediaManager.add([...result1.media, ...result2.media], { noteId: 'test-note' })
-    
-    const stats = await mediaManager.getStats()
-    expect(stats.uniqueMediaCount).toBe(2)
-    expect(stats.totalReferences).toBe(2)
-    expect(stats.mediaList).toHaveLength(2)
-  })
+  // getStats method removed per coding rules
 
   test('same content gets deduplicated in OSS regardless of filename', async () => {
-    const blob1 = makeBlob('same content', 'image/png')
-    const blob2 = makeBlob('same content', 'image/png') // Same content, different blob object
+    const blobs1 = { 'file1.png': makeBlob('same content', 'image/png') }
+    const blobs2 = { 'file2.png': makeBlob('same content', 'image/png') } // Same content, different blob object
     
-    const result1 = await anki.findMedia('<img src="file1.png">', { 'file1.png': blob1 })
-    const result2 = await anki.findMedia('<img src="file2.png">', { 'file2.png': blob2 })
+    const filenames1 = await anki.findMedia('<img src="file1.png">')
+    const filenames2 = await anki.findMedia('<img src="file2.png">')
     
     // Add both - should create different local references but same nvId in OSS
-    await mediaManager.add(result1.media, { noteId: 'note1' })
-    await mediaManager.add(result2.media, { noteId: 'note2' })
+    const mediaObject1 = { [filenames1[0]]: blobs1[filenames1[0]] }
+    const mediaObject2 = { [filenames2[0]]: blobs2[filenames2[0]] }
+    await mediaManager.add('test-bundle-1', 'note1', mediaObject1)
+    await mediaManager.add('test-bundle-1', 'note2', mediaObject2)
     
     // Should have 2 local references
     const refs = await db.media.toArray()

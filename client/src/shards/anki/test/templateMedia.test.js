@@ -111,8 +111,9 @@ describe('Template Media Operations', () => {
     const existingBlobs = {
       'existing.png': makeBlob('existing media content', 'image/png')
     }
-    const existingResult = await anki.findMedia('<img src="existing.png">', existingBlobs)
-    await mediaManager.add(existingResult.media, { bundleId: 'test-bundle', templateOrd: 0 })
+    const existingFilenames = await anki.findMedia('<img src="existing.png">')
+    const mediaObject = { [existingFilenames[0]]: existingBlobs[existingFilenames[0]] }
+    await mediaManager.add('test-bundle', 0, mediaObject)
 
     const allBlobs = {
       'existing.png': makeBlob('existing media content', 'image/png'), // Same content, should not duplicate
@@ -162,14 +163,7 @@ describe('Template Media Operations', () => {
     expect(assignedOrd).toBe(0)
     
     // No media should be added - mediaManager.add should not be called at all
-    if (mediaAddSpy.mock.calls.length > 0) {
-      // If called, should be with empty array
-      const addCalls = mediaAddSpy.mock.calls.flat().flat()
-      expect(addCalls.length).toBe(0)
-    } else {
-      // Not called at all is also correct (optimization)
-      expect(mediaAddSpy).not.toHaveBeenCalled()
-    }
+    expect(mediaAddSpy.mock.calls.length).toBe(0)
 
     mediaAddSpy.mockRestore()
   })

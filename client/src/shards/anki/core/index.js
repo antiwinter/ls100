@@ -5,12 +5,13 @@ import { render } from '../render/renderDefault.js'
 import { StudyEngine } from './studyEngine.js'
 import { log } from '../../../utils/logger.js'
 import { genId } from '../../../utils/idGenerator.js'
+import _ from 'lodash'
 
-// Extract media references from fields (no content modification)
-async function findMedia(fields, blobs = {}) {
+// Extract media filenames from fields
+async function findMedia(fields) {
   if (!Array.isArray(fields)) fields = [fields]
 
-  const media = []
+  const filenames = []
 
   for (const field of fields) {
     if (!field) continue
@@ -19,11 +20,8 @@ async function findMedia(fields, blobs = {}) {
     const soundMatches = field.match(/\[sound:([^\]]+)\]/g) || []
     for (const match of soundMatches) {
       const filename = match.replace(/\[sound:([^\]]+)\]/, '$1')
-      if (filename && blobs[filename]) {
-        media.push({
-          filename,
-          blob: blobs[filename]
-        })
+      if (filename) {
+        filenames.push(filename)
       }
     }
 
@@ -33,36 +31,25 @@ async function findMedia(fields, blobs = {}) {
       const srcMatch = match.match(/\b(?:src|data)=["']?([^"'\s>]+)["']?/)
       if (srcMatch) {
         const filename = srcMatch[1]
-        if (filename && blobs[filename]) {
-          media.push({
-            filename,
-            blob: blobs[filename]
-          })
+        if (filename) {
+          filenames.push(filename)
         }
       }
     }
   }
 
-  return { media }
+  return [...new Set(filenames)] // Remove duplicates
 }
 
 // Remove a template and its media references
-async function _removeTemplate(template) {
+async function removeTemplate(template) {
   if (!template) return false
 
+  const { qfmt, afmt, bundleId, ord } = template
   // Remove media references from template formats
-  const qResult = await findMedia(template.qfmt, {})
-  const aResult = await findMedia(template.afmt, {})
-  const allFilenames = [
-    ...qResult.media.map(m => m.filename),
-    ...aResult.media.map(m => m.filename)
-  ]
-  if (allFilenames.length > 0) {
-    await mediaManager.remove(allFilenames, {
-      bundleId: template.bundleId,
-      templateOrd: template.ord
-    })
-  }
+  const files = await findMedia(qfmt + afmt)
+  await mediaManager.remove(bundleId, ord, files)
+
   // Remove template from database
   await db.templates.delete(template.id)
   log.debug('Removed template:', template.id)
@@ -88,7 +75,7 @@ async function _cleanupOrphans() {
     const batch = await db.templates.where('bundleId').noneOf(valid).limit(BATCH).toArray()
     if (batch.length === 0) break
     for (const template of batch) {
-      await _removeTemplate(template)
+      await removeTemplate(template)
       stats.templatesRemoved++
     }
   }
@@ -131,26 +118,24 @@ export const anki = {
       ? Math.max(...existingTemplates.map(t => t.ord)) : -1
     const ord = maxOrd + 1
 
-    // Process formats with media (handles both raw and cooked)
-    const qResult = await findMedia(qfmt, media)
-    const aResult = await findMedia(afmt, media)
-
+    // Extract media from combined formats
+    const filenames = await findMedia(qfmt + afmt)
     const template = {
-      id: genId('template', bundleId + name + qResult.cooked + aResult.cooked),
+      id: genId('template', bundleId + name + qfmt + afmt),
       bundleId,
       name,
-      qfmt: qResult.cooked,
-      afmt: aResult.cooked,
+      qfmt,
+      afmt,
       ord,
       vdeck: null,
       created: Date.now()
     }
     await db.templates.put(template)
 
-    // Add media references
-    const allMedia = [...qResult.media, ...aResult.media]
-    if (allMedia.length > 0) {
-      await mediaManager.add(allMedia, { bundleId, templateOrd: ord })
+    // Add media references using only the needed files
+    if (filenames.length > 0) {
+      const mediaObject = _.pick(media, filenames)
+      await mediaManager.add(bundleId, ord, mediaObject)
     }
 
     return ord // Return the assigned ord for mapping
@@ -160,9 +145,7 @@ export const anki = {
     return await db.templates.where('bundleId').equals(bundleId).toArray()
   },
 
-  async removeTemplate(tp) {
-    await _removeTemplate(tp)
-  },
+  removeTemplate,
 
   async  getBundle(bundleId) {
     return await db.bundles.get(bundleId)

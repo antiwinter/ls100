@@ -3,10 +3,13 @@ import oss from '../../../utils/oss.js'
 import { log } from '../../../utils/logger'
 
 // Add media and track references for cleanup
-async function add(mediaArray, context = {}) {
-  if (!Array.isArray(mediaArray)) return
+async function add(bundleId, userId, media) {
+  if (!bundleId || !userId || !media || typeof media !== 'object') {
+    log.warn('Invalid parameters for media add:', { bundleId, userId, media })
+    return
+  }
 
-  for (const { filename, blob } of mediaArray) {
+  for (const [filename, blob] of Object.entries(media)) {
     try {
       if (!filename || !blob) {
         log.warn('Invalid media entry:', { filename, blob })
@@ -26,15 +29,14 @@ async function add(mediaArray, context = {}) {
       // Track reference locally
       const mediaRef = {
         nvId,
-        bundleId: context.bundleId || null,
-        templateOrd: context.templateOrd ?? null,
-        noteId: context.noteId || null,
+        bundleId,
+        userId,
         filename,
         created: Date.now()
       }
 
       await db.media.put(mediaRef)
-      log.debug('Media reference added:', { nvId, filename, context })
+      log.debug('Media reference added:', { nvId, filename, bundleId, userId })
 
     } catch (error) {
       log.error('Failed to add media:', { filename }, error)
@@ -43,26 +45,22 @@ async function add(mediaArray, context = {}) {
 }
 
 // Remove media references and cleanup OSS if no more references
-async function remove(filenames, context = {}) {
+async function remove(bundleId, userId, filenames) {
+  if (!bundleId || !userId) {
+    log.warn('Invalid parameters for media remove:', { bundleId, userId })
+    return
+  }
+
   if (!Array.isArray(filenames)) filenames = [filenames]
 
   for (const filename of filenames) {
     if (!filename) continue
 
     try {
-      // Build query to find references by filename and context
-      let query = db.media.where('filename').equals(filename)
-
-      if (context.bundleId) {
-        query = query.and(ref => ref.bundleId === context.bundleId)
-        if (context.templateOrd !== undefined) {
-          query = query.and(ref => ref.templateOrd === context.templateOrd)
-        }
-      }
-
-      if (context.noteId) {
-        query = query.and(ref => ref.noteId === context.noteId)
-      }
+      // Build query to find references by filename, bundleId and userId
+      const query = db.media
+        .where('filename').equals(filename)
+        .and(ref => ref.bundleId === bundleId && ref.userId === userId)
 
       // Get nvIds of matching references before deletion
       const refsToRemove = await query.toArray()
@@ -89,42 +87,6 @@ async function remove(filenames, context = {}) {
   }
 }
 
-// Get media statistics
-async function getStats() {
-  try {
-    const mediaRefs = await db.media.toArray()
-
-    // Group by nvId to get unique media count
-    const uniqueMedia = new Map()
-    let totalRefs = 0
-
-    for (const ref of mediaRefs) {
-      totalRefs++
-      if (!uniqueMedia.has(ref.nvId)) {
-        uniqueMedia.set(ref.nvId, {
-          nvId: ref.nvId,
-          filename: ref.filename,
-          created: ref.created,
-          refs: []
-        })
-      }
-      uniqueMedia.get(ref.nvId).refs.push({
-        bundleId: ref.bundleId,
-        templateOrd: ref.templateOrd,
-        noteId: ref.noteId
-      })
-    }
-
-    return {
-      uniqueMediaCount: uniqueMedia.size,
-      totalReferences: totalRefs,
-      mediaList: Array.from(uniqueMedia.values())
-    }
-  } catch (error) {
-    log.error('Failed to get media stats:', error)
-    return { uniqueMediaCount: 0, totalReferences: 0, mediaList: [] }
-  }
-}
 
 // Clear all media references (for testing)
 async function clear() {
@@ -139,6 +101,5 @@ async function clear() {
 export default {
   add,
   remove,
-  getStats,
   clear
 }

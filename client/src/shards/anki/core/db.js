@@ -3,7 +3,7 @@ import { log } from '../../../utils/logger'
 
 export const db = new Dexie('AnkiDB')
 
-db.version(1).stores({
+db.version(2).stores({
   notes: 'id, bundleId, modified',
   // Notes table: Core content storage for Anki notes
   // Schema: { id, bundleId, fields[], tags[], created, modified }
@@ -46,13 +46,12 @@ db.version(1).stores({
   // - fsrs: array of FSRS state history [newest, older, oldest] - source of truth
   // - created/modified: timestamps
   // Used by: studyEngine for scheduling (fast filters on due/state), ankiApi for CRUD operations
-  media: 'nvId, bundleId, templateOrd, noteId'
+  media: 'nvId, bundleId, userId'
   // Media table: Tracks media ownership for OSS cleanup
-  // Schema: { nvId, bundleId?, templateOrd?, noteId?, filename, created }
+  // Schema: { nvId, bundleId, userId, filename, created }
   // - nvId: unique media identifier (content-based hash)
   // - bundleId: bundle identifier for content organization
-  // - templateOrd: template ordinal if owned by template, null if owned by note
-  // - noteId: note ID if owned by note, null if owned by template
+  // - userId: user identifier (can be templateOrd or noteId)
   // - filename: original filename for reference
   // - created: timestamp when reference was created
   // Used by: mediaManager for tracking references and OSS cleanup
