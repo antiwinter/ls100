@@ -2,8 +2,7 @@ import db from './db.js'
 import { log } from '../../../utils/logger'
 import { genId } from '../../../utils/idGenerator.js'
 import mediaManager from './mediaManager.js'
-import { render } from '../render/renderDefault.js'
-import { checkEligibility } from '../template/index.js'
+import { AnkiRender } from '../template/index.js'
 import _ from 'lodash'
 
 // Create new note
@@ -46,6 +45,14 @@ async function _genCardsForNote(note) {
   const templates = await db.templates.where('bundleId').equals(note.bundleId).toArray()
   const cards = []
 
+  // Create renderer without f2nvid (no media resolution needed for card generation)
+  const renderer = new AnkiRender({
+    fieldDefs: bundle.fields,
+    css: bundle.css,
+    templates,
+    f2nvid: {} // Empty - we're only checking front validity, not rendering media
+  })
+
   for (const template of templates) {
     const now = Date.now()
     const card = {
@@ -63,22 +70,16 @@ async function _genCardsForNote(note) {
     }
 
     try {
-      // Check Anki conditional requirements before rendering
-      if (!checkEligibility(template, { fieldValues: note.fields, fieldDefs: bundle.fields })) {
-        // log.debug(`Skipping card for template ${template.ord
-        // }: conditional field requirements not met`)
-        continue
-      }
-
-      // Test if card can be rendered (has content) - pass pre-fetched data
-      const rendered = await render(card, { note, bundle, template })
+      // Test if card can be rendered (has content) by trying to render it
+      const rendered = renderer.render(note, template.ord)
       // Check if front has meaningful content
       const frontContent = rendered.front?.trim()
       if (frontContent && frontContent.length > 0) {
         await db.cards.put(card)
         cards.push(card)
       } else {
-        // TODO: test and see if this enters
+        // Skip empty cards
+        log.debug(`Skipping card for template ${template.ord}: front is empty`)
       }
     } catch (error) {
       // Card cannot be rendered, skip it

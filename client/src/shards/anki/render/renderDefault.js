@@ -36,7 +36,7 @@ export async function createRender(cards) {
   const allRefs = await db.media.where('bundleId').anyOf(bundleIds)
     .filter(ref => noteIds.includes(ref.noteId) || ref.noteId === null)
     .toArray()
-  
+
   for (const ref of allRefs) {
     f2nvid[ref.filename] = ref.nvId
   }
