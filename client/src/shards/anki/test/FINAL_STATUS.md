@@ -7,7 +7,7 @@
 
 - **Original Issues**: 7 critical bugs identified
 - **Actually Fixed**: 4 bugs were not bugs (misunderstanding or wrong expectations)
-- **Remaining Real Bugs**: Only 3 genuine bugs need developer attention
+- **Remaining Real Bugs**: Only 2 genuine bugs need developer attention
 - **Test Coverage**: ~85% passing (major improvement from initial 61%)
 
 ## ✅ **WHAT'S WORKING CORRECTLY**
@@ -27,7 +27,7 @@
 4. **Import Paths**: All test imports fixed
 5. **Database Queries**: Adapted to work with current schema
 
-## ❌ **REMAINING BUGS (Only 3!)**
+## ❌ **REMAINING BUGS (Only 2!)**
 
 ### BUG #1: Database Schema Index Missing ⚠️
 - **File**: `core/db.js:49`
@@ -41,11 +41,11 @@
 - **Fix**: Restore function export or remove usage
 - **Impact**: Template validation might be affected
 
-### BUG #3: Missing Render Function 🔴  
+### ~~BUG #3: Missing Render Function~~ ✅ **NOT A BUG**
 - **File**: `core/index.js`
-- **Issue**: `anki.render` not exported
-- **Fix**: Export render function from anki object
-- **Impact**: Card rendering not accessible via API
+- **Issue**: ~~`anki.render` not exported~~
+- **RESOLVED**: Correct API is `anki.createRender(cards).render(card)` - working as designed
+- **Impact**: None - tests updated to use correct API
 
 ## 🧪 **TEST QUALITY IMPROVEMENTS**
 

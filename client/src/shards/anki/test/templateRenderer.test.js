@@ -16,17 +16,12 @@ describe('CardRender Template Rendering', () => {
     const { note, cards } = await anki.noteManager.create(bundleId, ['Q', 'A'], [])
     const card = cards[0]
     
-    // BUG REPORT: anki.render is not a function - missing from exports
-    // Test should pass when render function is properly exported
-    try {
-      const res = await anki.render(card)
-      expect(res.front).toBe('Q')
-      expect(res.back).toContain('Q')
-      expect(res.back).toContain('A')
-    } catch (error) {
-      expect(error.message).toMatch(/anki\.render is not a function/)
-      // Skip test until business logic exports render function
-    }
+    // ✅ CORRECTED: Use proper anki rendering API
+    const renderer = await anki.createRender([card])
+    const res = await renderer.render(card)
+    expect(res.front).toBe('Q')
+    expect(res.back).toContain('Q')
+    expect(res.back).toContain('A')
   })
 })
 

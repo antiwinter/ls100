@@ -46,9 +46,8 @@ describe('MediaManager', () => {
     // Add media with different contexts
     const mediaObject = { [filename]: blobs[filename] }
     await mediaManager.add('test-bundle-1', 'test-note-1', mediaObject)
-    // BUG REPORT: mediaManager.add rejects userId: 0 (falsy check issue)
-    // Use string userId instead: templateOrd should be passed as string
-    await mediaManager.add('test-bundle-1', 'template-0', mediaObject)
+    // 🚨 BUG: mediaManager should accept userId: 0 (valid template ordinal)
+    await mediaManager.add('test-bundle-1', 0, mediaObject)
     
     // Should have 2 references in local media table  
     const refs = await db.media.where('bundleId').equals('test-bundle-1')
@@ -62,7 +61,7 @@ describe('MediaManager', () => {
     expect(afterRemove1).toBe(1) // Template reference remains
 
     // Remove template reference should delete media (no references left)
-    await mediaManager.remove('test-bundle-1', 'template-0', [filename])
+    await mediaManager.remove('test-bundle-1', 0, [filename])
     const afterRemove2 = await db.media.where('bundleId').equals('test-bundle-1')
       .and(ref => ref.filename === filename).count()
     expect(afterRemove2).toBe(0) // No references left
