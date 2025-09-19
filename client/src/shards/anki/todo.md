@@ -7,8 +7,8 @@
 - [x] move audio to filter, remove cook feature. can use nvid map in ctx
 - [x] move _replaceAsync/parseFields/_processMediaFile to template, name proper names
 
-- [ ] rework media manager to 2 table
-- [ ] check _removeTemplate
+- [x] rework media manager to 2 table
+- [x] check _removeTemplate
 
 - [ ] each some filter, leave low priority ones empty
 - [ ] filter cat into several files, prioritiezed

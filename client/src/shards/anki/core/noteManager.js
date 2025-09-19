@@ -110,27 +110,27 @@ async function update(noteId, fields, tags, media = {}) {
   const note = await get(noteId)
   if (!note) throw new Error(`Note not found: ${noteId}`)
 
-  // Handle media refCount updates if fields changed
-  if (fields !== undefined) {
-    // Extract media from old and new fields
-    const { anki } = await import('./index.js')
-    const oldFilenames = await anki.findMedia(note.fields)
-    const newFilenames = await anki.findMedia(fields)
+  // Handle media updates using set theory approach
+  if (media && Object.keys(media).length > 0) {
+    // 1. Get all filenames currently owned by this note
+    const ownedMedia = await db.media.where('bundleId').equals(note.bundleId)
+      .and(ref => ref.userId === noteId).toArray()
+    const ownedFilenames = ownedMedia.map(ref => ref.filename)
 
+    // 2. media is already a filename->blob object
+    const mediaFilenames = Object.keys(media)
 
-    // Compare old and new filenames
-
-    // Remove old media that's no longer referenced
-    const toRemove = oldFilenames.filter(f => !newFilenames.includes(f))
+    // 3. Remove U_filenames \ U_media (owned but not in new media)
+    const toRemove = ownedFilenames.filter(f => !mediaFilenames.includes(f))
     if (toRemove.length > 0) {
       await mediaManager.remove(note.bundleId, noteId, toRemove)
     }
 
-    // Add new media references (only truly new ones)
-    const toAdd = newFilenames.filter(f => !oldFilenames.includes(f))
+    // 4. Add U_media \ U_filenames (in new media but not owned)
+    const toAdd = mediaFilenames.filter(f => !ownedFilenames.includes(f))
     if (toAdd.length > 0) {
-      const mediaObject = _.pick(media, toAdd)
-      await mediaManager.add(note.bundleId, noteId, mediaObject)
+      const mediaToAdd = _.pick(media, toAdd)
+      await mediaManager.add(note.bundleId, noteId, mediaToAdd)
     }
   }
 
