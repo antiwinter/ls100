@@ -13,10 +13,9 @@ describe('AnkiApi', () => {
     await anki.addTemplate(bundleId, 'Card 1', '{{Front}}', '{{Front}}<hr>{{Back}}', 0)
 
     const { note, cards } = await anki.noteManager.create(bundleId, ['Q', 'A'], ['t'])
-    // BUG REPORT: Card generation broken - returns 0 cards instead of 1
-    // This indicates _genCardsForNote logic is broken after refactoring
+    // ✅ Card generation is actually working correctly!
     expect(note.id).toBeTruthy()
-    expect(cards.length).toBe(0) // TODO: Should be 1 when business logic is fixed
+    expect(cards.length).toBe(1)
 
     const all = await anki.getCardsForBundles([bundleId])
     expect(all.length).toBe(1)

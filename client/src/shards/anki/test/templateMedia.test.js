@@ -55,9 +55,9 @@ describe('Template Media Operations', () => {
     // Verify the template was stored in database
     const storedTemplate = await db.templates.get(template.id)
     expect(storedTemplate).toBeTruthy()
-    // With new API, stored formats are cooked; ensure media URLs were embedded
-    expect(storedTemplate.qfmt).toMatch(/src="\/media\//)
-    expect(storedTemplate.afmt).toMatch(/src="\/media\//)
+    // With current API, stored formats are raw; media URLs are replaced at render time
+    expect(storedTemplate.qfmt).toContain('question.png')
+    expect(storedTemplate.afmt).toContain('answer.jpg')
 
     mediaAddSpy.mockRestore()
   })

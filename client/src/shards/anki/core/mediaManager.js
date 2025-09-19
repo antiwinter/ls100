@@ -4,7 +4,7 @@ import { log } from '../../../utils/logger'
 
 // Add media and track references for cleanup
 async function add(bundleId, userId, media) {
-  if (!bundleId || !userId || !media || typeof media !== 'object') {
+  if (!bundleId || userId == null || !media || typeof media !== 'object') {
     log.warn('Invalid parameters for media add:', { bundleId, userId, media })
     return
   }

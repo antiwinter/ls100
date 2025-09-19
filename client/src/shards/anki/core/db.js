@@ -46,7 +46,7 @@ db.version(2).stores({
   // - fsrs: array of FSRS state history [newest, older, oldest] - source of truth
   // - created/modified: timestamps
   // Used by: studyEngine for scheduling (fast filters on due/state), ankiApi for CRUD operations
-  media: 'nvId, bundleId, userId'
+  media: '++id, nvId, bundleId, userId, filename'
   // Media table: Tracks media ownership for OSS cleanup
   // Schema: { nvId, bundleId, userId, filename, created }
   // - nvId: unique media identifier (content-based hash)

@@ -1,7 +1,7 @@
 import db from './db.js'
 import noteManager from './noteManager.js'
 import mediaManager from './mediaManager.js'
-import { render } from '../render/renderDefault.js'
+import { createRender } from '../render/renderDefault.js'
 import { StudyEngine } from './studyEngine.js'
 import { log } from '../../../utils/logger.js'
 import { genId } from '../../../utils/idGenerator.js'
@@ -106,7 +106,7 @@ async function _cleanupOrphans() {
 export const anki = {
   noteManager,
   mediaManager,
-  render,
+  createRender,
   StudyEngine,
   findMedia,
 
