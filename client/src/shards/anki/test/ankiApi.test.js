@@ -20,7 +20,8 @@ describe('AnkiApi', () => {
     const all = await anki.getCardsForBundles([bundleId])
     expect(all.length).toBe(1)
 
-    const rendered = await anki.render(all[0])
+    const renderer = await anki.createRender(all)
+    const rendered = await renderer.render(all[0])
     expect(rendered.front).toBe('Q')
   })
 })

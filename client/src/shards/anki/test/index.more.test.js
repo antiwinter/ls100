@@ -37,7 +37,8 @@ describe('anki core/index.js API coverage', () => {
     expect(fetched.length).toBe(1)
     expect(fetched[0].noteId).toBe(note.id)
 
-    const rendered = await anki.render(fetched[0])
+    const renderer = await anki.createRender(fetched)
+    const rendered = await renderer.render(fetched[0])
     expect(rendered.front).toBe('Q')
 
     // Empty/undefined bundleIds should return empty array

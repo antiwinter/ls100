@@ -46,7 +46,7 @@ async function add(bundleId, userId, media) {
 
 // Remove media references and cleanup OSS if no more references
 async function remove(bundleId, userId, filenames) {
-  if (!bundleId || !userId) {
+  if (!bundleId || userId == null) {
     log.warn('Invalid parameters for media remove:', { bundleId, userId })
     return
   }

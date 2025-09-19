@@ -25,23 +25,28 @@ describe('MediaManager users edge cases', () => {
     const qfmt = '<img src="a.png">'
     await anki.addTemplate(bid, 't', qfmt, '{{F}}', blobs)
 
-    // Fetch stored template and resolve nvId from cooked qfmt
+    // Fetch stored template and get nvId from media references (render-time cooking)
     const [tp] = await anki.getTemplates(bid)
-    const nvIdMatch = tp.qfmt.match(/\/media\/([a-zA-Z0-9-_]+)/)
-    expect(nvIdMatch).toBeTruthy()
-    const nvId = nvIdMatch[1]
+    expect(tp.qfmt).toContain('a.png') // Raw filename stored
+    
+    // Get nvId from media references table
+    const mediaRefs = await db.media.where('bundleId').equals(bid)
+      .and(ref => ref.filename === 'a.png').toArray()
+    expect(mediaRefs.length).toBeGreaterThan(0)
+    const nvId = mediaRefs[0].nvId
 
-    // Create a note that still references the same cooked media (no blobs provided)
-    const cookedField = tp.qfmt // contains /media/<nvId>
-    await anki.noteManager.create(bid, [cookedField], [])
+    // Create a note that references the same media filename (raw)
+    const fieldWithMedia = '<img src="a.png">' 
+    const { note } = await anki.noteManager.create(bid, [fieldWithMedia], [], blobs)
 
     // Now remove the template; media is still referenced by the note
     await anki.removeTemplate(tp)
 
     // EXPECTATION: media reference should still exist (note still using it)
-    const ref = await db.media.where({ nvId, noteId: note.id }).first()
+    const ref = await db.media.where('nvId').equals(nvId)
+      .and(mediaRef => mediaRef.userId === note.id).first()
     expect(ref).toBeTruthy()
-    expect(ref.noteId).toBe(note.id)
+    expect(ref.userId).toBe(note.id)
   })
 
   test('media is deleted when no instances reference it anymore (template and note removed)', async () => {
@@ -53,13 +58,16 @@ describe('MediaManager users edge cases', () => {
     await anki.addTemplate(bid, 't', qfmt, '{{F}}', blobs)
     const [tp] = await anki.getTemplates(bid)
 
-    // Extract nvId
-    const nvIdMatch = tp.qfmt.match(/\/media\/([a-zA-Z0-9-_]+)/)
-    const nvId = nvIdMatch && nvIdMatch[1]
+    // Get nvId from media references (render-time cooking approach)
+    expect(tp.qfmt).toContain('a.png') // Raw filename stored
+    const mediaRefs = await db.media.where('bundleId').equals(bid)
+      .and(ref => ref.filename === 'a.png').toArray()
+    expect(mediaRefs.length).toBeGreaterThan(0)
+    const nvId = mediaRefs[0].nvId
 
-    // Create a note referencing same cooked media
-    const cookedField = tp.qfmt
-    const { note } = await anki.noteManager.create(bid, [cookedField], [])
+    // Create a note referencing same media filename (raw)
+    const fieldWithMedia = '<img src="a.png">'
+    const { note } = await anki.noteManager.create(bid, [fieldWithMedia], [], blobs)
 
     // Remove template first (decrement)
     await anki.removeTemplate(tp)

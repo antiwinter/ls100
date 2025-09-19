@@ -71,7 +71,7 @@ describe('noteManager advanced coverage', () => {
     // Create note with media A and B
     const filenamesA = await anki.findMedia('<img src="a.png">')
     const filenamesB = await anki.findMedia('<img src="b.png">')
-      const { note } = await anki.noteManager.create(bid, [fieldA, fieldB], [], blobs)
+    const { note } = await anki.noteManager.create(bid, ['<img src="a.png">', '<img src="b.png">'], [], blobs)
 
     const mediaAddSpy = vi.spyOn(mediaManager, 'add')
     const mediaRemoveSpy = vi.spyOn(mediaManager, 'remove')
