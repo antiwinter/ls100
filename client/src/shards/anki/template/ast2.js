@@ -50,7 +50,7 @@ export function parseTemplate(str) {
     let _n = {
       type: 'block',
       inv: sig === '^',
-      name: m[1].slice(1),
+      name: m[1].slice(1).trim(),
       sub: []
     }
     switch (sig) {
@@ -60,7 +60,10 @@ export function parseTemplate(str) {
       stack.unshift(_n)
       break
     case '/':
-      stack.shift()
+      // Only shift if there's a block to close (ignore unmatched closing blocks)
+      if (stack.length > 1) {
+        stack.shift()
+      }
       break
     default:
       sig = ''
@@ -74,7 +77,7 @@ export function parseTemplate(str) {
       const filters = m[1].split(':')
       stack[0]?.sub.push({
         type: 'field',
-        name:filters.pop(),
+        name: filters.pop().trim(),
         filters
       })
     }

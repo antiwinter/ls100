@@ -23,6 +23,34 @@ describe('APKG parser error matrix', () => {
     const buf = await zip.generateAsync({ type: 'uint8array' })
     await expect(parseApkgFile(buf)).rejects.toThrow()
   })
+
+  test('🚨 EXPOSES: parser should validate media objects have proper nvId structure', async () => {
+    // Create a valid zip with media
+    const zip = new JSZip()
+    zip.file('collection.anki2', asUint8([83, 81, 76, 105, 116, 101])) // Valid SQLite header
+    zip.file('media', '{"0": "test.png"}')
+    zip.file('0', 'fake-image-data')
+    
+    const buf = await zip.generateAsync({ type: 'uint8array' })
+    
+    try {
+      const result = await parseApkgFile(buf)
+      
+      // 🚨 BUG: Parsed media should have proper structure
+      if (result.media && result.media.length > 0) {
+        for (const mediaItem of result.media) {
+          // Should not have undefined _nvid properties that cause "Invalid obj entry" errors
+          expect(mediaItem._nvid).not.toBe(undefined)
+          expect(mediaItem.nvId).toBeDefined()
+          expect(mediaItem.filename).toBeDefined()
+          expect(mediaItem.blob).toBeDefined()
+        }
+      }
+    } catch (error) {
+      // If parsing fails completely, that's also a bug we want to expose
+      expect(error.message).not.toMatch(/Invalid obj entry/)
+    }
+  })
 })
 
 

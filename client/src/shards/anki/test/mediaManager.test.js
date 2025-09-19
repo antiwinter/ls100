@@ -36,6 +36,29 @@ describe('MediaManager', () => {
     expect(ref.nvId).toBeTruthy()
   })
 
+  test('🚨 EXPOSES: media objects should have proper structure (no _nvid undefined)', async () => {
+    const blobs = { 'test.png': makeBlob('content', 'image/png') }
+    await mediaManager.add('test-bundle', 'test-user', blobs)
+    
+    // 🚨 BUG: Media processing creates malformed objects with _nvid: undefined
+    // This should catch the "Invalid obj entry" errors from stderr
+    const refs = await db.media.where('bundleId').equals('test-bundle').toArray()
+    expect(refs).toHaveLength(1)
+    
+    const mediaObj = refs[0]
+    // These should all be properly defined - no undefined values
+    expect(mediaObj.nvId).toBeDefined()
+    expect(mediaObj.nvId).not.toBe(undefined)
+    expect(mediaObj.filename).toBeDefined()
+    expect(mediaObj.bundleId).toBeDefined()
+    expect(mediaObj.userId).toBeDefined()
+    
+    // Should not have malformed internal properties
+    expect(mediaObj._nvid).toBeUndefined() // Internal property should not exist
+    expect(Object.keys(mediaObj)).not.toContain('_nvid')
+    expect(Object.keys(mediaObj)).not.toContain('blob') // Blob should be in OSS, not here
+  })
+
   test('add/remove maintains references and cleans up when empty', async () => {
     const html = '<img src="a.png">'
     const blobs = { 'a.png': makeBlob('imgdata', 'image/png') }

@@ -13,6 +13,11 @@ const fsrs = new FSRS()
 
 // Study Engine class
 export class StudyEngine {
+  constructor(sessionStore) {
+    this.sessionStore = sessionStore
+    this.session = null
+    this.timeTracker = null
+  }
 
   // Initialize study session with proper session management
   async init(session) {
@@ -82,6 +87,8 @@ export class StudyEngine {
 
   // Card Drawing with Strategy-Based Selection
   draw() {
+    // Handle empty session gracefully
+    if (!this.session) return null
     const ss = this.session
     const { pile } = ss
 
@@ -123,10 +130,12 @@ export class StudyEngine {
 
   // Rate current card and update scheduling
   async rate(rating) {
+    // Handle empty session gracefully
+    if (!this.session) return
     const ss = this.session
     const c0 = ss.currentCard
     if (!c0)
-      throw new Error('No active card or session')
+      throw new Error('No active card')
 
     // FSRS Rating Process:
     // 1. Get current FSRS state (always at index 0 - newest entry)
@@ -175,6 +184,8 @@ export class StudyEngine {
   // Undo last step using action log
   async undo() {
     const ss = this.session
+    // Handle empty session gracefully
+    if (!ss) return null
     // Need at least 2 actions: can't undo if only one card drawn (not rated yet)
     if ((ss.actionLog?.length || 0) < 2)
       return null

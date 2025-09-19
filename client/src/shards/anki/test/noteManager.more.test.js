@@ -30,6 +30,48 @@ describe('noteManager advanced coverage', () => {
     expect((await db.cards.where('noteId').equals(note.id).toArray()).length).toBe(1)
   })
 
+  test('🚨 EXPOSES: media detection should find all media types and validate objects', async () => {
+    const bid = 'b-media-test'
+    await anki.addBundle(bid, 'Multi-Media', ['Content'])
+    await anki.addTemplate(bid, 'Rich', '{{Content}}', '{{Content}}', 0)
+    
+    // Complex media content with multiple types
+    const content = `
+      <img src="image.png">
+      <audio controls><source src="audio.mp3"></audio>
+      [sound:sound.wav]
+      <video src="video.mp4"></video>
+    `
+    
+    const blobs = {
+      'image.png': makeBlob('img-data', 'image/png'),
+      'audio.mp3': makeBlob('audio-data', 'audio/mp3'),
+      'sound.wav': makeBlob('sound-data', 'audio/wav'),
+      'video.mp4': makeBlob('video-data', 'video/mp4')
+    }
+    
+    const { note, cards } = await anki.noteManager.create(bid, [content], [], blobs)
+    
+    // Should find all 4 media files
+    const mediaRefs = await db.media.where('bundleId').equals(bid)
+      .and(ref => ref.userId === note.id).toArray()
+    
+    // 🚨 BUG: Should detect all media types, not miss any
+    expect(mediaRefs.length).toBe(4) // Should find all 4 files
+    
+    // 🚨 BUG: All media objects should be properly structured
+    for (const mediaRef of mediaRefs) {
+      expect(mediaRef.nvId).toBeDefined()
+      expect(mediaRef.nvId).not.toBe(undefined)
+      expect(mediaRef.filename).toBeDefined()
+      expect(['image.png', 'audio.mp3', 'sound.wav', 'video.mp4']).toContain(mediaRef.filename)
+      
+      // Should not have malformed properties that cause "Invalid obj entry" warnings
+      expect(Object.keys(mediaRef)).not.toContain('_nvid')
+      expect(Object.keys(mediaRef)).not.toContain('blob')
+    }
+  })
+
   test('update stores new fields and updates modified time', async () => {
     const bid = 'b-upd'
     await anki.addBundle(bid, 'Basic', ['F'])

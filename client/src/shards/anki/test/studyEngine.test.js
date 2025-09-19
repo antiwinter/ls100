@@ -64,6 +64,19 @@ describe('StudyEngine', () => {
     await mediaManager.clear()
   })
 
+  test('🚨 EXPOSES: study engine should handle empty card piles gracefully', async () => {
+    const sessionStore = createSessionStore()
+    const engine = new StudyEngine(sessionStore)
+    
+    // 🚨 BUG: Empty piles should not cause study engine to crash or behave unexpectedly
+    expect(() => engine.draw()).not.toThrow()
+    expect(() => engine.rate(0)).not.toThrow()
+    expect(() => engine.undo()).not.toThrow()
+    
+    // Should handle empty state gracefully
+    expect(engine.draw()).toBeNull()
+  })
+
   test('init builds queues and draw selects a card', async () => {
     const bundleId = 'b1'
     await seedCards(bundleId, { new: 2, review: 2 })

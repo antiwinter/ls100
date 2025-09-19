@@ -22,7 +22,7 @@ export class AnkiRender {
 
   _getField(f, k) {
     const i = this.fieldIdx[k]
-    return (i !== undefined && f[i]) || ''
+    return (i !== undefined && f && f[i]) || ''
   }
 
   _applyFilters(v, filters) {
