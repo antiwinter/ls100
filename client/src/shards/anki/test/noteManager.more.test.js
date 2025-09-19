@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest'
 import db from '../core/db.js'
 import { anki } from '../core/index.js'
-import mediaManager from '../../../utils/mediaManager.js'
+import mediaManager from '../core/mediaManager.js'
 
 function makeBlob(content, type = 'text/plain') {
   return new Blob([content], { type })

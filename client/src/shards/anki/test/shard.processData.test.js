@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach } from 'vitest'
 import db from '../core/db.js'
-import mediaManager from '../../../utils/mediaManager.js'
+import mediaManager from '../core/mediaManager.js'
 import { processData } from '../AnkiShard.js'
 
 describe('AnkiShard.processData', () => {

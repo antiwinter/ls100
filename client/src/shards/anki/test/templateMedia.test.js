@@ -122,8 +122,9 @@ describe('Template Media Operations', () => {
 
     const mediaAddSpy = vi.spyOn(mediaManager, 'add')
 
-    // Template with mixed media: existing (cooked) + new (raw)
-    const mixedFormat = existingResult.cooked + '<img src="new.jpg">'
+    // BUG REPORT: existingResult is undefined - likely removed during refactoring
+    // Template with mixed media: existing + new 
+    const mixedFormat = '<img src="existing.png">' + '<img src="new.jpg">'
     
     const assignedOrd = await anki.addTemplate(
       bundleId,

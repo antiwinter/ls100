@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest'
 import { proxy } from 'valtio'
 import db from '../core/db.js'
-import mediaManager from '../../../utils/mediaManager.js'
+import mediaManager from '../core/mediaManager.js'
 import { StudyEngine } from '../core/studyEngine.js'
 
 function store(init = {}) {

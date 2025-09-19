@@ -3,7 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import db from '../core/db.js'
-import mediaManager from '../../../utils/mediaManager.js'
+import mediaManager from '../core/mediaManager.js'
 import { parseApkgFile, importApkgData } from '../apkg/index.js'
 import { log } from '../../../utils/logger'
 
