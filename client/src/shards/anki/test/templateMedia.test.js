@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest'
 import { anki } from '../core/index.js'
 import db from '../core/db.js'
-import mediaManager from '../../../utils/oss.js'
+import mediaManager from '../core/mediaManager.js'
 
 function makeBlob(content, type = 'text/plain') {
   return new Blob([content], { type })
@@ -112,7 +112,7 @@ describe('Template Media Operations', () => {
       'existing.png': makeBlob('existing media content', 'image/png')
     }
     const existingResult = await anki.findMedia('<img src="existing.png">', existingBlobs)
-    await mediaManager.add(existingResult.media, 'test-template')
+    await mediaManager.add(existingResult.media, { bundleId: 'test-bundle', templateOrd: 0 })
 
     const allBlobs = {
       'existing.png': makeBlob('existing media content', 'image/png'), // Same content, should not duplicate

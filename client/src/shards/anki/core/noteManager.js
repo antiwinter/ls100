@@ -1,7 +1,7 @@
 import db from './db.js'
 import { log } from '../../../utils/logger'
 import { genId } from '../../../utils/idGenerator.js'
-import mediaManager from '../../../utils/oss.js'
+import mediaManager from './mediaManager.js'
 import { render } from '../render/renderDefault.js'
 import { checkEligibility } from '../template/index.js'
 
@@ -29,7 +29,7 @@ async function _create(bundleId, fields, tags = [], media = {}) {
 
   // Add media references
   if (result.media.length > 0) {
-    await mediaManager.add(result.media, note.id)
+    await mediaManager.add(result.media, { noteId: note.id })
   }
 
   return note
@@ -115,20 +115,22 @@ async function update(noteId, fields, tags, media = {}) {
     const oldResult = await anki.findMedia(note.fields, {})
     const newResult = await anki.findMedia(fields, media)
 
-    const oldNvIds = oldResult.media.map(m => m.nvId)
-    const newNvIds = newResult.media.map(m => m.nvId)
+
+    // Get old and new filenames for comparison
+    const oldFilenames = oldResult.media.map(m => m.filename)
+    const newFilenames = newResult.media.map(m => m.filename)
 
     // Remove old media that's no longer referenced
-    const toRemove = oldNvIds.filter(id => !newNvIds.includes(id))
+    const toRemove = oldFilenames.filter(f => !newFilenames.includes(f))
     if (toRemove.length > 0) {
-      await mediaManager.remove(toRemove, noteId)
+      await mediaManager.remove(toRemove, { noteId })
     }
 
     // Add new media references (only truly new ones)
-    const toAdd = newNvIds.filter(id => !oldNvIds.includes(id))
+    const toAdd = newFilenames.filter(f => !oldFilenames.includes(f))
     if (toAdd.length > 0) {
-      const newMediaToAdd = newResult.media.filter(m => toAdd.includes(m.nvId))
-      await mediaManager.add(newMediaToAdd, noteId)
+      const newMediaToAdd = newResult.media.filter(m => toAdd.includes(m.filename))
+      await mediaManager.add(newMediaToAdd, { noteId })
     }
   }
 
@@ -148,9 +150,9 @@ async function delete_(note) {
     // Remove media references from all fields
     const { anki } = await import('./index.js')
     const result = await anki.findMedia(note.fields, {})
-    const nvIds = result.media.map(m => m.nvId)
-    if (nvIds.length > 0) {
-      await mediaManager.remove(nvIds, note.id)
+    const filenames = result.media.map(m => m.filename)
+    if (filenames.length > 0) {
+      await mediaManager.remove(filenames, { noteId: note.id })
     }
   }
 

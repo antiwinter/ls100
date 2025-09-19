@@ -25,36 +25,20 @@ export async function createRender(cards) {
     return null
   }
 
-  // Build f2nvid mapping from note fields
-  // 1. Fetch notes associated with cards
+  // Build f2nvid map by querying media table
+  // Get all noteIds from cards and all templates (bundleId/templateOrd)
   const noteIds = [...new Set(cards.map(c => c.noteId))]
-  const notes = await db.notes.where('id').anyOf(noteIds).toArray()
+  const bundleIds = [...new Set(cards.map(c => c.bundleId))]
 
-  // 2. Find nvIds in note fields
-  const nvIds = new Set()
-  for (const note of notes) {
-    for (const field of note.fields || []) {
-      const mediaMatches = field.match(/\/media\/([a-zA-Z0-9-_]+)/g) || []
-      for (const match of mediaMatches) {
-        const nvId = match.replace('/media/', '')
-        nvIds.add(nvId)
-      }
-    }
-  }
-
-  // 3. Find filename of each nvId with mediaManager
   const f2nvid = {}
-  // Import OssDB directly from mediaManager
-  const Dexie = (await import('dexie')).default
-  const mediaDb = new Dexie('OssDB')
-  mediaDb.version(1).stores({ media: 'id, type, refCount, created' })
-  await mediaDb.open()
 
-  for (const nvId of nvIds) {
-    const mediaRecord = await mediaDb.media.get(nvId)
-    if (mediaRecord?.filename) {
-      f2nvid[mediaRecord.filename] = nvId
-    }
+  // Query media references for both notes and templates in one go
+  const allRefs = await db.media.where('bundleId').anyOf(bundleIds)
+    .filter(ref => noteIds.includes(ref.noteId) || ref.noteId === null)
+    .toArray()
+  
+  for (const ref of allRefs) {
+    f2nvid[ref.filename] = ref.nvId
   }
 
   // Create render context with all needed data

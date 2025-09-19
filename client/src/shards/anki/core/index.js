@@ -1,6 +1,6 @@
 import db from './db.js'
 import noteManager from './noteManager.js'
-import mediaManager from '../../../utils/oss.js'
+import mediaManager from './mediaManager.js'
 import { render } from '../render/renderDefault.js'
 import { StudyEngine } from './studyEngine.js'
 import { log } from '../../../utils/logger.js'
@@ -19,7 +19,12 @@ async function findMedia(fields, blobs = {}) {
     const soundMatches = field.match(/\[sound:([^\]]+)\]/g) || []
     for (const match of soundMatches) {
       const filename = match.replace(/\[sound:([^\]]+)\]/, '$1')
-      await _linkMedia(filename, blobs, media)
+      if (filename && blobs[filename]) {
+        media.push({
+          filename,
+          blob: blobs[filename]
+        })
+      }
     }
 
     // Extract filenames from HTML media tags
@@ -28,32 +33,18 @@ async function findMedia(fields, blobs = {}) {
       const srcMatch = match.match(/\b(?:src|data)=["']?([^"'\s>]+)["']?/)
       if (srcMatch) {
         const filename = srcMatch[1]
-        await _linkMedia(filename, blobs, media)
+        if (filename && blobs[filename]) {
+          media.push({
+            filename,
+            blob: blobs[filename]
+          })
+        }
       }
     }
   }
 
   return { media }
 }
-
-// Process individual media file (internal)
-async function _linkMedia(filename, blobs, mediaArray) {
-  if (!filename || !blobs[filename]) return
-
-  const blob = blobs[filename]
-  const nvId = await mediaManager.blob2NvId(blob)
-
-  // Add to media array (avoid duplicates)
-  if (!mediaArray.find(m => m.nvId === nvId)) {
-    mediaArray.push({
-      nvId,
-      filename,
-      blob
-    })
-  }
-}
-
-
 
 // Remove a template and its media references
 async function _removeTemplate(template) {
@@ -62,9 +53,15 @@ async function _removeTemplate(template) {
   // Remove media references from template formats
   const qResult = await findMedia(template.qfmt, {})
   const aResult = await findMedia(template.afmt, {})
-  const allNvIds = [...qResult.media.map(m => m.nvId), ...aResult.media.map(m => m.nvId)]
-  if (allNvIds.length > 0) {
-    await mediaManager.remove(allNvIds, template.id)
+  const allFilenames = [
+    ...qResult.media.map(m => m.filename),
+    ...aResult.media.map(m => m.filename)
+  ]
+  if (allFilenames.length > 0) {
+    await mediaManager.remove(allFilenames, {
+      bundleId: template.bundleId,
+      templateOrd: template.ord
+    })
   }
   // Remove template from database
   await db.templates.delete(template.id)
@@ -153,7 +150,7 @@ export const anki = {
     // Add media references
     const allMedia = [...qResult.media, ...aResult.media]
     if (allMedia.length > 0) {
-      await mediaManager.add(allMedia, template.id)
+      await mediaManager.add(allMedia, { bundleId, templateOrd: ord })
     }
 
     return ord // Return the assigned ord for mapping

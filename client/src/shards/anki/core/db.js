@@ -33,7 +33,7 @@ db.version(1).stores({
   // - vdeck: target virtual deck (single string, e.g., "Spanish::Verbs")
   // - created: timestamp when template was created
   // Used by: cardRender for rendering card content, noteManager for template lookup
-  cards: 'id, noteId, bundleId, due, state'
+  cards: 'id, noteId, bundleId, due, state',
   // Cards table: Individual study cards with scheduling data
   // Schema: { id, noteId, templateOrd, bundleId, vdeck[], due, state, fsrs[], created, modified }
   // - id: unique card identifier (generated)
@@ -46,6 +46,16 @@ db.version(1).stores({
   // - fsrs: array of FSRS state history [newest, older, oldest] - source of truth
   // - created/modified: timestamps
   // Used by: studyEngine for scheduling (fast filters on due/state), ankiApi for CRUD operations
+  media: 'nvId, bundleId, templateOrd, noteId'
+  // Media table: Tracks media ownership for OSS cleanup
+  // Schema: { nvId, bundleId?, templateOrd?, noteId?, filename, created }
+  // - nvId: unique media identifier (content-based hash)
+  // - bundleId: bundle identifier for content organization
+  // - templateOrd: template ordinal if owned by template, null if owned by note
+  // - noteId: note ID if owned by note, null if owned by template
+  // - filename: original filename for reference
+  // - created: timestamp when reference was created
+  // Used by: mediaManager for tracking references and OSS cleanup
 })
 
 // Auto-timestamps for notes

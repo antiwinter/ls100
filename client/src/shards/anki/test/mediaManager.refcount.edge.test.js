@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach } from 'vitest'
 import db from '../core/db.js'
 import { anki } from '../core/index.js'
-import mediaManager from '../../../utils/oss.js'
+import mediaManager from '../core/mediaManager.js'
 
 function makeBlob(content, type = 'text/plain') {
   return new Blob([content], { type })
@@ -38,13 +38,10 @@ describe('MediaManager users edge cases', () => {
     // Now remove the template; media is still referenced by the note
     await anki.removeTemplate(tp)
 
-    // EXPECTATION: media record should still exist (users should contain note)
-    const Dexie = (await import('dexie')).default
-    const mediaDb = new Dexie('OssDB')
-    mediaDb.version(1).stores({ media: 'id, type, created' })
-    const stored = await mediaDb.media.get(nvId)
-    expect(stored).toBeTruthy()
-    expect(stored?.users || []).toContain(note.id)
+    // EXPECTATION: media reference should still exist (note still using it)
+    const ref = await db.media.where({ nvId, noteId: note.id }).first()
+    expect(ref).toBeTruthy()
+    expect(ref.noteId).toBe(note.id)
   })
 
   test('media is deleted when no instances reference it anymore (template and note removed)', async () => {
@@ -69,12 +66,9 @@ describe('MediaManager users edge cases', () => {
     // Remove the note (decrement)
     await anki.noteManager.delete(note)
 
-    // Verify the media record is gone
-    const Dexie = (await import('dexie')).default
-    const mediaDb = new Dexie('OssDB')
-    mediaDb.version(1).stores({ media: 'id, type, created' })
-    const stored = await mediaDb.media.get(nvId)
-    expect(stored).toBeUndefined()
+    // Verify no media references remain
+    const remaining = await db.media.where('nvId').equals(nvId).count()
+    expect(remaining).toBe(0)
   })
 })
 
