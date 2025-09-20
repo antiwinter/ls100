@@ -93,10 +93,15 @@ export class AnkiRender {
   }
 
   _tune(str) {
-    // Replace [sound:filename] with <audio> tags
+    // Replace [sound:filename] with enhanced audio player structure
     str = str.replace(/\[sound:([^\]]+)\]/g, (match, filename) => {
       const nvId = this.f2nvid[filename]
-      return nvId ? `<audio controls><source src="/oss/${nvId}"></audio>` : match
+      return nvId ? `<div class="anki-audio">
+        <span class="play-icon">▶</span>
+        <audio data-filename="${filename}">
+          <source src="/oss/${nvId}" type="audio/mpeg">
+        </audio>
+      </div>` : match
     })
 
     // Replace filename references in HTML media tags with /oss/nvid
