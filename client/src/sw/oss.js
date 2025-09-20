@@ -1,15 +1,11 @@
-import Dexie from 'dexie'
 import { decompress as dec } from 'fzstd'
 import { log } from './util.js'
 import { fileTypeFromBuffer } from 'file-type'
-
-// Simple media DB used by both dev and prod service workers
-const db = new Dexie('OssDB')
-db.version(1).stores({ media: 'id, type, refCount, created' })
+import oss from '../utils/oss.js'
 
 // Decompress and detect proper MIME type
-const processMedia = async (media) => {
-  const { blob } = media
+const processObj = async (obj) => {
+  const { blob } = obj
   try {
     let x = new Uint8Array(await blob.arrayBuffer())
 
@@ -21,38 +17,38 @@ const processMedia = async (media) => {
       type = await fileTypeFromBuffer(x)
     }
 
-    type = type?.mime || media.type || blob.type || 'application/octet-stream'
-    // log.debug('processed media', media.filename, type, _l, x.length)
+    type = type?.mime || obj.type || blob.type || 'application/octet-stream'
+    // log.debug('processed obj', obj.filename, type, _l, x.length)
     return new Blob([x], { type })
   } catch (error) {
-    log.warn('processMedia failed', error)
+    log.warn('processObj failed', error)
     return blob
   }
 }
 
-export function attachMediaHandler(selfRef = self) {
+export function attachOssHandler(selfRef = self) {
   selfRef.addEventListener('fetch', (event) => {
-    // log.info('Media handler fetch event', event)
+    // log.info('OSS handler fetch event', event)
 
     const { request } = event
     const url = new URL(request.url)
-    if (!url.pathname.startsWith('/media/')) return
+    if (!url.pathname.startsWith('/oss/')) return
 
-    event.respondWith(handleMediaRequest(request, url))
+    event.respondWith(handleOssRequest(request, url))
   })
 }
 
-export async function handleMediaRequest(request, url) {
-  const id = url.pathname.replace('/media/', '')
+export async function handleOssRequest(request, url) {
+  const id = url.pathname.replace('/oss/', '')
 
   try {
-    const media = await db.media.get(id)
-    if (!media?.blob) {
-      return new Response('Media Not Found', { status: 404 })
+    const obj = await oss.getObj(id)
+    if (!obj?.blob) {
+      return new Response('Object Not Found', { status: 404 })
     }
 
     // Decompress and detect proper MIME type
-    const blob = await processMedia(media)
+    const blob = await processObj(obj)
 
     const rangeHeader = request.headers.get('Range')
     if (!rangeHeader) {

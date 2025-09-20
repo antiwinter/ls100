@@ -1,7 +1,7 @@
 import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching'
 import { registerRoute } from 'workbox-routing'
 import { CacheFirst, NetworkFirst } from 'workbox-strategies'
-import { attachMediaHandler } from './media'
+import { attachOssHandler } from './oss'
 
 // Precache will be injected at build time
 precacheAndRoute(self.__WB_MANIFEST || [])
@@ -27,6 +27,6 @@ registerRoute(
   })
 )
 
-attachMediaHandler(self)
+attachOssHandler(self)
 
 

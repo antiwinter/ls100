@@ -14,16 +14,16 @@ registerFilter('text', (v) => v)
 registerFilter('furigana', (v) => {
   if (!v) return ''
   // Match sequences that don't cross hiragana boundaries (ひらがな range: \u3040-\u309f)
-  return String(v).replace(/([^\u3040-\u309f\s\[\]]+)\[([^\]]*)\]/g, (_m, kanji, reading) => {
+  return String(v).replace(/([^\u3040-\u309f\s[\]]+)\[([^\]]*)\]/g, (_m, kanji, reading) => {
     return `<ruby>${kanji}<rt>${reading}</rt></ruby>`
   })
 })
 
-// Strip bracketed readings to plain kana text (kanji[reading] -> reading)  
+// Strip bracketed readings to plain kana text (kanji[reading] -> reading)
 registerFilter('kana', (v) => {
   if (!v) return ''
   // Match sequences that don't cross hiragana boundaries (ひらがな range: \u3040-\u309f)
-  return String(v).replace(/([^\u3040-\u309f\s\[\]]+)\[([^\]]*)\]/g, (_m, _kanji, reading) => reading)
+  return String(v).replace(/([^\u3040-\u309f\s[\]]+)\[([^\]]*)\]/g, (_m, _kanji, reading) => reading)
 })
 
 // Placeholders for future implementation

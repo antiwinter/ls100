@@ -148,11 +148,23 @@ async function getStats() {
   }
 }
 
+// Get object by ID - for service worker and other consumers
+async function getObj(id) {
+  try {
+    const obj = await db.obj.get(id)
+    return obj || null
+  } catch (error) {
+    log.error('Failed to get obj:', id, error)
+    return null
+  }
+}
+
 export default {
   blob2NvId,
   add,
   remove,
   getStats,
+  getObj,
   // Test-helper & maintenance: clear all obj records
   async clear() {
     try {

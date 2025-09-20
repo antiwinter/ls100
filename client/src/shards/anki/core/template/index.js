@@ -71,10 +71,10 @@ export class AnkiRender {
 
     fieldDefs.forEach((f, i) => this.fieldIdx[f] = i)
 
-    // Replace filenames in CSS url() declarations with /media/nvid
+    // Replace filenames in CSS url() declarations with /oss/nvid
     this.css = css.replace(/url\(['"]?([^'")]+)['"]?\)/gi, (match, filename) => {
       const nvId = this.f2nvid[filename]
-      return nvId ? `url("/media/${nvId}")` : match
+      return nvId ? `url("/oss/${nvId}")` : match
     })
   }
 
@@ -96,13 +96,13 @@ export class AnkiRender {
     // Replace [sound:filename] with <audio> tags
     str = str.replace(/\[sound:([^\]]+)\]/g, (match, filename) => {
       const nvId = this.f2nvid[filename]
-      return nvId ? `<audio controls><source src="/media/${nvId}"></audio>` : match
+      return nvId ? `<audio controls><source src="/oss/${nvId}"></audio>` : match
     })
 
-    // Replace filename references in HTML media tags with /media/nvid
+    // Replace filename references in HTML media tags with /oss/nvid
     str = str.replace(/<(img|audio|video|source|object)\b[^>]*\b(?:src|data)=["']?([^"'\s>]+)["']?[^>]*>/gi, (match, tag, src) => {
       const nvId = this.f2nvid[src]
-      return nvId ? match.replace(/\b(?:src|data)=["']?[^"'\s>]+["']?/, `src="/media/${nvId}"`) : match
+      return nvId ? match.replace(/\b(?:src|data)=["']?[^"'\s>]+["']?/, `src="/oss/${nvId}"`) : match
     })
 
     return str

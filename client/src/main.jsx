@@ -6,7 +6,7 @@ import { log } from './utils/logger.js'
 
 // Register service worker
 if (import.meta.env.DEV) {
-  // During dev, register root-served dev SW so /media/* works
+  // During dev, register root-served dev SW so /oss/* works
   navigator.serviceWorker?.register('/sw-dev.js', { scope: '/', type: 'module' })
     .then(registration => {
       log.info('[MAIN] Service worker registered:', registration.scope)

@@ -398,7 +398,7 @@ describe('Template System - AnkiRender Class', () => {
       const result = testRenderer.render(note, 0)
       
       expect(result.front).toContain('<audio controls>')
-      expect(result.front).toContain('src="/media/obj-def456"')
+      expect(result.front).toContain('src="/oss/obj-def456"')
     })
 
     test('converts img src to media URLs', () => {
@@ -413,7 +413,7 @@ describe('Template System - AnkiRender Class', () => {
       const note = { fields: ['', ''] }
       const result = testRenderer.render(note, 0)
       
-      expect(result.front).toBe('<img src="/media/obj-abc123">')
+      expect(result.front).toBe('<img src="/oss/obj-abc123">')
     })
 
     test('leaves unknown media files unchanged', () => {
@@ -446,8 +446,8 @@ describe('Template System - AnkiRender Class', () => {
       const note = { fields: ['', ''] }
       const result = testRenderer.render(note, 0)
       
-      expect(result.front).toContain('src="/media/obj-abc123"')
-      expect(result.front).toContain('src="/media/obj-def456"')
+      expect(result.front).toContain('src="/oss/obj-abc123"')
+      expect(result.front).toContain('src="/oss/obj-def456"')
       expect(result.front).toContain('src="unknown.mp4"') // Unchanged
     })
   })
