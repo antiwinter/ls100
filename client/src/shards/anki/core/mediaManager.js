@@ -5,7 +5,7 @@ import _ from 'lodash'
 
 
 // Extract media filenames from fields
-export async function findMedia(fields) {
+async function _findMedia(fields) {
   if (!Array.isArray(fields)) fields = [fields]
 
   const filenames = []
@@ -145,26 +145,26 @@ async function clear() {
   }
 }
 
-// Fuzzy add media - handles findMedia + _.pick + add pattern
-export async function fuzzyAdd(bundleId, userId, content, mediaPool = {}) {
-  const filenames = await findMedia(content)
+// Fuzzy add media - handles _findMedia + _.pick + add pattern
+async function fuzzyAdd(bundleId, userId, content, mediaPool = {}) {
+  const filenames = await _findMedia(content)
   if (filenames.length === 0) return []
 
   const mediaObject = _.pick(mediaPool, filenames)
   if (Object.keys(mediaObject).length > 0) {
     await add(bundleId, userId, mediaObject)
-    log.debug(`Fuzzy added ${Object.keys(mediaObject).length} media files`)
+    // log.debug(`Fuzzy added ${Object.keys(mediaObject).length} media files`)
   }
 
   return filenames
 }
 
-// Fuzzy remove media - handles findMedia + remove pattern
-export async function fuzzyRemove(bundleId, userId, content) {
-  const filenames = await findMedia(content)
+// Fuzzy remove media - handles _findMedia + remove pattern
+async function fuzzyRemove(bundleId, userId, content) {
+  const filenames = await _findMedia(content)
   if (filenames.length > 0) {
     await remove(bundleId, userId, filenames)
-    log.debug(`Fuzzy removed ${filenames.length} media files`)
+    // log.debug(`Fuzzy removed ${filenames.length} media files`)
   }
 
   return filenames

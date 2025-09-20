@@ -1,7 +1,7 @@
 import { Filters } from './filters/index.js'
 import { parseTemplate } from './ast2.js'
 import db from '../db.js'
-import { fuzzyAdd, fuzzyRemove } from '../mediaManager.js'
+import mediaManager from '../mediaManager.js'
 import { log } from '../../../../utils/logger.js'
 import { genId } from '../../../../utils/idGenerator.js'
 
@@ -14,7 +14,7 @@ export async function addTemplate(bundleId, name, qfmt, afmt, media = {}) {
   const ord = maxOrd + 1
 
   // Add media using fuzzy pattern
-  await fuzzyAdd(bundleId, ord, qfmt + afmt, media)
+  await mediaManager.fuzzyAdd(bundleId, ord, qfmt + afmt, media)
   const template = {
     id: genId('template', bundleId + name + qfmt + afmt),
     bundleId,
@@ -45,7 +45,7 @@ export async function removeTemplate(template) {
 
   const { qfmt, afmt, bundleId, ord } = template
   // Remove media references using fuzzy pattern
-  await fuzzyRemove(bundleId, ord, qfmt + afmt)
+  await mediaManager.fuzzyRemove(bundleId, ord, qfmt + afmt)
 
   // Remove template from database
   await db.templates.delete(template.id)

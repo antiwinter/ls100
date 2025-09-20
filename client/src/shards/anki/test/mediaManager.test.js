@@ -14,17 +14,14 @@ describe('MediaManager', () => {
       await mediaManager.clear()
     })
 
-  test('findMedia + add workflow handles filenames', async () => {
+  test('fuzzyAdd workflow handles filenames', async () => {
     const html = '<img src="a.png">'
     const blobs = { 'a.png': makeBlob('imgdata', 'image/png') }
     
-    const filenames = await anki.findMedia(html)
+    // Use fuzzyAdd to find and add media in one operation
+    const filenames = await anki.mediaManager.fuzzyAdd('test-bundle-1', 'test-note-1', html, blobs)
     expect(filenames).toHaveLength(1)
     expect(filenames[0]).toBe('a.png')
-    
-    // Add media to database  
-    const mediaObject = { [filenames[0]]: blobs[filenames[0]] }
-    await mediaManager.add('test-bundle-1', 'test-note-1', mediaObject)
     
     // Verify media reference was stored locally (using bundleId+userId since filename not indexed)
     const refs = await db.media.where('bundleId').equals('test-bundle-1')
@@ -63,14 +60,10 @@ describe('MediaManager', () => {
     const html = '<img src="a.png">'
     const blobs = { 'a.png': makeBlob('imgdata', 'image/png') }
     
-    const filenames = await anki.findMedia(html)
-    const filename = filenames[0]
-    
-    // Add media with different contexts
-    const mediaObject = { [filename]: blobs[filename] }
-    await mediaManager.add('test-bundle-1', 'test-note-1', mediaObject)
-    // 🚨 BUG: mediaManager should accept userId: 0 (valid template ordinal)
-    await mediaManager.add('test-bundle-1', 0, mediaObject)
+    // Use fuzzyAdd to add media with different contexts
+    const filenames1 = await anki.mediaManager.fuzzyAdd('test-bundle-1', 'test-note-1', html, blobs)
+    const filenames2 = await anki.mediaManager.fuzzyAdd('test-bundle-1', 0, html, blobs) // Template ordinal 0
+    const filename = filenames1[0]
     
     // Should have 2 references in local media table  
     const refs = await db.media.where('bundleId').equals('test-bundle-1')
@@ -96,14 +89,9 @@ describe('MediaManager', () => {
     const blobs1 = { 'file1.png': makeBlob('same content', 'image/png') }
     const blobs2 = { 'file2.png': makeBlob('same content', 'image/png') } // Same content, different blob object
     
-    const filenames1 = await anki.findMedia('<img src="file1.png">')
-    const filenames2 = await anki.findMedia('<img src="file2.png">')
-    
-    // Add both - should create different local references but same nvId in OSS
-    const mediaObject1 = { [filenames1[0]]: blobs1[filenames1[0]] }
-    const mediaObject2 = { [filenames2[0]]: blobs2[filenames2[0]] }
-    await mediaManager.add('test-bundle-1', 'note1', mediaObject1)
-    await mediaManager.add('test-bundle-1', 'note2', mediaObject2)
+    // Add both using fuzzyAdd - should create different local references but same nvId in OSS
+    const filenames1 = await anki.mediaManager.fuzzyAdd('test-bundle-1', 'note1', '<img src="file1.png">', blobs1)
+    const filenames2 = await anki.mediaManager.fuzzyAdd('test-bundle-1', 'note2', '<img src="file2.png">', blobs2)
     
     // Should have 2 local references
     const refs = await db.media.toArray()

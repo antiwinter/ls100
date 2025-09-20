@@ -25,7 +25,7 @@ describe('Template Media Operations', () => {
       'answer.jpg': makeBlob('answer image content', 'image/jpeg')
     }
 
-    const mediaAddSpy = vi.spyOn(mediaManager, 'add')
+    const fuzzyAddSpy = vi.spyOn(mediaManager, 'fuzzyAdd')
 
     // Use new API - pass raw formats and media directly
     const assignedOrd = await anki.addTemplate(
@@ -45,12 +45,16 @@ describe('Template Media Operations', () => {
     expect(template.bundleId).toBe(bundleId)
     expect(template.ord).toBe(assignedOrd)
     
-    // Verify media was added for both question and answer formats
-    expect(mediaAddSpy).toHaveBeenCalled()
+    // Verify media was processed using fuzzyAdd
+    expect(fuzzyAddSpy).toHaveBeenCalled()
     
-    // Check that both media items were processed
-    const addCalls = mediaAddSpy.mock.calls.flat().flat()
-    expect(addCalls.length).toBeGreaterThanOrEqual(2)
+    // Check that fuzzyAdd was called with correct parameters
+    const fuzzyAddCalls = fuzzyAddSpy.mock.calls
+    expect(fuzzyAddCalls).toHaveLength(1)
+    expect(fuzzyAddCalls[0][0]).toBe(bundleId) // bundleId
+    expect(fuzzyAddCalls[0][1]).toBe(assignedOrd) // template ord as userId
+    expect(fuzzyAddCalls[0][2]).toContain('question.png') // combined formats
+    expect(fuzzyAddCalls[0][2]).toContain('answer.jpg')
     
     // Verify the template was stored in database
     const storedTemplate = await db.templates.get(template.id)
@@ -59,7 +63,7 @@ describe('Template Media Operations', () => {
     expect(storedTemplate.qfmt).toContain('question.png')
     expect(storedTemplate.afmt).toContain('answer.jpg')
 
-    mediaAddSpy.mockRestore()
+    fuzzyAddSpy.mockRestore()
   })
 
   test('removeTemplate should remove media from question and answer formats', async () => {
@@ -85,7 +89,7 @@ describe('Template Media Operations', () => {
     const template = templates.find(t => t.ord === assignedOrd)
     expect(template).toBeTruthy()
 
-    const mediaRemoveSpy = vi.spyOn(mediaManager, 'remove')
+    const fuzzyRemoveSpy = vi.spyOn(mediaManager, 'fuzzyRemove')
 
     // Remove the template
     await anki.removeTemplate(template)
@@ -93,36 +97,36 @@ describe('Template Media Operations', () => {
     // Verify template was removed from database
     expect(await db.templates.get(template.id)).toBeUndefined()
 
-    // Verify media removal was called
-    expect(mediaRemoveSpy).toHaveBeenCalled()
+    // Verify media removal was called via fuzzyRemove
+    expect(fuzzyRemoveSpy).toHaveBeenCalled()
     
-    // Check that nvIds were passed for removal
-    const removeCalls = mediaRemoveSpy.mock.calls.flat().flat()
-    expect(removeCalls.length).toBeGreaterThanOrEqual(2) // At least 2 nvIds
-
-    mediaRemoveSpy.mockRestore()
+    // Check that fuzzyRemove was called with correct parameters
+    const removeCalls = fuzzyRemoveSpy.mock.calls
+    expect(removeCalls).toHaveLength(1)
+    expect(removeCalls[0][0]).toBe(bundleId) // bundleId
+    expect(removeCalls[0][1]).toBe(assignedOrd) // template ord as userId
+    expect(removeCalls[0][2]).toContain('template-q.png') // combined formats
+    expect(removeCalls[0][2]).toContain('template-a.png')
+    fuzzyRemoveSpy.mockRestore()
   })
 
   test('template operations should handle mixed cooked and raw media correctly', async () => {
     const bundleId = 'mixed-media-bundle'
     await anki.addBundle(bundleId, 'Mixed Media Bundle', ['Field1'])
 
-    // First, create some existing media
+    // First, create some existing media using fuzzyAdd
     const existingBlobs = {
       'existing.png': makeBlob('existing media content', 'image/png')
     }
-    const existingFilenames = await anki.findMedia('<img src="existing.png">')
-    const mediaObject = { [existingFilenames[0]]: existingBlobs[existingFilenames[0]] }
-    await mediaManager.add('test-bundle', 0, mediaObject)
+    await mediaManager.fuzzyAdd('test-bundle', 0, '<img src="existing.png">', existingBlobs)
 
     const allBlobs = {
       'existing.png': makeBlob('existing media content', 'image/png'), // Same content, should not duplicate
       'new.jpg': makeBlob('new media content', 'image/jpeg')
     }
 
-    const mediaAddSpy = vi.spyOn(mediaManager, 'add')
+    const fuzzyAddSpy = vi.spyOn(mediaManager, 'fuzzyAdd')
 
-    // BUG REPORT: existingResult is undefined - likely removed during refactoring
     // Template with mixed media: existing + new 
     const mixedFormat = '<img src="existing.png">' + '<img src="new.jpg">'
     
@@ -136,22 +140,24 @@ describe('Template Media Operations', () => {
 
     expect(assignedOrd).toBe(0)
     
-    // Should have been called with media array containing both existing and new
-    expect(mediaAddSpy).toHaveBeenCalled()
+    // Should have been called with fuzzyAdd for processing media
+    expect(fuzzyAddSpy).toHaveBeenCalled()
     
-    const addedMedia = mediaAddSpy.mock.calls.flat().flat()
-    
-    // Should handle existing media (add user) and add new media
-    expect(addedMedia.length).toBeGreaterThanOrEqual(1)
+    const fuzzyAddCalls = fuzzyAddSpy.mock.calls
+    expect(fuzzyAddCalls).toHaveLength(1)
+    expect(fuzzyAddCalls[0][0]).toBe(bundleId) // bundleId
+    expect(fuzzyAddCalls[0][1]).toBe(assignedOrd) // template ord as userId
+    expect(fuzzyAddCalls[0][2]).toContain('existing.png') // combined formats
+    expect(fuzzyAddCalls[0][2]).toContain('new.jpg')
 
-    mediaAddSpy.mockRestore()
+    fuzzyAddSpy.mockRestore()
   })
 
   test('template operations should work with no media', async () => {
     const bundleId = 'no-media-bundle'
     await anki.addBundle(bundleId, 'No Media Bundle', ['Text'])
 
-    const mediaAddSpy = vi.spyOn(mediaManager, 'add')
+    const fuzzyAddSpy = vi.spyOn(mediaManager, 'fuzzyAdd')
 
     // Template with no media - just text (no media blobs needed)
     const assignedOrd = await anki.addTemplate(
@@ -163,10 +169,14 @@ describe('Template Media Operations', () => {
 
     expect(assignedOrd).toBe(0)
     
-    // No media should be added - mediaManager.add should not be called at all
-    expect(mediaAddSpy.mock.calls.length).toBe(0)
+    // fuzzyAdd should still be called but should find no media and return early
+    expect(fuzzyAddSpy).toHaveBeenCalled()
+    const fuzzyAddCalls = fuzzyAddSpy.mock.calls
+    expect(fuzzyAddCalls).toHaveLength(1)
+    expect(fuzzyAddCalls[0][2]).not.toContain('.png') // Should contain no media references
+    expect(fuzzyAddCalls[0][2]).not.toContain('.jpg')
 
-    mediaAddSpy.mockRestore()
+    fuzzyAddSpy.mockRestore()
   })
 
   test('getTemplates should return templates for bundle', async () => {

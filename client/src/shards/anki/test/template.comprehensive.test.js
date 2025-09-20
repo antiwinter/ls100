@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from 'vitest'
-import { AnkiRender } from '../template/index.js'
-import { parseTemplate } from '../template/ast2.js'
-import { Filters, registerFilter } from '../template/filters/index.js'
+import { AnkiRender } from '../core/template/index.js'
+import { parseTemplate } from '../core/template/ast2.js'
+import { Filters, registerFilter } from '../core/template/filters/index.js'
 
 describe('Template System - AST Parser', () => {
   describe('Basic Parsing', () => {
