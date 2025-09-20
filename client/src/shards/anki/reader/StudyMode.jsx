@@ -4,8 +4,6 @@ import {
   Typography,
   Button,
   Stack,
-  Card,
-  CardContent,
   LinearProgress,
   IconButton,
   Alert
@@ -15,6 +13,7 @@ import { Close, Refresh } from '@mui/icons-material'
 import { Rating } from 'ts-fsrs'
 import anki from '../core/index.js'
 import { log } from '../../../utils/logger'
+import { AnkiCard } from './components'
 
 // FSRS Rating constants
 const RATINGS = {
@@ -82,7 +81,7 @@ const ProgressHeader = ({ progress, onExit }) => {
   )
 }
 
-const CardDisplay = ({ card, showAnswer, onShowAnswer }) => {
+const CardDisplay = ({ card, showAnswer, onRate, onFlip }) => {
   const [renderedCard, setRenderedCard] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -112,91 +111,39 @@ const CardDisplay = ({ card, showAnswer, onShowAnswer }) => {
 
   if (!card || loading) {
     return (
-      <Card sx={{ flex: 1, m: 3, minHeight: 300 }}>
-        <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <AnkiCard>
+        <Box sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100%'
+        }}>
           <Typography>Loading card...</Typography>
-        </CardContent>
-      </Card>
+        </Box>
+      </AnkiCard>
     )
   }
 
   if (!renderedCard) return null
 
+  // Drag handler for rating
+  const handleExit = (dir) => {
+    if (!onRate) return
+
+    if (dir === 'left') {
+      onRate(RATINGS.AGAIN)
+    } else if (dir === 'right') {
+      onRate(RATINGS.GOOD)
+    }
+  }
+
   return (
-    <Card sx={{
-      flex: 1,
-      m: 3,
-      display: 'flex',
-      flexDirection: 'column',
-      minHeight: 300
-    }}>
-      <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {/* Inject bundle-scoped CSS if available */}
-        {renderedCard.css ? (
-          <style>{renderedCard.css}</style>
-        ) : null}
-        {/* Card info */}
-        <Typography level="body-sm" color="neutral" sx={{ mb: 2, textAlign: 'center' }}>
-          {renderedCard.template} • Card {card.id}
-        </Typography>
-
-        {/* Card Content - Question or Answer */}
-        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          {!showAnswer ? (
-            // Show Question Side
-            <Box
-              sx={{
-                fontSize: '1.1rem',
-                textAlign: 'center',
-                '& img': { maxWidth: '100%', height: 'auto' },
-                '& .cloze-deletion': {
-                  bgcolor: 'warning.100',
-                  color: 'warning.800',
-                  px: 1.5,
-                  py: 0.75,
-                  borderRadius: 'sm',
-                  fontWeight: 'bold',
-                  fontSize: '1.1em'
-                }
-              }}
-              dangerouslySetInnerHTML={{ __html: renderedCard.front }}
-            />
-          ) : (
-            // Show Answer Side Only
-            <Box
-              sx={{
-                fontSize: '1.1rem',
-                textAlign: 'center',
-                '& img': { maxWidth: '100%', height: 'auto' },
-                '& .cloze-answer': {
-                  bgcolor: 'success.100',
-                  color: 'success.800',
-                  px: 1.5,
-                  py: 0.75,
-                  borderRadius: 'sm',
-                  fontWeight: 'bold',
-                  fontSize: '1.1em'
-                }
-              }}
-              dangerouslySetInnerHTML={{ __html: renderedCard.back }}
-            />
-          )}
-        </Box>
-
-        {/* Show answer button */}
-        {!showAnswer && (
-          <Box sx={{ textAlign: 'center', mt: 3 }}>
-            <Button
-              size="lg"
-              onClick={onShowAnswer}
-              sx={{ minWidth: 120 }}
-            >
-              Show Answer
-            </Button>
-          </Box>
-        )}
-      </CardContent>
-    </Card>
+    <AnkiCard
+      onFlip={onFlip}
+      onExit={showAnswer ? handleExit : null}
+      css={renderedCard?.css}
+      content={showAnswer ? renderedCard.back : renderedCard.front}
+    />
   )
 }
 
@@ -346,9 +293,9 @@ export const StudyMode = ({ bundleIds: _bundleIds, studyEngine, onEndStudy }) =>
     }
   }, [studyEngine, currentCard, loadNextCard])
 
-  const handleShowAnswer = () => {
-    setShowAnswer(true)
-  }
+  const handleFlip = useCallback((side) => {
+    setShowAnswer(side === 'back')
+  }, [])
 
   // On mount/resume: show current or draw
   useEffect(() => { loadNextCard() }, [studyEngine, loadNextCard])
@@ -362,10 +309,15 @@ export const StudyMode = ({ bundleIds: _bundleIds, studyEngine, onEndStudy }) =>
           setShowAnswer(true)
         }
       } else {
-        const ratings = { '1': RATINGS.AGAIN, '2': RATINGS.HARD, '3': RATINGS.GOOD, '4': RATINGS.EASY }
-        if (ratings[e.key]) {
+        if (e.key === ' ' || e.key === 'Enter') {
           e.preventDefault()
-          handleRate(ratings[e.key])
+          setShowAnswer(false)
+        } else {
+          const ratings = { '1': RATINGS.AGAIN, '2': RATINGS.HARD, '3': RATINGS.GOOD, '4': RATINGS.EASY }
+          if (ratings[e.key]) {
+            e.preventDefault()
+            handleRate(ratings[e.key])
+          }
         }
       }
     }
@@ -451,7 +403,8 @@ export const StudyMode = ({ bundleIds: _bundleIds, studyEngine, onEndStudy }) =>
         <CardDisplay
           card={currentCard}
           showAnswer={showAnswer}
-          onShowAnswer={handleShowAnswer}
+          onFlip={handleFlip}
+          onRate={handleRate}
         />
 
         {showAnswer && (
