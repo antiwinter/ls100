@@ -79,7 +79,7 @@ async function _genCardsForNote(note) {
         cards.push(card)
       } else {
         // Skip empty cards
-        log.debug(`Skipping card for template ${template.ord}: front is empty`)
+        // log.debug(`Skipping card for template ${template.ord}: front is empty`)
       }
     } catch (error) {
       // Card cannot be rendered, skip it

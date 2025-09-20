@@ -1,9 +1,9 @@
 import Dexie from 'dexie'
 import { log } from '../../../utils/logger'
 
-export const db = new Dexie('AnkiDB')
+export const db = new Dexie('AnkiDB_v4')
 
-db.version(2).stores({
+db.version(1).stores({
   notes: 'id, bundleId, modified',
   // Notes table: Core content storage for Anki notes
   // Schema: { id, bundleId, fields[], tags[], created, modified }
@@ -48,8 +48,9 @@ db.version(2).stores({
   // Used by: studyEngine for scheduling (fast filters on due/state), ankiApi for CRUD operations
   media: '++id, nvId, bundleId, userId, filename'
   // Media table: Tracks media ownership for OSS cleanup
-  // Schema: { nvId, bundleId, userId, filename, created }
-  // - nvId: unique media identifier (content-based hash)
+  // Schema: { id, nvId, bundleId, userId, filename, created }
+  // - id: auto-increment primary key for unique references
+  // - nvId: unique media identifier (content-based hash) for OSS deduplication
   // - bundleId: bundle identifier for content organization
   // - userId: user identifier (can be templateOrd or noteId)
   // - filename: original filename for reference
@@ -66,11 +67,20 @@ db.notes.hook('updating', (modifications) => {
   modifications.modified = Date.now()
 })
 
-// Open database
+// Open database with enhanced error handling
 db.open().then(() => {
-  log.debug('Dexie database opened')
+  log.debug('Dexie database opened successfully: AnkiDB_v4')
 }).catch(err => {
   log.error('Failed to open Dexie database:', err)
+  // If database is corrupted or has schema conflicts, delete and recreate
+  if (err.name === 'DatabaseClosedError' || err.name === 'UpgradeError') {
+    log.warn('Attempting to delete corrupted database and recreate')
+    db.delete().then(() => {
+      log.info('Database deleted, will recreate on next operation')
+    }).catch(deleteErr => {
+      log.error('Failed to delete corrupted database:', deleteErr)
+    })
+  }
 })
 
 export default db

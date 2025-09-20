@@ -92,7 +92,12 @@ const CardDisplay = ({ card, showAnswer, onShowAnswer }) => {
 
       try {
         setLoading(true)
-        const rendered = await anki.render(card)
+        // Use correct createRender API
+        const renderer = await anki.createRender([card])
+        if (!renderer) {
+          throw new Error('Failed to create renderer context')
+        }
+        const rendered = await renderer.render(card)
         setRenderedCard(rendered)
       } catch (err) {
         log.error('Failed to render card:', err)

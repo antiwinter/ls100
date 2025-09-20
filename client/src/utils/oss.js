@@ -33,17 +33,10 @@ async function blob2NvId(blob) {
 async function add(objArray, user = 'sys') {
   if (!Array.isArray(objArray)) return
 
-  for (const { nvId: _nvid, filename, blob } of objArray) {
+  for (const { filename, blob } of objArray) {
     try {
       // Calculate or use provided nvId
-      const nvId = await blob2NvId(blob) || _nvid
-
-      // Warn if provided nvId doesn't match calculated one
-      if (!nvId || _nvid !== nvId) {
-        log.warn('Invalid obj entry:', { filename, _nvid, nvId, blob })
-        continue
-      }
-
+      const nvId = await blob2NvId(blob)
       const existing = await db.obj.get(nvId)
       if (existing) {
         // Obj already exists, add user if not already present
@@ -70,7 +63,7 @@ async function add(objArray, user = 'sys') {
         log.warn('Cannot reference non-existent obj without blob:', { nvId, filename })
       }
     } catch (error) {
-      log.error('Failed to add obj:', { nvId: _nvid, filename }, error)
+      log.error('Failed to add obj:', { filename }, error)
     }
   }
 }

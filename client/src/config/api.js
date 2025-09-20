@@ -2,8 +2,8 @@
 const getApiBaseUrl = () => {
   const { protocol: _hp, hostname } = window.location
   // Development fallback: auto-detect protocol and hostname
-  // if (import.meta.env.DEV)
-  //   return `${_hp}//${hostname}:3001`
+  if (import.meta.env.DEV)
+    return `${_hp}//${hostname}:3001`
 
   // Production: frontend deploys
   if (hostname.includes('vercel.app')) {

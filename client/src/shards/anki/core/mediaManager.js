@@ -36,7 +36,7 @@ async function add(bundleId, userId, media) {
       }
 
       await db.media.put(mediaRef)
-      log.debug('Media reference added:', { nvId, filename, bundleId, userId })
+      // log.debug('Media reference added:', { nvId, filename, bundleId, userId })
 
     } catch (error) {
       log.error('Failed to add media:', { filename }, error)
@@ -75,9 +75,9 @@ async function remove(bundleId, userId, filenames) {
         if (remaining === 0) {
           // No more references - remove from OSS
           await oss.remove([nvId], 'anki')
-          log.debug('Media removed from OSS:', { filename, nvId })
+          // log.debug('Media removed from OSS:', { filename, nvId })
         } else {
-          log.debug('Media reference removed:', { filename, nvId, remaining })
+          // log.debug('Media reference removed:', { filename, nvId, remaining })
         }
       }
 
