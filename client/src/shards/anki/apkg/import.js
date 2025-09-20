@@ -2,6 +2,7 @@ import anki from '../core/index.js'
 import db from '../core/db.js'
 import { log } from '../../../utils/logger'
 import { genId } from '../../../utils/idGenerator.js'
+import _ from 'lodash'
 
 // Convert parsed Anki data to internal format and import to database
 export const importApkgData = async (parsedData, options = {}) => {
@@ -31,6 +32,11 @@ export const importApkgData = async (parsedData, options = {}) => {
     // Create bundle
     await anki.addBundle(bundleId, model.name, fields, model.css || '')
     log.debug(`Created bundle: ${model.name}`)
+
+    // Import font files from CSS (if any)
+    if (model.css) {
+      await anki.mediaManager.fuzzyAdd(bundleId, bundleId, model.css, media)
+    }
 
     // Create templates with cooked formats and track ord mapping for preserveScheduling
     const ordMapping = new Map() // originalOrd -> newOrd

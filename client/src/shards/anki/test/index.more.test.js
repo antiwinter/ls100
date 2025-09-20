@@ -54,6 +54,22 @@ describe('anki core/index.js API coverage', () => {
     expect(filenames).toContain('audio.mp3')
   })
 
+  test('findMedia extracts filenames from CSS url() declarations', async () => {
+    const css = `
+      .card { font-family: arial; }
+      @font-face { font-family: stroke; src: url('_stroke.ttf'); }
+      @font-face { font-family: textbook; src: url("_HGSKyokashotai.ttf"); }
+      @font-face { font-family: localnoto; src: url(_NotoSansJP-Medium.otf); }
+      background: url(background.jpg);
+    `
+    const filenames = await anki.findMedia(css)
+    expect(filenames.length).toBe(4)
+    expect(filenames).toContain('_stroke.ttf')
+    expect(filenames).toContain('_HGSKyokashotai.ttf')
+    expect(filenames).toContain('_NotoSansJP-Medium.otf')
+    expect(filenames).toContain('background.jpg')
+  })
+
   test('removeTemplate deletes template record (eventually)', async () => {
     const b = 'b-rem-tp'
     await anki.addBundle(b, 'Basic', ['F'])

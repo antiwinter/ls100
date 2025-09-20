@@ -1,5 +1,58 @@
 import { Filters } from './filters/index.js'
 import { parseTemplate } from './ast2.js'
+import db from '../core/db.js'
+import { fuzzyAdd, fuzzyRemove } from '../core/mediaManager.js'
+import { log } from '../../../utils/logger.js'
+import { genId } from '../../../utils/idGenerator.js'
+
+// Add template to bundle - handles both raw and cooked formats
+export async function addTemplate(bundleId, name, qfmt, afmt, media = {}) {
+  // Auto-increment ord
+  const existingTemplates = await db.templates.where('bundleId').equals(bundleId).toArray()
+  const maxOrd = existingTemplates.length > 0
+    ? Math.max(...existingTemplates.map(t => t.ord)) : -1
+  const ord = maxOrd + 1
+
+  // Add media using fuzzy pattern
+  await fuzzyAdd(bundleId, ord, qfmt + afmt, media)
+  const template = {
+    id: genId('template', bundleId + name + qfmt + afmt),
+    bundleId,
+    name,
+    qfmt,
+    afmt,
+    ord,
+    vdeck: null,
+    created: Date.now()
+  }
+  await db.templates.put(template)
+
+  return ord // Return the assigned ord for mapping
+}
+
+// Get all templates for bundle
+export async function getTemplates(bundleId) {
+  return await db.templates.where('bundleId').equals(bundleId).toArray()
+}
+
+// Get template by bundleId and ord
+export async function getTemplate(bundleId, ord) {
+  return await db.templates.where('bundleId').equals(bundleId).and(t => t.ord === ord).first()
+}
+// Remove a template and its media references
+export async function removeTemplate(template) {
+  if (!template) return false
+
+  const { qfmt, afmt, bundleId, ord } = template
+  // Remove media references using fuzzy pattern
+  await fuzzyRemove(bundleId, ord, qfmt + afmt)
+
+  // Remove template from database
+  await db.templates.delete(template.id)
+  log.debug('Removed template:', template.id)
+  return true
+}
+
 
 // Public surface, small and focused
 export class AnkiRender {

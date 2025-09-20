@@ -10,11 +10,6 @@ async function _create(bundleId, fields, tags = [], media = {}) {
   const bundle = await db.bundles.get(bundleId)
   if (!bundle) throw new Error(`NoteType not found: ${bundleId}`)
 
-  // Extract media from fields
-  const { anki } = await import('./index.js')
-  const filenames = await anki.findMedia(fields)
-
-
   const note = {
     id: genId('note', bundleId + fields.join('') + tags.join('')),
     bundleId,
@@ -27,11 +22,8 @@ async function _create(bundleId, fields, tags = [], media = {}) {
 
   await db.notes.put(note)
 
-  // Add media references
-  if (filenames.length > 0) {
-    const mediaObject = _.pick(media, filenames)
-    await mediaManager.add(bundleId, note.id, mediaObject)
-  }
+  // Add media references using fuzzy pattern
+  await mediaManager.fuzzyAdd(bundleId, note.id, fields, media)
 
   return note
 }
@@ -148,12 +140,8 @@ async function update(noteId, fields, tags, media = {}) {
 // Delete note and related data
 async function delete_(note) {
   if (note) {
-    // Remove media references from all fields
-    const { anki } = await import('./index.js')
-    const filenames = await anki.findMedia(note.fields)
-    if (filenames.length > 0) {
-      await mediaManager.remove(note.bundleId, note.id, filenames)
-    }
+    // Remove media references from all fields using fuzzy pattern
+    await mediaManager.fuzzyRemove(note.bundleId, note.id, note.fields)
   }
 
   // Delete note

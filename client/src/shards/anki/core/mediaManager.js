@@ -1,6 +1,54 @@
 import db from './db.js'
 import oss from '../../../utils/oss.js'
 import { log } from '../../../utils/logger'
+import _ from 'lodash'
+
+
+// Extract media filenames from fields
+export async function findMedia(fields) {
+  if (!Array.isArray(fields)) fields = [fields]
+
+  const filenames = []
+
+  for (const field of fields) {
+    if (!field) continue
+
+    // Extract filenames from [sound:filename] tags
+    const soundMatches = field.match(/\[sound:([^\]]+)\]/g) || []
+    for (const match of soundMatches) {
+      const filename = match.replace(/\[sound:([^\]]+)\]/, '$1')
+      if (filename) {
+        filenames.push(filename)
+      }
+    }
+
+    // Extract filenames from HTML media tags
+    const htmlMatches = field.match(/<(img|audio|video|source|object)\b[^>]*\b(?:src|data)=["']?([^"'\s>]+)["']?[^>]*>/gi) || []
+    for (const match of htmlMatches) {
+      const srcMatch = match.match(/\b(?:src|data)=["']?([^"'\s>]+)["']?/)
+      if (srcMatch) {
+        const filename = srcMatch[1]
+        if (filename) {
+          filenames.push(filename)
+        }
+      }
+    }
+
+    // Extract filenames from CSS url() declarations
+    const cssMatches = field.match(/url\(['"]?([^'")]+)['"]?\)/gi) || []
+    for (const match of cssMatches) {
+      const urlMatch = match.match(/url\(['"]?([^'")]+)['"]?\)/i)
+      if (urlMatch) {
+        const filename = urlMatch[1]
+        if (filename) {
+          filenames.push(filename)
+        }
+      }
+    }
+  }
+
+  return [...new Set(filenames)] // Remove duplicates
+}
 
 // Add media and track references for cleanup
 async function add(bundleId, userId, media) {
@@ -87,7 +135,6 @@ async function remove(bundleId, userId, filenames) {
   }
 }
 
-
 // Clear all media references (for testing)
 async function clear() {
   try {
@@ -98,8 +145,35 @@ async function clear() {
   }
 }
 
+// Fuzzy add media - handles findMedia + _.pick + add pattern
+export async function fuzzyAdd(bundleId, userId, content, mediaPool = {}) {
+  const filenames = await findMedia(content)
+  if (filenames.length === 0) return []
+
+  const mediaObject = _.pick(mediaPool, filenames)
+  if (Object.keys(mediaObject).length > 0) {
+    await add(bundleId, userId, mediaObject)
+    log.debug(`Fuzzy added ${Object.keys(mediaObject).length} media files`)
+  }
+
+  return filenames
+}
+
+// Fuzzy remove media - handles findMedia + remove pattern
+export async function fuzzyRemove(bundleId, userId, content) {
+  const filenames = await findMedia(content)
+  if (filenames.length > 0) {
+    await remove(bundleId, userId, filenames)
+    log.debug(`Fuzzy removed ${filenames.length} media files`)
+  }
+
+  return filenames
+}
+
 export default {
   add,
   remove,
-  clear
+  clear,
+  fuzzyAdd,
+  fuzzyRemove
 }
