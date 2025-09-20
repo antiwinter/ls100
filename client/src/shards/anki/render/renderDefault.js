@@ -1,6 +1,6 @@
 import { log } from '../../../utils/logger'
 import db from '../core/db.js'
-import { AnkiRender } from '../template/index.js'
+import { AnkiRender } from '../core/template/index.js'
 
 export async function createRender(cards) {
   // get/build fieldDefs, css, templates, f2nvid from cards[]
@@ -25,16 +25,19 @@ export async function createRender(cards) {
     return null
   }
 
-  // Build f2nvid map by querying media table
-  // Get all noteIds from cards and all templates (bundleId/templateOrd)
-  const noteIds = [...new Set(cards.map(c => c.noteId))]
-  const bundleIds = [...new Set(cards.map(c => c.bundleId))]
 
+  const bundleIds = [...new Set(cards.map(c => c.bundleId))]
   const f2nvid = {}
 
   // Query media references for both notes and templates in one go
+  // userId can be noteId (for note media) or templateOrd (for template media)
+  // or bundleId (for CSS media)
+  const allUserIds = [...new Set(cards.map(c => c.noteId)),
+    ...new Set(cards.map(c => c.templateOrd)),
+    ...bundleIds
+  ]
   const allRefs = await db.media.where('bundleId').anyOf(bundleIds)
-    .filter(ref => noteIds.includes(ref.noteId) || ref.noteId === null)
+    .filter(ref => allUserIds.includes(ref.userId))
     .toArray()
 
   for (const ref of allRefs) {

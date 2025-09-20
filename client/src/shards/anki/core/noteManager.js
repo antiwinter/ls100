@@ -2,7 +2,7 @@ import db from './db.js'
 import { log } from '../../../utils/logger'
 import { genId } from '../../../utils/idGenerator.js'
 import mediaManager from './mediaManager.js'
-import { AnkiRender } from '../template/index.js'
+import { AnkiRender } from './template/index.js'
 import _ from 'lodash'
 
 // Create new note

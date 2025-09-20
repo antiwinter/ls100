@@ -1,9 +1,9 @@
 import { Filters } from './filters/index.js'
 import { parseTemplate } from './ast2.js'
-import db from '../core/db.js'
-import { fuzzyAdd, fuzzyRemove } from '../core/mediaManager.js'
-import { log } from '../../../utils/logger.js'
-import { genId } from '../../../utils/idGenerator.js'
+import db from '../db.js'
+import { fuzzyAdd, fuzzyRemove } from '../mediaManager.js'
+import { log } from '../../../../utils/logger.js'
+import { genId } from '../../../../utils/idGenerator.js'
 
 // Add template to bundle - handles both raw and cooked formats
 export async function addTemplate(bundleId, name, qfmt, afmt, media = {}) {
@@ -59,7 +59,6 @@ export class AnkiRender {
   constructor({ fieldDefs, css, templates, f2nvid }) {
     this.fieldDefs = fieldDefs
     this.fieldIdx = {}
-    this.css = css
     this.ast = []
     this.f2nvid = f2nvid || {}
 
@@ -71,6 +70,12 @@ export class AnkiRender {
     })
 
     fieldDefs.forEach((f, i) => this.fieldIdx[f] = i)
+
+    // Replace filenames in CSS url() declarations with /media/nvid
+    this.css = css.replace(/url\(['"]?([^'")]+)['"]?\)/gi, (match, filename) => {
+      const nvId = this.f2nvid[filename]
+      return nvId ? `url("/media/${nvId}")` : match
+    })
   }
 
   _getField(f, k) {

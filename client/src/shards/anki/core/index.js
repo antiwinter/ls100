@@ -4,7 +4,7 @@ import mediaManager from './mediaManager.js'
 import { createRender } from '../render/renderDefault.js'
 import { StudyEngine } from './studyEngine.js'
 import { log } from '../../../utils/logger.js'
-import { getTemplate, addTemplate, removeTemplate, getTemplates } from '../template/index.js'
+import { getTemplate, addTemplate, removeTemplate, getTemplates } from './template/index.js'
 import _ from 'lodash'
 
 // Clean up orphaned data whose bundles no longer exist (internal)

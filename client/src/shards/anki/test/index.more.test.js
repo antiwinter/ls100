@@ -46,15 +46,23 @@ describe('anki core/index.js API coverage', () => {
     expect(await anki.getCardsForBundles([])).toEqual([])
   })
 
-  test('findMedia returns filenames array', async () => {
+  test('fuzzyAdd processes HTML and sound media correctly', async () => {
     const html = '<img src="img.png"> [sound:audio.mp3]'
-    const filenames = await anki.findMedia(html)
+    const mockMedia = {
+      'img.png': new Blob(['image content'], { type: 'image/png' }),
+      'audio.mp3': new Blob(['audio content'], { type: 'audio/mp3' }),
+      'unused.txt': new Blob(['text content'], { type: 'text/plain' })
+    }
+    
+    // Test that fuzzyAdd finds and adds only the needed media
+    const filenames = await anki.mediaManager.fuzzyAdd('test-bundle', 'test-user', html, mockMedia)
     expect(filenames.length).toBe(2)
     expect(filenames).toContain('img.png')
     expect(filenames).toContain('audio.mp3')
+    expect(filenames).not.toContain('unused.txt')
   })
 
-  test('findMedia extracts filenames from CSS url() declarations', async () => {
+  test('fuzzyAdd extracts CSS url() media correctly', async () => {
     const css = `
       .card { font-family: arial; }
       @font-face { font-family: stroke; src: url('_stroke.ttf'); }
@@ -62,12 +70,22 @@ describe('anki core/index.js API coverage', () => {
       @font-face { font-family: localnoto; src: url(_NotoSansJP-Medium.otf); }
       background: url(background.jpg);
     `
-    const filenames = await anki.findMedia(css)
+    const mockMedia = {
+      '_stroke.ttf': new Blob(['font content 1'], { type: 'font/ttf' }),
+      '_HGSKyokashotai.ttf': new Blob(['font content 2'], { type: 'font/ttf' }),
+      '_NotoSansJP-Medium.otf': new Blob(['font content 3'], { type: 'font/otf' }),
+      'background.jpg': new Blob(['image content'], { type: 'image/jpeg' }),
+      'unused.png': new Blob(['unused content'], { type: 'image/png' })
+    }
+    
+    // Test that fuzzyAdd finds and adds only the needed CSS media
+    const filenames = await anki.mediaManager.fuzzyAdd('test-bundle', 'test-user', css, mockMedia)
     expect(filenames.length).toBe(4)
     expect(filenames).toContain('_stroke.ttf')
     expect(filenames).toContain('_HGSKyokashotai.ttf')
     expect(filenames).toContain('_NotoSansJP-Medium.otf')
     expect(filenames).toContain('background.jpg')
+    expect(filenames).not.toContain('unused.png')
   })
 
   test('removeTemplate deletes template record (eventually)', async () => {
