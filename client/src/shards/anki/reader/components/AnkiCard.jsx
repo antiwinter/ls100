@@ -4,6 +4,7 @@ import { detectPlatform } from '../../../../utils/useDetectPlatform.js'
 import { useDrag } from '@use-gesture/react'
 import { handleAudioClick, getAudioStyles } from './AudioHelper.js'
 import { animate } from 'animejs'
+import { log } from '../../../../utils/logger.js'
 
 const ATIME_EXIT = 1000
 const ATIME_FLIP = 1500
@@ -34,30 +35,31 @@ export const AnkiCard = ({
   }
 
   const to = (ox, delay = ATIME_EXIT, cb = () => {}) => {
-    const threshold = 50
+    if (!cardRef.current) return
 
+    log.debug('to', { ox, delay })
+    const threshold = 50
     let boxShadow = '0 4px 20px rgba(0,0,0,0.15), 0 8px 40px rgba(0,0,0,0.1)'
     if (ox < -threshold) {
       boxShadow = '0 0 20px var(--joy-palette-danger-400), 0 4px 20px rgba(0,0,0,0.15)'
     } else if (ox > threshold) {
       boxShadow = '0 0 20px var(--joy-palette-success-400), 0 4px 20px rgba(0,0,0,0.15)'
     }
+    cardRef.current.style.boxShadow = boxShadow
 
-    const scale = Math.max(0.9, 1 - Math.abs(ox) * 0.1 / 30)
-    const rotation = (ox / 100) * 15
+    const win = window.innerWidth / 2
+    const scale = 1 - Math.abs(ox) * 0.3 / win
+    const rotation = (ox / win) * 7
 
-    animate({
-      target: cardRef.current,
-      complete: cb,
-
-      boxShadow,
+    // Animate transforms with anime.js
+    animate(cardRef.current, {
       translateX: ox,
       rotateZ: rotation,
       scale: scale,
       duration: delay,
-      ease: 'out(3)'
+      easing: 'easeOutCubic',
+      complete: cb
     })
-
   }
 
   // Handle flip animation and audio
@@ -75,7 +77,7 @@ export const AnkiCard = ({
       setCurrentSide(nextSide)
       setTimeout(() => {
         onFlip(nextSide)
-        isFlipping.current = true
+        isFlipping.current = false
       }
       , ATIME_FLIP / 2)
     }, ATIME_FLIP / 2)
@@ -83,19 +85,23 @@ export const AnkiCard = ({
 
   // Drag handling with use-gesture and anime.js
   const bind = useDrag(({ last, velocity: [vx], offset: [ox] }) => {
+    log.debug('drag', { last, vx, ox, win: window.innerWidth })
     if (last) {
       // Exit thresholds
-      if ((Math.abs(ox) > 100 || Math.abs(vx) > 1) && onExit) {
-        to(ox > 0 ? window.innerWidth : -window.innerWidth, ATIME_EXIT, () => {
-          onExit(ox < 0 ? 'left' : 'right')
-        })
+      const x =  ox > 0 ? window.innerWidth : -window.innerWidth
+      if ((Math.abs(ox) > 150 || Math.abs(vx) > 1)) {
+        to(x,
+          (x - ox) / x * ATIME_EXIT,
+          () => {
+            onExit?.(ox < 0 ? 'left' : 'right')
+          })
       } else {
-        // track finger
-        to(ox, 0)
+        // reset position
+        to(0, ox / x * ATIME_EXIT)
       }
     } else {
-      // Update transforms and glow with anime
-      to(0, ATIME_EXIT)
+      // track finger immediately (no animation)
+      to(ox, 0)
       onDrag?.(ox)
     }
   },
@@ -114,8 +120,8 @@ export const AnkiCard = ({
       sx={{
         // Fixed positioning - centered on screen
         position: 'fixed',
-        top: '50%',
-        left: '50%',
+        top: '10vh',
+        left: '10vw',
         zIndex: 1000,
 
         // Fixed dimensions
