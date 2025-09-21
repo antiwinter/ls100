@@ -139,10 +139,11 @@ const CardDisplay = ({ card, showAnswer, onRate, onFlip }) => {
 
   return (
     <AnkiCard
+      front={renderedCard.front}
+      back={renderedCard.back}
       onFlip={onFlip}
       onExit={showAnswer ? handleExit : null}
       css={renderedCard?.css}
-      content={showAnswer ? renderedCard.back : renderedCard.front}
     />
   )
 }
