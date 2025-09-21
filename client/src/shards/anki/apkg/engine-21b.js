@@ -53,6 +53,9 @@ export const parseNotetypes = async (db) => {
     log.debug(`Found ${rows.length} notetypes in modern format`)
     const models = {}
 
+    // Load notetype config protobuf schema
+    const NotetypeConfig = await loadNotetypeConfigProto()
+
     for (const row of rows) {
       log.debug(`Processing notetype: id=${row.id}, name=${row.name}`)
 
@@ -61,11 +64,33 @@ export const parseNotetypes = async (db) => {
       // Get templates from separate templates table
       const templates = await parseNotetypeTemplates(db, row.id)
 
+      // Parse CSS from notetype config protobuf
+      let css = ''
+      if (row.config) {
+        try {
+          const configBuffer = row.config instanceof Uint8Array
+            ? row.config : new Uint8Array(row.config)
+
+          // Decode the protobuf binary data
+          const decoded = NotetypeConfig.decode(configBuffer)
+
+          // Extract CSS from protobuf fields
+          if (decoded.css) {
+            css = decoded.css
+            log.debug(`Extracted CSS for ${row.name}: ${css.length} characters`)
+          }
+
+        } catch (error) {
+          log.warn(`Failed to decode notetype config for ${row.name}: ${error.message}`)
+        }
+      }
+
       models[row.id.toString()] = {
         id: row.id,
         name: row.name,
         flds: fields,
-        tmpls: templates
+        tmpls: templates,
+        css: css || ''
       }
       log.debug(`Parsed notetype: ${row.name}`)
     }
@@ -143,6 +168,52 @@ async function loadTemplateConfigProto() {
     templateConfigType = root.lookupType('TemplateConfig')
   }
   return templateConfigType
+}
+
+// Load protobuf schema for notetype config
+let notetypeConfigType = null
+async function loadNotetypeConfigProto() {
+  if (!notetypeConfigType) {
+    // Define the protobuf schema inline based on Anki's notetypes.proto
+    const root = protobuf.Root.fromJSON({
+      'nested': {
+        'NotetypeConfig': {
+          'fields': {
+            'kind': {
+              'type': 'uint32',
+              'id': 1
+            },
+            'sort_field_idx': {
+              'type': 'uint32',
+              'id': 2
+            },
+            'css': {
+              'type': 'string',
+              'id': 3
+            },
+            'target_deck_id_unused': {
+              'type': 'int64',
+              'id': 4
+            },
+            'latex_pre': {
+              'type': 'string',
+              'id': 5
+            },
+            'latex_post': {
+              'type': 'string',
+              'id': 6
+            },
+            'latex_svg': {
+              'type': 'bool',
+              'id': 7
+            }
+          }
+        }
+      }
+    })
+    notetypeConfigType = root.lookupType('NotetypeConfig')
+  }
+  return notetypeConfigType
 }
 
 // Parse templates for a specific notetype
