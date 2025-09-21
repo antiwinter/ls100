@@ -30,11 +30,14 @@ const proxy = new Redbird({
   }
 })
 
+function _reg(x, y) {
+  let [_x, _y] = [`https://${x}`, `http://localhost:${y}`]
+  proxy.register(_x, _y)
+  console.log(`Registered ${_x} → ${_y}`)
+}
 // Route frontend
-proxy.register(machineIP, 'http://localhost:5173')
-// Route API (with /api prefix or subdomain)
-proxy.register(`${machineIP}/api`, 'http://localhost:3001/api')
+_reg(machineIP, 5173)
+_reg(`${machineIP}/api`, 3001)
 
-console.log('🚀 HTTPS Proxy running:')
-console.log(`  Frontend: https://${machineIP}/ → http://localhost:5173`)
-console.log(`  API: https://${machineIP}/api → http://localhost:3001`)
+_reg('localhost', 5173)
+_reg(`localhost/api`, '3001/api')
