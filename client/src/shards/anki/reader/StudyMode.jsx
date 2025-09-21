@@ -83,14 +83,12 @@ const ProgressHeader = ({ progress, onExit }) => {
 
 const CardDisplay = ({ card, showAnswer, onRate, onFlip }) => {
   const [renderedCard, setRenderedCard] = useState(null)
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const renderCard = async () => {
       if (!card) return
 
       try {
-        setLoading(true)
         // Use correct createRender API
         const renderer = await anki.createRender([card])
         if (!renderer) {
@@ -101,28 +99,11 @@ const CardDisplay = ({ card, showAnswer, onRate, onFlip }) => {
       } catch (err) {
         log.error('Failed to render card:', err)
         setRenderedCard({ front: 'Error loading card', back: 'Error loading card' })
-      } finally {
-        setLoading(false)
       }
     }
 
     renderCard()
   }, [card])
-
-  if (!card || loading) {
-    return (
-      <AnkiCard>
-        <Box sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100%'
-        }}>
-          <Typography>Loading card...</Typography>
-        </Box>
-      </AnkiCard>
-    )
-  }
 
   if (!renderedCard) return null
 
@@ -236,7 +217,6 @@ const SessionComplete = ({ sessionData, onRestart, onExit }) => {
 export const StudyMode = ({ bundleIds: _bundleIds, studyEngine, onEndStudy }) => {
   // Minimal local UI state per coding rules
   const [currentCard, setCurrentCard] = useState(null)
-  const [showAnswer, setShowAnswer] = useState(false)
   const [progress, setProgress] = useState(null)
   const [error, setError] = useState(null)
 
@@ -259,7 +239,6 @@ export const StudyMode = ({ bundleIds: _bundleIds, studyEngine, onEndStudy }) =>
       }
 
       setCurrentCard(result)
-      setShowAnswer(false)
 
       const ss = studyEngine.session
       const cardsStudied = ss.pile?.done?.length || 0
@@ -295,41 +274,15 @@ export const StudyMode = ({ bundleIds: _bundleIds, studyEngine, onEndStudy }) =>
   }, [studyEngine, currentCard, loadNextCard])
 
   const handleFlip = useCallback((side) => {
-    setShowAnswer(side === 'back')
+    log.debug('Card flipped:', side)
+    // setShowAnswer(side === 'back')
   }, [])
 
   // On mount/resume: show current or draw
   useEffect(() => { loadNextCard() }, [studyEngine, loadNextCard])
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyPress = (e) => {
-      if (!showAnswer) {
-        if (e.key === ' ' || e.key === 'Enter') {
-          e.preventDefault()
-          setShowAnswer(true)
-        }
-      } else {
-        if (e.key === ' ' || e.key === 'Enter') {
-          e.preventDefault()
-          setShowAnswer(false)
-        } else {
-          const ratings = { '1': RATINGS.AGAIN, '2': RATINGS.HARD, '3': RATINGS.GOOD, '4': RATINGS.EASY }
-          if (ratings[e.key]) {
-            e.preventDefault()
-            handleRate(ratings[e.key])
-          }
-        }
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyPress)
-    return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [showAnswer, handleRate])
-
   const handleRestart = async () => {
     setCurrentCard(null)
-    setShowAnswer(false)
     setError(null)
 
     // Restart session (engine already initialized)
@@ -403,14 +356,11 @@ export const StudyMode = ({ bundleIds: _bundleIds, studyEngine, onEndStudy }) =>
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <CardDisplay
           card={currentCard}
-          showAnswer={showAnswer}
           onFlip={handleFlip}
           onRate={handleRate}
         />
 
-        {showAnswer && (
-          <RatingButtons onRate={handleRate} />
-        )}
+        <RatingButtons onRate={handleRate} />
       </Box>
     </Box>
   )
