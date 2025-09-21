@@ -251,7 +251,7 @@ export const AnkiCard = ({
         maxHeight: '95vh',
 
         // Card styling
-        bgcolor: 'transparent',
+        bgcolor: 'background.body',
         borderRadius: 'lg',
         // border: '2px solid',
         borderColor: 'neutral.outlinedBorder',
@@ -285,6 +285,7 @@ export const AnkiCard = ({
 
         // Content styling
         fontSize: '1.1rem',
+        fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
         '& img': { maxWidth: '100%', height: 'auto' },
 
         // Enhanced audio player styling with wrapper div

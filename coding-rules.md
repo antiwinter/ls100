@@ -11,6 +11,7 @@
 * use js (esm style) instead of ts if possible
 * prefer short var/func names to long. e.g. db better then dbModule
 * take advantage of object member names to eliminate intermediate variables. e.g. instead of `fooBar = 5; a = {foo: fooBar}` use `foo = 5; a = {foo}`
+* suggest/use sophisticated package for specific tasks, such as protobuf decoding, instead of trying to build from scratch
 
 # CSS
 * use JOY color names instead of hard code

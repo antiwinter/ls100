@@ -1,6 +1,7 @@
 import { decompress as zstdDecompress } from 'fzstd'
 import { log } from '../../../utils/logger'
 import * as defaultEngine from './engine-default.js'
+import protobuf from 'protobufjs'
 
 // Engine for Anki version 21b (protobuf-based format)
 
@@ -34,19 +35,9 @@ const isZstdCompressed = (buffer) => {
     buffer[2] === 0x2f && buffer[3] === 0xfd
 }
 
-// Decompress zstd data if needed
-const handleCompression = (buffer) => {
-  if (isZstdCompressed(buffer)) {
-    log.debug(`Decompressing zstd: ${buffer.length} bytes`)
-    const decompressed = zstdDecompress(buffer)
-    log.debug(`Decompressed: ${buffer.length} → ${decompressed.length} bytes`)
-    return decompressed
-  }
-  return buffer
-}
 
 // Parse modern notetypes table with protobuf config support
-export const parseNotetypes = (db) => {
+export const parseNotetypes = async (db) => {
   try {
     const stmt = db.prepare('SELECT * FROM notetypes')
     const rows = []
@@ -68,7 +59,7 @@ export const parseNotetypes = (db) => {
       // Get fields from separate fields table
       const fields = parseNotetypeFields(db, row.id)
       // Get templates from separate templates table
-      const templates = parseNotetypeTemplates(db, row.id)
+      const templates = await parseNotetypeTemplates(db, row.id)
 
       models[row.id.toString()] = {
         id: row.id,
@@ -108,55 +99,85 @@ const parseNotetypeFields = (db, notetypeId) => {
   }
 }
 
+// Load protobuf schema for template config
+let templateConfigType = null
+async function loadTemplateConfigProto() {
+  if (!templateConfigType) {
+    // Define the protobuf schema inline based on Anki's notetypes.proto
+    const root = protobuf.Root.fromJSON({
+      'nested': {
+        'TemplateConfig': {
+          'fields': {
+            'q_format': {
+              'type': 'string',
+              'id': 1
+            },
+            'a_format': {
+              'type': 'string',
+              'id': 2
+            },
+            'q_format_browser': {
+              'type': 'string',
+              'id': 3
+            },
+            'a_format_browser': {
+              'type': 'string',
+              'id': 4
+            },
+            'target_deck_id': {
+              'type': 'int64',
+              'id': 5
+            },
+            'browser_font_name': {
+              'type': 'string',
+              'id': 6
+            },
+            'browser_font_size': {
+              'type': 'uint32',
+              'id': 7
+            }
+          }
+        }
+      }
+    })
+    templateConfigType = root.lookupType('TemplateConfig')
+  }
+  return templateConfigType
+}
+
 // Parse templates for a specific notetype
-const parseNotetypeTemplates = (db, notetypeId) => {
+const parseNotetypeTemplates = async (db, notetypeId) => {
   try {
     const stmt = db.prepare('SELECT * FROM templates WHERE ntid = ? ORDER BY ord')
     const templates = []
     stmt.bind([notetypeId])
+
+    // Load protobuf schema
+    const TemplateConfig = await loadTemplateConfigProto()
+
     while (stmt.step()) {
       const row = stmt.getAsObject()
 
-      // Extract template formats from protobuf config
       let qfmt = '{{Front}}'
       let afmt = '{{FrontSide}}<hr id="answer">{{Back}}'
 
-      // First check if template formats are stored directly in columns
-      if (row.qfmt && row.afmt) {
-        qfmt = row.qfmt
-        afmt = row.afmt
-      } else if (row.config) {
-        // Fall back to protobuf parsing
+      // Properly decode protobuf config
+      if (row.config) {
         try {
           const configBuffer = row.config instanceof Uint8Array
             ? row.config : new Uint8Array(row.config)
-          const configText = new TextDecoder().decode(configBuffer)
 
-          // Extract template formats from protobuf data
-          // Try to decode the complete template content from the protobuf binary
-          // First, try to find the template content in readable form
-          // eslint-disable-next-line no-control-regex
-          let cleanText = configText.replace(/[\x00-\x1F\x7F-\xFF]/g, ' ').replace(/\s+/g, ' ')
+          // Decode the protobuf binary data
+          const decoded = TemplateConfig.decode(configBuffer)
 
-          // Look for template patterns in the decoded text
-          // Ultimate Geography uses conditional templates like {{#Field}}content{{/Field}}
-          const templatePattern = /\{\{#?\w+\}\}.*?\{\{\/?\w*\}\}/gs
-          const allTemplates = cleanText.match(templatePattern) || []
+          // Extract the template formats directly from protobuf fields
+          if (decoded.q_format) qfmt = decoded.q_format
+          if (decoded.a_format) afmt = decoded.a_format
 
-          if (allTemplates.length >= 1) {
-            qfmt = allTemplates[0]
-          }
-          if (allTemplates.length >= 2) {
-            afmt = allTemplates[1]
-          }
-
-          // Log if we get default templates - might indicate need for additional parsing logic
-          if (qfmt === '{{Front}}' || afmt === '{{FrontSide}}<hr id="answer">{{Back}}') {
-            log.warn(`Template parsing may be incomplete for ${row.name}: qfmt=${qfmt}, afmt=${afmt}`)
-          }
+          log.debug(`Decoded template ${row.name}: qfmt=${qfmt.substring(0, 50)}...`)
 
         } catch (error) {
-          log.warn(`Failed to parse template protobuf for ${row.name}:`, error.message)
+          log.warn(`Failed to decode protobuf config for ${row.name}: ${error.message}`)
         }
       }
 
@@ -175,41 +196,75 @@ const parseNotetypeTemplates = (db, notetypeId) => {
   }
 }
 
-// Parse protobuf media mapping (modern Anki media format)
-const parseProtobufMedia = (buffer) => {
-  const mediaMap = {}
-  let offset = 0
-  let index = 0
-
-  while (offset < buffer.length && index < 10000) {
-    try {
-      // Scan for filename patterns in protobuf data
-      let foundFilename = false
-
-      for (let i = offset; i < Math.min(offset + 200, buffer.length - 10); i++) {
-        const slice = buffer.slice(i, i + 50)
-        const text = new TextDecoder('utf-8', { fatal: false }).decode(slice)
-
-        // Match common media file extensions
-        const filenameMatch = text.match(/^([a-zA-Z0-9_-]+\.(png|jpg|jpeg|gif|svg|mp3|wav|ogg|mp4|webm|css|js))/i)
-        if (filenameMatch) {
-          const filename = filenameMatch[1]
-          mediaMap[index.toString()] = filename
-          index++
-          offset = i + filename.length
-          foundFilename = true
-          break
+// Load protobuf schema for media entries
+let mediaEntriesType = null
+async function loadMediaEntriesProto() {
+  if (!mediaEntriesType) {
+    // Define MediaEntries schema based on Anki's import_export.proto
+    const root = protobuf.Root.fromJSON({
+      'nested': {
+        'MediaEntries': {
+          'fields': {
+            'entries': {
+              'rule': 'repeated',
+              'type': 'MediaEntry',
+              'id': 1
+            }
+          },
+          'nested': {
+            'MediaEntry': {
+              'fields': {
+                'name': {
+                  'type': 'string',
+                  'id': 1
+                },
+                'size': {
+                  'type': 'uint32',
+                  'id': 2
+                },
+                'sha1': {
+                  'type': 'bytes',
+                  'id': 3
+                },
+                'legacy_zip_filename': {
+                  'type': 'uint32',
+                  'id': 255,
+                  'options': {
+                    'proto3_optional': true
+                  }
+                }
+              }
+            }
+          }
         }
       }
-
-      if (!foundFilename) offset++
-    } catch {
-      offset++
-    }
+    })
+    mediaEntriesType = root.lookupType('MediaEntries')
   }
+  return mediaEntriesType
+}
 
-  log.debug(`Extracted ${index} media filenames from protobuf`)
-  return mediaMap
+// Parse protobuf media mapping (modern Anki media format)
+const parseProtobufMedia = async (buffer) => {
+  try {
+    const MediaEntries = await loadMediaEntriesProto()
+    const decoded = MediaEntries.decode(buffer)
+
+    const mediaMap = {}
+    decoded.entries.forEach((entry, index) => {
+      // Use legacy_zip_filename if available, otherwise use array index
+      const key = entry.legacy_zip_filename !== undefined
+        ? entry.legacy_zip_filename.toString()
+        : index.toString()
+      mediaMap[key] = entry.name
+    })
+
+    log.debug(`Decoded ${decoded.entries.length} media entries from protobuf`)
+    return mediaMap
+  } catch (error) {
+    log.warn(`Failed to decode protobuf media entries: ${error.message}`)
+    return {}
+  }
 }
 
 // Parse decks from modern deck table
@@ -250,7 +305,7 @@ export const parseMedia = async (zipData) => {
   const mediaFile = zipData.files['media']
   if (mediaFile) {
     const mediaBuffer = await mediaFile.async('uint8array')
-    const decompressed = handleCompression(mediaBuffer)
+    const decompressed = await processDbBuffer(mediaBuffer)
 
     try {
       // Try JSON first (legacy compatibility)
@@ -260,7 +315,7 @@ export const parseMedia = async (zipData) => {
     } catch {
       // Use protobuf parser for modern format
       log.debug('Using protobuf media parsing')
-      mediaMap = parseProtobufMedia(decompressed)
+      mediaMap = await parseProtobufMedia(decompressed)
     }
   }
 

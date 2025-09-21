@@ -161,7 +161,7 @@ export const parseApkgFile = async (file) => {
 
     // Engine-specific parsing - standardized interface
     const decks = engine.parseDecks(db)
-    const bundles = engine.parseNotetypes(db)
+    const bundles = await engine.parseNotetypes(db)
     const media = await engine.parseMedia(zipData)
     const reviewHistory = engine.parseReviewHistory(db)
     const cards = parseCards(db, notes, bundles)

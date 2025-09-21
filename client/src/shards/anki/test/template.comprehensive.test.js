@@ -397,7 +397,9 @@ describe('Template System - AnkiRender Class', () => {
       const note = { fields: ['', ''] }
       const result = testRenderer.render(note, 0)
       
-      expect(result.front).toContain('<audio controls>')
+      expect(result.front).toContain('<div class="anki-audio">')
+      expect(result.front).toContain('<span class="play-icon">▶</span>')
+      expect(result.front).toContain('data-filename="audio.mp3"')
       expect(result.front).toContain('src="/oss/obj-def456"')
     })
 
