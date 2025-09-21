@@ -151,9 +151,10 @@ async function fuzzyAdd(bundleId, userId, content, mediaPool = {}) {
   if (filenames.length === 0) return []
 
   const mediaObject = _.pick(mediaPool, filenames)
+  // log.debug('Fuzzy adding:', filenames, mediaObject)
   if (Object.keys(mediaObject).length > 0) {
     await add(bundleId, userId, mediaObject)
-    // log.debug(`Fuzzy added ${Object.keys(mediaObject).length} media files`)
+    // log.debug('Fu  zzy added:', filenames)
   }
 
   return filenames

@@ -253,7 +253,7 @@ const parseProtobufMedia = async (buffer) => {
     const mediaMap = {}
     decoded.entries.forEach((entry, index) => {
       // Use legacy_zip_filename if available, otherwise use array index
-      const key = entry.legacy_zip_filename !== undefined
+      const key = entry.legacy_zip_filename != null
         ? entry.legacy_zip_filename.toString()
         : index.toString()
       mediaMap[key] = entry.name
@@ -325,6 +325,11 @@ export const parseMedia = async (zipData) => {
       const file = zipData.files[filename]
       const originalName = mediaMap[filename] || filename
       const blob = await file.async('blob')
+
+      // Log mapping issues for debugging
+      if (originalName === filename) {
+        log.warn(`No mapping found for media file: ${filename}`)
+      }
 
       media[originalName] = blob
     }
