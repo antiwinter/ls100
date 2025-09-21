@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Box } from '@mui/joy'
 import { detectPlatform } from '../../../../utils/useDetectPlatform.js'
 import { useDrag } from '@use-gesture/react'
@@ -21,6 +21,7 @@ export const AnkiCard = ({
   const [currentSide, setCurrentSide] = useState('front') // 'front' | 'back'
   const cardRef = useRef(null)
   const isFlipping = useRef(false)
+
   // Platform detection for Anki CSS classes
   const getPlatformClasses = () => {
     if (typeof window === 'undefined') return 'card'
@@ -62,6 +63,17 @@ export const AnkiCard = ({
     })
   }
 
+  // Animate card entrance when content changes (new card loaded)
+  useEffect(() => {
+    log.debug('useEffect', { front, back })
+    if (front || back) {
+      // Start off-screen to the right, then animate in
+      to(500, 0, () => {
+        to(0, ATIME_EXIT)
+      })
+    }
+  }, [front, back])
+
   // Handle flip animation and audio
   const handleCardClick = (e) => {
     // Handle audio player clicks first using helper
@@ -85,7 +97,7 @@ export const AnkiCard = ({
 
   // Drag handling with use-gesture and anime.js
   const bind = useDrag(({ last, velocity: [vx], offset: [ox] }) => {
-    log.debug('drag', { last, vx, ox, win: window.innerWidth })
+    // log.debug('drag', { last, vx, ox, win: window.innerWidth })
     if (last) {
       // Exit thresholds
       const x =  ox > 0 ? window.innerWidth : -window.innerWidth

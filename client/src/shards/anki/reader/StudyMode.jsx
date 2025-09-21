@@ -81,10 +81,13 @@ const ProgressHeader = ({ progress, onExit }) => {
   )
 }
 
-const CardDisplay = ({ card, showAnswer, onRate, onFlip }) => {
+const CardDisplay = ({ card, onRate, onFlip }) => {
   const [renderedCard, setRenderedCard] = useState(null)
 
+  log.debug('CardDisplay', { card })
   useEffect(() => {
+    log.debug('render effect')
+
     const renderCard = async () => {
       if (!card) return
 
@@ -95,6 +98,7 @@ const CardDisplay = ({ card, showAnswer, onRate, onFlip }) => {
           throw new Error('Failed to create renderer context')
         }
         const rendered = await renderer.render(card)
+        log.debug('rendered', rendered)
         setRenderedCard(rendered)
       } catch (err) {
         log.error('Failed to render card:', err)
@@ -123,7 +127,7 @@ const CardDisplay = ({ card, showAnswer, onRate, onFlip }) => {
       front={renderedCard.front}
       back={renderedCard.back}
       onFlip={onFlip}
-      onExit={showAnswer ? handleExit : null}
+      onExit={handleExit}
       css={renderedCard?.css}
     />
   )
@@ -227,7 +231,7 @@ export const StudyMode = ({ bundleIds: _bundleIds, studyEngine, onEndStudy }) =>
     try {
       // Elegant resume: prefer the session's currentCard; otherwise draw
       const result = studyEngine.session.currentCard || studyEngine.draw()
-
+      log.debug('drawed', result)
       if (!result) {
         // Session complete - end session and notify parent
         studyEngine.finish()
@@ -238,6 +242,7 @@ export const StudyMode = ({ bundleIds: _bundleIds, studyEngine, onEndStudy }) =>
         return
       }
 
+      log.debug('setCurrentCard', result)
       setCurrentCard(result)
 
       const ss = studyEngine.session
