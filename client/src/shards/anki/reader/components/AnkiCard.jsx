@@ -1,24 +1,14 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { Box } from '@mui/joy'
 import { detectPlatform } from '../../../../utils/useDetectPlatform.js'
+import { useDrag } from '@use-gesture/react'
+import { handleAudioClick, getAudioStyles } from './AudioHelper.js'
 
-// Helper to prevent drag events from bubbling to parent
-const stopDragEvents = () => {
-  const res = {}
-  ;['onPointerDown', 'onPointerMove', 'onPointerUp',
-    'onTouchStart', 'onTouchMove', 'onTouchEnd',
-    'onMouseDown', 'onMouseMove', 'onMouseUp']
-    .forEach(k => {
-      res[k] = (e) => {
-        e.stopPropagation()
-      }
-    })
-  return res
-}
-
-// Sophisticated AnkiCard container with flip animation and drag support
+// AnkiCard component with flip animation and gesture-based drag
 export const AnkiCard = ({
   content,
+  front,
+  back,
   onFlip,
   onExit,
   onDrag,
@@ -29,9 +19,6 @@ export const AnkiCard = ({
   const [dragState, setDragState] = useState('none') // 'none' | 'left' | 'right'
   const [dragX, setDragX] = useState(0)
   const cardRef = useRef(null)
-  const isDragging = useRef(false)
-  const startX = useRef(0)
-  const startTime = useRef(0)
 
   // Platform detection for Anki CSS classes
   const getPlatformClasses = () => {
@@ -46,47 +33,13 @@ export const AnkiCard = ({
     return classes
   }
 
-  // Handle flip animation
+  // Handle flip animation and audio
   const handleCardClick = (e) => {
-    // Handle audio player clicks first
-    const audioWrapper = e?.target?.closest('.anki-audio')
-    if (audioWrapper) {
-      e.stopPropagation()
-      const audio = audioWrapper.querySelector('audio')
+    // Handle audio player clicks first using helper
+    if (handleAudioClick(e, cardRef)) return
 
-      if (!audio) return
-
-      // Set up event handlers once per audio element
-      if (!audio.hasAttribute('data-handlers-set')) {
-        audio.setAttribute('data-handlers-set', 'true')
-        audio.addEventListener('play', () => {
-          audioWrapper.classList.add('playing')
-        })
-        audio.addEventListener('pause', () => {
-          audioWrapper.classList.remove('playing')
-        })
-        audio.addEventListener('ended', () => {
-          audioWrapper.classList.remove('playing')
-        })
-      }
-
-      if (audio.paused) {
-        // Pause all other audio elements first
-        cardRef.current?.querySelectorAll('.anki-audio').forEach(wrapper => {
-          const otherAudio = wrapper.querySelector('audio')
-          if (otherAudio && otherAudio !== audio && !otherAudio.paused) {
-            otherAudio.pause()
-          }
-        })
-        audio.play()
-      } else {
-        audio.pause()
-      }
-      return
-    }
-
-    // Handle card flip if not dragging and onFlip is provided
-    if (isDragging.current || !onFlip) return
+    // Handle card flip if onFlip is provided
+    if (!onFlip) return
 
     const nextSide = currentSide === 'front' ? 'back' : 'front'
 
@@ -98,115 +51,43 @@ export const AnkiCard = ({
     }, 150)
   }
 
-  // Drag handlers
-  const handleStart = (clientX) => {
-    isDragging.current = false
-    startX.current = clientX
-    startTime.current = Date.now()
-    setDragX(0)
-    setDragState('none')
-  }
-
-  const handleMove = (clientX) => {
-    if (startX.current === 0) return
-
-    const deltaX = clientX - startX.current
-    const deltaTime = Date.now() - startTime.current
-
-    // Start dragging after minimum movement and time
-    if (!isDragging.current && (Math.abs(deltaX) > 10 || deltaTime > 100)) {
-      isDragging.current = true
-    }
-
-    if (!isDragging.current) return
-
-    setDragX(deltaX)
-
-    // Fire drag callback for real-time feedback
-    if (onDrag) {
-      onDrag(deltaX)
-    }
-
-    // Update drag state based on direction and distance
-    const threshold = 50
-    if (deltaX < -threshold) {
-      setDragState('left')
-    } else if (deltaX > threshold) {
-      setDragState('right')
+  // Drag handling with use-gesture
+  const bind = useDrag(({ last, velocity: [vx], offset: [ox] }) => {
+    if (last) {
+      // Exit thresholds
+      if ((Math.abs(ox) > 100 || Math.abs(vx) > 1) && onExit) {
+        onExit(ox < 0 ? 'left' : 'right')
+      } else {
+        // Reset position
+        setDragX(0)
+        setDragState('none')
+      }
     } else {
-      setDragState('none')
+      // Update drag state during drag
+      setDragX(ox)
+      onDrag?.(ox)
+
+      // Update drag state for glow effect
+      const threshold = 50
+      if (ox < -threshold) {
+        setDragState('left')
+      } else if (ox > threshold) {
+        setDragState('right')
+      } else {
+        setDragState('none')
+      }
     }
-  }
-
-  const handleEnd = () => {
-    if (!isDragging.current) {
-      resetDrag()
-      return
-    }
-
-    const threshold = 100
-
-    if (dragX < -threshold && onExit) {
-      onExit('left')
-    } else if (dragX > threshold && onExit) {
-      onExit('right')
-    }
-
-    resetDrag()
-  }
-
-  const resetDrag = () => {
-    isDragging.current = false
-    startX.current = 0
-    setDragX(0)
-    setDragState('none')
-  }
-
-  // Mouse events
-  const handleMouseDown = (e) => {
-    e.preventDefault()
-    handleStart(e.clientX)
-  }
-
-  const handleMouseMove = (e) => {
-    handleMove(e.clientX)
-  }
-
-  const handleMouseUp = () => {
-    handleEnd()
-  }
-
-  // Touch events
-  const handleTouchStart = (e) => {
-    const touch = e.touches[0]
-    handleStart(touch.clientX)
-  }
-
-  const handleTouchMove = (e) => {
-    const touch = e.touches[0]
-    handleMove(touch.clientX)
-  }
-
-  const handleTouchEnd = () => {
-    handleEnd()
-  }
-
-  // Global mouse move/up events
-  useEffect(() => {
-    if (startX.current === 0) return
-
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-    }
-  }, [startX.current]) // eslint-disable-line react-hooks/exhaustive-deps
+  })
 
   // Calculate transform styles
   const getTransform = () => {
-    let transform = `translateX(${dragX}px)`
+    // Proportional scale: x=0 -> scale=1, x=±30 -> scale=0.9
+    const scale = Math.max(0.9, 1 - Math.abs(dragX) * 0.1 / 30)
+
+    // Proportional rotation: ±15° at ±100px drag
+    const rotation = (dragX / 100) * 15
+
+    let transform = `translateX(${dragX}px) scale(${scale}) rotateZ(${rotation}deg)`
 
     if (isFlipping) {
       transform += ` rotateY(${currentSide === 'back' ? 180 : 0}deg)`
@@ -231,11 +112,7 @@ export const AnkiCard = ({
     <Box
       ref={cardRef}
       onClick={handleCardClick}
-      onMouseDown={handleMouseDown}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      {...stopDragEvents()}
+      {...bind()}
       className={getPlatformClasses()}
       sx={{
         // Fixed positioning - centered on screen
@@ -270,9 +147,9 @@ export const AnkiCard = ({
         p: 3, // Default padding for content readability
 
         // Animation and interaction
-        cursor: isDragging.current ? 'grabbing' : 'pointer',
+        cursor: 'pointer',
         transform: `translate(-50%, -50%) ${getTransform()}`,
-        transition: isDragging.current ? 'none' : 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        transition: dragX !== 0 ? 'none' : 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         transformStyle: 'preserve-3d',
         backfaceVisibility: 'hidden',
 
@@ -288,42 +165,8 @@ export const AnkiCard = ({
         fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
         '& img': { maxWidth: '100%', height: 'auto' },
 
-        // Enhanced audio player styling with wrapper div
-        '& .anki-audio': {
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: '48px',
-          height: '48px',
-          borderRadius: '50%',
-          border: '2px solid black',
-          backgroundColor: 'white',
-          cursor: 'pointer',
-          margin: '8px',
-          transition: 'background-color 0.2s ease',
-
-          // Hide the actual audio element completely
-          '& audio': {
-            display: 'none'
-          },
-
-          // Style the play icon span
-          '& .play-icon': {
-            fontSize: '16px',
-            color: 'black',
-            lineHeight: 1,
-            marginLeft: '2px', // Slight offset for visual centering
-            userSelect: 'none'
-          },
-
-          // Playing state - much cleaner with wrapper approach
-          '&.playing': {
-            backgroundColor: 'primary.500',
-            '& .play-icon': {
-              color: 'white'
-            }
-          }
-        },
+        // Audio player styling from helper
+        ...getAudioStyles(),
 
         '& .cloze-deletion': {
           bgcolor: 'warning.100',
@@ -363,25 +206,10 @@ export const AnkiCard = ({
 
       {/* Content */}
       {content && <div dangerouslySetInnerHTML={{ __html: content }} />}
-
-      {/* Drag indicators */}
-      {dragState !== 'none' && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: '50%',
-            left: dragState === 'left' ? '10%' : '90%',
-            transform: 'translate(-50%, -50%)',
-            fontSize: '2rem',
-            color: dragState === 'left' ? 'danger.400' : 'success.400',
-            opacity: Math.min(Math.abs(dragX) / 100, 1),
-            transition: 'opacity 0.1s ease',
-            pointerEvents: 'none',
-            zIndex: 1
-          }}
-        >
-          {dragState === 'left' ? '✕' : '✓'}
-        </Box>
+      {front && back && (
+        <div dangerouslySetInnerHTML={{
+          __html: currentSide === 'front' ? front : back
+        }} />
       )}
     </Box>
   )
