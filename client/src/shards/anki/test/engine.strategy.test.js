@@ -69,7 +69,7 @@ describe('StudyEngine strategies', () => {
     const b = 'b'; await seed(b, { n: 3, r: 3, siblings: true })
     const st = store({ bundleIds: [b], autoBurySiblings: true })
     const e = new StudyEngine(); await e.init(st)
-    const noteIdsNew = new Set(st.pile.new.map(c => c.noteId))
+    const noteIdsNew = new Set(st.pile.raw.map(c => c.noteId))
     const noteIdsRev = new Set(st.pile.review.map(c => c.noteId))
     expect(noteIdsNew.size).toBeLessThanOrEqual(1)
     expect(noteIdsRev.size).toBeLessThanOrEqual(1)

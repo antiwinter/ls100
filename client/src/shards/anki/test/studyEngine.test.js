@@ -83,7 +83,7 @@ describe('StudyEngine', () => {
     const session = createSessionStore({ bundleIds: [bundleId] })
     const engine = new StudyEngine()
     await engine.init(session)
-    expect(session.pile.new.length + session.pile.review.length).toBeGreaterThan(0)
+    expect(session.pile.raw.length + session.pile.review.length).toBeGreaterThan(0)
     const card = engine.draw()
     expect(card).not.toBeNull()
   })

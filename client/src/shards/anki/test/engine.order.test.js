@@ -39,14 +39,14 @@ describe('StudyEngine new card ordering', () => {
     const b = 'b'; await seedWithTemplateOrd(b)
     const st = store({ bundleIds: [b], newCardOrder: 'gather' })
     const e = new StudyEngine(); await e.init(st)
-    expect(st.pile.new.map(c => c.id)).toEqual(['c0', 'c1', 'c2'])
+    expect(st.pile.raw.map(c => c.id)).toEqual(['c0', 'c1', 'c2'])
   })
 
   test('template-random groups by templateOrd', async () => {
     const b = 'b'; await seedWithTemplateOrd(b)
     const st = store({ bundleIds: [b], newCardOrder: 'template-random' })
     const e = new StudyEngine(); await e.init(st)
-    const ords = st.pile.new.map(c => c.templateOrd)
+    const ords = st.pile.raw.map(c => c.templateOrd)
     expect(new Set(ords)).toEqual(new Set([0,1,2]))
   })
 })
