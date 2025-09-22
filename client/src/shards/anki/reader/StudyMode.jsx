@@ -1,80 +1,87 @@
 import { useRef, useEffect, useCallback } from 'react'
-import {
-  Box,
-  Button,
-  Alert
-} from '@mui/joy'
+import { Box } from '@mui/joy'
 
 import { Rating } from 'ts-fsrs'
 import anki from '../core/index.js'
 import { log } from '../../../utils/logger'
-import { AnkiCard, RatingButtons, SessionSummary } from './components'
+import { AnkiCard, SessionSummary } from './components'
 import { Toolbar } from './overlay/Toolbar.jsx'
+import { AnkiSessionStore } from '../core/sessionStore.js'
 
-export const StudyMode = ({ bundleIds: _bundleIds, studyEngine, onEndStudy, shardId }) => {
-  // Minimal local UI state per coding rules
-  const renderer = useRef(null)
+export const StudyMode = ({ shardId, onExit }) => {
+  // Self-contained study engine and refs
   const ak = useRef(null)
-  const currentCard = useRef(null)
+  const _ctx = useRef({})
+  const ctx = _ctx.current
 
-  // Define functions before useEffects that use them
+  // Clean card loading
   const loadCard = useCallback(async () => {
-    if (!studyEngine) return
-    // Elegant resume: prefer the session's currentCard; otherwise draw
-    let result = studyEngine.draw()
-    log.debug('drawed', result)
-    if (!result) {
-      // session complete UI handled below when piles are empty and no currentCard
-      log.info('Study session completed naturally')
+    if (!ctx.engine) return
+
+    const card = ctx.engine.draw()
+    if (!card) {
+      log.info('Study session completed')
       return
     }
 
-    ak.lockNload(await renderer.render(result))
-    currentCard.current = result
-  }, [studyEngine])
+    const rendered = await ctx.renderer.render(card)
+    ak.current?.locknLoad(rendered)
+    ctx.card = card
+
+    log.debug('Card loaded:', card.id)
+  }, [ctx])
 
   const handleRate = useCallback(async (rating) => {
-    let r = ({ 'left': Rating.Again, 'right': Rating.Good })[rating]
-    await studyEngine.rate(r || rating)
+    const r = ({ 'left': Rating.Again, 'right': Rating.Good })[rating]
+    await ctx.engine.rate(r || rating)
     loadCard()
-  }, [studyEngine, loadCard])
+  }, [loadCard, ctx])
 
   const handleFlip = useCallback((side) => {
     log.debug('Card flipped:', side)
-    // setShowAnswer(side === 'back')
   }, [])
 
-  // On mount/resume: show current or draw
-  useEffect(() => { loadCard() }, [studyEngine, loadCard])
+  // Initialize study engine and renderer
   useEffect(() => {
-    const { raw, review } = studyEngine.session.pile
-    renderer.current = anki.createRender(
-      [...raw, ...review,
-        studyEngine.session.currentCard])
-  }, [studyEngine])
+    const init = async () => {
+      if (!shardId) return
 
-  // Clean up auto-end timeout on manual exit
-  const handleManualExit = () => {
-    onEndStudy()
-  }
+      // Create session store and study engine
+      const sessionStore = AnkiSessionStore(shardId)
+      const engine = new anki.StudyEngine()
+      await engine.init(sessionStore)
 
-  if (studyEngine.session?.isFinished()) {
-    // Build session data from current session state
-    return (
-      <SessionSummary />
-    )
+      ctx.engine = engine
+
+      // Create renderer for all cards
+      const { raw, review } = engine.session.pile
+      ctx.renderer = await anki.createRender([
+        ...raw,
+        ...review,
+        engine.session.currentCard
+      ].filter(Boolean))
+
+      // Load first card
+      loadCard()
+    }
+
+    init()
+  }, [shardId, loadCard, ctx])
+
+  // Session complete check
+  if (ctx.engine?.session?.isFinished()) {
+    return <SessionSummary onExit={onExit} />
   }
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Toolbar
         shardId={shardId}
-        onBack={handleManualExit}
+        onBack={onExit}
       />
 
       <AnkiCard
         ref={ak}
-        card={currentCard.current}
         onFlip={handleFlip}
         onExit={handleRate}
       />

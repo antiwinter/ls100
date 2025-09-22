@@ -2,10 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Box, Typography, Alert, Button } from '@mui/joy'
 import { Collections } from '@mui/icons-material'
 import anki from '../core/index.js'
-import { StudyMode } from './StudyMode.jsx'
 import { FixedSizeList as List } from 'react-window'
 import { Toolbar } from './overlay/Toolbar.jsx'
-import { AnkiSessionStore } from '../core/sessionStore.js'
 import { apiCall } from '../../../config/api.js'
 import { log } from '../../../utils/logger'
 
@@ -70,13 +68,8 @@ const AnkiReaderContent = ({ shard, onBack }) => {
   const [shardData, setShardData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [mode, setMode] = useState('browse')
-  const [studyEngine, setStudyEngine] = useState(null)
   const [notes, setNotes] = useState([])
   const [bundles, setBundles] = useState({})
-
-  // Session store for study functionality (Valtio proxy)
-  const sessionStore = AnkiSessionStore(shard?.id)
 
   // Get bundleIds (must be at top level)
   const bundleIds = useMemo(() =>
@@ -188,7 +181,8 @@ const AnkiReaderContent = ({ shard, onBack }) => {
   const handleToolSelect = async (tool) => {
     switch (tool) {
     case 'study':
-      await handleStartStudy()
+      // Navigate to study mode (router level)
+      log.debug('Navigate to study mode')
       break
     case 'statistics':
     case 'settings':
@@ -198,38 +192,6 @@ const AnkiReaderContent = ({ shard, onBack }) => {
     default:
       log.warn('Unknown tool action:', tool)
     }
-  }
-
-  // Handle study mode
-  const handleStartStudy = async () => {
-    if (!notes.length) {
-      setError('No notes available for study')
-      return
-    }
-
-    try {
-      // Configure session with bundleIds
-      sessionStore.bundleIds = bundleIds
-
-      // Create study engine and initialize session
-      const engine = new anki.StudyEngine(sessionStore)
-      await engine.init(sessionStore)
-
-      setStudyEngine(engine)
-      setMode('study')
-    } catch (err) {
-      log.error('Failed to start study session:', err)
-      setError('Failed to start study session: ' + err.message)
-    }
-  }
-
-  const handleEndStudy = () => {
-    // Clean up study engine reference (session already ended in StudyMode)
-    if (studyEngine) {
-      log.info('Cleaning up study engine reference')
-      setStudyEngine(null)
-    }
-    setMode('browse')
   }
 
   // FixedSizeList item renderer
@@ -292,17 +254,6 @@ const AnkiReaderContent = ({ shard, onBack }) => {
     )
   }
 
-  // Render study mode if active
-  if (mode === 'study') {
-    return (
-      <StudyMode
-        bundleIds={bundleIds}
-        studyEngine={studyEngine}
-        onEndStudy={handleEndStudy}
-        shardId={shard.id}
-      />
-    )
-  }
 
   // Render browse mode (no notes loaded yet)
   if (!notes.length) {

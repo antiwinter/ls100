@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback,
+  useImperativeHandle, forwardRef } from 'react'
 import { Box } from '@mui/joy'
 import { detectPlatform } from '../../../../utils/useDetectPlatform.js'
 import { useDrag } from '@use-gesture/react'
@@ -10,17 +11,15 @@ const ATIME_EXIT = 1000
 const ATIME_FLIP = 1500
 
 // AnkiCard component with flip animation and gesture-based drag
-export const AnkiCard = ({
-  front,
-  back,
+export const AnkiCard = forwardRef(({
   onFlip,
   onExit,
-  onDrag,
-  css = null
-}) => {
+  onDrag
+}, ref) => {
   const [currentSide, setCurrentSide] = useState('front') // 'front' | 'back'
   const cardRef = useRef(null)
   const isFlipping = useRef(false)
+  const [locked, setLocked] = useState(null) // Current locked card
 
   // Platform detection for Anki CSS classes
   const getPlatformClasses = () => {
@@ -35,44 +34,58 @@ export const AnkiCard = ({
     return classes
   }
 
-  const to = (ox, delay = ATIME_EXIT, cb = () => {}) => {
+  const w = window.innerWidth
+  const to = useCallback((x, delay = ATIME_EXIT, cb = () => {}) => {
     if (!cardRef.current) return
 
-    log.debug('to', { ox, delay })
+    log.debug('to', { x, delay })
     const threshold = 50
     let boxShadow = '0 4px 20px rgba(0,0,0,0.15), 0 8px 40px rgba(0,0,0,0.1)'
-    if (ox < -threshold) {
+    if (x < -threshold) {
       boxShadow = '0 0 20px var(--joy-palette-danger-400), 0 4px 20px rgba(0,0,0,0.15)'
-    } else if (ox > threshold) {
+    } else if (x > threshold) {
       boxShadow = '0 0 20px var(--joy-palette-success-400), 0 4px 20px rgba(0,0,0,0.15)'
     }
     cardRef.current.style.boxShadow = boxShadow
 
-    const win = window.innerWidth / 2
-    const scale = 1 - Math.abs(ox) * 0.3 / win
-    const rotation = (ox / win) * 7
+    const scale = 1 - Math.abs(x) * 0.3 / w
+    const rotation = (x / w) * 7
+    const a = Math.abs(x)
+    const duration = (x ? (w - a) : a) / w * delay
 
     // Animate transforms with anime.js
     animate(cardRef.current, {
-      translateX: ox,
+      translateX: x,
       rotateZ: rotation,
       scale: scale,
-      duration: delay,
+      duration,
       easing: 'easeOutCubic',
       complete: cb
     })
-  }
+  }, [w])
+
+  // Imperative API
+  useImperativeHandle(ref, () => ({
+    locknLoad: (dir, card) => {
+      log.debug('locknLoad', { dir, card })
+
+      // Exit with direction, then load new card
+      to(dir === 'right' ? w : -w, ATIME_EXIT, () => {
+        setLocked(card)
+      })
+    }
+  }), [w, to])
 
   // Animate card entrance when content changes (new card loaded)
   useEffect(() => {
-    log.debug('useEffect', { front, back })
-    if (front || back) {
+    log.debug('useEffect', { locked })
+    if (locked?.front || locked?.back) {
       // Start off-screen to the right, then animate in
-      to(500, 0, () => {
+      to(window.innerWidth, 0, () => {
         to(0, ATIME_EXIT)
       })
     }
-  }, [front, back])
+  }, [locked, to])
 
   // Handle flip animation and audio
   const handleCardClick = (e) => {
@@ -97,19 +110,17 @@ export const AnkiCard = ({
 
   // Drag handling with use-gesture and anime.js
   const bind = useDrag(({ last, velocity: [vx], offset: [ox] }) => {
-    // log.debug('drag', { last, vx, ox, win: window.innerWidth })
+    // log.debug('drag', { last, vx, ox, w })
     if (last) {
       // Exit thresholds
-      const x =  ox > 0 ? window.innerWidth : -window.innerWidth
       if ((Math.abs(ox) > 150 || Math.abs(vx) > 1)) {
-        to(x,
-          (x - ox) / x * ATIME_EXIT,
+        to(ox < 0 ? -w : w, ATIME_EXIT,
           () => {
             onExit?.(ox < 0 ? 'left' : 'right')
           })
       } else {
         // reset position
-        to(0, ox / x * ATIME_EXIT)
+        to(0, ATIME_EXIT)
       }
     } else {
       // track finger immediately (no animation)
@@ -207,14 +218,14 @@ export const AnkiCard = ({
       }}
     >
       {/* Inject bundle-scoped CSS if available */}
-      {css && <style>{css}</style>}
+      {locked?.css && <style>{locked.css}</style>}
 
       {/* Content */}
-      {front && back && (
+      {locked && (
         <div dangerouslySetInnerHTML={{
-          __html: currentSide === 'front' ? front : back
+          __html: currentSide === 'front' ? locked.front : locked.back
         }} />
       )}
     </Box>
   )
-}
+})

@@ -13,12 +13,6 @@ const fsrs = new FSRS()
 
 // Study Engine class
 export class StudyEngine {
-  constructor(sessionStore) {
-    this.sessionStore = sessionStore
-    this.session = null
-    this.timeTracker = null
-  }
-
   // Initialize study session with proper session management
   async init(session) {
     // Valtio session
