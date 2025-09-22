@@ -8,7 +8,7 @@ import { AnkiCard, SessionSummary } from './components'
 import { Toolbar } from './overlay/Toolbar.jsx'
 import { AnkiSessionStore } from '../core/sessionStore.js'
 
-export const StudyMode = ({ shardId, onExit }) => {
+export const AnkiStudy = ({ shardId, onExit }) => {
   // Self-contained study engine and refs
   const ak = useRef(null)
   const _ctx = useRef({})

@@ -12,7 +12,7 @@ export {
 export { AnkiReader } from './reader/AnkiReader.jsx'
 export { AnkiShardEditor } from './AnkiShardEditor.jsx'
 export { BrowseMode } from './reader/BrowseMode.jsx'
-export { StudyMode } from './reader/StudyMode.jsx'
+export { AnkiStudy } from './reader/AnkiStudy.jsx'
 
 // Core API - export the structured API
 export { default as anki } from './core'
