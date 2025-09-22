@@ -299,6 +299,7 @@ const AnkiReaderContent = ({ shard, onBack }) => {
         bundleIds={bundleIds}
         studyEngine={studyEngine}
         onEndStudy={handleEndStudy}
+        shardId={shard.id}
       />
     )
   }

@@ -79,7 +79,7 @@ export class StudyEngine {
 
     // Populate tri-queues; ordering within each queue already applied
     ss.pile = {
-      new: newCards.slice(0, ss.maxNewCards),
+      raw: newCards.slice(0, ss.maxNewCards),
       review: dueCards.slice(0, ss.maxReviewCards),
       done: []
     }
@@ -92,6 +92,8 @@ export class StudyEngine {
     const ss = this.session
     const { pile } = ss
 
+    if (ss.currentCard) return ss.currentCard
+
     // Helper: Extract card from pile if available
     const _pick = (type) => pile[type].length > 0 ?
       { card: pile[type].shift(), from: type } : null
@@ -101,13 +103,13 @@ export class StudyEngine {
     // - 'review-first': Prioritize review cards, then new
     // - 'mixed': Probability based on queue ratio (fair distribution)
     const strategies = {
-      'new-first': () => _pick('new') || _pick('review'),
-      'review-first': () => _pick('review') || _pick('new'),
+      'new-first': () => _pick('raw') || _pick('review'),
+      'review-first': () => _pick('review') || _pick('raw'),
       'mixed': () => {
-        const total = pile.new.length + pile.review.length
+        const total = pile.raw.length + pile.review.length
         if (total === 0) return null
-        return _pick(Math.random() < pile.new.length / total
-          ? 'new' : 'review')
+        return _pick(Math.random() < pile.raw.length / total
+          ? 'raw' : 'review')
       }
     }
 
@@ -120,10 +122,11 @@ export class StudyEngine {
       c0._drawTs = Date.now()
 
       // Action Log: Stack of draw operations for undo functionality
-      // Each entry: { id: cardId, from: 'new'|'review' }
+      // Each entry: { id: cardId, from: 'raw'|'review' }
       ss.actionLog.unshift({ id: result.card.id, from: result.from })
       return result.card
-    }
+    } else
+      ss.finish()
 
     return null
   }
@@ -173,12 +176,6 @@ export class StudyEngine {
     this.session.updateHistory()
     log.debug('Card rated:', { cardId: c0.id, rating })
     ss.currentCard = null
-  }
-
-  // End study session
-  finish() {
-    // Update session store - complete session
-    this.session.finish()
   }
 
   // Undo last step using action log

@@ -33,7 +33,7 @@ export const AnkiSessionStore = (shardId) => {
     history: {},
     day: null,                    // Numeric day id; session active when not null
     currentCard: null,            // Currently shown card object
-    pile: { new: [], review: [], done: [] }, // Tri-queues for study
+    pile: { raw: [], review: [], done: [] }, // Tri-queues for study
     actionLog: [],                // Stack of draw actions for undo
     timeSegments: [],             // [{start, end}] time tracking segments
 
@@ -65,10 +65,17 @@ export const AnkiSessionStore = (shardId) => {
       log.info('New session', this.day)
       this.day = today
       this.currentCard = null
-      this.pile = { new: [], review: [], done: [] }
+      this.pile = { raw: [], review: [], done: [] }
       this.actionLog = []
       this.timeTracking = null
       return true
+    },
+
+    // Check if current session is finished (no more cards to study)
+    isFinished() {
+      return (this.pile?.raw?.length || 0) === 0 &&
+             (this.pile?.review?.length || 0) === 0 &&
+             !this.currentCard
     },
 
     // Finish current session; compact stats into history
@@ -79,12 +86,12 @@ export const AnkiSessionStore = (shardId) => {
     // Compact the finished session into history (per-day aggregate)
     updateHistory() {
       if (!this.day) return
-      const res = { new: 0, learning: 0, review: 0, relearning: 0 }
+      const res = { raw: 0, learning: 0, review: 0, relearning: 0 }
       this.pile.done.forEach(card => {
-        res[card.state?.toLowerCase() || 'new']++
+        res[card.state?.toLowerCase() || 'raw']++
       })
 
-      const totalCards = this.pile.new.length + this.pile.review.length + this.pile.done.length
+      const totalCards = this.pile.raw.length + this.pile.review.length + this.pile.done.length
       this.history[this.day] = {
         ...res,
         ...this.timeTracking,
@@ -119,9 +126,10 @@ export const AnkiSessionStore = (shardId) => {
         setPreferences: _1,
         getCurrentDay: _2,
         start: _3,
-        finish: _4,
-        updateHistory: _5,
-        updateTimeSegments: _6,
+        isFinished: _4,
+        finish: _5,
+        updateHistory: _6,
+        updateTimeSegments: _7,
         ...plain
       } = snap
       localStorage.setItem(storageKey, JSON.stringify(plain))

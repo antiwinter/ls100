@@ -1,282 +1,43 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useRef, useEffect, useCallback } from 'react'
 import {
   Box,
-  Typography,
   Button,
-  Stack,
-  LinearProgress,
-  IconButton,
   Alert
 } from '@mui/joy'
-import { Close, Refresh } from '@mui/icons-material'
 
 import { Rating } from 'ts-fsrs'
 import anki from '../core/index.js'
 import { log } from '../../../utils/logger'
-import { AnkiCard } from './components'
+import { AnkiCard, RatingButtons, SessionSummary } from './components'
+import { Toolbar } from './overlay/Toolbar.jsx'
 
-// FSRS Rating constants
-const RATINGS = {
-  AGAIN: Rating.Again,   // 1 - Forgot/wrong
-  HARD: Rating.Hard,     // 2 - Correct but difficult
-  GOOD: Rating.Good,     // 3 - Correct with effort
-  EASY: Rating.Easy      // 4 - Correct and easy
-}
-
-// Format interval utility
-const formatInterval = (days) => {
-  if (days < 1) {
-    const minutes = Math.round(days * 24 * 60)
-    return minutes < 60 ? `${minutes}m` : `${Math.round(minutes / 60)}h`
-  } else if (days < 30) {
-    return `${Math.round(days)}d`
-  } else if (days < 365) {
-    return `${Math.round(days / 30)}mo`
-  } else {
-    return `${Math.round(days / 365)}y`
-  }
-}
-
-const ProgressHeader = ({ progress, onExit }) => {
-  if (!progress) return null
-
-  const { cardsStudied, cardsRemaining, timeElapsed, accuracy } = progress
-  const totalCards = cardsStudied + cardsRemaining
-  const progressPercent = totalCards > 0 ? (cardsStudied / totalCards) * 100 : 0
-
-  // Format time
-  const minutes = Math.floor(timeElapsed / (1000 * 60))
-  const seconds = Math.floor((timeElapsed % (1000 * 60)) / 1000)
-  const timeText = `${minutes}:${seconds.toString().padStart(2, '0')}`
-
-  return (
-    <Box sx={{ p: 2, bgcolor: 'background.level1', borderBottom: '1px solid', borderColor: 'divider' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-        <Typography level="title-sm" sx={{ flex: 1 }}>
-          Study Session
-        </Typography>
-        <Typography level="body-sm" color="neutral" sx={{ mr: 2 }}>
-          {timeText}
-        </Typography>
-        <IconButton size="sm" onClick={onExit}>
-          <Close />
-        </IconButton>
-      </Box>
-
-      <LinearProgress
-        determinate
-        value={progressPercent}
-        sx={{ mb: 1 }}
-      />
-
-      <Stack direction="row" justifyContent="space-between">
-        <Typography level="body-xs" color="neutral">
-          {cardsStudied}/{totalCards} cards • {Math.round(accuracy * 100)}% correct
-        </Typography>
-        <Typography level="body-xs" color="neutral">
-          {cardsRemaining} remaining
-        </Typography>
-      </Stack>
-    </Box>
-  )
-}
-
-const CardDisplay = ({ card, onRate, onFlip }) => {
-  const [renderedCard, setRenderedCard] = useState(null)
-
-  log.debug('CardDisplay', { card })
-  useEffect(() => {
-    log.debug('render effect')
-
-    const renderCard = async () => {
-      if (!card) return
-
-      try {
-        // Use correct createRender API
-        const renderer = await anki.createRender([card])
-        if (!renderer) {
-          throw new Error('Failed to create renderer context')
-        }
-        const rendered = await renderer.render(card)
-        log.debug('rendered', rendered)
-        setRenderedCard(rendered)
-      } catch (err) {
-        log.error('Failed to render card:', err)
-        setRenderedCard({ front: 'Error loading card', back: 'Error loading card' })
-      }
-    }
-
-    renderCard()
-  }, [card])
-
-  if (!renderedCard) return null
-
-  // Drag handler for rating
-  const handleExit = (dir) => {
-    if (!onRate) return
-
-    if (dir === 'left') {
-      onRate(RATINGS.AGAIN)
-    } else if (dir === 'right') {
-      onRate(RATINGS.GOOD)
-    }
-  }
-
-  return (
-    <AnkiCard
-      front={renderedCard.front}
-      back={renderedCard.back}
-      onFlip={onFlip}
-      onExit={handleExit}
-      css={renderedCard?.css}
-    />
-  )
-}
-
-const RatingButtons = ({ onRate, intervals }) => {
-  const buttons = [
-    { rating: RATINGS.AGAIN, label: 'Again', color: 'danger', shortcut: '1' },
-    { rating: RATINGS.HARD, label: 'Hard', color: 'warning', shortcut: '2' },
-    { rating: RATINGS.GOOD, label: 'Good', color: 'success', shortcut: '3' },
-    { rating: RATINGS.EASY, label: 'Easy', color: 'primary', shortcut: '4' }
-  ]
-
-  return (
-    <Box sx={{ p: 3 }}>
-      <Stack direction="row" spacing={2}>
-        {buttons.map(({ rating, label, color, shortcut }) => (
-          <Button
-            key={rating}
-            color={color}
-            variant="solid"
-            size="lg"
-            sx={{ flex: 1, flexDirection: 'column', gap: 0.5, py: 2 }}
-            onClick={() => onRate(rating)}
-          >
-            <Typography level="title-sm">{label}</Typography>
-            <Typography level="body-xs" sx={{ opacity: 0.8 }}>
-              {intervals?.[rating] ? formatInterval(intervals[rating]) : shortcut}
-            </Typography>
-          </Button>
-        ))}
-      </Stack>
-
-      <Typography level="body-xs" color="neutral" sx={{ textAlign: 'center', mt: 1 }}>
-        Use keys 1-4 or click buttons to rate your recall
-      </Typography>
-    </Box>
-  )
-}
-
-const SessionComplete = ({ sessionData, onRestart, onExit }) => {
-  if (!sessionData) return null
-
-  const { cardsStudied, correctAnswers, timeSpent, ratings: _ratings } = sessionData
-  const accuracy = cardsStudied > 0 ? Math.round((correctAnswers / cardsStudied) * 100) : 0
-  const timeMinutes = Math.round(timeSpent / (1000 * 60))
-
-  return (
-    <Box sx={{ p: 4, textAlign: 'center', maxWidth: 400, mx: 'auto', mt: 4 }}>
-      <Typography level="h3" sx={{ mb: 2 }}>
-        🎉 Session Complete!
-      </Typography>
-
-      <Stack spacing={2} sx={{ mb: 4 }}>
-        <Card variant="outlined">
-          <CardContent>
-            <Typography level="title-lg">{cardsStudied}</Typography>
-            <Typography level="body-sm" color="neutral">Cards Studied</Typography>
-          </CardContent>
-        </Card>
-
-        <Stack direction="row" spacing={2}>
-          <Card variant="outlined" sx={{ flex: 1 }}>
-            <CardContent>
-              <Typography level="title-md">{accuracy}%</Typography>
-              <Typography level="body-sm" color="neutral">Accuracy</Typography>
-            </CardContent>
-          </Card>
-
-          <Card variant="outlined" sx={{ flex: 1 }}>
-            <CardContent>
-              <Typography level="title-md">{timeMinutes}m</Typography>
-              <Typography level="body-sm" color="neutral">Time</Typography>
-            </CardContent>
-          </Card>
-        </Stack>
-      </Stack>
-
-      <Stack direction="row" spacing={2}>
-        <Button variant="outlined" onClick={onRestart} startDecorator={<Refresh />}>
-          Study More
-        </Button>
-        <Button onClick={onExit}>
-          Back to Browse
-        </Button>
-      </Stack>
-    </Box>
-  )
-}
-
-export const StudyMode = ({ bundleIds: _bundleIds, studyEngine, onEndStudy }) => {
+export const StudyMode = ({ bundleIds: _bundleIds, studyEngine, onEndStudy, shardId }) => {
   // Minimal local UI state per coding rules
-  const [currentCard, setCurrentCard] = useState(null)
-  const [progress, setProgress] = useState(null)
-  const [error, setError] = useState(null)
+  const renderer = useRef(null)
+  const ak = useRef(null)
+  const currentCard = useRef(null)
 
   // Define functions before useEffects that use them
-  const loadNextCard = useCallback(() => {
+  const loadCard = useCallback(async () => {
     if (!studyEngine) return
-
-    try {
-      // Elegant resume: prefer the session's currentCard; otherwise draw
-      const result = studyEngine.session.currentCard || studyEngine.draw()
-      log.debug('drawed', result)
-      if (!result) {
-        // Session complete - end session and notify parent
-        studyEngine.finish()
-        // session complete UI handled below when piles are empty and no currentCard
-        setProgress(null)
-        log.info('Study session completed naturally')
-
-        return
-      }
-
-      log.debug('setCurrentCard', result)
-      setCurrentCard(result)
-
-      const ss = studyEngine.session
-      const cardsStudied = ss.pile?.done?.length || 0
-      const cardsRemaining = (ss.pile?.new?.length || 0) + (ss.pile?.review?.length || 0)
-      setProgress({
-        cardsStudied,
-        cardsRemaining,
-        timeElapsed: studyEngine.timeTracker?.total() || 0,
-        accuracy: cardsStudied > 0 ? 0.85 : 0
-      })
-      setError(null)
-
-    } catch (err) {
-      log.error('Failed to load next card:', err)
-      setError('Failed to load next card')
+    // Elegant resume: prefer the session's currentCard; otherwise draw
+    let result = studyEngine.draw()
+    log.debug('drawed', result)
+    if (!result) {
+      // session complete UI handled below when piles are empty and no currentCard
+      log.info('Study session completed naturally')
+      return
     }
+
+    ak.lockNload(await renderer.render(result))
+    currentCard.current = result
   }, [studyEngine])
 
   const handleRate = useCallback(async (rating) => {
-    if (!studyEngine || !currentCard) return
-
-    try {
-      await studyEngine.rate(rating)
-      // log.debug('Card rated:', { cardId: currentCard.id, rating: getRatingLabel(rating) })
-
-      // Load next card after small UX delay
-      setTimeout(loadNextCard, 300)
-
-    } catch (err) {
-      log.error('Failed to rate card:', err)
-      setError('Failed to rate card')
-    }
-  }, [studyEngine, currentCard, loadNextCard])
+    let r = ({ 'left': Rating.Again, 'right': Rating.Good })[rating]
+    await studyEngine.rate(r || rating)
+    loadCard()
+  }, [studyEngine, loadCard])
 
   const handleFlip = useCallback((side) => {
     log.debug('Card flipped:', side)
@@ -284,89 +45,39 @@ export const StudyMode = ({ bundleIds: _bundleIds, studyEngine, onEndStudy }) =>
   }, [])
 
   // On mount/resume: show current or draw
-  useEffect(() => { loadNextCard() }, [studyEngine, loadNextCard])
-
-  const handleRestart = async () => {
-    setCurrentCard(null)
-    setError(null)
-
-    // Restart session (engine already initialized)
-    if (studyEngine) {
-      try {
-        // Just restart the session, don't re-initialize the engine
-        studyEngine.session.start()
-        log.info('Study session restarted')
-        loadNextCard()
-      } catch (err) {
-        log.error('Failed to restart session:', err)
-        setError('Failed to restart session: ' + err.message)
-      }
-    }
-  }
-
-  if (!studyEngine) {
-    return (
-      <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Alert color="warning">
-          No study session active
-        </Alert>
-      </Box>
-    )
-  }
+  useEffect(() => { loadCard() }, [studyEngine, loadCard])
+  useEffect(() => {
+    const { raw, review } = studyEngine.session.pile
+    renderer.current = anki.createRender(
+      [...raw, ...review,
+        studyEngine.session.currentCard])
+  }, [studyEngine])
 
   // Clean up auto-end timeout on manual exit
   const handleManualExit = () => {
     onEndStudy()
   }
 
-  if ((studyEngine.session?.pile?.new?.length || 0) === 0 &&
-      (studyEngine.session?.pile?.review?.length || 0) === 0 &&
-      !studyEngine.session?.currentCard) {
+  if (studyEngine.session?.isFinished()) {
     // Build session data from current session state
-    const sessionState = studyEngine.session
-    const cardsStudied = sessionState.pile?.done?.length || 0
-    const timeSpent = studyEngine.timeTracker?.total() || 0
-
-    const sessionData = {
-      cardsStudied,
-      correctAnswers: Math.round(cardsStudied * 0.85), // TODO: Calculate from actual ratings
-      timeSpent,
-      ratings: {} // TODO: Extract from action log if needed
-    }
-
     return (
-      <SessionComplete
-        sessionData={sessionData}
-        onRestart={handleRestart}
-        onExit={handleManualExit}
-      />
-    )
-  }
-
-  if (error) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Alert color="danger" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-        <Button onClick={loadNextCard}>Try Again</Button>
-      </Box>
+      <SessionSummary />
     )
   }
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ProgressHeader progress={progress} onExit={handleManualExit} />
+      <Toolbar
+        shardId={shardId}
+        onBack={handleManualExit}
+      />
 
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <CardDisplay
-          card={currentCard}
-          onFlip={handleFlip}
-          onRate={handleRate}
-        />
-
-        <RatingButtons onRate={handleRate} />
-      </Box>
+      <AnkiCard
+        ref={ak}
+        card={currentCard.current}
+        onFlip={handleFlip}
+        onExit={handleRate}
+      />
     </Box>
   )
 }

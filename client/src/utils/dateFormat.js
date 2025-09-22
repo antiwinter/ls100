@@ -11,6 +11,20 @@ export const formatSec = s => {
     .join(':')
 }
 
+// Format FSRS interval in days to human readable format (5m, 2h, 3d, 2mo, 1y)
+export const formatInterval = (days) => {
+  if (days < 1) {
+    const minutes = Math.round(days * 24 * 60)
+    return minutes < 60 ? `${minutes}m` : `${Math.round(minutes / 60)}h`
+  } else if (days < 30) {
+    return `${Math.round(days)}d`
+  } else if (days < 365) {
+    return `${Math.round(days / 30)}mo`
+  } else {
+    return `${Math.round(days / 365)}y`
+  }
+}
+
 // Human-readable relative time formatting
 export const formatRelativeTime = (dateString) => {
   if (!dateString) return 'Unknown date'
