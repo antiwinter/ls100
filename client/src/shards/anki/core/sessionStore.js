@@ -12,6 +12,8 @@ export const AnkiSessionStore = (shardId) => {
     // These values are persisted and configure how a study day behaves.
     // They mirror the previous Zustand store for compatibility with the UI.
     bundleIds: [],
+
+    // STUDY OPTIONS
     maxNewCards: 18,      // Maximum new cards to study per day
     maxReviewCards: 188,  // Maximum review cards to study per day
     dailyResetTime: 4,    // Hour (0AM-6AM) when daily limits reset
@@ -36,6 +38,9 @@ export const AnkiSessionStore = (shardId) => {
     pile: { raw: [], review: [], done: [] }, // Tri-queues for study
     actionLog: [],                // Stack of draw actions for undo
     timeSegments: [],             // [{start, end}] time tracking segments
+
+    // PREVIEW OPTIONS
+    previewSide: 'front',    // 'front' | 'back' | 'both'
 
     // Merge preference updates (used by settings UI)
     setPreferences(pref) {

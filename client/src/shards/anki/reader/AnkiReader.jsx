@@ -1,187 +1,110 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Box, Typography, Alert, Button } from '@mui/joy'
-import { Collections } from '@mui/icons-material'
-import anki from '../core/index.js'
 import { FixedSizeList as List } from 'react-window'
+import anki from '../core/index.js'
+import { AnkiSessionStore } from '../core/sessionStore.js'
+import { useSnapshot } from 'valtio'
 import { Toolbar } from './overlay/Toolbar.jsx'
 import { apiCall } from '../../../config/api.js'
 import { log } from '../../../utils/logger'
 
-// Layout constants for FixedSizeList height calculation
-const TOOLBAR_HEIGHT = 70 // Toolbar height
-const HEADER_HEIGHT = 80   // Shard name + count section
-const FIELD_HEADER_HEIGHT = 60 // Field names header
-const ITEM_HEIGHT = 90     // Fixed height per note row
+// On-demand preview for a single card
+const CardPreview = ({ renderer, card, side = 'front' }) => {
+  const [rendered, setRendered] = useState(null)
+  const reqIdRef = useRef(0)
 
+  useEffect(() => {
+    if (!renderer || !card) { setRendered(null); return }
+    const id = ++reqIdRef.current
+    ;(async () => {
+      try {
+        const r = await renderer.render(card)
+        if (reqIdRef.current === id) setRendered(r)
+      } catch {
+        if (reqIdRef.current === id) setRendered(null)
+      }
+    })()
+  }, [renderer, card])
 
-// Note row component for FixedSizeList
-const NoteRow = ({ index, note, fieldNames, style }) => {
   return (
-    <Box
-      style={{
-        ...style,
-        display: 'flex',
-        padding: '12px',
-        borderBottom: '1px solid var(--joy-palette-divider)',
-        alignItems: 'center'
-      }}
-      sx={{
-        '&:hover': { bgcolor: 'background.level1' }
-      }}
-    >
-      {/* Index column */}
-      <Box sx={{ minWidth: 60, pr: 2, textAlign: 'center' }}>
-        <Typography level="body-sm" fontWeight="bold">
-          {index + 1}
-        </Typography>
-      </Box>
-
-      {/* Dynamic field columns */}
-      {fieldNames.map((fieldName, idx) => (
-        <Box key={fieldName} sx={{ flex: 1, pr: 2, minWidth: 0 }}>
-          <Box
-            sx={{
-              fontSize: 'sm',
-              lineHeight: 1.4,
-              color: 'text.primary',
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              '& img': {
-                maxHeight: '40px',
-                maxWidth: '80px',
-                objectFit: 'contain'
-              }
-            }}
-            dangerouslySetInnerHTML={{ __html: note.fields?.[idx] || '' }}
-          />
-        </Box>
-      ))}
+    <Box sx={{
+      p: 2,
+      border: 1,
+      borderColor: 'divider',
+      borderRadius: 'md',
+      bgcolor: 'background.body',
+      overflow: 'hidden',
+      '& img': { maxWidth: '100%', height: 'auto' }
+    }}>
+      {rendered
+        ? <div dangerouslySetInnerHTML={{ __html: side === 'back' ? (rendered.back || '') : (rendered.front || '') }} />
+        : <Typography level="body-sm" color="neutral">Loading…</Typography>}
     </Box>
   )
 }
 
+export const AnkiReader = ({ shardId, onBack }) => {
+  const [shard, setShard] = useState(undefined)
+  const [cards, setCards] = useState([])
+  const [css, setCss] = useState('')
+  const [renderer, setRenderer] = useState(null)
 
-const AnkiReaderContent = ({ shard, onBack }) => {
-  const [shardData, setShardData] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [notes, setNotes] = useState([])
-  const [bundles, setBundles] = useState({})
+  // Session store: react to previewSide
+  const store = AnkiSessionStore(shardId)
+  const snap = useSnapshot(store)
+  const previewSide = snap.previewSide || 'front'
 
-  // Get bundleIds (must be at top level)
-  const bundleIds = useMemo(() =>
-    shardData?.metadata?.bundles?.map(b => b.id) || [],
-  [shardData?.metadata?.bundles]
-  )
+  // Fetch shard once per shardId
+  useEffect(() => {
+    let alive = true
+    setShard(undefined)
+    apiCall(`/api/shards/${shardId}`)
+      .then((data) => { if (alive) setShard(data.shard || null) })
+      .catch((err) => { log.error('Failed to load shard:', err); if (alive) setShard(null) })
+    return () => { alive = false }
+  }, [shardId])
 
-  // Calculate dynamic field names across all bundles
-  const fieldNames = useMemo(() => {
-    const allFields = new Set()
-    Object.values(bundles).forEach(bundle => {
-      if (bundle?.fields) {
-        bundle.fields.forEach(field => allFields.add(field))
-      }
-    })
-    return Array.from(allFields)
-  }, [bundles])
+  // no-op: shard loading handled by previous effect
 
-  // Load shard data using new architecture
-  const loadShardData = useCallback(async () => {
-    try {
-      setLoading(true)
-      setError(null)
-
-      if (!shard?.id) {
-        setError('No shard ID provided')
-        return
-      }
-
-      // Minimal shardData - just metadata for single source of truth
-      const data = {
-        id: shard.id,
-        name: shard.name || 'Anki Shard',
-        metadata: shard.metadata
-      }
-
-      setShardData(data)
-
-      const bundleIds = shard.metadata?.bundles?.map(b => b.id) || []
-      log.info('✅ Loaded shard data:', {
-        shardId: shard.id,
-        bundles: bundleIds.length
-      })
-
-    } catch (err) {
-      log.error('Failed to load shard data:', err)
-      setError(`Failed to load shard data: ${err.message}`)
-    } finally {
-      setLoading(false)
+  // Load cards for first bundle and build renderer
+  useEffect(() => {
+    const firstBundleId = shard?.metadata?.bundles?.[0]?.id
+    if (!firstBundleId) {
+      setCards([])
+      setCss('')
+      setRenderer(null)
+      return
     }
-  }, [shard?.id, shard?.name, shard?.metadata])
 
-  // Load shard data on mount
-  useEffect(() => {
-    loadShardData()
-  }, [shard, loadShardData])
-
-  // Load notes for bundle IDs (after shard data loaded)
-  useEffect(() => {
-    const loadNotesData = async () => {
-      if (!bundleIds.length) {
-        setNotes([])
-        setBundles({})
-        return
-      }
-
+    let alive = true
+    ;(async () => {
       try {
-        // Get notes for these bundles by finding cards first, then getting unique notes
-        const shardCards = await anki.getCardsForBundles(bundleIds)
-        const noteIds = [...new Set(shardCards.map(c => c.noteId))]
-
-        const shardNotes = await Promise.all(
-          noteIds.map(async (id) => {
-            try {
-              return await anki.noteManager.get(id)
-            } catch (err) {
-              log.warn('Failed to load note:', id, err)
-              return null
-            }
-          })
-        )
-        const validNotes = shardNotes.filter(Boolean)
-
-        // Load note types for the notes
-        const types = {}
-        for (const note of validNotes) {
-          if (!types[note.bundleId]) {
-            types[note.bundleId] = await anki.getBundle(note.bundleId)
-          }
+        const allCards = await anki.getCardsForBundles([firstBundleId])
+        if (!allCards?.length) {
+          if (alive) { setCards([]); setCss(''); setRenderer(null) }
+          return
         }
 
-        setNotes(validNotes)
-        setBundles(types)
-        log.debug('Loaded notes data:', {
-          notes: validNotes.length,
-          bundles: Object.keys(types).length
-        })
-      } catch (error) {
-        log.error('Failed to load notes data:', error)
-        setNotes([])
-        setBundles({})
+        const rctx = await anki.createRender(allCards)
+        if (!rctx) {
+          if (alive) { setCards([]); setCss(''); setRenderer(null) }
+          return
+        }
+
+        if (alive) { setRenderer(rctx); setCss(rctx.css || ''); setCards(allCards) }
+      } catch (err) {
+        log.error('Failed to load cards:', err)
+        if (alive) { setCards([]); setCss(''); setRenderer(null) }
       }
-    }
+    })()
 
-    loadNotesData()
-  }, [bundleIds])
+    return () => { alive = false }
+  }, [shard])
 
-  // Handle toolbar actions
+  // Toolbar actions
   const handleToolSelect = async (tool) => {
     switch (tool) {
     case 'study':
-      // Navigate to study mode (router level)
       log.debug('Navigate to study mode')
       break
     case 'statistics':
@@ -194,49 +117,25 @@ const AnkiReaderContent = ({ shard, onBack }) => {
     }
   }
 
-  // FixedSizeList item renderer
-  const renderNote = ({ index, style }) => {
-    const note = notes[index]
-    if (!note) return null
-
-    return (
-      <NoteRow
-        index={index}
-        style={style}
-        note={note}
-        fieldNames={fieldNames}
-      />
-    )
-  }
-
-  // Calculate available height for the list (fallback to reasonable default)
-  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 800
-  const usedHeight = TOOLBAR_HEIGHT + HEADER_HEIGHT + FIELD_HEADER_HEIGHT
-  const listHeight = Math.max(400, viewportHeight - usedHeight)
-
-  // Guard clause for missing shard
-  if (!shard) {
+  if (shard === undefined) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography color="danger">No shard data provided</Typography>
+        <Typography color="neutral">Loading shard...</Typography>
       </Box>
     )
   }
 
-  if (loading) {
-    return (
-      <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography color="neutral">Loading shard data...</Typography>
-      </Box>
-    )
-  }
-
-  if (error) {
+  if (shard === null) {
     return (
       <Box sx={{ p: 3 }}>
         <Alert color="danger">
-          <Typography level="body-sm">{error}</Typography>
-          <Button size="sm" onClick={loadShardData} sx={{ mt: 1 }}>
+          <Typography level="body-sm">Failed to load shard</Typography>
+          <Button size="sm" onClick={() => {
+            setShard(undefined)
+            apiCall(`/api/shards/${shardId}`)
+              .then((data) => setShard(data.shard || null))
+              .catch((err) => { log.error('Failed to load shard:', err); setShard(null) })
+          }} sx={{ mt: 1 }}>
             Retry
           </Button>
         </Alert>
@@ -244,7 +143,8 @@ const AnkiReaderContent = ({ shard, onBack }) => {
     )
   }
 
-  if (!bundleIds.length) {
+  const firstBundleId = shard?.metadata?.bundles?.[0]?.id
+  if (!firstBundleId) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
         <Typography color="neutral" sx={{ mb: 2 }}>
@@ -254,23 +154,15 @@ const AnkiReaderContent = ({ shard, onBack }) => {
     )
   }
 
-
-  // Render browse mode (no notes loaded yet)
-  if (!notes.length) {
+  if (!renderer) {
     return (
-      <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-        <Toolbar shardId={shard.id} onBack={onBack} onToolSelect={handleToolSelect} />
-        <Box sx={{ p: 4, textAlign: 'center', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: 0 }}>
-          <Collections sx={{ fontSize: 48, color: 'neutral.400', mb: 2 }} />
-          <Typography color="neutral">
-            {bundleIds.length ? 'Loading notes...' : 'No notes found'}
-          </Typography>
-        </Box>
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <Typography color="neutral">Loading cards...</Typography>
       </Box>
     )
   }
 
-  // Render browse mode with notes
+  // Render two-column card preview with react-window
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Toolbar */}
@@ -279,92 +171,69 @@ const AnkiReaderContent = ({ shard, onBack }) => {
       {/* Header */}
       <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
         <Typography level="title-lg" sx={{ mb: 0.5 }}>
-          {shardData.name}
+          {shard.name || 'Anki Shard'}
         </Typography>
         <Typography level="body-sm" color="neutral">
-          {notes.length} notes
+          {cards.length} cards
         </Typography>
       </Box>
 
-      {/* Field headers */}
-      <Box
-        sx={{
-          display: 'flex',
-          p: 1.5,
-          bgcolor: 'background.surface',
-          borderBottom: 1,
-          borderColor: 'divider',
-          flexShrink: 0
-        }}
-      >
-        <Box sx={{ minWidth: 60, pr: 2, textAlign: 'center' }}>
-          <Typography level="body-sm" fontWeight="bold">
-            #
-          </Typography>
-        </Box>
-        {fieldNames.map((fieldName) => (
-          <Box key={fieldName} sx={{ flex: 1, pr: 2, minWidth: 0 }}>
-            <Typography level="body-sm" fontWeight="bold">
-              {fieldName}
-            </Typography>
-          </Box>
-        ))}
-      </Box>
+      {/* Bundle CSS */}
+      {css && <style>{css}</style>}
 
-      {/* Virtual scrolled notes */}
+      {/* Cards virtual list: each row shows two cards */}
       <Box sx={{ flex: 1, minHeight: 0 }}>
-        <List
-          height={listHeight}
-          itemCount={notes.length}
-          itemSize={ITEM_HEIGHT}
-        >
-          {renderNote}
-        </List>
+        {cards.length === 0 ? (
+          <Box sx={{ p: 4, textAlign: 'center' }}>
+            <Typography color="neutral">No cards found</Typography>
+          </Box>
+        ) : (
+          (() => {
+            const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 800
+            const TOOLBAR_HEIGHT = 70
+            const HEADER_HEIGHT = 80
+            const listHeight = Math.max(400, viewportHeight - (TOOLBAR_HEIGHT + HEADER_HEIGHT))
+            const ROW_HEIGHT = 300
+            const isBoth = previewSide === 'both'
+            const rowCount = isBoth ? cards.length : Math.ceil(cards.length / 2)
+
+            const Row = ({ index, style }) => {
+              let leftCard, rightCard, leftSide, rightSide
+              if (isBoth) {
+                leftCard = rightCard = cards[index]
+                leftSide = 'front'
+                rightSide = 'back'
+              } else {
+                const leftIdx = index * 2
+                const rightIdx = leftIdx + 1
+                leftCard = cards[leftIdx]
+                rightCard = cards[rightIdx]
+                leftSide = rightSide = previewSide
+              }
+
+              return (
+                <Box style={style} sx={{ px: 2, boxSizing: 'border-box' }}>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                    <Box>{leftCard && <CardPreview renderer={renderer} card={leftCard} side={leftSide} />}</Box>
+                    <Box>{rightCard && <CardPreview renderer={renderer} card={rightCard} side={rightSide} />}</Box>
+                  </Box>
+                </Box>
+              )
+            }
+
+            return (
+              <List
+                height={listHeight}
+                itemCount={rowCount}
+                itemSize={ROW_HEIGHT}
+                width={'100%'}
+              >
+                {Row}
+              </List>
+            )
+          })()
+        )}
       </Box>
     </Box>
   )
-}
-
-export const AnkiReader = ({ shardId, onBack }) => {
-  const [shard, setShard] = useState(undefined)
-  const [loading, setLoading] = useState(true)
-
-  // Load shard data
-  useEffect(() => {
-    let alive = true
-    ;(async () => {
-      try {
-        const data = await apiCall(`/api/shards/${shardId}`)
-        if (!alive) return
-        setShard(data.shard || null)
-      } catch (error) {
-        log.error('Failed to load shard:', error)
-        if (alive) setShard(null)
-      } finally {
-        if (alive) setLoading(false)
-      }
-    })()
-
-    return () => {
-      alive = false
-    }
-  }, [shardId])
-
-  if (loading) {
-    return (
-      <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography color="neutral">Loading shard...</Typography>
-      </Box>
-    )
-  }
-
-  if (!shard) {
-    return (
-      <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography color="danger">Failed to load shard data</Typography>
-      </Box>
-    )
-  }
-
-  return <AnkiReaderContent shard={shard} onBack={onBack} />
 }

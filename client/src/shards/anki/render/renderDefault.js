@@ -53,6 +53,7 @@ export async function createRender(cards) {
   })
 
   return {
+    css: renderer.css,
     async render(card) {
       const note = await db.notes.get(card.noteId)
       if (!note) throw new Error(`Note not found: ${card.noteId}`)
