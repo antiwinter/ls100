@@ -14,7 +14,7 @@ const CardPreview = ({ renderer, card, side = 'back' }) => {
   const [rendered, setRendered] = useState(null)
   const reqIdRef = useRef(0)
 
-  log.debug('CardPreview', { renderer, card, side })
+  // log.debug('CardPreview re-render', { renderer, card, side })
   useEffect(() => {
     if (!renderer || !card) { setRendered(null); return }
     const id = ++reqIdRef.current

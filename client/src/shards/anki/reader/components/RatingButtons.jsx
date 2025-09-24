@@ -27,13 +27,14 @@ export const RatingButtons = ({ onRate, fsrs, hint, side: initialSide = 1 }) => 
     }
   }, [fsrs, engine])
 
-  // order: mapping to [colorToken, shadeNumber]
-  const order = useMemo(() => ({
-    [Rating.Easy]: ['success', 400],
-    [Rating.Again]: ['danger', 400],
-    [Rating.Hard]: ['warning', 400],
-    [Rating.Good]: ['primary', 400]
-  }), [])
+  // order: array of [rating, buttonColor, shadowColor]
+  const order = useMemo(() => [
+    [Rating.Easy, '#2196F3', '#42A5F5'],     // Blue
+    [],
+    [Rating.Again, '#f44336', '#EF5350'],   // Red
+    [Rating.Hard, '#FF9800', '#FFB74D'],    // Orange/Yellow
+    [Rating.Good, '#4CAF50', '#66BB6A']    // Green
+  ], [])
 
   const nowMs = Date.now()
 
@@ -42,8 +43,8 @@ export const RatingButtons = ({ onRate, fsrs, hint, side: initialSide = 1 }) => 
   useEffect(() => {
     const all = Object.values(refs.current).filter(Boolean)
     const elHint = hint ? refs.current[hint] : null
-    const entry = hint != null ? order?.[hint] : undefined
-    const shadowColor = entry ? `var(--joy-palette-${entry[0]}-${entry[1]})` : undefined
+    const entry = hint != null ? order.find(([rating]) => rating === hint) : undefined
+    const shadowColor = entry ? entry[2] : undefined
     animate(all, {
       scale: el => el === elHint ? 1.08 : 1,
       boxShadow: el => el === elHint && shadowColor ? `0 0 18px 4px ${shadowColor}` : '0 0 0 0 rgba(0,0,0,0)',
@@ -57,7 +58,7 @@ export const RatingButtons = ({ onRate, fsrs, hint, side: initialSide = 1 }) => 
     const x = sideRef.current < 0 ? BTN_MARGIN : window.innerWidth - BTN_MARGIN - BTN_WIDTH
     log.debug('snap', { x, y: window.innerHeight / 4 })
     animate(containerRef?.current, {
-      top: window.innerHeight / 2,
+      top: window.innerHeight / 3,
       left: x,
       translateX: 0,
       translateY: 0,
@@ -118,13 +119,15 @@ export const RatingButtons = ({ onRate, fsrs, hint, side: initialSide = 1 }) => 
       }}
     >
       <Stack direction="column" spacing={1.5} alignItems="flex-end">
-        {Object.entries(order).map(([ratingKey, [color]]) => {
-          const rating = Number(ratingKey)
+        {order.map(([rating, color], index) => {
+          log.debug('order', rating)
+          if (rating === undefined)
+            return <Box key={`gap-${index}`} sx={{ height: BTN_WIDTH }} />
+
           return (
             <Button
               key={rating}
               variant="soft"
-              color={color || 'neutral'}
               onClick={() => onRate?.(rating)}
               ref={(el) => { refs.current[rating] = el }}
               sx={{
@@ -133,7 +136,12 @@ export const RatingButtons = ({ onRate, fsrs, hint, side: initialSide = 1 }) => 
                 minWidth: BTN_WIDTH,
                 borderRadius: '50%',
                 p: 0,
-                fontWeight: 'md'
+                fontWeight: 'md',
+                color: 'white',
+                backgroundColor: `${color}B3`, // 70% opacity for glass effect
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
               }}
             >
               {nextByRating?.[rating]?.card?.due
