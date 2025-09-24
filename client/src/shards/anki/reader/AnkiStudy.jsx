@@ -27,7 +27,7 @@ export const AnkiStudy = ({ shardId, onExit }) => {
     }
 
     const rendered = await ctx.renderer.render(card)
-    ak.current?.locknLoad(rendered)
+    ak.current?.locknLoad('right', rendered)
     ctx.card = card
     setCard(card)
     setHint(null)

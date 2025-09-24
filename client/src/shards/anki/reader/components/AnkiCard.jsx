@@ -170,7 +170,6 @@ export const AnkiCard = forwardRef(({
         justifyContent: 'center',
         alignItems: 'center',
         textAlign: 'center',
-        p: 3, // Default padding for content readability
 
         // Animation and interaction
         cursor: 'pointer',
@@ -222,7 +221,7 @@ export const AnkiCard = forwardRef(({
 
       {/* Content */}
       {locked && (
-        <div dangerouslySetInnerHTML={{
+        <div style={{ padding: '20px' }} dangerouslySetInnerHTML={{
           __html: currentSide === 'front' ? locked.front : locked.back
         }} />
       )}
