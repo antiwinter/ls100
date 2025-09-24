@@ -48,7 +48,7 @@ export const RatingButtons = ({ onRate, fsrs, hint, side: initialSide = 1 }) => 
       boxShadow: el => el === elHint && shadowColor ? `0 0 18px 4px ${shadowColor}` : '0 0 0 0 rgba(0,0,0,0)',
       duration: ATIME_HINT,
       easing: 'easeOutCubic',
-      complete: cb && cb()
+      complete: cb
     })
   }, [order])
 
@@ -138,7 +138,7 @@ export const RatingButtons = ({ onRate, fsrs, hint, side: initialSide = 1 }) => 
             <Button
               key={rating}
               variant="soft"
-              onClick={handleClick(rating)}
+              onClick={() => handleClick(rating)}
               ref={(el) => { refs.current[rating] = el }}
               sx={{
                 width: BTN_WIDTH,

@@ -79,6 +79,10 @@ export const AnkiReader = ({ shardId, onBack }) => {
       return
     }
 
+    // Save bundleIds to session
+    const bundleIds = shard.metadata.bundles.map(b => b.id)
+    store.bundleIds = bundleIds
+
     let alive = true
     ;(async () => {
       try {
@@ -102,7 +106,7 @@ export const AnkiReader = ({ shardId, onBack }) => {
     })()
 
     return () => { alive = false }
-  }, [shard])
+  }, [shard, store])
 
   // Toolbar actions
   const handleToolSelect = async (tool) => {

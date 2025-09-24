@@ -36,6 +36,7 @@ export const AnkiStudy = ({ shardId, onExit }) => {
   }, [ctx])
 
   const handleRate = useCallback(async (rating) => {
+    log.debug('handle rate', rating)
     const r = ({ 'left': Rating.Again, 'right': Rating.Good })[rating]
     if (r) setHint(null)
     await ctx.engine.rate(r || rating)

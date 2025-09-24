@@ -18,9 +18,12 @@ export class StudyEngine {
     // Valtio session
     this.session = session
 
-    if (session.start())
+    if (session.start()) {
       // new session, build queues
       await this._buildQueues()
+      // Set day flag only after successful queue building
+      session.day = session.getCurrentDay()
+    }
 
     this.timeTracker = new TimeSegments({
       segments: session.timeTracking?.segments,
@@ -78,7 +81,6 @@ export class StudyEngine {
       done: []
     }
     log.debug('Built queues', ss.pile)
-    this.day = ss.getCurrentDay()
   }
 
   // Card Drawing with Strategy-Based Selection

@@ -15,6 +15,7 @@ function store(init = {}) {
     start() { return true },
     finish() {},
     updateHistory: () => {},
+    getCurrentDay() { return Math.floor(Date.now() / (1000 * 60 * 60 * 24)) },
     setPreferences(pref) {
       Object.assign(this, pref || {})
     }

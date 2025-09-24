@@ -70,7 +70,6 @@ export const AnkiSessionStore = (shardId) => {
       })
 
       if (this.day && this.day !== today) {
-
         this.updateHistory()
         log.info('New day, cleanup history', this.day)
       }
@@ -79,6 +78,7 @@ export const AnkiSessionStore = (shardId) => {
         return
       }
       log.info('New session', this.day)
+      // Don't set day here - let StudyEngine set it after successful queue building
       this.currentCard = null
       this.pile = { raw: [], review: [], done: [] }
       this.actionLog = []
