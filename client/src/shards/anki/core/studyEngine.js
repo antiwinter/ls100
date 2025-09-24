@@ -77,6 +77,8 @@ export class StudyEngine {
       review: dueCards.slice(0, ss.maxReviewCards),
       done: []
     }
+    log.debug('Built queues', ss.pile)
+    this.day = ss.getCurrentDay()
   }
 
   // Card Drawing with Strategy-Based Selection

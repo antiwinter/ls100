@@ -5,14 +5,16 @@ import anki from '../core/index.js'
 import { AnkiSessionStore } from '../core/sessionStore.js'
 import { useSnapshot } from 'valtio'
 import { Toolbar } from './overlay/Toolbar.jsx'
+import { AnkiStudy } from './AnkiStudy.jsx'
 import { apiCall } from '../../../config/api.js'
 import { log } from '../../../utils/logger'
 
 // On-demand preview for a single card
-const CardPreview = ({ renderer, card, side = 'front' }) => {
+const CardPreview = ({ renderer, card, side = 'back' }) => {
   const [rendered, setRendered] = useState(null)
   const reqIdRef = useRef(0)
 
+  log.debug('CardPreview', { renderer, card, side })
   useEffect(() => {
     if (!renderer || !card) { setRendered(null); return }
     const id = ++reqIdRef.current
@@ -48,11 +50,12 @@ export const AnkiReader = ({ shardId, onBack }) => {
   const [cards, setCards] = useState([])
   const [css, setCss] = useState('')
   const [renderer, setRenderer] = useState(null)
+  const [studyMode, setStudyMode] = useState(false)
 
   // Session store: react to previewSide
   const store = AnkiSessionStore(shardId)
   const snap = useSnapshot(store)
-  const previewSide = snap.previewSide || 'front'
+  const previewSide = snap.previewSide || 'back'
 
   // Fetch shard once per shardId
   useEffect(() => {
@@ -106,6 +109,7 @@ export const AnkiReader = ({ shardId, onBack }) => {
     switch (tool) {
     case 'study':
       log.debug('Navigate to study mode')
+      setStudyMode(true)
       break
     case 'statistics':
     case 'settings':
@@ -160,6 +164,11 @@ export const AnkiReader = ({ shardId, onBack }) => {
         <Typography color="neutral">Loading cards...</Typography>
       </Box>
     )
+  }
+
+  // Render study mode or preview
+  if (studyMode) {
+    return <AnkiStudy shardId={shardId} onExit={() => setStudyMode(false)} />
   }
 
   // Render two-column card preview with react-window

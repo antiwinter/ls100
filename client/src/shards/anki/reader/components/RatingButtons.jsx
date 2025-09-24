@@ -1,9 +1,10 @@
 import { Box, Stack, Button } from '@mui/joy'
 import { FSRS, Rating, createEmptyCard } from 'ts-fsrs'
-import { useMemo, useRef, useEffect, useState } from 'react'
+import { useMemo, useRef, useEffect, useCallback } from 'react'
 import { formatInterval } from '../../../../utils/dateFormat.js'
 import { animate } from 'animejs'
 import { useDrag } from '@use-gesture/react'
+import { log } from '../../../../utils/logger.js'
 
 const ATIME_SNAP = 250
 const ATIME_HINT = 250
@@ -12,8 +13,9 @@ const BTN_MARGIN = 8
 
 // Vertical rating buttons (right side). No labels, only intervals.
 export const RatingButtons = ({ onRate, fsrs, hint, side: initialSide = 1 }) => {
-  const [side, setSide] = useState(initialSide) // 1 / -1
+  const sideRef = useRef(initialSide) // 1 / -1
   const containerRef = useRef(null)
+
   const engine = useMemo(() => new FSRS(), [])
   const nextByRating = useMemo(() => {
     const now = new Date()
@@ -51,15 +53,21 @@ export const RatingButtons = ({ onRate, fsrs, hint, side: initialSide = 1 }) => 
   }, [hint, order])
 
   // snap effect
-  useEffect(() => {
-    const x = side < 0 ? BTN_MARGIN : window.innerWidth - BTN_MARGIN - BTN_WIDTH
+  const to = useCallback(() => {
+    const x = sideRef.current < 0 ? BTN_MARGIN : window.innerWidth - BTN_MARGIN - BTN_WIDTH
+    log.debug('snap', { x, y: window.innerHeight / 4 })
     animate(containerRef?.current, {
-      translateX: x,
-      translateY: '-50%',
+      top: window.innerHeight / 2,
+      left: x,
+      translateX: 0,
+      translateY: 0,
       duration: ATIME_SNAP,
       easing: 'easeOutCubic'
     })
-  }, [side])
+  }, [])
+  useEffect(() => {
+    to()
+  }, [to])
 
   // Drag handling per spec
   const bind = useDrag(({ last, velocity: [vx], offset: [ox, oy] }) => {
@@ -68,28 +76,34 @@ export const RatingButtons = ({ onRate, fsrs, hint, side: initialSide = 1 }) => 
     const w = window.innerWidth
 
     if (last) {
-      if (vx * side < -1 || ox * side < -w / 2)
-        setSide(x => -x)
+      const side = sideRef.current
+      // log.debug('last', { vx, ox, side, w })
+      if (vx * side < -1
+        || ox * side < -w / 3)
+        sideRef.current = -side
+      to()
     } else {
       // track finger both X and Y
+      // log.debug('track', { ox, oy })
+      // debugOyStats(oy)
       animate(el, {
         translateX: ox,
-        translateY: `calc(-50% + ${oy}px)`,
+        translateY: oy,
         duration: 0
       })
     }
   }, {
     from: () => [0, 0],
     filterTaps: true,
-    bounds: () => {
-      // Convert to offset bounds relative to current rect
-      return {
-        left: BTN_MARGIN,
-        right: window.innerWidth - BTN_MARGIN - BTN_WIDTH,
-        top: 200, // doesn't matter, just a rough position
-        bottom: window.innerHeight - BTN_MARGIN
-      }
-    },
+    // bounds: () => {
+    //   // Convert to offset bounds relative to current rect
+    //   return {
+    //     left: BTN_MARGIN,
+    //     right: window.innerWidth - BTN_MARGIN - BTN_WIDTH,
+    //     top: 200, // doesn't matter, just a rough position
+    //     bottom: window.innerHeight - BTN_MARGIN
+    //   }
+    // },
     rubberband: true
   })
 
@@ -99,7 +113,8 @@ export const RatingButtons = ({ onRate, fsrs, hint, side: initialSide = 1 }) => 
       {...bind()}
       sx={{
         position: 'fixed',
-        touchAction: 'none'
+        touchAction: 'none',
+        zIndex: 1001
       }}
     >
       <Stack direction="column" spacing={1.5} alignItems="flex-end">

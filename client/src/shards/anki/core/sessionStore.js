@@ -40,7 +40,7 @@ export const AnkiSessionStore = (shardId) => {
     timeSegments: [],             // [{start, end}] time tracking segments
 
     // PREVIEW OPTIONS
-    previewSide: 'front',    // 'front' | 'back' | 'both'
+    previewSide: 'back',    // 'front' | 'back' | 'both'
 
     // Merge preference updates (used by settings UI)
     setPreferences(pref) {
@@ -59,7 +59,18 @@ export const AnkiSessionStore = (shardId) => {
     // Start a new (or resume existing) session for today
     start() {
       const today = this.getCurrentDay()
+      log.debug('debug', {
+        history: this.history,
+        day: this.day,
+        today: today,
+        pile: this.pile,
+        actionLog: this.actionLog,
+        timeTracking: this.timeTracking,
+        currentCard: this.currentCard
+      })
+
       if (this.day && this.day !== today) {
+
         this.updateHistory()
         log.info('New day, cleanup history', this.day)
       }
@@ -68,7 +79,6 @@ export const AnkiSessionStore = (shardId) => {
         return
       }
       log.info('New session', this.day)
-      this.day = today
       this.currentCard = null
       this.pile = { raw: [], review: [], done: [] }
       this.actionLog = []
