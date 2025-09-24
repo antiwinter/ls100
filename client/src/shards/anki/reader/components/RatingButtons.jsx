@@ -36,11 +36,9 @@ export const RatingButtons = ({ onRate, fsrs, hint, side: initialSide = 1 }) => 
     [Rating.Good, '#4CAF50', '#66BB6A']    // Green
   ], [])
 
-  const nowMs = Date.now()
-
   // Hint glow animation
   const refs = useRef({})
-  useEffect(() => {
+  const _hint = useCallback((hint, cb) => {
     const all = Object.values(refs.current).filter(Boolean)
     const elHint = hint ? refs.current[hint] : null
     const entry = hint != null ? order.find(([rating]) => rating === hint) : undefined
@@ -49,9 +47,21 @@ export const RatingButtons = ({ onRate, fsrs, hint, side: initialSide = 1 }) => 
       scale: el => el === elHint ? 1.08 : 1,
       boxShadow: el => el === elHint && shadowColor ? `0 0 18px 4px ${shadowColor}` : '0 0 0 0 rgba(0,0,0,0)',
       duration: ATIME_HINT,
-      easing: 'easeOutCubic'
+      easing: 'easeOutCubic',
+      complete: cb && cb()
     })
-  }, [hint, order])
+  }, [order])
+
+  useEffect(() => {
+    _hint(hint)
+  }, [hint, _hint])
+
+  const handleClick = useCallback((rating) => {
+    onRate?.(rating)
+    _hint(rating, () => {
+      _hint(null)
+    })
+  }, [onRate, _hint])
 
   // snap effect
   const to = useCallback(() => {
@@ -128,7 +138,7 @@ export const RatingButtons = ({ onRate, fsrs, hint, side: initialSide = 1 }) => 
             <Button
               key={rating}
               variant="soft"
-              onClick={() => onRate?.(rating)}
+              onClick={handleClick(rating)}
               ref={(el) => { refs.current[rating] = el }}
               sx={{
                 width: BTN_WIDTH,
@@ -148,7 +158,7 @@ export const RatingButtons = ({ onRate, fsrs, hint, side: initialSide = 1 }) => 
                 ? formatInterval(
                   Math.max(
                     0,
-                    nextByRating[rating].card.due - nowMs
+                    nextByRating[rating].card.due - Date.now()
                   )
                 )
                 : ''}

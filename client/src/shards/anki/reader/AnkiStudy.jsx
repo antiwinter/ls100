@@ -37,8 +37,8 @@ export const AnkiStudy = ({ shardId, onExit }) => {
 
   const handleRate = useCallback(async (rating) => {
     const r = ({ 'left': Rating.Again, 'right': Rating.Good })[rating]
+    if (r) setHint(null)
     await ctx.engine.rate(r || rating)
-    setHint(null)
     setCard(null)
     loadCard()
   }, [loadCard, ctx])
@@ -48,9 +48,7 @@ export const AnkiStudy = ({ shardId, onExit }) => {
   }, [])
 
   const handleDrag = useCallback((ox) => {
-    if (Math.abs(ox) < 50) setHint(null)
-    else if (ox < 0) setHint(Rating.Again)
-    else setHint(Rating.Good)
+    setHint(!ox ? null : ox < 0 ? Rating.Again : Rating.Good)
   }, [])
 
   // Initialize study engine and renderer
