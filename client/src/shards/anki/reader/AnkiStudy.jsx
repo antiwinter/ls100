@@ -18,7 +18,7 @@ export const AnkiStudy = ({ shardId, onExit }) => {
 
   log.debug('AnkiStudy-render', { shardId, onExit, card })
   // Clean card loading
-  const loadCard = useCallback(async () => {
+  const loadCard = useCallback(async (exit = 1) => {
     if (!ctx.engine) return
 
     const card = ctx.engine.draw()
@@ -29,28 +29,28 @@ export const AnkiStudy = ({ shardId, onExit }) => {
 
     const rendered = await ctx.renderer.render(card)
     log.debug('LnL card', card)
-    ak.current?.locknLoad('right', rendered)
-    ctx.card = card
+    ak.current?.locknLoad(exit, rendered)
     setCard(card)
-    setHint(null)
 
     log.debug('Card loaded:', card.id)
   }, [ctx])
 
   const handleRate = useCallback(async (rating) => {
-    log.debug('handle rate', rating)
-    const r = ({ 'left': Rating.Again, 'right': Rating.Good })[rating]
-    if (r) setHint(null)
-    await ctx.engine.rate(r || rating)
-    setCard(null)
-    loadCard()
+    await ctx.engine.rate(rating)
+    loadCard(rating === Rating.Again ? -1 : 1)
   }, [loadCard, ctx])
+
+  const handleCardExit = useCallback(async (ox) => {
+    await ctx.engine.rate(ox < 0 ? Rating.Again : Rating.Good)
+    setHint(null)
+    loadCard(0)
+  }, [ctx, loadCard])
 
   const handleFlip = useCallback((side) => {
     log.debug('Card flipped:', side)
   }, [])
 
-  const handleDrag = useCallback((ox) => {
+  const handleMove = useCallback((ox) => {
     setHint(!ox ? null : ox < 0 ? Rating.Again : Rating.Good)
   }, [])
 
@@ -96,8 +96,8 @@ export const AnkiStudy = ({ shardId, onExit }) => {
       <AnkiCard
         ref={ak}
         onFlip={handleFlip}
-        onExit={handleRate}
-        onDrag={handleDrag}
+        onExit={handleCardExit}
+        onMove={handleMove}
       />
       <RatingButtons
         onRate={handleRate}

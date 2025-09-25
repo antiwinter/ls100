@@ -7,7 +7,7 @@ import { useDrag } from '@use-gesture/react'
 import { log } from '../../../../utils/logger.js'
 
 const ATIME_SNAP = 250
-const ATIME_HINT = 250
+const ATIME_HINT = 100
 const BTN_WIDTH = 48
 const BTN_MARGIN = 8
 
@@ -20,7 +20,7 @@ export const RatingButtons = ({ onRate, fsrs, hint, side: initialSide = 1 }) => 
   const engine = useMemo(() => new FSRS(), [])
   const nextByRating = useMemo(() => {
     const now = new Date()
-    const base = (fsrs && fsrs[0]) || createEmptyCard(now.getTime())
+    const base = fsrs || createEmptyCard(now.getTime())
     try {
       const next = engine.repeat(base, now)
       const nowMs = Date.now()
@@ -50,11 +50,12 @@ export const RatingButtons = ({ onRate, fsrs, hint, side: initialSide = 1 }) => 
     const entry = hint != null ? order.find(([rating]) => rating === hint) : undefined
     const shadowColor = entry ? entry[2] : undefined
     animate(all, {
-      scale: el => el === elHint ? 1.08 : 1,
-      boxShadow: el => el === elHint && shadowColor ? `0 0 18px 4px ${shadowColor}` : '0 0 0 0 rgba(0,0,0,0)',
+      // scale: el => el === elHint ? 1.08 : 1,
+      boxShadow: el => el === elHint && shadowColor ? `0 0 7px 2px ${shadowColor}` : '0 0 0 0 rgba(0,0,0,0)',
       duration: ATIME_HINT,
+      border: el => el === elHint && '1px solid #fff',
       easing: 'easeOutCubic',
-      complete: cb
+      onComplete: cb
     })
   }, [order])
 

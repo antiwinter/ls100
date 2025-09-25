@@ -7,14 +7,15 @@ import { handleAudioClick, getAudioStyles } from './AudioHelper.js'
 import { animate } from 'animejs'
 import { log } from '../../../../utils/logger.js'
 
-const ATIME_EXIT = 1000
+const ATIME_EXIT = 300
 const ATIME_FLIP = 1500
+const hint_cap = 50
 
 // AnkiCard component with flip animation and gesture-based drag
 export const AnkiCard = forwardRef(({
   onFlip,
   onExit,
-  onDrag
+  onMove
 }, ref) => {
   const [currentSide, setCurrentSide] = useState('front') // 'front' | 'back'
   const cardRef = useRef(null)
@@ -34,58 +35,79 @@ export const AnkiCard = forwardRef(({
     return classes
   }
 
-  const w = window.innerWidth
-  const to = useCallback((x, delay = ATIME_EXIT, cb = () => {}) => {
+  const getw = useCallback(() => {
+    if (typeof window === 'undefined') return 1
+    return window.innerWidth
+  }, [])
+
+  const move = useCallback(({ ox = 0, to = 0, delay = 0 }, cb = () => {}) => {
+    const w = getw()
     if (!cardRef.current) return
 
-    // log.debug('to', { x, delay })
-    const threshold = 50
     let boxShadow = '0 4px 20px rgba(0,0,0,0.15), 0 8px 40px rgba(0,0,0,0.1)'
-    if (x < -threshold) {
+    if (to < -hint_cap) {
       boxShadow = '0 0 20px var(--joy-palette-danger-400), 0 4px 20px rgba(0,0,0,0.15)'
-    } else if (x > threshold) {
+    } else if (to > hint_cap) {
       boxShadow = '0 0 20px var(--joy-palette-success-400), 0 4px 20px rgba(0,0,0,0.15)'
     }
     cardRef.current.style.boxShadow = boxShadow
 
-    const scale = 1 - Math.abs(x) * 0.3 / w
-    const rotation = (x / w) * 7
-    const a = Math.abs(x)
-    const duration = (x ? (w - a) : a) / w * delay
+    const scale = 1 - Math.abs(to) * 0.3 / w
+    const rotation = (to / w) * 7
+    let duration = delay
+    if (delay) {
+      const a = Math.abs(ox)
+      duration = (to ? (w - a) : a) / w * delay
+    }
+    if (delay)
+      log.debug('to', { to, duration, delay, ox })
 
     // Animate transforms with anime.js
     animate(cardRef.current, {
-      translateX: x,
+      translateX: to,
       rotateZ: rotation,
       scale: scale,
       duration,
       easing: 'easeOutCubic',
-      complete: cb
+      onComplete: cb
     })
-  }, [w])
+  }, [getw])
 
   // Imperative API
   useImperativeHandle(ref, () => ({
     locknLoad: (dir, card) => {
       log.debug('locknLoad', { dir, card })
 
+      const w = getw()
       // Exit with direction, then load new card
-      to(dir === 'right' ? w : -w, ATIME_EXIT, () => {
-        setLocked(card)
-      })
+      move(
+        {
+          to: dir > 0 ? w : -w,
+          delay: dir ? ATIME_EXIT : 0
+        },
+        () => {
+          setCurrentSide('front')
+          setLocked(card)
+        })
     }
-  }), [w, to])
+  }), [getw, move])
 
   // Animate card entrance when content changes (new card loaded)
   useEffect(() => {
     log.debug('useEffect', { locked })
     if (locked?.front || locked?.back) {
       // Start off-screen to the right, then animate in
-      to(window.innerWidth, 0, () => {
-        to(0, ATIME_EXIT)
+      move({
+        to: getw()
+      },
+      () => {
+        move({
+          ox: getw(),
+          delay: ATIME_EXIT
+        })
       })
     }
-  }, [locked, to])
+  }, [locked, move, getw])
 
   // Handle flip animation and audio
   const handleCardClick = (e) => {
@@ -113,23 +135,34 @@ export const AnkiCard = forwardRef(({
     // log.debug('drag', { last, vx, ox, w })
     if (last) {
       // Exit thresholds
-      if ((Math.abs(ox) > 150 || Math.abs(vx) > 1)) {
-        to(ox < 0 ? -w : w, ATIME_EXIT,
+      if ((Math.abs(ox) > 50 || Math.abs(vx) > 1)) {
+        const w = getw()
+        move(
+          {
+            to: ox < 0 ? -w : w,
+            ox,
+            delay: ATIME_EXIT
+          },
           () => {
             log.debug('exit', { ox })
-            onExit?.(ox < 0 ? 'left' : 'right')
+            onExit?.(ox)
           })
       } else {
         // reset position
-        to(0, ATIME_EXIT, () => {
+        move({
+          to: 0,
+          ox,
+          delay: ATIME_EXIT
+        },
+        () => {
+          onMove?.(0)
           log.debug('card snap', { locked })
-          onDrag?.(0)
         })
       }
     } else {
       // track finger immediately (no animation)
-      to(ox, 0)
-      onDrag?.(ox)
+      move({ to: ox })
+      onMove?.(Math.abs(ox) > hint_cap ? ox : 0)
     }
   },
   { from: () => [0, 0],
