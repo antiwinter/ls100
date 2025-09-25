@@ -1,7 +1,7 @@
 import { Box, Stack, Button } from '@mui/joy'
 import { FSRS, Rating, createEmptyCard } from 'ts-fsrs'
 import { useMemo, useRef, useEffect, useCallback } from 'react'
-import { formatInterval } from '../../../../utils/dateFormat.js'
+import { formatIntervalMs } from '../../../../utils/dateFormat.js'
 import { animate } from 'animejs'
 import { useDrag } from '@use-gesture/react'
 import { log } from '../../../../utils/logger.js'
@@ -16,12 +16,18 @@ export const RatingButtons = ({ onRate, fsrs, hint, side: initialSide = 1 }) => 
   const sideRef = useRef(initialSide) // 1 / -1
   const containerRef = useRef(null)
 
+  log.debug('RatingButtons', { fsrs, hint, side: initialSide })
   const engine = useMemo(() => new FSRS(), [])
   const nextByRating = useMemo(() => {
     const now = new Date()
     const base = (fsrs && fsrs[0]) || createEmptyCard(now.getTime())
     try {
-      return engine.repeat(base, now)
+      const next = engine.repeat(base, now)
+      const nowMs = Date.now()
+      const diff = ([1,2,3,4]).map(r => next[r].card.due - nowMs)
+      log.debug('RatingButtons-nextByRating', {
+        base, next, nowMs, diff })
+      return next
     } catch {
       return null
     }
@@ -130,7 +136,7 @@ export const RatingButtons = ({ onRate, fsrs, hint, side: initialSide = 1 }) => 
     >
       <Stack direction="column" spacing={1.5} alignItems="flex-end">
         {order.map(([rating, color], index) => {
-          log.debug('order', rating)
+          // log.debug('order', rating)
           if (rating === undefined)
             return <Box key={`gap-${index}`} sx={{ height: BTN_WIDTH }} />
 
@@ -155,7 +161,7 @@ export const RatingButtons = ({ onRate, fsrs, hint, side: initialSide = 1 }) => 
               }}
             >
               {nextByRating?.[rating]?.card?.due
-                ? formatInterval(
+                ? formatIntervalMs(
                   Math.max(
                     0,
                     nextByRating[rating].card.due - Date.now()

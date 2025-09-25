@@ -16,6 +16,7 @@ export const AnkiStudy = ({ shardId, onExit }) => {
   const [hint, setHint] = useState(null)
   const [card, setCard] = useState(null)
 
+  log.debug('AnkiStudy-render', { shardId, onExit, card })
   // Clean card loading
   const loadCard = useCallback(async () => {
     if (!ctx.engine) return
@@ -27,6 +28,7 @@ export const AnkiStudy = ({ shardId, onExit }) => {
     }
 
     const rendered = await ctx.renderer.render(card)
+    log.debug('LnL card', card)
     ak.current?.locknLoad('right', rendered)
     ctx.card = card
     setCard(card)

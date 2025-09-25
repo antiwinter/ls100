@@ -38,7 +38,7 @@ export const AnkiCard = forwardRef(({
   const to = useCallback((x, delay = ATIME_EXIT, cb = () => {}) => {
     if (!cardRef.current) return
 
-    log.debug('to', { x, delay })
+    // log.debug('to', { x, delay })
     const threshold = 50
     let boxShadow = '0 4px 20px rgba(0,0,0,0.15), 0 8px 40px rgba(0,0,0,0.1)'
     if (x < -threshold) {
@@ -116,11 +116,15 @@ export const AnkiCard = forwardRef(({
       if ((Math.abs(ox) > 150 || Math.abs(vx) > 1)) {
         to(ox < 0 ? -w : w, ATIME_EXIT,
           () => {
+            log.debug('exit', { ox })
             onExit?.(ox < 0 ? 'left' : 'right')
           })
       } else {
         // reset position
-        to(0, ATIME_EXIT)
+        to(0, ATIME_EXIT, () => {
+          log.debug('card snap', { locked })
+          onDrag?.(0)
+        })
       }
     } else {
       // track finger immediately (no animation)
@@ -150,8 +154,7 @@ export const AnkiCard = forwardRef(({
         // Fixed dimensions
         width: '80vw',
         height: '80vh',
-        maxWidth: '80vw',
-        maxHeight: '95vh',
+        overflowY: 'auto', // Ensure content doesn't bleed outside border radius
 
         // Card styling
         bgcolor: 'background.body',
@@ -159,7 +162,6 @@ export const AnkiCard = forwardRef(({
         // border: '2px solid',
         borderColor: 'neutral.outlinedBorder',
         boxShadow: '0 4px 20px rgba(0,0,0,0.15), 0 8px 40px rgba(0,0,0,0.1)',
-        overflow: 'hidden', // Ensure content doesn't bleed outside border radius
 
         // Reset margins to eliminate gaps
         m: 0,

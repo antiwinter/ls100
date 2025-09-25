@@ -11,18 +11,31 @@ export const formatSec = s => {
     .join(':')
 }
 
-// Format FSRS interval in days to human readable format (5m, 2h, 3d, 2mo, 1y)
-export const formatInterval = (days) => {
-  if (days < 1) {
-    const minutes = Math.round(days * 24 * 60)
-    return minutes < 60 ? `${minutes}m` : `${Math.round(minutes / 60)}h`
-  } else if (days < 30) {
-    return `${Math.round(days)}d`
-  } else if (days < 365) {
-    return `${Math.round(days / 30)}mo`
+// Format interval from milliseconds to human readable format (<1m, 1.5mo, 2.3d style)
+export const formatIntervalMs = (ms) => {
+  let value, unit
+
+  if (ms < 60000) { // < 1 minute
+    return '<1m'
+  } else if (ms < 3600000) { // < 1 hour
+    value = ms / 60000
+    unit = 'm'
+  } else if (ms < 86400000) { // < 1 day
+    value = ms / 3600000
+    unit = 'h'
+  } else if (ms < 2592000000) { // < 30 days
+    value = ms / 86400000
+    unit = 'd'
+  } else if (ms < 31536000000) { // < 365 days
+    value = ms / 2592000000
+    unit = 'mo'
   } else {
-    return `${Math.round(days / 365)}y`
+    value = ms / 31536000000
+    unit = 'y'
   }
+
+  // Convert to 1 decimal place, then eliminate .0 with regex
+  return value.toFixed(1).replace(/\.0$/, '') + unit
 }
 
 // Human-readable relative time formatting
