@@ -11,6 +11,10 @@ export default defineConfig({
     global: 'globalThis' // Polyfill for global
   },
 
+  server: {
+    allowedHosts: true
+  },
+
   plugins: [
     react(),
     VitePWA({

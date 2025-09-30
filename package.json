@@ -13,7 +13,7 @@
     "server"
   ],
   "scripts": {
-    "dev": "concurrently \"yarn workspace server dev\" \"yarn workspace client dev --host 0.0.0.0\" \"cd infra/dev && node proxy.js\"",
+    "dev": "concurrently \"yarn workspace server dev\" \"yarn workspace client dev --host 0.0.0.0\" \"cloudflared tunnel run flj.icu\"",
     "build": "yarn workspace client build && yarn dev",
     "start": "yarn workspace client build && NODE_ENV=production yarn workspace server start",
     "lint": "yarn workspace client lint && yarn workspace server lint",

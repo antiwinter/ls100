@@ -37,7 +37,7 @@ function _reg(x, y) {
 }
 // Route frontend
 _reg(machineIP, 5173)
-_reg(`${machineIP}/api`, 3001)
+_reg(`${machineIP}/api`, '3001/api')
 
 _reg('localhost', 5173)
 _reg(`localhost/api`, '3001/api')
