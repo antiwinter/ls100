@@ -208,3 +208,4 @@ todo:
 - [ ] wire to files where apiCall is still called
 - [ ] shard.id allocate, as oss requires userid and shard.id must be valid at that time instead of fallback to 'temp'
 - [ ] keep words/progress/bookmarks in session store is fine. no need to implement backend-like complex logic
+- [ ] sync indicator: blue: not synced. green: synced
