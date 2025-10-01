@@ -15,7 +15,7 @@ function createSessionStore(initial = {}) {
     maxReviewCards: 9999,
     timeSegments: [],
     actionLog: [],
-    pile: { new: [], review: [], done: [] },
+    pile: { raw: [], review: [], done: [] },
     day: 0,
     currentCard: null,
     ...initial,

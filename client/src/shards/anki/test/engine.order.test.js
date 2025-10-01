@@ -8,7 +8,7 @@ function store(init = {}) {
   return proxy({
     bundleIds: [], newCardOrder: 'gather', newReviewOrder: 'mixed',
     autoBurySiblings: false, maxNewCards: 9999, maxReviewCards: 9999,
-    timeSegments: [], actionLog: [], pile: { new: [], review: [], done: [] }, day: 0, currentCard: null,
+    timeSegments: [], actionLog: [], pile: { raw: [], review: [], done: [] }, day: 0, currentCard: null,
     ...init,
     
     // Mock session methods

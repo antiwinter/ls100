@@ -163,7 +163,7 @@ export class StudyEngine {
 
     // Graduation Rule: Cards graduate to 'done' if due time exceeds initial gap
     // Cards that don't graduate go back to review pile, sorted by due time
-    if (next.card.due - now < (ss.initialGap || 0) * 60 * 1000) {
+    if (next.card.due - now.getTime() < (ss.initialGap || 0) * 60 * 1000) {
       // Insert into review pile in chronological order (new cards without due = 0 go first)
       const insertIndex = _.sortedIndexBy(ss.pile.review, c0,
         c => c.due || 0)
@@ -204,10 +204,27 @@ export class StudyEngine {
     const c1 = await db.cards.get(top.id)
     ss.currentCard = c1
 
-    // FSRS Cleanup: Remove the unrated entry added when c1 was interrupted
-    // Action stack guarantees c1 was rated (otherwise couldn't draw next card)
-    // So c1.fsrs = [unrated_entry_from_interruption, rated_entry, ...]
-    c1.fsrs.shift() // Remove interruption entry
+    // FSRS Cleanup: Remove the latest rating that was just applied to c1
+    // When we rated c1 and drew the next card (c0), c1's FSRS state was updated
+    // We need to revert c1 back to its pre-rating state
+    c1.fsrs.shift() // Remove the most recent rating entry
+
+    // Persist the reverted state back to database
+    if (c1.fsrs.length > 0) {
+      await db.cards.update(c1.id, {
+        fsrs: snapshot(c1.fsrs),
+        due: c1.fsrs[0].due,
+        state: c1.fsrs[0].state
+      })
+    } else {
+      // If no FSRS history remains, restore to initial New state
+      await db.cards.update(c1.id, {
+        fsrs: null,
+        due: Date.now(),
+        state: 'New'
+      })
+    }
+
     return c1
   }
 }
