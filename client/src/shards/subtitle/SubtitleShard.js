@@ -159,34 +159,31 @@ export const CoverComponent = SubtitleCover
 
 
 
-// Upload files and prepare shard for backend (keep languages format)
-export const processData = async (shard, apiCall) => {
-  if (shard.data.languages && Array.isArray(shard.data.languages)) {
-    for (const language of shard.data.languages) {
-      if (language.file) {
-        // Upload new file
-        log.info('📤 Uploading file:', language.filename)
+// Store NEW files locally (migration already happened during list/read)
+export const processData = async (shard, fileStore) => {
+  const languages = shard.meta?.languages
 
-        const formData = new FormData()
-        formData.append('subtitle', language.file)
-        formData.append('movie_name', language.movie_name || 'Unknown Movie')
-        formData.append('language', language.code || 'en')
+  if (languages && Array.isArray(languages)) {
+    for (const language of languages) {
+      // Only process NEW file uploads (user adding new subtitle)
+      if (language.file && language.file instanceof Blob) {
+        log.info('📤 Storing new file locally:', language.filename)
 
-        const uploadResult = await apiCall('/api/subtitles/upload', {
-          method: 'POST',
-          body: formData
-        })
+        const nvId = await fileStore.store(
+          language.filename,
+          language.file,
+          shard.id || 'temp'
+        )
 
-        log.info('✅ File uploaded, subtitle_id:', uploadResult.subtitle_id)
+        log.info('✅ File stored locally, nvId:', nvId)
 
-        // Replace file with subtitle_id
+        // Replace file with nvId
         delete language.file
-        language.subtitle_id = uploadResult.subtitle_id
+        language.nvId = nvId
       }
+      // Note: Old files with subtitle_id will be migrated by fileStore.get() when reader opens them
     }
   }
-
-  // No conversion needed - keep { languages: [...] } format
 }
 
 // Cleanup function called when shard is deleted

@@ -159,7 +159,7 @@ const ShardItem = ({
 
           {shard.cover ? (
             <img
-              src={shard.cover}
+              src={`/oss/${shard.cover}`}
               alt={`${shard.name} cover`}
               style={{
                 width: '100%',

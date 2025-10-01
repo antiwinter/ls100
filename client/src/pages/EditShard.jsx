@@ -15,7 +15,8 @@ import {
 import { ArrowBack, Upload, Link as LinkIcon } from '@mui/icons-material'
 import { AppDialog } from '../components/AppDialog'
 import { log } from '../utils/logger'
-import { apiCall } from '../config/api'
+import { shardDb } from '../shards/store'
+import { fileStore } from '../shards/fileStore'
 import {
   engineGetTag,
   engineGetEditor,
@@ -45,7 +46,7 @@ export const EditShard = () => {
     name: '',
     description: '',
     cover: null,
-    data: {}
+    meta: {}
   })
 
   // Helper to normalize shard data with fallbacks
@@ -56,7 +57,7 @@ export const EditShard = () => {
       cover: shard.cover || null,
       type: shard.type || null,
       public: shard.public !== undefined ? shard.public : false, // Default to private
-      data: shard.data || {}
+      meta: shard.meta || {}
     })
   }
   const [saving, setSaving] = useState(false)
@@ -81,18 +82,24 @@ export const EditShard = () => {
         description: '',
         type: detectedInfo.shardType,
         public: false, // Default to private
-        data: {} // Keep empty, let editor initialize from detectedInfo
+        meta: {} // Keep empty, let editor initialize from detectedInfo
       })
     } else if (mode === 'edit' && navigationShardData) {
       const fetchShardDetails = async () => {
         try {
           log.info('📝 Edit mode - loading shard details for ID:', shardId)
-          const response = await apiCall(`/api/shards/${shardId}`)
 
-          // Backend now returns unified format directly
-          const shard = response.shard
-          log.info('🔍 Processed shard data:', shard)
+          // Load from local store with BE fallback
+          // Cover already migrated during list(), subtitle files migrate on reader open
+          const shard = await shardDb.read(shardId)
 
+          if (!shard) {
+            log.error('❌ Shard not found:', shardId)
+            setShardData(navigationShardData)
+            return
+          }
+
+          log.info('🔍 Loaded shard data:', shard)
           setShardData(shard)
         } catch (error) {
           log.error('❌ Failed to fetch shard details:', error)
@@ -114,35 +121,31 @@ export const EditShard = () => {
 
       log.info(`📝 ${isCreate ? 'Creating' : 'Updating'} shard:`, shardData.type)
 
-      // Handle cover file upload if needed
+      // Handle cover file upload if needed (store locally)
       if (shardData.coverFile) {
-        const formData = new FormData()
-        formData.append('cover', shardData.coverFile)
+        const nvId = await fileStore.store(
+          'cover.jpg',
+          shardData.coverFile,
+          shardId || 'temp'
+        )
 
-        const uploadResult = await apiCall('/api/files/upload', {
-          method: 'POST',
-          body: formData
-        })
-
-        // Replace file with URL
-        shardData.cover = uploadResult.url
+        shardData.cover = `/oss/${nvId}`  // Store as /oss/{nvId} URL
         delete shardData.coverFile
       }
 
-      // Process uploads and prepare shardData for backend
-      await engineSaveData(shardData, apiCall)
+      // Process uploads and prepare shardData (engines will use fileStore)
+      await engineSaveData(shardData, fileStore)
 
-      // Submit shardData directly
-      const result = await apiCall(
-        isCreate ? '/api/shards' : `/api/shards/${shardId}`,
-        {
-          method: isCreate ? 'POST' : 'PUT',
-          body: JSON.stringify(shardData)
-        }
-      )
-
-      log.info(`✅ Shard ${isCreate ? 'created' : 'updated'}:`,
-        isCreate ? result.shard.id : shardId)
+      // Save to local store
+      let savedId
+      if (isCreate) {
+        savedId = await shardDb.create(shardData)
+        log.info('✅ Shard created locally:', savedId)
+      } else {
+        await shardDb.update(shardId, shardData)
+        savedId = shardId
+        log.info('✅ Shard updated locally:', shardId)
+      }
 
       // Navigate back to home
       navigate('/')
@@ -180,10 +183,9 @@ export const EditShard = () => {
   }
 
   // Memoized onChange handler to prevent unnecessary re-renders
-  const handleEngineDataChange = useCallback((data, meta) => {
-    // engine can set metadata by providing 'meta' type
-    // or else it goes to shardData.data
-    _setShardData(x => ({ ...x, [meta ? 'metadata' : 'data']: data }))
+  const handleEngineDataChange = useCallback((data) => {
+    // All engine data goes to 'meta' field now
+    _setShardData(x => ({ ...x, meta: data }))
     engineValid.current = true
   }, [])
 

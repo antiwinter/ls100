@@ -11,7 +11,7 @@ import { BrowserToolbar } from '../components/BrowserToolbar'
 import { BrowserEditBar } from '../components/BrowserEditBar'
 import { ShardBrowser } from '../components/ShardBrowser'
 import { AppDialog } from '../components/AppDialog'
-import { apiCall } from '../config/api'
+import { shardDb } from '../shards/store'
 import { engineGetReader, engineCleanup } from '../shards/engines.js'
 import { log } from '../utils/logger'
 import { APP } from '../config/constants'
@@ -29,14 +29,38 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
 
   const loadShards = useCallback(async () => {
     try {
-      // 5 second artificial delay
-      // await new Promise(resolve => setTimeout(resolve, 5000))
-      const data = await apiCall(`/api/shards?sort=${sortBy}`)
-      setShards(data.shards || [])
+      // Load from local store with BE fallback
+      const allShards = await shardDb.list({ sort: sortBy })
+
+      // Sort locally
+      const sorted = sortShards(allShards, sortBy)
+      setShards(sorted)
     } catch (error) {
       log.error('Failed to load shards:', error)
     }
   }, [sortBy])
+
+  // Local sorting function
+  const sortShards = (shards, sortBy) => {
+    const sorted = [...shards]
+
+    switch (sortBy) {
+    case 'last_used':
+      return sorted.sort((a, b) =>
+        new Date(b.updated_at) - new Date(a.updated_at)
+      )
+    case 'name':
+      return sorted.sort((a, b) =>
+        a.name.localeCompare(b.name)
+      )
+    case 'created':
+      return sorted.sort((a, b) =>
+        new Date(b.created_at) - new Date(a.created_at)
+      )
+    default:
+      return sorted
+    }
+  }
 
   // Load user's shards on mount and when sort changes
   useEffect(() => {
@@ -121,19 +145,19 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
       // Get full shard objects for the selected IDs
       const shardsToDelete = shards.filter(shard => selected.includes(shard.id))
 
-      // Call engine cleanup for each shard BEFORE deleting from backend
+      // Call engine cleanup for each shard BEFORE deleting
       log.info('Cleaning up engine data for shards:', shardsToDelete.map(s => ({ id: s.id, type: s.type })))
       await Promise.all(shardsToDelete.map(shard => engineCleanup(shard, shards)))
 
-      // Now delete from backend
-      await Promise.all(selected.map(id => apiCall(`/api/shards/${id}`, { method: 'DELETE' })))
-      const data = await apiCall(`/api/shards?sort=${sortBy}`)
-      const updatedShards = data.shards || []
-      setShards(updatedShards)
+      // Delete from local store (also deletes from BE if has oldId)
+      await Promise.all(selected.map(id => shardDb.delete(id)))
+
+      // Reload shards
+      await loadShards()
 
       // Check if all shards were deleted
-      if (updatedShards.length === 0) {
-        // Last shard deleted - exit edit mode and return to home
+      const remainingShards = shards.filter(s => !selected.includes(s.id))
+      if (remainingShards.length === 0) {
         setEditing(false)
       }
 
@@ -149,10 +173,7 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
 
     try {
       await Promise.all(selected.map(id =>
-        apiCall(`/api/shards/${id}`, {
-          method: 'PUT',
-          body: JSON.stringify({ public: true })
-        })
+        shardDb.update(id, { public: true })
       ))
       await loadShards()
     } catch (error) {
@@ -165,10 +186,7 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
 
     try {
       await Promise.all(selected.map(id =>
-        apiCall(`/api/shards/${id}`, {
-          method: 'PUT',
-          body: JSON.stringify({ public: false })
-        })
+        shardDb.update(id, { public: false })
       ))
       await loadShards()
     } catch (error) {
