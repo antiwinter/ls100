@@ -205,7 +205,21 @@ When ready to add sync:
 6. 🔮 Future: Subscription sync layer
 
 todo:
+## Remaining Tasks
+
+### Critical Path (Must Complete)
 - [ ] wire to files where apiCall is still called
-- [ ] shard.id allocate, as oss requires userid and shard.id must be valid at that time instead of fallback to 'temp'
-- [ ] keep words/progress/bookmarks in session store is fine. no need to implement backend-like complex logic
-- [ ] sync indicator: blue: not synced. green: synced
+- [ ] **Cover URL Fetching**: EditShard - when user provides external URL, fetch and save to OSS as nvId
+- [ ] **Cover Display**: Update `ShardBrowser` and `EditShard` to handle covers correctly (always `/oss/{nvId}`)
+- [ ] **Shard ID Timing**: Fix `shard.id` allocation - must be valid before `oss.add()` calls (not 'temp')
+- [ ] **Subtitle Parsing**: Install 'subtitle' package and implement local parsing in `useSubtitleGroups.js`
+- [ ] **Subtitle Reader**: Update `useSubtitleGroups` to support both `subtitle_id` (old) and `nvId` (new)
+
+### Nice to Have
+- [ ] Anki integration: Register Anki shard metadata in `shardDb`
+- [ ] Sync indicator UI: blue (synced, private), green (synced, public), red (not synced)
+
+### Notes
+- ✅ Progress/bookmarks/wordlist stay in `useSessionStore` (local Zustand persist) - no BE sync needed
+- ✅ `migrator.js` deleted - lazy migration via `fileStore.get()` is cleaner
+- ✅ `progress.js` deleted - `useSessionStore` is sufficient

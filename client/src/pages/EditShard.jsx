@@ -52,6 +52,7 @@ export const EditShard = () => {
   // Helper to normalize shard data with fallbacks
   const setShardData = (shard) => {
     _setShardData({
+      id: shard.id,
       name: shard.name || '',
       description: shard.description || '',
       cover: shard.cover || null,
@@ -65,36 +66,48 @@ export const EditShard = () => {
   const [showCoverDialog, setShowCoverDialog] = useState(false)
   const [coverUrl, setCoverUrl] = useState('')
   const engineValid = useRef(false)
+  const [draftShardId, setDraftShardId] = useState(null)
 
   // Get shard data from navigation or URL
   const navigationShardData = location.state?.shardData
-  const shardId = navigationShardData?.id
+  const shardId = navigationShardData?.id || draftShardId
 
   useEffect(() => {
-    if (mode === 'create' && detectedInfo) {
-      // Create mode: initialize with detected info (engine will process)
-      const defaultName = detectedInfo?.metadata?.suggestedName ||
-                         detectedInfo?.filename?.replace(/\.[^/.]+$/, '') ||
-                         'New Shard'
+    const init = async () => {
+      if (mode === 'create' && detectedInfo) {
+        // Create mode: create draft shard immediately to get valid ID
+        const defaultName = detectedInfo?.metadata?.suggestedName ||
+                           detectedInfo?.filename?.replace(/\.[^/.]+$/, '') ||
+                           'New Shard'
 
-      setShardData({
-        name: defaultName,
-        description: '',
-        type: detectedInfo.shardType,
-        public: false, // Default to private
-        meta: {} // Keep empty, let editor initialize from detectedInfo
-      })
-    } else if (mode === 'edit' && navigationShardData) {
-      const fetchShardDetails = async () => {
+        const draftId = await shardDb.create({
+          name: '__draft__',
+          description: '',
+          type: detectedInfo.shardType,
+          public: false,
+          meta: {}
+        })
+
+        setDraftShardId(draftId)
+        log.info('✅ Created draft shard:', draftId)
+
+        setShardData({
+          id: draftId,
+          name: defaultName,
+          description: '',
+          type: detectedInfo.shardType,
+          public: false,
+          meta: {}
+        })
+      } else if (mode === 'edit' && navigationShardData) {
         try {
-          log.info('📝 Edit mode - loading shard details for ID:', shardId)
+          log.info('📝 Edit mode - loading shard details for ID:', navigationShardData.id)
 
           // Load from local store with BE fallback
-          // Cover already migrated during list(), subtitle files migrate on reader open
-          const shard = await shardDb.read(shardId)
+          const shard = await shardDb.read(navigationShardData.id)
 
           if (!shard) {
-            log.error('❌ Shard not found:', shardId)
+            log.error('❌ Shard not found:', navigationShardData.id)
             setShardData(navigationShardData)
             return
           }
@@ -106,46 +119,44 @@ export const EditShard = () => {
           setShardData(navigationShardData)
         }
       }
-
-      fetchShardDetails()
     }
+
+    init()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, shardId])  // Only re-run if mode or shardId changes
+  }, [mode])  // Only run once on mount
 
   const handleSave = async () => {
     setSaving(true)
     try {
       log.info('💾 Saving shard data:', shardData)
 
-      const isCreate = mode === 'create'
+      if (shardData.cover?.startsWith('http')) {
+        // User pasted HTTP URL - fetch and store now
+        log.info('📥 Fetching cover from URL:', shardData.cover)
+        const response = await fetch(shardData.cover)
+        if (!response.ok) {
+          throw new Error(`Failed to fetch cover: ${response.statusText}`)
+        }
+        shardData.coverFile = await response.blob()
+        log.info('✅ Cover stored:', shardData.cover)
+      }
 
-      log.info(`📝 ${isCreate ? 'Creating' : 'Updating'} shard:`, shardData.type)
-
-      // Handle cover file upload if needed (store locally)
       if (shardData.coverFile) {
         const nvId = await fileStore.store(
-          'cover.jpg',
-          shardData.coverFile,
-          shardId || 'temp'
-        )
-
-        shardData.cover = `/oss/${nvId}`  // Store as /oss/{nvId} URL
+          shardData.coverFilename || shardData.cover, // keep original filename or url
+          shardData.coverFile, shardId)
+        shardData.cover = `/oss/${nvId}`
         delete shardData.coverFile
+        delete shardData.coverFilename
+        log.info('✅ Cover stored:', nvId)
       }
 
       // Process uploads and prepare shardData (engines will use fileStore)
       await engineSaveData(shardData, fileStore)
 
-      // Save to local store
-      let savedId
-      if (isCreate) {
-        savedId = await shardDb.create(shardData)
-        log.info('✅ Shard created locally:', savedId)
-      } else {
-        await shardDb.update(shardId, shardData)
-        savedId = shardId
-        log.info('✅ Shard updated locally:', shardId)
-      }
+      // Update shard (both create and edit modes update the existing shard)
+      await shardDb.update(shardId, shardData)
+      log.info('✅ Shard saved:', shardId)
 
       // Navigate back to home
       navigate('/')
@@ -156,7 +167,16 @@ export const EditShard = () => {
     }
   }
 
-  const handleBack = () => {
+  const handleBack = async () => {
+    // Clean up draft shard on cancel
+    if (mode === 'create' && draftShardId) {
+      try {
+        await shardDb.delete(draftShardId)
+        log.info('🗑️ Deleted draft shard:', draftShardId)
+      } catch (error) {
+        log.warn('Failed to delete draft shard:', error)
+      }
+    }
     navigate('/')
   }
 
@@ -165,16 +185,18 @@ export const EditShard = () => {
     if (!file) return
 
     const url = URL.createObjectURL(file)
-    _setShardData(prev => ({ ...prev, cover: url, coverFile: file }))
+    _setShardData(prev => ({ ...prev, cover: url, coverFile: file, coverFilename: file.name }))
     setShowCoverDialog(false)
   }
 
   const handleCoverUrl = () => {
-    if (coverUrl.trim()) {
-      _setShardData(prev => ({ ...prev, cover: coverUrl.trim() }))
-      setCoverUrl('')
-      setShowCoverDialog(false)
-    }
+    const url = coverUrl.trim()
+    if (!url) return
+
+    // Just set the URL directly, fetch on save
+    _setShardData(prev => ({ ...prev, cover: url }))
+    setCoverUrl('')
+    setShowCoverDialog(false)
   }
 
   const resetCover = () => {

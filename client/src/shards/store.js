@@ -193,6 +193,24 @@ export const shardDb = {
     }
   },
 
+  // CLEANUP: Remove abandoned draft shards
+  async cleanup() {
+    try {
+      const drafts = await db.shards.where('name').equals('__draft__').toArray()
+
+      if (drafts.length > 0) {
+        log.info(`🧹 Cleaning up ${drafts.length} abandoned draft shard(s)`)
+        await Promise.all(drafts.map(draft => db.shards.delete(draft.id)))
+        return drafts.length
+      }
+
+      return 0
+    } catch (error) {
+      log.warn('Failed to cleanup draft shards', error)
+      return 0
+    }
+  },
+
   // Get database instance (for advanced usage)
   getDb() {
     return db

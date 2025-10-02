@@ -43,6 +43,7 @@
     "react-virtuoso": "^4.14.0",
     "react-window": "^1.8.10",
     "sql.js": "^1.13.0",
+    "subtitle": "^4.2.2-alpha.0",
     "tailwindcss": "^4.1.11",
     "ts-fsrs": "^5.2.2",
     "uuid": "^13.0.0",

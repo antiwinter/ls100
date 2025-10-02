@@ -29,6 +29,9 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
 
   const loadShards = useCallback(async () => {
     try {
+      // Clean up abandoned drafts first
+      await shardDb.cleanup()
+
       // Load from local store with BE fallback
       const allShards = await shardDb.list({ sort: sortBy })
 
