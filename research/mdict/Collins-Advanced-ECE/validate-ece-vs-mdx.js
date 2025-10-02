@@ -2,8 +2,16 @@
 /* eslint-disable no-console */
 
 /**
- * Validate converted JSON against original MDX
- * Tests: POS split, Chinese text, refTo flattening, nested examples, etc.
+ * ECE-specific validator: Compares JSON output against original MDX/HTML
+ * 
+ * This is a DEVELOPMENT TOOL for ECE parser tuning - NOT the golden rule validator.
+ * 
+ * Purpose:
+ * - Compare JSON output to original MDX/HTML structure
+ * - Test ECE-specific patterns (Chinese text, nested examples, etc.)
+ * - Help debug parser issues during development
+ * 
+ * For general JSON quality validation, use: ../validate-json.js
  */
 
 import { MDX } from 'js-mdict'
