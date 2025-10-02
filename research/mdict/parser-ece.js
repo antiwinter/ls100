@@ -509,17 +509,54 @@ export class ECEParser {
       }
     }
     
+    // Extract label tags (STYLE, 语域, FIELD)
+    this.extractLabels()
+    
     // Remove all grammar/pattern/usage info text from the definition
     this.currentDef.en = this.currentDef.en
       .replace(/【语法信息】[：:][^【]*?(?=【|$)/g, '')
       .replace(/【搭配模式】[：:][^【]*?(?=【|$)/g, '')
       .replace(/【语用信息】[：:][^【]*?(?=【|$)/g, '')
+      .replace(/【STYLE标签】[：:][^【]*?(?=【|$)/g, '')
+      .replace(/【语域标签】[：:][^【]*?(?=【|$)/g, '')
+      .replace(/【FIELD标签】[：:][^【]*?(?=【|$)/g, '')
       .replace(/\s+/g, ' ')
       .trim()
     
     // Append grammar info to POS if any found
     if (grammarInfos.length > 0 && this.currentDef.pos) {
       this.currentDef.pos = this.currentDef.pos + ', ' + grammarInfos.join(', ')
+    }
+  }
+  
+  extractLabels() {
+    if (!this.currentDef || !this.currentDef.en) return
+    
+    const labels = []
+    
+    // Pattern to match all label types: 【...标签】：VALUE
+    // Captures English letters, spaces, and hyphens until Chinese char or 【
+    // Examples: 【STYLE标签】：FORMAL 正式, 【STYLE标签】：HUMOROUS or OLD-FASHIONED 幽默或过时
+    const labelPattern = /【(?:STYLE标签|语域标签|FIELD标签)】[：:]([A-Za-z\s-]+?)(?=\s*[\u4e00-\u9fa5【]|$)/g
+    let match
+    
+    while ((match = labelPattern.exec(this.currentDef.en)) !== null) {
+      const labelValue = match[1].trim()
+      if (labelValue) {
+        // Split on " or " to handle combinations like "FORMAL or HUMOROUS"
+        const splitLabels = labelValue.split(' or ')
+        for (const label of splitLabels) {
+          const trimmed = label.trim()
+          if (trimmed) {
+            labels.push(trimmed)
+          }
+        }
+      }
+    }
+    
+    // Deduplicate labels
+    if (labels.length > 0) {
+      this.currentDef.labels = [...new Set(labels)]
     }
   }
   

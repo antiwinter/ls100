@@ -29,7 +29,9 @@ const results = {
     missingZhInExamples: [],
     refToNotFlat: [],
     missingNestedExamples: [],
-    missingDefs: []
+    missingDefs: [],
+    labelsNotExtracted: [],
+    labelsInDefinition: []
   }
 }
 
@@ -122,6 +124,25 @@ for (const entry of entries) {
     hasIssues = true
   }
   
+  // Test 6: Labels should be extracted when they exist in MDX
+  const hasLabelsInMDX = /【(?:STYLE标签|语域标签|FIELD标签)】/.test(html)
+  if (hasLabelsInMDX) {
+    // Check if at least one definition has labels
+    const hasLabelsInJSON = entry.defs.some(d => d.labels && d.labels.length > 0)
+    if (!hasLabelsInJSON) {
+      results.issues.labelsNotExtracted.push({ word })
+      hasIssues = true
+    }
+  }
+  
+  // Test 7: Label patterns should be removed from definition text
+  for (const def of entry.defs) {
+    if (def.en && /【(?:STYLE标签|语域标签|FIELD标签)】/.test(def.en)) {
+      results.issues.labelsInDefinition.push({ word, defText: def.en.substring(0, 60) })
+      hasIssues = true
+    }
+  }
+  
   if (hasIssues) {
     results.failed++
   } else {
@@ -169,6 +190,20 @@ if (results.issues.missingDefs.length > 0) {
   console.log('   Examples:', results.issues.missingDefs.slice(0, 3).map(i => 
     `${i.word} (MDX:${i.mdx} JSON:${i.json})`
   ).join(', '))
+  console.log()
+}
+
+if (results.issues.labelsNotExtracted.length > 0) {
+  console.log(`❌ Labels not extracted: ${results.issues.labelsNotExtracted.length}`)
+  console.log('   Examples:', results.issues.labelsNotExtracted.slice(0, 3).map(i => i.word).join(', '))
+  console.log()
+}
+
+if (results.issues.labelsInDefinition.length > 0) {
+  console.log(`❌ Label patterns not removed from definition: ${results.issues.labelsInDefinition.length}`)
+  console.log('   Examples:', results.issues.labelsInDefinition.slice(0, 3).map(i => 
+    `${i.word}: ${i.defText}...`
+  ).join(' | '))
   console.log()
 }
 
