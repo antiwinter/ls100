@@ -109,13 +109,13 @@ export const engineDetect = async (filename, buffer) => {
   return winner?.match && winner.confidence >= 0.5 ? winner : null
 }
 
-// Save data processing - handles uploads and converts shardData to backend format
-export const engineSaveData = async (shard, apiCall) => {
+// Save data processing - handles file uploads and engine-specific processing
+export const engineSaveData = async (shard, fileStore) => {
   const engine = getEngine(shard.type)
   if (!engine?.processData) {
     return
   }
-  await engine.processData(shard, apiCall)
+  await engine.processData(shard, fileStore)
 }
 
 // Cleanup engine-specific data when shard is deleted

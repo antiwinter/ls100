@@ -63,13 +63,13 @@ export const shardTypeInfo = {
 }
 
 // Process shard data - commit bundle imports and update counts
-export const processData = async (shard, _apiCall) => {
+export const processData = async (shard, _fileStore) => {
   try {
-    // Process bundles stored in shard.data.bundles
-    if (shard.data?.bundles?.length > 0) {
+    // Process bundles stored in shard.meta.bundles
+    if (shard.meta?.bundles?.length > 0) {
       const bundles = []
 
-      for (const bundle of shard.data.bundles) {
+      for (const bundle of shard.meta.bundles) {
         try {
           // Import parsed APKG data
           const result = await importApkgData(bundle)
@@ -85,19 +85,15 @@ export const processData = async (shard, _apiCall) => {
         }
       }
 
-      // Store bundles array in metadata
-      shard.metadata = {
-        ...shard.metadata,
+      // Update bundles array in meta
+      shard.meta = {
+        ...shard.meta,
         bundles
       }
     }
 
-    // Clear data to save bandwidth - backend doesn't need it
-    shard.data = {}
-
   } catch (error) {
     log.error('Failed to process shard data:', error)
-    shard.data = {}
   }
 }
 
@@ -107,14 +103,14 @@ export const processData = async (shard, _apiCall) => {
 export const cleanup = async (shard, allShards = []) => {
   try {
     log.info('🧹 Cleaning up Anki shard:', shard.id)
-    log.info('📋 Shard metadata:', {
-      metadata: shard.metadata,
-      bundles: shard.metadata?.bundles,
-      bundlesLength: shard.metadata?.bundles?.length || 0
+    log.info('📋 Shard meta:', {
+      meta: shard.meta,
+      bundles: shard.meta?.bundles,
+      bundlesLength: shard.meta?.bundles?.length || 0
     })
 
     // Extract bundleIds from bundles array
-    const bundleIds = shard.metadata?.bundles?.map(b => b.id) || []
+    const bundleIds = shard.meta?.bundles?.map(b => b.id) || []
     log.info('📦 Extracted bundleIds:', { bundleIds, count: bundleIds.length })
 
     if (bundleIds.length > 0) {

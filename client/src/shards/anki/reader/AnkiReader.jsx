@@ -6,7 +6,7 @@ import { AnkiSessionStore } from '../core/sessionStore.js'
 import { useSnapshot } from 'valtio'
 import { Toolbar } from './overlay/Toolbar.jsx'
 import { AnkiStudy } from './AnkiStudy.jsx'
-import { apiCall } from '../../../config/api.js'
+import { shardDb } from '../../store.js'
 import { log } from '../../../utils/logger'
 
 // On-demand preview for a single card
@@ -61,8 +61,8 @@ export const AnkiReader = ({ shardId, onBack }) => {
   useEffect(() => {
     let alive = true
     setShard(undefined)
-    apiCall(`/api/shards/${shardId}`)
-      .then((data) => { if (alive) setShard(data.shard || null) })
+    shardDb.read(shardId)
+      .then((shard) => { if (alive) setShard(shard || null) })
       .catch((err) => { log.error('Failed to load shard:', err); if (alive) setShard(null) })
     return () => { alive = false }
   }, [shardId])
@@ -71,7 +71,7 @@ export const AnkiReader = ({ shardId, onBack }) => {
 
   // Load cards for first bundle and build renderer
   useEffect(() => {
-    const firstBundleId = shard?.metadata?.bundles?.[0]?.id
+    const firstBundleId = shard?.meta?.bundles?.[0]?.id
     if (!firstBundleId) {
       setCards([])
       setCss('')
@@ -80,7 +80,7 @@ export const AnkiReader = ({ shardId, onBack }) => {
     }
 
     // Save bundleIds to session
-    const bundleIds = shard.metadata.bundles.map(b => b.id)
+    const bundleIds = shard.meta.bundles.map(b => b.id)
     store.bundleIds = bundleIds
 
     let alive = true
@@ -140,8 +140,8 @@ export const AnkiReader = ({ shardId, onBack }) => {
           <Typography level="body-sm">Failed to load shard</Typography>
           <Button size="sm" onClick={() => {
             setShard(undefined)
-            apiCall(`/api/shards/${shardId}`)
-              .then((data) => setShard(data.shard || null))
+            shardDb.read(shardId)
+              .then((shard) => setShard(shard || null))
               .catch((err) => { log.error('Failed to load shard:', err); setShard(null) })
           }} sx={{ mt: 1 }}>
             Retry
@@ -151,7 +151,7 @@ export const AnkiReader = ({ shardId, onBack }) => {
     )
   }
 
-  const firstBundleId = shard?.metadata?.bundles?.[0]?.id
+  const firstBundleId = shard?.meta?.bundles?.[0]?.id
   if (!firstBundleId) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>

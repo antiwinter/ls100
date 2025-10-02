@@ -1,11 +1,11 @@
 import { formatCoverText } from '../../utils/formatText.js'
 
 export const AnkiCover = ({ shard }) => {
-  const metadata = shard?.metadata || {}
+  const meta = shard?.meta || {}
 
-  let title = metadata.bundleName || shard?.name || 'Anki Shard'
-  if (!metadata.bundleName && metadata.bundles?.length > 0) {
-    title = metadata.bundles[0].name
+  let title = meta.bundleName || shard?.name || 'Anki Shard'
+  if (!meta.bundleName && meta.bundles?.length > 0) {
+    title = meta.bundles[0].name
   }
 
   let hash = 0

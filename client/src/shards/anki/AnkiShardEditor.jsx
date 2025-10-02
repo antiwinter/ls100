@@ -131,21 +131,21 @@ export const AnkiShardEditor = ({
         ]
       }
 
-      // Store bundle metadata
+      // Store bundle info in meta
       const bundleInfo = {
         id: bundleId,
         name: parsed.deckName || parsed.name,
         filename
       }
-      const currentMetaBundles = shardData?.metadata?.bundles || []
-      const updatedMetadata = {
-        ...shardData?.metadata,
-        bundles: [...currentMetaBundles, bundleInfo]
+      const currentBundles = shardData?.meta?.bundles || []
+      const updatedMeta = {
+        ...shardData?.meta,
+        bundles: [...currentBundles, bundleInfo]
       }
 
-      // Update both data and metadata
+      // Update meta (merges data and metadata)
       onChange?.(updatedData)
-      onChange?.(updatedMetadata, true)
+      onChange?.(updatedMeta, true)
 
       log.info('Anki import processed:', parsed.name)
 
