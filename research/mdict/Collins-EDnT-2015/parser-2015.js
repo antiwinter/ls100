@@ -28,6 +28,7 @@ export class Collins2015Parser {
     this.currentThesaurusPOS = null
     this.currentThesaurusGroup = null
     this.currentQuote = null
+    this.isCollectingAntonyms = false
     
     // Text accumulation
     this.textBuffer = []
@@ -94,6 +95,9 @@ export class Collins2015Parser {
       case 'IN_DICT_CONTAINER':
         if (classes.includes('j84')) {
           this.pushState('IN_DICT_ENTRY')
+        } else if (classes.includes('exq') || classes.includes('t6l')) {
+          // Quotes/Example sentences section
+          this.pushState('IN_QUOTES_SECTION')
         } else if (tag === 'div' || tag === 'a') {
           // Wrappers
         } else {
@@ -164,6 +168,7 @@ export class Collins2015Parser {
         
       case 'IN_POS_SECTION':
         if (classes.includes('yeq') || classes.includes('jnw') || classes.includes('jgs')) {
+          this.textBuffer = []  // Clear before collecting POS text
           this.pushState('IN_POS_HEADER')
         } else if (classes.includes('oyu') || classes.includes('o8h')) {
           this.pushState('IN_DEFS')
@@ -189,11 +194,12 @@ export class Collins2015Parser {
         
       case 'IN_DEF':
         if (classes.includes('sd9')) {
+          this.textBuffer = []  // Clear before collecting definition text
           this.pushState('IN_DEF_TEXT')
         } else if (classes.includes('u9w')) {
           this.pushState('IN_EXAMPLE')
-        } else if (classes.includes('k75') || tag === 'q' || tag === 'span' || tag === 'div' || tag === 'em') {
-          // Arrows, quotes, inline elements, wrappers - stay in state
+        } else if (classes.includes('k75') || classes.includes('kgo') || classes.includes('uyp') || classes.includes('n7y') || classes.includes('x3h') || classes.includes('czw') || classes.includes('xf7') || classes.includes('s4k') || tag === 'q' || tag === 'span' || tag === 'div' || tag === 'em' || tag === 'a') {
+          // Arrows, quotes, inline elements, wrappers, labels, cross-references - stay in state
         } else {
           this.reportUnknown('IN_DEF', selector, path)
         }
@@ -237,6 +243,7 @@ export class Collins2015Parser {
         
       case 'IN_THES_POS_SECTION':
         if (classes.includes('yeq')) {
+          this.textBuffer = []  // Clear before collecting thesaurus POS text
           this.pushState('IN_THES_POS_HEADER')
         } else if (classes.includes('oyu')) {
           this.pushState('IN_THES_GROUPS')
@@ -265,23 +272,64 @@ export class Collins2015Parser {
           // = marker, skip
           this.textBuffer = []
         } else if (classes.includes('fxr')) {
+          this.textBuffer = []  // Clear before collecting synonym
           this.pushState('IN_SYNONYM')
-        } else if (tag === 'span' || tag === 'a' || (tag === 'div' && !classes.length)) {
-          // Check for 'opp' marker in text for antonyms
+        } else if (classes.includes('opn')) {
+          this.textBuffer = []  // Clear before collecting antonym
+          this.isCollectingAntonyms = true
+          this.pushState('IN_ANTONYM')
+        } else if (tag === 'span' || tag === 'a' || tag === 'b' || tag === 'br' || tag === 'q' || (tag === 'div' && !classes.length) || classes.includes('u9w') || classes.includes('rgm')) {
+          // Wrappers, examples, labels, bold markers
         } else {
           this.reportUnknown('IN_THES_GROUP', selector, path)
         }
         break
         
       case 'IN_SYNONYM':
-        if (classes.includes('xf7')) {
-          // Synonym wrapper
+      case 'IN_ANTONYM':
+        if (classes.includes('xf7') || tag === 'a') {
+          // Synonym/antonym wrappers with links
         }
         break
         
       case 'IN_QUOTES_SECTION':
-        if (tag === 'h3' || tag === 'div' || tag === 'q' || tag === 'cite' || tag === 'span' || tag === 'img' || tag === 'br') {
-          // Quotation structure - for now, just collect all text
+        if (tag === 'h3' || tag === 'img') {
+          // Header, icons
+        } else if (classes.includes('uoh') || classes.includes('d3l')) {
+          // Quotes container
+          this.pushState('IN_QUOTES_CONTAINER')
+        } else if (tag === 'div') {
+          // Wrapper
+        } else {
+          this.reportUnknown('IN_QUOTES_SECTION', selector, path)
+        }
+        break
+        
+      case 'IN_QUOTES_CONTAINER':
+        if (tag === 'div' && !classes.length) {
+          // Individual quote wrapper
+          this.currentQuote = { text: '', author: '' }
+          this.pushState('IN_QUOTE')
+        }
+        break
+        
+      case 'IN_QUOTE':
+        if (tag === 'q' || tag === 'p') {
+          this.textBuffer = []
+          this.pushState('IN_QUOTE_TEXT')
+        } else if (tag === 'cite') {
+          this.textBuffer = []
+          this.pushState('IN_QUOTE_AUTHOR')
+        } else if (tag === 'br') {
+          // Line break
+        }
+        break
+        
+      case 'IN_QUOTE_TEXT':
+      case 'IN_QUOTE_AUTHOR':
+        // Collect text from nested spans
+        if (tag === 'span') {
+          // Allow nested spans (.n6a, .aox, .tly, .yc1)
         }
         break
     }
@@ -319,7 +367,6 @@ export class Collins2015Parser {
     }
     
     const text = this.textBuffer.join(' ').trim()
-    this.textBuffer = []
     
     switch (this.state) {
       case 'IN_HEADWORD':
@@ -327,6 +374,7 @@ export class Collins2015Parser {
         if (text && !this.result.word) {
           this.result.word = text
         }
+        this.textBuffer = []
         this.popState()
         break
         
@@ -356,6 +404,7 @@ export class Collins2015Parser {
         if (text) {
           this.currentPOS = text.toLowerCase()
         }
+        this.textBuffer = []
         this.popState()
         break
         
@@ -363,6 +412,7 @@ export class Collins2015Parser {
         if (text && this.currentDef) {
           this.currentDef.en = text
         }
+        this.textBuffer = []
         this.popState()
         break
         
@@ -415,56 +465,109 @@ export class Collins2015Parser {
         if (text) {
           this.currentThesaurusPOS = text
         }
+        this.textBuffer = []
         this.popState()
         break
         
       case 'IN_SYNONYM':
-        if (text && this.currentThesaurusGroup) {
-          // Check if this is part of 'opp' (antonym) section
-          const fullText = this.path.map(p => p.text || '').join(' ')
-          if (fullText.includes('opp ')) {
-            // This is an antonym
-            this.currentThesaurusGroup.anto.push(text)
-          } else {
-            // This is a synonym
-            this.currentThesaurusGroup.syno.push(text)
+        if (classes.includes('fxr')) {
+          if (process.env.DEBUG_PARSER) {
+            console.log(`  [SYNO] Closing .fxr. text="${text}", buffer="${this.textBuffer.join(' ')}"`)
           }
+          if (text && this.currentThesaurusGroup) {
+            // Clean up commas and whitespace
+            const cleaned = text.replace(/^[,\s]+|[,\s]+$/g, '').trim()
+            if (cleaned) {
+              this.currentThesaurusGroup.syno.push(cleaned)
+              if (process.env.DEBUG_PARSER) {
+                console.log(`  [SYNO] ✓ Added: "${cleaned}"`)
+              }
+            }
+          }
+          this.textBuffer = []
+          this.popState()
         }
-        this.popState()
+        break
+        
+      case 'IN_ANTONYM':
+        if (classes.includes('opn')) {
+          if (text && this.currentThesaurusGroup) {
+            // Clean up commas and whitespace
+            const cleaned = text.replace(/^[,\s]+|[,\s]+$/g, '').trim()
+            if (cleaned) {
+              this.currentThesaurusGroup.anto.push(cleaned)
+            }
+          }
+          this.isCollectingAntonyms = false
+          this.popState()
+        }
         break
         
       case 'IN_THES_GROUP':
-        // Check for 'opp' marker in accumulated text
-        if (text) {
-          // Split by 'opp' to separate synonyms from antonyms
-          const parts = text.split(/\bopp\b/)
-          if (parts.length > 1) {
-            // Has antonyms
-            const antonymText = parts[1]
-            // Extract words (simplistic approach)
-            const anto = antonymText.match(/\b[a-z]+(?:\s+[a-z]+)*\b/gi) || []
-            this.currentThesaurusGroup.anto.push(...anto)
-          }
+        // Only pop when closing the .iji container
+        if (classes.includes('iji')) {
+          this.finishThesaurusGroup()
+          this.popState()
         }
-        this.finishThesaurusGroup()
-        this.popState()
         break
         
       case 'IN_THES_GROUPS':
-        this.popState()
+        // Only pop when closing the .oyu container
+        if (classes.includes('oyu')) {
+          this.popState()
+        }
         break
         
       case 'IN_THES_POS_SECTION':
-        this.finishThesaurusPOS()
-        this.popState()
+        // Only pop when closing the .x5z container
+        if (classes.includes('x5z')) {
+          this.finishThesaurusPOS()
+          this.popState()
+        }
+        break
+        
+      case 'IN_QUOTE_TEXT':
+        if (tag === 'q' || tag === 'p') {
+          if (text && this.currentQuote) {
+            this.currentQuote.text = text
+          }
+          this.textBuffer = []
+          this.popState()
+        }
+        break
+        
+      case 'IN_QUOTE_AUTHOR':
+        if (tag === 'cite') {
+          if (text && this.currentQuote) {
+            // Clean up author - remove brackets and extra whitespace
+            this.currentQuote.author = text.replace(/^\[|\]$/g, '').trim()
+          }
+          this.textBuffer = []
+          this.popState()
+        }
+        break
+        
+      case 'IN_QUOTE':
+        if (tag === 'div' && !classes.length) {
+          // Finished individual quote
+          if (this.currentQuote && this.currentQuote.text) {
+            this.result.quotes.push(this.currentQuote)
+          }
+          this.currentQuote = null
+          this.popState()
+        }
+        break
+        
+      case 'IN_QUOTES_CONTAINER':
+        if (classes.includes('uoh') || classes.includes('d3l')) {
+          this.popState()
+        }
         break
         
       case 'IN_QUOTES_SECTION':
-        // For now, just store raw text as one quote
-        if (text && text.length > 20) {
-          this.result.quotes.push({ text })
+        if (classes.includes('t6l') || classes.includes('exq')) {
+          this.popState()
         }
-        this.popState()
         break
         
       case 'IN_TABS':
