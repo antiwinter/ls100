@@ -9,7 +9,8 @@
   },
   "dependencies": {
     "cheerio": "^1.0.0-rc.12",
-    "js-mdict": "^6.0.8"
+    "js-mdict": "^6.0.8",
+    "wink-lemmatizer": "^3.0.4"
   },
   "license": "MIT"
 }

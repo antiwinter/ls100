@@ -691,6 +691,22 @@ export class Collins2015Parser {
     if (this.currentDef) this.finishDefinition()
     if (this.currentThesaurusGroup) this.finishThesaurusGroup()
     
+    // Normalize IPA format - ensure /.../ format
+    if (this.result.ipa) {
+      let ipa = this.result.ipa.trim()
+      // Remove trailing ) if present (malformed source data)
+      ipa = ipa.replace(/\)$/g, '')
+      // Ensure starts with /
+      if (!ipa.startsWith('/')) {
+        ipa = '/' + ipa
+      }
+      // Ensure ends with /
+      if (!ipa.endsWith('/')) {
+        ipa = ipa + '/'
+      }
+      this.result.ipa = ipa
+    }
+    
     // Clean up empty fields
     if (Object.keys(this.result.thesaurus).length === 0) {
       delete this.result.thesaurus

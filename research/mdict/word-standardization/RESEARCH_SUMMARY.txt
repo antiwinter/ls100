@@ -1,0 +1,60 @@
+==========================================
+WORD STANDARDIZATION RESEARCH - SUMMARY
+==========================================
+
+OBJECTIVE:
+Find a way to standardize words for dictionary lookup when users select
+inflected forms (plurals, past tense, -ing, possessive, etc.)
+
+TEST METHOD:
+✓ 112 test words covering all common inflections
+✓ Tested against ECE and Collins 2015 dictionaries
+✓ Compared 3 approaches: direct, simple rules, wink-lemmatizer
+
+RESULTS:
+                    ECE             Collins 2015
+Direct lookup:      47.3%           81.3%
+Simple rules:       75.9% (+28.6pp) 77.7% (-3.6pp)  ⚠️ Hurt Collins!
+wink-lemmatizer:    95.5% (+48.2pp) 99.1% (+17.8pp) ✅ BEST!
+
+KEY FINDINGS:
+1. Collins 2015 has better inflection coverage (81% vs 47%)
+2. Simple rule-based approach hurts dictionaries with good coverage
+3. wink-lemmatizer provides 95-99% success rate
+4. Only 500KB package size, very fast performance
+
+RECOMMENDATION:
+✅ Use wink-lemmatizer for word standardization
+   - Add as dependency (already installed)
+   - Use word-standardizer.js utility
+   - 95-99% success rate across all dictionaries
+   - Fast enough for real-time lookup (<0.001ms per word)
+
+FILES CREATED:
+- WORD_STANDARDIZATION.md     Full research report with tables
+- test-word-standardization.js Research test script
+- word-standardizer.js         Reusable utility function with cache
+- example-standardizer.js      Usage demo
+- RESEARCH_SUMMARY.txt         This summary
+
+NEXT STEPS:
+1. Integrate word-standardizer.js into dictionary lookup
+2. Add wink-lemmatizer to main project dependencies
+3. Apply standardization before dictionary queries
+4. Consider caching standardized forms
+
+USAGE EXAMPLE:
+```javascript
+import { standardizeWord } from './word-standardizer.js'
+
+// Before lookup
+const userInput = "running"
+const standardized = standardizeWord(userInput) // "run"
+const definition = dictionary.lookup(standardized)
+```
+
+PERFORMANCE:
+- 1000 words standardized in <1ms
+- Cache speeds up repeated lookups
+- No noticeable impact on user experience
+

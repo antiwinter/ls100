@@ -16,12 +16,14 @@ yarn install
 
 - **[CONVERTER.md](./CONVERTER.md)** - Tool usage, architecture, output format
 - **[DICT_FINDINGS.md](./DICT_FINDINGS.md)** - Dictionary research, statistics, issues
+- **[word-standardization/](./word-standardization/)** - Word lemmatization research (95-99% success rate)
 
 ## Files
 
 - `convert-v2.js` - Main converter (parser-agnostic)
-- `parser-ece.js` - Collins ECE parser (has bugs, see DICT_FINDINGS.md)
-- `1/` - Output directory (samples & extracts)
+- `Collins-Advanced-ECE/` - ECE dictionary parser and research
+- `Collins-EDnT-2015/` - 2015 dictionary parser and research
+- `word-standardization/` - Word standardization research and utilities
 
 ## Dictionary Files
 
