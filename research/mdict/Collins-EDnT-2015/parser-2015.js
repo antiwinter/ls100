@@ -31,6 +31,8 @@ export class Collins2015Parser {
     
     // Text accumulation
     this.textBuffer = []
+    this.exampleBuffer = []
+    this.ipaBuffer = []
     
     // Path tracking
     this.path = []
@@ -59,6 +61,10 @@ export class Collins2015Parser {
       case 'IN_BODY':
         if (tag === 'div' && (classes.includes('c1a') || attrs.id)) {
           this.pushState('IN_ROOT')
+        } else if (tag === 'div' && classes.includes('dxr')) {
+          // Simple structure: .dxr directly at body level (no .c1a tabs)
+          this.pushState('IN_ROOT')
+          this.pushState('IN_DICT_CONTAINER')
         } else if (tag === 'link' || tag === 'head' || tag === 'meta' || tag === 'script') {
           // Ignore metadata
         } else {
@@ -112,8 +118,6 @@ export class Collins2015Parser {
       case 'IN_DICT_ENTRY':
         if (classes.includes('f9d') || classes.includes('quf')) {
           this.pushState('IN_HEADWORD')
-        } else if (tag === 'span' && classes.includes('kf5')) {
-          this.pushState('IN_IPA')
         } else if (classes.includes('mh1')) {
           this.pushState('IN_DICT_MAIN')
         } else if (classes.includes('roj')) {
@@ -128,16 +132,31 @@ export class Collins2015Parser {
         break
         
       case 'IN_HEADWORD':
+        if (classes.includes('kf5')) {
+          this.pushState('IN_IPA')
+        } else if (tag === 'img') {
+          // Ignore speaker icons
+        }
+        break
+        
       case 'IN_IPA':
-        // Collect text
+        // Collect IPA text, ignore nested images
+        if (tag === 'img') {
+          // Ignore speaker icons
+        }
         break
         
       case 'IN_DICT_MAIN':
         if (classes.includes('x5z')) {
           this.startPOS()
           this.pushState('IN_POS_SECTION')
-        } else if (tag === 'div' && !classes.length) {
-          // Wrapper
+        } else if (classes.includes('roj')) {
+          // Origin section
+          this.pushState('IN_ORIGIN')
+        } else if (classes.includes('sbt')) {
+          // Derived forms, skip
+        } else if (tag === 'div' || tag === 'h3' || tag === 'h4' || tag === 'span' || tag === 'p' || tag === 'cite' || tag === 'em' || tag === 'img') {
+          // Various wrappers and inline elements - stay in state
         } else {
           this.reportUnknown('IN_DICT_MAIN', selector, path)
         }
@@ -146,7 +165,7 @@ export class Collins2015Parser {
       case 'IN_POS_SECTION':
         if (classes.includes('yeq') || classes.includes('jnw') || classes.includes('jgs')) {
           this.pushState('IN_POS_HEADER')
-        } else if (classes.includes('oyu')) {
+        } else if (classes.includes('oyu') || classes.includes('o8h')) {
           this.pushState('IN_DEFS')
         } else if (tag === 'h2' || tag === 'div') {
           // Headers/wrappers
@@ -160,7 +179,7 @@ export class Collins2015Parser {
         break
         
       case 'IN_DEFS':
-        if (classes.includes('iji')) {
+        if (classes.includes('iji') || classes.includes('lij')) {
           this.startDefinition()
           this.pushState('IN_DEF')
         } else {
@@ -173,16 +192,22 @@ export class Collins2015Parser {
           this.pushState('IN_DEF_TEXT')
         } else if (classes.includes('u9w')) {
           this.pushState('IN_EXAMPLE')
-        } else if (classes.includes('k75') || tag === 'q' || tag === 'span' || (tag === 'div' && !classes.length)) {
-          // Arrows, quotes, inline elements
+        } else if (classes.includes('k75') || tag === 'q' || tag === 'span' || tag === 'div' || tag === 'em') {
+          // Arrows, quotes, inline elements, wrappers - stay in state
         } else {
           this.reportUnknown('IN_DEF', selector, path)
         }
         break
         
       case 'IN_DEF_TEXT':
-      case 'IN_EXAMPLE':
         // Collect text
+        break
+        
+      case 'IN_EXAMPLE':
+        // Allow nested tags like q for quotes
+        if (tag === 'q' || tag === 'span' || tag === 'em') {
+          // Just collect text, don't change state
+        }
         break
         
       case 'IN_ORIGIN':
@@ -265,10 +290,34 @@ export class Collins2015Parser {
   text(content) {
     const trimmed = content.trim()
     if (!trimmed) return
-    this.textBuffer.push(trimmed)
+    
+    // Use separate buffers for different contexts
+    if (this.state === 'IN_EXAMPLE') {
+      this.exampleBuffer.push(trimmed)
+    } else if (this.state === 'IN_IPA') {
+      this.ipaBuffer.push(trimmed)
+    } else {
+      this.textBuffer.push(trimmed)
+    }
   }
   
   endElement(tag, classes) {
+    // Check for major container closings first - pop back to root
+    if (classes.includes('dxr')) {
+      // Closing dictionary section - pop back to IN_ROOT
+      while (this.state !== 'IN_ROOT' && this.state !== 'INIT') {
+        this.popState()
+      }
+      if (this.state === 'IN_ROOT') return
+    }
+    if (classes.includes('tvr')) {
+      // Closing thesaurus section - pop back to IN_ROOT
+      while (this.state !== 'IN_ROOT' && this.state !== 'INIT') {
+        this.popState()
+      }
+      if (this.state === 'IN_ROOT') return
+    }
+    
     const text = this.textBuffer.join(' ').trim()
     this.textBuffer = []
     
@@ -282,15 +331,30 @@ export class Collins2015Parser {
         break
         
       case 'IN_IPA':
-        if (text) {
-          this.result.ipa = text
+        if (classes.includes('kf5')) {
+          const ipaText = this.ipaBuffer.join(' ').trim()
+          if (process.env.DEBUG_PARSER) {
+            console.log(`  [IPA] Closing .kf5. ipaBuffer="${ipaText}"`)
+          }
+          if (ipaText) {
+            // Append to existing IPA (for multiple pronunciations)
+            if (this.result.ipa) {
+              this.result.ipa += ' ' + ipaText
+            } else {
+              this.result.ipa = ipaText
+            }
+            if (process.env.DEBUG_PARSER) {
+              console.log(`  [IPA] ✓ Set IPA: "${this.result.ipa}"`)
+            }
+          }
+          this.ipaBuffer = []
+          this.popState()
         }
-        this.popState()
         break
         
       case 'IN_POS_HEADER':
-        if (text && this.currentPOS) {
-          this.currentPOS = text
+        if (text) {
+          this.currentPOS = text.toLowerCase()
         }
         this.popState()
         break
@@ -303,24 +367,41 @@ export class Collins2015Parser {
         break
         
       case 'IN_EXAMPLE':
-        if (text && this.currentDef) {
-          this.currentDef.exs.push({ en: text })
+        // Only pop when closing the .u9w element
+        if (classes.includes('u9w')) {
+          const exampleText = this.exampleBuffer.join(' ')
+          if (exampleText && this.currentDef) {
+            this.currentDef.exs.push({ en: exampleText })
+            if (process.env.DEBUG_PARSER) {
+              console.log(`  [EX] Added example: "${exampleText.substring(0, 40)}..."`)
+            }
+          }
+          this.exampleBuffer = []
+          this.popState()
         }
-        this.popState()
         break
         
       case 'IN_DEF':
-        this.finishDefinition()
-        this.popState()
+        // Only finish and pop when closing the .iji or .lij container
+        if (classes.includes('iji') || classes.includes('lij')) {
+          this.finishDefinition()
+          this.popState()
+        }
         break
-        
+      
       case 'IN_DEFS':
-        this.popState()
+        // Only pop when closing the .oyu or .o8h container
+        if (classes.includes('oyu') || classes.includes('o8h')) {
+          this.popState()
+        }
         break
         
       case 'IN_POS_SECTION':
-        this.finishPOS()
-        this.popState()
+        // Only pop when closing the .x5z container itself
+        if (classes.includes('x5z')) {
+          this.finishPOS()
+          this.popState()
+        }
         break
         
       case 'IN_ORIGIN':
@@ -417,11 +498,19 @@ export class Collins2015Parser {
   // State management
   pushState(newState) {
     this.stateStack.push(this.state)
+    const oldState = this.state
     this.state = newState
+    if (process.env.DEBUG_PARSER) {
+      console.log(`  [STATE] ${oldState} → ${newState}`)
+    }
   }
   
   popState() {
+    const oldState = this.state
     this.state = this.stateStack.pop() || 'INIT'
+    if (process.env.DEBUG_PARSER) {
+      console.log(`  [STATE] ${oldState} ← ${this.state}`)
+    }
   }
   
   // Definition management
@@ -439,11 +528,20 @@ export class Collins2015Parser {
       en: '',
       exs: []
     }
+    if (process.env.DEBUG_PARSER) {
+      console.log(`  [DEF] Starting definition with POS: ${this.currentPOS}`)
+    }
   }
   
   finishDefinition() {
+    if (process.env.DEBUG_PARSER) {
+      console.log(`  [DEF] Finishing def. Has en: ${!!this.currentDef?.en}, Text: "${this.currentDef?.en?.substring(0, 50)}"`)
+    }
     if (this.currentDef && this.currentDef.en) {
       this.result.defs.push(this.currentDef)
+      if (process.env.DEBUG_PARSER) {
+        console.log(`  [DEF] ✓ Added definition. Total: ${this.result.defs.length}`)
+      }
     }
     this.currentDef = null
   }

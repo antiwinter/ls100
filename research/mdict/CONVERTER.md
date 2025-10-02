@@ -230,20 +230,97 @@ This helps identify:
 
 ### Field Descriptions
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `word` | string | Headword |
-| `defs` | array | Definitions (multiple per word) |
-| `defs[].pos` | string | Part of speech (English) |
-| `defs[].posZh` | string | Part of speech (Chinese) |
-| `defs[].en` | string | English definition |
-| `defs[].zh` | string | Chinese translation |
-| `defs[].exs` | array | Example sentences |
-| `defs[].exs[].en` | string | English example |
-| `defs[].exs[].zh` | string | Chinese translation |
-| `defs[].exs[].exs` | array | Nested examples (usage notes) |
-| `refTo` | array | Related phrases/cross-references |
-| `refTo[].phrases` | array | Phrase list per group |
+#### Standard Fields (All Dictionaries)
+
+| Field | Type | Optional | Description |
+|-------|------|----------|-------------|
+| `word` | string | No | Headword |
+| `defs` | array | No | Definitions (multiple per word) |
+| `defs[].pos` | string | No | Part of speech (English) |
+| `defs[].posZh` | string | Yes | Part of speech (Chinese, ECE only) |
+| `defs[].en` | string | No | English definition |
+| `defs[].zh` | string | Yes | Chinese translation (ECE only) |
+| `defs[].labels` | array | Yes | Metadata labels (FORMAL, BRIT, etc.) |
+| `defs[].exs` | array | Yes | Example sentences |
+| `defs[].exs[].en` | string | No | English example |
+| `defs[].exs[].zh` | string | Yes | Chinese translation (ECE only) |
+| `defs[].exs[].exs` | array | Yes | Nested examples (usage notes) |
+| `refTo` | array | Yes | Related phrases/cross-references (flat array) |
+
+#### Extended Fields (2015 Edition)
+
+| Field | Type | Optional | Description |
+|-------|------|----------|-------------|
+| `ipa` | string | Yes | IPA pronunciation notation (e.g., "/əˈbɪlɪtɪ/") |
+| `thesaurus` | object | Yes | Synonyms/antonyms grouped by POS |
+| `thesaurus.{pos}` | array | Yes | Sense groups for this POS |
+| `thesaurus.{pos}[].syno` | array | Yes | Synonyms for this sense |
+| `thesaurus.{pos}[].anto` | array | Yes | Antonyms for this sense |
+| `origin` | string | Yes | Etymology/word history |
+| `quotes` | array | Yes | Famous quotations |
+| `quotes[].text` | string | No | Quote text |
+| `quotes[].author` | string | No | Quote author |
+
+### Extended Field Examples
+
+#### IPA Pronunciation
+
+```json
+{
+  "word": "ability",
+  "ipa": "/əˈbɪlɪtɪ/",
+  "defs": [...]
+}
+```
+
+#### Thesaurus Data
+
+```json
+{
+  "word": "happy",
+  "thesaurus": {
+    "adjective": [
+      {
+        "syno": ["pleased", "delighted", "content", "joyful"],
+        "anto": ["sad", "unhappy"]
+      },
+      {
+        "syno": ["fortunate", "lucky", "blessed"],
+        "anto": ["unfortunate"]
+      }
+    ]
+  }
+}
+```
+
+**Note:** Thesaurus groups by POS, with multiple sense groups per POS. Each group has synonyms and/or antonyms.
+
+#### Etymology/Origin
+
+```json
+{
+  "word": "ability",
+  "origin": "Old English abilite, from Latin habilitatem (nominative habilitas) 'aptness, ability', from habilis 'easily handled, apt'..."
+}
+```
+
+#### Quotations
+
+```json
+{
+  "word": "happy",
+  "quotes": [
+    {
+      "text": "Happy men are grave.",
+      "author": "Publilius Syrus"
+    },
+    {
+      "text": "A lifetime of happiness! No man alive could bear it: it would be hell on earth.",
+      "author": "George Bernard Shaw"
+    }
+  ]
+}
+```
 
 ### Data Characteristics
 

@@ -39,7 +39,13 @@ const results = {
   }
 }
 
-let totalWithLabels = 0
+const stats = {
+  withLabels: 0,
+  withIPA: 0,
+  withThesaurus: 0,
+  withOrigin: 0,
+  withQuotes: 0
+}
 
 for (const entry of entries) {
   const word = entry.word
@@ -91,7 +97,81 @@ for (const entry of entries) {
   // Test 5: Count entries with labels (for statistics)
   const hasLabels = entry.defs.some(d => d.labels && d.labels.length > 0)
   if (hasLabels) {
-    totalWithLabels++
+    stats.withLabels++
+  }
+  
+  // Test 6: IPA format validation (optional field, 2015 edition)
+  if (entry.ipa !== undefined) {
+    if (typeof entry.ipa !== 'string' || (entry.ipa && !/^\/.*\/$/.test(entry.ipa))) {
+      results.issues.invalidStructure.push({ word, reason: 'Invalid IPA format (should be /.../)' })
+      hasIssues = true
+    }
+    if (entry.ipa) stats.withIPA++
+  }
+  
+  // Test 7: Thesaurus structure validation (optional field, 2015 edition)
+  if (entry.thesaurus !== undefined && entry.thesaurus !== null) {
+    if (typeof entry.thesaurus !== 'object') {
+      results.issues.invalidStructure.push({ word, reason: 'Thesaurus not an object' })
+      hasIssues = true
+    } else {
+      for (const pos in entry.thesaurus) {
+        if (!Array.isArray(entry.thesaurus[pos])) {
+          results.issues.invalidStructure.push({ word, reason: `thesaurus.${pos} not array` })
+          hasIssues = true
+        } else {
+          entry.thesaurus[pos].forEach((group, i) => {
+            if (!group.syno && !group.anto) {
+              results.issues.invalidStructure.push({ word, reason: `thesaurus.${pos}[${i}] missing syno/anto` })
+              hasIssues = true
+            }
+            if (group.syno && !Array.isArray(group.syno)) {
+              results.issues.invalidStructure.push({ word, reason: `thesaurus.${pos}[${i}].syno not array` })
+              hasIssues = true
+            }
+            if (group.anto && !Array.isArray(group.anto)) {
+              results.issues.invalidStructure.push({ word, reason: `thesaurus.${pos}[${i}].anto not array` })
+              hasIssues = true
+            }
+          })
+        }
+      }
+      if (Object.keys(entry.thesaurus).length > 0) stats.withThesaurus++
+    }
+  }
+  
+  // Test 8: Origin format validation (optional field, 2015 edition)
+  if (entry.origin !== undefined) {
+    if (typeof entry.origin !== 'string') {
+      results.issues.invalidStructure.push({ word, reason: 'Origin not a string' })
+      hasIssues = true
+    }
+    if (entry.origin) stats.withOrigin++
+  }
+  
+  // Test 9: Quotes structure validation (optional field, 2015 edition)
+  if (entry.quotes !== undefined) {
+    if (!Array.isArray(entry.quotes)) {
+      results.issues.invalidStructure.push({ word, reason: 'Quotes not an array' })
+      hasIssues = true
+    } else {
+      entry.quotes.forEach((quote, i) => {
+        if (!quote || typeof quote !== 'object') {
+          results.issues.invalidStructure.push({ word, reason: `quotes[${i}] not an object` })
+          hasIssues = true
+        } else {
+          if (!quote.text || typeof quote.text !== 'string') {
+            results.issues.invalidStructure.push({ word, reason: `quotes[${i}] missing text` })
+            hasIssues = true
+          }
+          if (!quote.author || typeof quote.author !== 'string') {
+            results.issues.invalidStructure.push({ word, reason: `quotes[${i}] missing author` })
+            hasIssues = true
+          }
+        }
+      })
+      if (entry.quotes.length > 0) stats.withQuotes++
+    }
   }
   
   if (hasIssues) {
@@ -113,7 +193,19 @@ console.log()
 // Statistics
 console.log('📈 STATISTICS')
 console.log('━'.repeat(60))
-console.log(`Entries with labels: ${totalWithLabels} (${((totalWithLabels / results.total) * 100).toFixed(1)}%)`)
+console.log(`Entries with labels: ${stats.withLabels} (${((stats.withLabels / results.total) * 100).toFixed(1)}%)`)
+if (stats.withIPA > 0) {
+  console.log(`Entries with IPA: ${stats.withIPA} (${((stats.withIPA / results.total) * 100).toFixed(1)}%)`)
+}
+if (stats.withThesaurus > 0) {
+  console.log(`Entries with thesaurus: ${stats.withThesaurus} (${((stats.withThesaurus / results.total) * 100).toFixed(1)}%)`)
+}
+if (stats.withOrigin > 0) {
+  console.log(`Entries with origin: ${stats.withOrigin} (${((stats.withOrigin / results.total) * 100).toFixed(1)}%)`)
+}
+if (stats.withQuotes > 0) {
+  console.log(`Entries with quotes: ${stats.withQuotes} (${((stats.withQuotes / results.total) * 100).toFixed(1)}%)`)
+}
 console.log()
 
 // Issue details
