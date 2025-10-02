@@ -1,0 +1,15 @@
+{
+  "name": "mdict-research",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Research tools for converting MDict dictionaries to structured JSON",
+  "main": "convert-v2.js",
+  "scripts": {
+    "convert": "node convert-v2.js"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.12",
+    "js-mdict": "^6.0.8"
+  },
+  "license": "MIT"
+}
