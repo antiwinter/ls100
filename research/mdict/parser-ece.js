@@ -29,6 +29,7 @@ export class ECEParser {
     this.currentEx = null
     this.currentUsageNote = null
     this.currentRefTo = null
+    this.currentDefIsSeeAlso = false
     
     // Text accumulation
     this.textBuffer = []
@@ -161,9 +162,12 @@ export class ECEParser {
         
       case 'IN_USAGE_NOTE':
         if (tag === 'b' || tag === 'span' || classes.includes('text_blue')) {
-          // Usage note text
+          // Inline elements - text will be collected automatically
         } else if (tag === 'ul' && classes.includes('vli')) {
+          // Nested examples list - push state to handle them
           this.pushState('IN_USAGE_EXAMPLES')
+        } else if (tag === 'p' || tag === 'i' || tag === 'strong') {
+          // Allow these inline/block elements
         }
         break
         
@@ -203,10 +207,11 @@ export class ECEParser {
   }
   
   text(content) {
-    const trimmed = content.trim()
-    if (!trimmed) return
+    // Don't trim - preserve natural spacing for inline elements
+    // We'll trim the final result instead
+    if (!content) return
     
-    this.textBuffer.push(trimmed)
+    this.textBuffer.push(content)
   }
   
   endElement(tag, classes) {
@@ -214,12 +219,13 @@ export class ECEParser {
     const selector = classes.length > 0 ? `${tag}.${classStr}` : tag
     
     // Collect accumulated text
-    const text = this.textBuffer.join(' ').trim()
-    this.textBuffer = []
+    // Join without extra spaces and normalize whitespace
+    const text = this.textBuffer.join('').replace(/\s+/g, ' ').trim()
     
     switch (this.state) {
       case 'IN_NUM':
         // Ignore number
+        this.textBuffer = []
         this.popState()
         break
         
@@ -227,6 +233,7 @@ export class ECEParser {
         if (text) {
           this.parsePOS(text)
         }
+        this.textBuffer = []
         this.popState()
         break
         
@@ -234,6 +241,7 @@ export class ECEParser {
         if (text && this.currentDef) {
           this.currentDef.zh = text
         }
+        this.textBuffer = []
         this.popState()
         break
         
@@ -241,97 +249,136 @@ export class ECEParser {
         if (text && this.currentDef) {
           this.currentDef.en = (this.currentDef.en || '') + ' ' + text
         }
+        this.textBuffer = []
         this.popState()
         break
         
       case 'IN_CAPTION':
         // Check if we're ending the caption itself or a nested element
         if (classes.includes('caption')) {
-          // Ending the caption element
+          // Ending the caption element - collect all accumulated text
           if (text && this.currentDef) {
             // Skip if it's just the headword alone
             if (text !== this.word && text !== `-${this.word}` && text !== `+${this.word}`) {
-              this.currentDef.en = (this.currentDef.en || '') + ' ' + text
+              this.currentDef.en = text
             }
           }
-          // Clean up the English text
+          // Extract cross-references from Chinese text if this is a partial "See also:"
+          // (definitions that have both real content and cross-references)
+          if (this.currentDef.zh && !this.currentDefIsSeeAlso && this.currentDef.pos) {
+            this.extractInlineReferences()
+          }
+          // Clean up the English text and extract grammar info
           if (this.currentDef.en) {
             this.currentDef.en = this.currentDef.en.trim()
+            // Extract 【语法信息】and add to POS
+            this.extractGrammarInfo()
           }
+          this.textBuffer = []
           this.popState()
           this.state = 'AFTER_CAPTION'
         } else {
           // Ending a nested element (b, span, etc) while in IN_CAPTION
-          // Collect text as English definition
-          if (text && this.currentDef) {
-            if (text !== this.word && text !== `-${this.word}` && text !== `+${this.word}`) {
-              this.currentDef.en = (this.currentDef.en || '') + ' ' + text
-            }
+          // Check if it's a grammar info div - if so, skip its text
+          if (tag === 'div' && this.path.some(p => p.includes('word_gram'))) {
+            // Skip grammar info div text - clear buffer
+            this.textBuffer = []
+          } else if (tag === 'span' && (this.path.some(p => p.includes('word_gram')) || classes.includes('text_blue'))) {
+            // Skip grammar spans and text_blue spans from definition
+            // But don't clear buffer - there might be other text
           }
-        }
-        break
-        
-      default:
-        // For any unhandled states when ending elements,
-        // if we have text and we're nested in IN_CAPTION, collect it
-        if (text && this.currentDef && this.stateStack.includes('IN_CAPTION')) {
-          if (text !== this.word && text !== `-${this.word}` && text !== `+${this.word}`) {
-            this.currentDef.en = (this.currentDef.en || '') + ' ' + text
-          }
+          // Don't clear textBuffer for most nested elements - keep accumulating
         }
         break
         
       case 'IN_EX_EN':
-        if (text && this.currentEx) {
-          this.currentEx.en = text
+        // Only clear and pop when we're closing the <p> tag itself
+        if (tag === 'p') {
+          if (text && this.currentEx) {
+            this.currentEx.en = text
+          }
+          this.textBuffer = []
+          this.popState()
         }
-        this.popState()
+        // Don't clear buffer for nested tags - keep accumulating
         break
         
       case 'IN_EX_ZH':
-        if (text && this.currentEx) {
-          this.currentEx.zh = text
+        // Only clear and pop when we're closing the <p> tag itself
+        if (tag === 'p') {
+          if (text && this.currentEx) {
+            this.currentEx.zh = text
+          }
+          this.textBuffer = []
+          this.popState()
         }
-        this.popState()
+        // Don't clear buffer for nested tags - keep accumulating
         break
         
       case 'IN_EXAMPLE':
         this.finishExample()
+        this.textBuffer = []
         this.popState()
         break
         
       case 'IN_USAGE_NOTE':
-        if (text && this.currentUsageNote) {
-          this.currentUsageNote.text = (this.currentUsageNote.text || '') + ' ' + text
+        // Collect text from inline elements (but not from nested ul which has its own state)
+        if ((tag === 'b' || tag === 'span') && text && this.currentUsageNote) {
+          // Only add non-empty text
+          if (text.trim()) {
+            this.currentUsageNote.text = (this.currentUsageNote.text || '') + ' ' + text
+          }
+          this.textBuffer = []
+        } else if (tag === 'li' && (classes.includes('en_tip') || classes.includes('bg_doc'))) {
+          // Closing the usage note li - finalize it
+          // Note: nested examples have already been collected via IN_USAGE_EXAMPLES state
+          this.finishUsageNote()
+          this.textBuffer = []
+          this.popState()
         }
-        this.finishUsageNote()
-        this.popState()
         break
         
       case 'IN_USAGE_EX_EN':
-        if (text && this.currentUsageEx) {
-          this.currentUsageEx.en = text
+        // Only clear and pop when we're closing the <p> tag itself
+        if (tag === 'p') {
+          if (text && this.currentUsageEx) {
+            this.currentUsageEx.en = text
+          }
+          this.textBuffer = []
+          this.popState()
         }
-        this.popState()
         break
         
       case 'IN_USAGE_EX_ZH':
-        if (text && this.currentUsageEx) {
-          this.currentUsageEx.zh = text
+        // Only clear and pop when we're closing the <p> tag itself
+        if (tag === 'p') {
+          if (text && this.currentUsageEx) {
+            this.currentUsageEx.zh = text
+          }
+          this.textBuffer = []
+          this.popState()
         }
-        this.popState()
         break
         
       case 'IN_USAGE_EXAMPLE':
-        this.finishUsageExample()
-        this.popState()
+        // Only finish when closing the <li> tag itself
+        if (tag === 'li') {
+          this.finishUsageExample()
+          this.textBuffer = []
+          this.popState()
+        }
         break
         
       case 'IN_USAGE_EXAMPLES':
-        this.popState()
+        // Only pop when closing the <ul> tag itself
+        if (tag === 'ul' && classes.includes('vli')) {
+          this.textBuffer = []
+          this.popState()
+        }
         break
         
       case 'IN_EXAMPLES':
+        this.textBuffer = []
         this.popState()
         this.state = 'AFTER_CAPTION'
         break
@@ -349,7 +396,13 @@ export class ECEParser {
           this.result.refTo.push(this.currentRefTo)
           this.currentRefTo = null
         }
+        this.textBuffer = []
         this.popState()
+        break
+        
+      default:
+        // For any unhandled states, don't clear the buffer
+        // This allows text to accumulate through nested tags
         break
     }
   }
@@ -378,23 +431,115 @@ export class ECEParser {
       zh: '',
       exs: []
     }
+    this.currentDefIsSeeAlso = false
   }
   
   finishDefinition() {
-    if (this.currentDef && (this.currentDef.en || this.currentDef.zh || this.currentDef.pos)) {
+    if (!this.currentDef) return
+    
+    // Check if this is a "See also:" entry
+    if (this.currentDefIsSeeAlso) {
+      // Extract referenced words from zh field (they end up there from text_blue)
+      // Filter out Chinese text - only keep English phrases
+      const referencedWords = (this.currentDef.zh || this.currentDef.en)
+        .split(/[;,]/)
+        .map(w => w.trim())
+        .filter(w => {
+          // Keep only if it doesn't contain Chinese characters
+          // and is not empty
+          return w && w !== '' && !/[\u4e00-\u9fa5]/.test(w)
+        })
+      
+      if (referencedWords.length > 0) {
+        this.result.refTo.push({ phrases: referencedWords })
+      }
+    } else if (this.currentDef.en || this.currentDef.zh || this.currentDef.pos) {
+      // Regular definition - add to defs
       this.result.defs.push(this.currentDef)
     }
+    
     this.currentDef = null
+    this.currentDefIsSeeAlso = false
   }
   
   parsePOS(text) {
-    // POS format: "SUFFIX\t后缀" or "PHRASE 短语"
-    const parts = text.split(/[\t\s]+/)
-    if (parts.length >= 2) {
-      this.currentDef.pos = parts[0]
-      this.currentDef.posZh = parts.slice(1).join(' ')
+    // Check if this is ONLY "See also:" (not a real definition)
+    // It's only a reference if there's no real POS before it
+    if ((text.includes('See also:') || text.startsWith('See')) && !this.currentDef.pos) {
+      this.currentDefIsSeeAlso = true
+      this.currentDef.pos = text.trim()
+      this.currentDef.posZh = ''
+      return
+    }
+    
+    // If we already have a POS and this is "See also:", skip it
+    // (it's just additional cross-references in the same definition)
+    if (text.includes('See also:') && this.currentDef.pos) {
+      // This is a "See also:" that appears AFTER a real POS tag
+      // We'll handle extracting the references separately
+      return
+    }
+    
+    // POS format: "COMB in ADJ-GRADED\t用在形容词最高级后" or "PHRASE 短语"
+    // Split at first Chinese character, not whitespace (English POS can have spaces)
+    text = text.replace(/[\r\n<>]/g, '').trim()
+    const match = text.match(/^([^\u4e00-\u9fa5]+)([\u4e00-\u9fa5].*)$/)
+    if (match) {
+      this.currentDef.pos = match[1].trim()
+      this.currentDef.posZh = match[2].trim()
     } else {
       this.currentDef.pos = text
+      this.currentDef.posZh = ''
+    }
+  }
+  
+  extractGrammarInfo() {
+    if (!this.currentDef || !this.currentDef.en) return
+    
+    // Find all grammar patterns: 【语法信息】：V n, 【语法信息】：V-ed, etc.
+    // Match everything between 【语法信息】： and the next 【 or end of text
+    const grammarPattern = /【语法信息】[：:]\s*([A-Za-z0-9\s\-<>]+?)(?=\s*【|$)/g
+    const grammarInfos = []
+    let match
+    
+    while ((match = grammarPattern.exec(this.currentDef.en)) !== null) {
+      const grammarText = match[1].trim().replace(/<[^>]+>/g, '').trim()
+      if (grammarText && !grammarText.includes('【')) {
+        grammarInfos.push(grammarText)
+      }
+    }
+    
+    // Remove all grammar/pattern/usage info text from the definition
+    this.currentDef.en = this.currentDef.en
+      .replace(/【语法信息】[：:][^【]*?(?=【|$)/g, '')
+      .replace(/【搭配模式】[：:][^【]*?(?=【|$)/g, '')
+      .replace(/【语用信息】[：:][^【]*?(?=【|$)/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+    
+    // Append grammar info to POS if any found
+    if (grammarInfos.length > 0 && this.currentDef.pos) {
+      this.currentDef.pos = this.currentDef.pos + ', ' + grammarInfos.join(', ')
+    }
+  }
+  
+  extractInlineReferences() {
+    // Extract cross-references that appear inline with a definition
+    // (e.g., "See also: love affair" within a real definition)
+    if (!this.currentDef || !this.currentDef.zh) return
+    
+    const referencedWords = this.currentDef.zh
+      .split(/[;,]/)
+      .map(w => w.trim())
+      .filter(w => {
+        // Keep only English words/phrases (filter out Chinese)
+        return w && w !== '' && !/[\u4e00-\u9fa5]/.test(w)
+      })
+    
+    if (referencedWords.length > 0) {
+      // Add to global refTo in the same format as regular references
+      // (will be flattened in finish())
+      this.result.refTo.push({ phrases: referencedWords })
     }
   }
   
@@ -458,6 +603,17 @@ export class ECEParser {
   finish() {
     if (this.currentDef) {
       this.finishDefinition()
+    }
+    
+    // Flatten refTo structure from [{phrases: [...]}, {phrases: [...]}] to [...]
+    if (this.result.refTo && this.result.refTo.length > 0) {
+      const allPhrases = []
+      for (const group of this.result.refTo) {
+        if (group.phrases && Array.isArray(group.phrases)) {
+          allPhrases.push(...group.phrases)
+        }
+      }
+      this.result.refTo = allPhrases
     }
     
     return {

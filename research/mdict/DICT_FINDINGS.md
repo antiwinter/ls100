@@ -64,14 +64,13 @@ Located in `/server/lib/collins/`:
 
 | File | Size | Description |
 |------|------|-------------|
-| `Collins-Advanced-ECE.mdx` | 82 MB | English-Chinese (ECE) |
-| `Collins-Advanced-ECE.mdd` | 1.2 MB | ECE resources |
-| `Collins-Advanced-EE-3th.mdx` | 71 MB | English-English 3rd ed |
-| `Collins-Advanced-EE-3th.mdd` | 1.1 MB | EE resources |
-| `Collins-Thesaurus.mdx` | 18 MB | Thesaurus |
-| `Collins-Thesaurus.mdd` | 0.5 MB | Thesaurus resources |
-| `Collins-Usage.mdx` | 4.5 MB | Usage guide |
-| `Collins English Dictionary and Thesaurus, 2015.mdx` | 150 MB | Combined 2015 edition |
+| `Collins-Advanced-ECE.mdx` | 13M | English-Chinese (ECE) |
+| `Collins-Advanced-ECE.mdd` | 7.2K | ECE resources |
+| `Collins-Advanced-EE-3th.mdx` | 7.4M | English-English 3rd ed |
+| `Collins-Advanced-EE-3th.mdd` | 5.4K | EE resources |
+| `Collins-Thesaurus.mdx` | 910K | Thesaurus |
+| `Collins-Usage.mdx` | 779K | Usage guide |
+| `Collins English Dictionary and Thesaurus, 2015.mdx` | 44M | Combined 2015 edition |
 
 ### Statistics Summary
 
@@ -249,7 +248,7 @@ parsePOS(text) {
 
 ### MDD Resources
 
-**File:** `Collins-Advanced-ECE.mdd` (1.2 MB)
+**File:** `Collins-Advanced-ECE.mdd` (7.2K)
 
 **Contents:**
 - `collins.css` - Stylesheet (5KB)
@@ -378,17 +377,194 @@ parsePOS(text) {
 ### Overview
 
 - **Full name**: Collins English Dictionary and Thesaurus, 2015
-- **Size**: 150 MB (largest)
-- **Entries**: ~80,000 (estimated)
+- **Size**: 44M
+- **Entries**: 190,727 (verified)
 - **Content**: Combined dictionary + thesaurus
-- **Status**: ❌ Not analyzed
+- **Status**: ⚠️ Parser in progress (`parser-2015.js`)
 
-### Notes
+### Key Differences from ECE
 
-- Likely combines EE + Thesaurus content
-- Possibly different HTML structure
-- May have more comprehensive definitions
-- **Requires separate analysis and parser**
+1. **Dual Content**: Dictionary AND Thesaurus in same entry
+   - Tab interface: "Dictionary" and "Thesaurus"  
+   - `.c1a` → `.fvv` (tabs) + `.dxr` (dict) + `.tvr` (thesaurus)
+
+2. **Additional Data Fields**:
+   - Pronunciation with IPA: `/əˈbɪlɪtɪ/`
+   - Audio buttons: `<img onclick="aes(...)">` 
+   - Quotations section: Famous quotes related to word
+   - Etymology/Origin: Detailed word history
+   - Derived forms: Related word formations
+
+3. **Different HTML Structure**:
+   - Top wrapper: `.c1a` (not `.dxr` directly)
+   - Headword: `.f9d` (simple) or `.quf` (with pronunciation)
+   - Thesaurus classes: `.xf7`, `.fxr`, `.aox`, etc.
+   
+4. **More Complex**: 
+   - 190k entries vs 36k (ECE)
+   - Richer metadata
+   - Mixed dictionary/thesaurus content
+
+### HTML Structure Pattern
+
+```html
+<div class="c1a">
+  <div class="fvv">              <!-- Tabs: Dictionary | Thesaurus -->
+    <span class="dzf">Dictionary</span>
+    <span class="t3h">Thesaurus</span>
+  </div>
+  
+  <div class="dxr">              <!-- Dictionary content -->
+    <div id="ability_1">         <!-- Entry wrapper -->
+      <div class="j84">          <!-- Entry block -->
+        <h2 class="quf">ability <span class="kf5">/əˈbɪlɪtɪ/</span></h2>
+        <div class="mh1">        <!-- Main content -->
+          <div class="x5z">      <!-- POS section -->
+            <h4 class="jnw"><span class="sg0">noun</span></h4>
+            <div class="oyu">
+              <div class="iji">  <!-- Definition item -->
+                <span class="sd9">possession of the qualities...</span>
+                <div><span class="k75">⇒</span> <span class="u9w"><q>example</q></span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="roj">Origin...</div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="tvr">              <!-- Thesaurus content -->
+    ...synonyms, antonyms...
+  </div>
+</div>
+```
+
+### Parser Status
+
+**Current**: ⚠️ Basic structure parsing works, but not extracting definitions yet
+
+**Issues to resolve**:
+1. Thesaurus content mixing with dictionary content
+2. State machine needs refinement for deeper nesting
+3. Need to handle dual-tab structure
+4. Need to decide if we extract thesaurus data
+
+**JSON Format Challenge**:
+Our standard format doesn't have fields for:
+- `pronunciation` (IPA notation)
+- `origin` (etymology)
+- `quotations` (famous quotes)
+- `thesaurus` (synonyms/antonyms)
+
+**Options**:
+1. **Extend format**: Add optional fields for 2015-specific data
+2. **Separate parsers**: One for dict, one for thesaurus
+3. **Skip extra data**: Only extract standard def/examples
+
+**Recommendation**: Complete ECE parser first, then revisit 2015 with lessons learned
+
+---
+
+## 2015 Dictionary: Extended JSON Format
+
+### Analysis of New Fields
+
+**Tabs**: Dictionary + Thesaurus interface
+- **Frequency**: Present in ~50-70% of entries (main words only)
+- **Not in**: Affixes (-able, -ing), technical terms, some compounds
+- **Content**: Both dictionary and thesaurus data when present
+
+**What tabs are**: UI elements showing two types of content
+```html
+<div class="fvv">
+  <span class="dzf">Dictionary</span>  <!-- Tab 1 -->
+  <span class="t3h">Thesaurus</span>   <!-- Tab 2 -->
+</div>
+<div class="dxr">...dictionary content...</div>
+<div class="tvr">...thesaurus content...</div>
+```
+
+### Proposed Extended JSON Format
+
+```json
+{
+  "word": "happy",
+  "ipa": "/ˈhæpi/",           // IPA pronunciation (optional)
+  "defs": [                    // Dictionary definitions (required)
+    {
+      "pos": "adjective",
+      "en": "feeling, showing, or expressing joy; pleased",
+      "exs": [
+        {"en": "I'm just happy to be back running"}
+      ]
+    }
+  ],
+  "thesaurus": {               // Thesaurus data (optional, separate section)
+    "adjective": [             // Grouped by POS
+      {
+        "syno": ["pleased", "delighted", "content", "thrilled", ...],
+        "anto": ["sad"]
+      },
+      {
+        "syno": ["contented", "blessed", "joyful", ...],
+        "anto": ["discontent"]
+      }
+    ]
+  },
+  "origin": "Old English...",  // Etymology (optional)
+  "quotes": [                  // Famous quotations (optional)
+    {
+      "text": "Happy men are grave...",
+      "author": "Publilius Syrus"
+    }
+  ],
+  "refTo": []                  // Cross-references (standard)
+}
+```
+
+### Why This Structure?
+
+1. **`ipa` at entry level**: One pronunciation per word ✅
+2. **`thesaurus` separate from `defs`**: 
+   - ❌ NOT per-definition (they don't align 1:1)
+   - Dictionary: 7 definitions, Thesaurus: 4 groups (for "happy")
+   - Groups by POS, then by sense
+3. **`origin` at entry level**: One etymology per word ✅
+4. **`quotes` at entry level**: Related to word as whole, not specific definitions ✅
+
+### Coverage Check
+
+Does this cover all 2015 requirements?
+
+| Feature | Field | Status |
+|---------|-------|--------|
+| Pronunciation | `ipa` | ✅ Covered |
+| Etymology | `origin` | ✅ Covered |
+| Quotations | `quotes` | ✅ Covered |
+| Synonyms | `thesaurus[pos][n].syno` | ✅ Covered |
+| Antonyms | `thesaurus[pos][n].anto` | ✅ Covered |
+| Tabs | N/A | UI element, not data |
+| Audio buttons | N/A | External resource |
+
+**Answer**: ✅ Yes, this covers all 2015 content requirements!
+
+### Parser Status (2015)
+
+⚠️ **Work in Progress**: The 2015 parser (`parser-2015.js`) is partially implemented but not yet working correctly.
+
+**Issues**:
+- Parser enters states but doesn't extract definitions
+- Dictionary and thesaurus sections may be confused
+- State transitions need debugging
+
+**Next Steps**:
+1. Debug state machine transitions with detailed logging
+2. Verify `.dxr` vs `.tvr` container handling
+3. Test with simpler entries first
+4. Add unit tests for state transitions
+
+**Recommendation**: Complete and verify ECE parser first, then return to 2015 parser with lessons learned.
 
 ---
 
