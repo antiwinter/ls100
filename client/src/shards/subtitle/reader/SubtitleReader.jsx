@@ -210,11 +210,6 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   //   groupReady, positionLoaded, canRenderViewer, position, seek
   // })
 
-  // Flush on unmount
-  useEffect(() => {
-    return () => { syncNow() }
-  }, [syncNow])
-
   // Handle word events with store handlers
   const handleWordEvent = useCallback((word, type, pos, gid) => {
     log.debug('handleWordEvent', { word, type, pos, gid })

@@ -109,8 +109,8 @@ export const SubtitleShardEditor = ({
   // Initialize languages from shardData or detectedInfo
   useEffect(() => {
     let langs =
-      // Edit mode: use shard data
-      shardData?.data?.languages ||
+      // Edit mode: use shard meta
+      shardData?.meta?.languages ||
       // Create mode: use detected info
       extractLanguage(detectedInfo)
     log.debug('🔍 Languages loaded:', langs)
@@ -119,7 +119,7 @@ export const SubtitleShardEditor = ({
       setLanguages(langs)
       onChange?.({ languages: langs })
     }
-  }, [mode, detectedInfo, shardData?.data?.languages, onChange])
+  }, [mode, detectedInfo, shardData?.meta?.languages, onChange])
 
   const handleTooltipClick = (filename) => {
     if (tooltipTimerRef.current) {

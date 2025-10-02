@@ -204,7 +204,7 @@ todo:
 ## Remaining Tasks
 
 ### Critical Path (Must Complete)
-- [ ] wire to files where apiCall is still called
+- [x] wire to files where apiCall is still called
 - [x] **Cover URL Fetching**: EditShard - when user provides external URL, fetch and save to OSS as nvId
 - [x] **Cover Display**: Update `ShardBrowser` and `EditShard` to handle covers correctly (always `/oss/{nvId}`)
 - [x] **Shard ID Timing**: Fix `shard.id` allocation - must be valid before `oss.add()` calls (not 'temp')
@@ -212,7 +212,7 @@ todo:
 - [x] **Subtitle Reader**: Update `useSubtitleGroups` to support both `subtitle_id` (old) and `nvId` (new)
 
 ### Nice to Have
-- [ ] Anki integration: Register Anki shard metadata in `shardDb`
+- [x] Anki integration: Register Anki shard metadata in `shardDb`
 - [ ] Sync indicator UI: blue (synced, private), green (synced, public), red (not synced)
 
 ### Notes

@@ -9,7 +9,7 @@ const COVER_GRADIENTS = [
 import { formatCoverText, pickTextColorForBackground } from '../../utils/formatText.js'
 
 export const SubtitleCover = ({ shard }) => {
-  const title = shard?.data?.languages?.[0]?.movie_name || shard?.name || 'SUBTITLE'
+  const title = shard?.meta?.languages?.[0]?.movie_name || shard?.name || 'SUBTITLE'
 
   let hash = 0
   const str = title || 'default'
