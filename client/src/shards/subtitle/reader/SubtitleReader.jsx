@@ -2,9 +2,8 @@ import { useEffect, useCallback, useState, useRef, useMemo } from 'react'
 import { Box, Typography, Stack, Chip, Button } from '@mui/joy'
 import ViewerSkeleton from './ViewerSkeleton.jsx'
 import { Bolt } from '@mui/icons-material'
-import { apiCall } from '../../../config/api'
+import { shardDb } from '../../store.js'
 import { log } from '../../../utils/logger'
-import { useSync } from './sync.js'
 import { OverlayManager } from '../../../components/overlay/index.jsx'
 import { SubtitleViewer } from './SubtitleViewer.jsx'
 import { useSubtitleGroups } from './hooks/useSubtitleGroups.js'
@@ -78,8 +77,8 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   // log.debug('SUBTITLE READER RENDER', shard, shardId)
   const sessionStore = useSessionStore(shardId)
   const {
-    position, wordlist, langMap, bookmarks, bookmarksLoaded, setPosition,
-    initWordlist, initBookmarks, toggleWord, setHint, searchQuery, setSearchResults,
+    position, wordlist, langMap, setPosition,
+    toggleWord, setHint, searchQuery, setSearchResults,
     setTotalGroups
   } = sessionStore()
 
@@ -93,9 +92,6 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   const [positionLoaded, setPositionLoaded] = useState(false)
   const [seek, setSeek] = useState(0)
 
-  // Setup sync loop with store state
-  const { syncNow } = useSync(shardId, wordlist, position, bookmarks, 10000, { bookmarksLoaded })
-
   // log.debug('READER re-render', { position })
   const handleEmptyClick = useCallback(() => {
     // log.debug('handleEmptyClick')
@@ -103,62 +99,17 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
     overlayRef.current?.toggleTools()
   }, [])
 
-  // Load selected words and position (mount + shard change)
+  // Initialize position on mount (sessionStore already has words/bookmarks persisted)
   useEffect(() => {
-    let alive = true
-    ;(async () => {
-      try {
-        const data = await apiCall(`/api/subtitle-shards/${shardId}/words`)
-        const words = data.words || []
-        if (!alive) return
-        initWordlist(words)
-        log.debug(`📝 Loaded ${words.length} selected words`)
-      } catch (error) {
-        log.error('Failed to load selected words:', error)
-      }
-    })()
-    ;(async () => {
-      try {
-        // Check if position exists in store first
-        let pos = sessionStore.getState().position
-        if (!pos) {
-          // Fetch from backend if not in store
-          const data = await apiCall(`/api/subtitle-shards/${shardId}/position`)
-          pos = data?.position || 0
-          log.debug('Loaded position from backend:', pos)
-        } else {
-          log.debug('Using position from store:', pos)
-        }
+    // Get position from sessionStore (already persisted)
+    const pos = sessionStore.getState().position || 0
+    log.debug('Using position from sessionStore:', pos)
+    setSeek(pos)
+    setPositionLoaded(true)
+  }, [shardId, sessionStore])
 
-        if (!alive) return
-        setSeek(pos)
-        setPositionLoaded(true)
-      } catch (error) {
-        log.error('Failed to load position:', error)
-        // Set default position if backend fails
-        if (!alive) return
-        setSeek(0)
-        setPositionLoaded(true)
-      }
-    })()
-    ;(async () => {
-      try {
-        const data = await apiCall(`/api/subtitle-shards/${shardId}/bookmarks`)
-        const bookmarks = data.bookmarks || []
-        if (!alive) return
-        log.debug('Loaded bookmarks', { bookmarks })
-        initBookmarks(bookmarks)
-        log.debug(`📌 Loaded ${bookmarks.length} bookmarks`)
-      } catch (error) {
-        log.error('Failed to load bookmarks:', error)
-      }
-    })()
-
-    return () => { alive = false }
-  }, [shardId, initWordlist, initBookmarks, setPosition, sessionStore, setSeek])
-
-  // Use languages directly from shard data
-  const languages = shard?.data?.languages || []
+  // Use languages from meta (new) or data (old) for backward compat
+  const languages = shard?.meta?.languages || []
 
   // Load lines and groups
   const { groups, total, loading: groupsLoading } = useSubtitleGroups(languages)
@@ -400,17 +351,17 @@ export const SubtitleReader = ({ shardId, onBack }) => {
     let alive = true
     ;(async () => {
       try {
-        const data = await apiCall(`/api/shards/${shardId}`)
+        const shard = await shardDb.read(shardId)
         if (!alive) return
-        setShard(data.shard || null)
+        setShard(shard || null)
 
         // Save shard name to session store
-        if (data.shard?.name) {
-          setShardName(data.shard.name)
+        if (shard?.name) {
+          setShardName(shard.name)
         }
 
         // Initialize langMap in session store from shard languages
-        const languages = data.shard?.data?.languages || []
+        const languages = shard?.meta?.languages || []
         const current = sessionStore.getState().langMap || {} // Get existing persisted state
         const newLangMap = {} // Create fresh object
 

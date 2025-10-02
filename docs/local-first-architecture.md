@@ -28,17 +28,13 @@ Implemented a hybrid local-first architecture for shard storage that keeps data 
   - `delete(nvId, userId)`: OSS ref count management
 - **Auto-migration**: Fetches BE URLs on first access, caches as nvId
 
-#### `progress.js` - Progress Tracking
-- **Database**: `ProgressDB_v1` (Dexie/IndexedDB)
-- **Schema**: `{ id, shard_id, words[], bookmarks[], currentLine, study_time, completion_rate }`
-- **Migration**: Falls back to BE subtitle progress API for old data
-
-#### `migrator.js` - Transparent Migration
-- **Functions**:
-  - `needsMigration(shard)`: Detects old BE format
-  - `migrateShard(shard)`: Converts covers & files to local nvIds
-  - `migrateIfNeeded(shard)`: Auto-migration wrapper
-  - `migrateAll()`: Batch migration utility
+#### Progress & Session Data
+**Deleted `progress.js` and `sync.js`** - Replaced by simpler design:
+- **Storage**: `useSessionStore` (Zustand + localStorage persist)
+- **Per-shard**: `localStorage['ls100-session-{shardId}']`
+- **Data**: `{ position, wordlist, bookmarks, langMap, shardName }`
+- **Auto-persist**: Every state change automatically saved
+- **Future sync**: Upload entire sessionStore as JSON (no complex diffing)
 
 ---
 
@@ -209,11 +205,11 @@ todo:
 
 ### Critical Path (Must Complete)
 - [ ] wire to files where apiCall is still called
-- [ ] **Cover URL Fetching**: EditShard - when user provides external URL, fetch and save to OSS as nvId
-- [ ] **Cover Display**: Update `ShardBrowser` and `EditShard` to handle covers correctly (always `/oss/{nvId}`)
-- [ ] **Shard ID Timing**: Fix `shard.id` allocation - must be valid before `oss.add()` calls (not 'temp')
-- [ ] **Subtitle Parsing**: Install 'subtitle' package and implement local parsing in `useSubtitleGroups.js`
-- [ ] **Subtitle Reader**: Update `useSubtitleGroups` to support both `subtitle_id` (old) and `nvId` (new)
+- [x] **Cover URL Fetching**: EditShard - when user provides external URL, fetch and save to OSS as nvId
+- [x] **Cover Display**: Update `ShardBrowser` and `EditShard` to handle covers correctly (always `/oss/{nvId}`)
+- [x] **Shard ID Timing**: Fix `shard.id` allocation - must be valid before `oss.add()` calls (not 'temp')
+- [x] **Subtitle Parsing**: Install 'subtitle' package and implement local parsing in `useSubtitleGroups.js`
+- [x] **Subtitle Reader**: Update `useSubtitleGroups` to support both `subtitle_id` (old) and `nvId` (new)
 
 ### Nice to Have
 - [ ] Anki integration: Register Anki shard metadata in `shardDb`
@@ -223,3 +219,4 @@ todo:
 - ✅ Progress/bookmarks/wordlist stay in `useSessionStore` (local Zustand persist) - no BE sync needed
 - ✅ `migrator.js` deleted - lazy migration via `fileStore.get()` is cleaner
 - ✅ `progress.js` deleted - `useSessionStore` is sufficient
+- ✅ `sync.js` deleted - sessionStore auto-persists to localStorage, future will sync whole sessionStore as JSON instead of complex diffing

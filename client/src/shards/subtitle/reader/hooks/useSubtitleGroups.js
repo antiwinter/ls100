@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
-import { apiCall } from '../../../../config/api'
+import { parseSync } from 'subtitle'
+import { fileStore } from '../../../fileStore'
 import { log } from '../../../../utils/logger'
 
 export function useSubtitleGroups(languages) {
@@ -15,7 +16,7 @@ export function useSubtitleGroups(languages) {
   const key = useMemo(() => {
     if (!languages || !Array.isArray(languages)) return ''
     return languages
-      .map((l) => `${l.subtitle_id || ''}:${l.code || ''}`)
+      .map((l) => `${l.nvId || l.subtitle_id || ''}:${l.code || ''}`)
       .join('|')
   }, [languages])
 
@@ -28,17 +29,33 @@ export function useSubtitleGroups(languages) {
     const load = async () => {
       if (!languages || !languages.length || loadedRef.current) return
       setLoading(true)
-      // no artificial delay
       try {
         // Fetch main first, then refs in parallel
         const [main, ...refs] = languages
-        const fetchOne = async ({ subtitle_id, code }) => {
-          if (!subtitle_id) return []
-          const data = await apiCall(
-            `/api/subtitles/${subtitle_id}/lines?start=0&count=-1`
-          )
-          const ls = data.lines || []
-          return ls.map((line) => ({ ...line, language: code }))
+        const fetchOne = async ({ nvId, subtitle_id, code, filename }) => {
+          const id = nvId || subtitle_id
+          if (!id) return []
+
+          // Get file blob (local or BE fallback)
+          const { blob } = await fileStore.get(id, filename || 'subtitle.srt')
+          if (!blob) {
+            log.warn('Failed to load subtitle file', { id, code })
+            return []
+          }
+
+          // Parse SRT locally
+          const text = await blob.text()
+          const parsed = parseSync(text)
+
+          // Convert to same format as BE API
+          return parsed.map((entry) => ({
+            data: {
+              start: entry.start,
+              end: entry.end,
+              text: entry.text
+            },
+            language: code
+          }))
         }
         const mainLines = await fetchOne(main)
         const refResults = await Promise.all(refs.map(fetchOne))
