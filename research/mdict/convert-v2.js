@@ -109,18 +109,30 @@ const outputFile = args.output || path.join(
 )
 
 // ============= Load Parser =============
+// Map parser names to their locations
+const parserLocations = {
+  'ece': './Collins-Advanced-ECE/parser-ece.js',
+  '2015': './Collins-EDnT-2015/parser-2015.js'
+}
+
 let ParserClass
 try {
-  const parserModule = await import(`./parser-${parserName}.js`)
+  // Try mapped location first, then fallback to root
+  const parserPath = parserLocations[parserName] || `./parser-${parserName}.js`
+  const parserModule = await import(parserPath)
+  
   // Try different export patterns
   ParserClass = parserModule.default || parserModule.ECEParser || parserModule.Parser || parserModule[Object.keys(parserModule)[0]]
   
   if (!ParserClass) {
-    throw new Error(`Parser module './parser-${parserName}.js' does not export a parser class`)
+    throw new Error(`Parser module '${parserPath}' does not export a parser class`)
   }
 } catch (error) {
   console.error(`❌ Error loading parser '${parserName}':`, error.message)
-  console.error(`\nMake sure parser-${parserName}.js exists and exports a parser class`)
+  console.error(`\nMake sure parser exists in correct location:`)
+  console.error(`  - ECE: Collins-Advanced-ECE/parser-ece.js`)
+  console.error(`  - 2015: Collins-EDnT-2015/parser-2015.js`)
+  console.error(`  - Or: parser-${parserName}.js`)
   process.exit(1)
 }
 
