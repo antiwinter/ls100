@@ -7,7 +7,7 @@ import { log } from '../utils/logger'
 const db = new Dexie('ShardMetaDB_v1')
 
 db.version(1).stores({
-  shards: 'id, type, owner_id, updated_at, oldId'
+  shards: 'id, type, owner_id, updated_at, oldId, name'
   // Schema: {
   //   id: string,           // genId('shard', ...) - local ID
   //   oldId: string,        // BE shard ID (for dedup after migration)
@@ -183,14 +183,14 @@ export const shardDb = {
     log.info('Shard deleted from local', { id })
 
     // Also delete from BE if has oldId
-    if (shard.oldId) {
-      try {
-        await apiCall(`/api/shards/${shard.oldId}`, { method: 'DELETE' })
-        log.info('Shard deleted from BE', { oldId: shard.oldId })
-      } catch (error) {
-        log.warn('Failed to delete shard from BE', { oldId: shard.oldId }, error)
-      }
-    }
+    // if (shard.oldId) {
+    //   try {
+    //     await apiCall(`/api/shards/${shard.oldId}`, { method: 'DELETE' })
+    //     log.info('Shard deleted from BE', { oldId: shard.oldId })
+    //   } catch (error) {
+    //     log.warn('Failed to delete shard from BE', { oldId: shard.oldId }, error)
+    //   }
+    // }
   },
 
   // CLEANUP: Remove abandoned draft shards

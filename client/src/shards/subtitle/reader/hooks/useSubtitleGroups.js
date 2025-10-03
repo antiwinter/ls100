@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
-import { parseSync } from 'subtitle'
+import { parse } from '@plussub/srt-vtt-parser'
 import { fileStore } from '../../../fileStore'
 import { log } from '../../../../utils/logger'
 
@@ -43,15 +43,15 @@ export function useSubtitleGroups(languages) {
             return []
           }
 
-          // Parse SRT locally
+          // Parse SRT/VTT locally using @plussub/srt-vtt-parser
           const text = await blob.text()
-          const parsed = parseSync(text)
+          const { entries } = parse(text)
 
-          // Convert to same format as BE API
-          return parsed.map((entry) => ({
+          // Convert to same format as BE API (from/to → start/end)
+          return entries.map((entry) => ({
             data: {
-              start: entry.start,
-              end: entry.end,
+              start: entry.from,
+              end: entry.to,
               text: entry.text
             },
             language: code

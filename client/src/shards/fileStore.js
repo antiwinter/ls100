@@ -1,5 +1,4 @@
 import oss from '../utils/oss'
-import { apiCall } from '../config/api'
 import { log } from '../utils/logger'
 
 /**
@@ -32,10 +31,19 @@ export const fileStore = {
     try {
       log.debug('File not in local, fetching from BE subtitle API', { subtitle_id: id })
 
-      const response = await apiCall(`/api/subtitles/${id}/content`)
+      // Fetch text content directly (don't use apiCall which parses as JSON)
+      const url = `/api/subtitles/${id}/content`
+      const token = localStorage.getItem('token')
+      const response = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      })
 
-      // apiCall returns text for content endpoint, convert to blob
-      const blob = new Blob([response], { type: 'text/plain; charset=utf-8' })
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+
+      const text = await response.text()
+      const blob = new Blob([text], { type: 'text/plain; charset=utf-8' })
 
       // Cache locally
       const nvId = await oss.blob2NvId(blob)
