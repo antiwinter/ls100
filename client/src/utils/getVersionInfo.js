@@ -48,7 +48,7 @@ export function getVersionInfo() {
   return {
     version,
     buildInfo: `${branchPrefix}g${commitHash}`,
-    badgeColor: 'primary'
+    badgeColor: 'warning'
   }
 }
 

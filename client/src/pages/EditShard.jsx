@@ -206,8 +206,11 @@ export const EditShard = () => {
 
   // Memoized onChange handler to prevent unnecessary re-renders
   const handleEngineDataChange = useCallback((data) => {
-    // All engine data goes to 'meta' field now
-    _setShardData(x => ({ ...x, meta: data }))
+    // All engine data goes to 'meta' field, preserving existing meta
+    _setShardData(x => ({
+      ...x,
+      meta: { ...x.meta, ...data }
+    }))
     engineValid.current = true
   }, [])
 

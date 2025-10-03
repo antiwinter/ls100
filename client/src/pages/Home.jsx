@@ -163,6 +163,9 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
       // Delete from local store (also deletes from BE if has oldId)
       await Promise.all(selected.map(id => shardDb.delete(id)))
 
+      // Clear shards state before reloading to remove deleted ones
+      setShards([])
+
       // Reload shards
       await loadShards()
 
