@@ -16,7 +16,7 @@ export function useSubtitleGroups(languages) {
   const key = useMemo(() => {
     if (!languages || !Array.isArray(languages)) return ''
     return languages
-      .map((l) => `${l.nvId || l.subtitle_id || ''}:${l.code || ''}`)
+      .map((l) => `${l.subtitle_id || ''}:${l.code || ''}`)
       .join('|')
   }, [languages])
 
@@ -32,14 +32,13 @@ export function useSubtitleGroups(languages) {
       try {
         // Fetch main first, then refs in parallel
         const [main, ...refs] = languages
-        const fetchOne = async ({ nvId, subtitle_id, code, filename }) => {
-          const id = nvId || subtitle_id
-          if (!id) return []
+        const fetchOne = async ({ subtitle_id, code }) => {
+          if (!subtitle_id) return []
 
-          // Get file blob (local or BE fallback)
-          const { blob } = await fileStore.get(id, filename || 'subtitle.srt')
+          // Get file blob from local OSS (subtitle_id is now nvId)
+          const { blob } = await fileStore.get(subtitle_id)
           if (!blob) {
-            log.warn('Failed to load subtitle file', { id, code })
+            log.warn('Failed to load subtitle file', { subtitle_id, code })
             return []
           }
 
@@ -47,7 +46,7 @@ export function useSubtitleGroups(languages) {
           const text = await blob.text()
           const { entries } = parse(text)
 
-          // Convert to same format as BE API (from/to → start/end)
+          // Convert to internal format (from/to → start/end)
           return entries.map((entry) => ({
             data: {
               start: entry.from,

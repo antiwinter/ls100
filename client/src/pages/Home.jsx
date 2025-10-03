@@ -32,12 +32,20 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
       // Clean up abandoned drafts first
       await shardDb.cleanup()
 
-      // Load from local store with BE fallback
-      const allShards = await shardDb.list({ sort: sortBy })
+      // Load shards progressively (local first, then migrated)
+      await shardDb.list({ sort: sortBy }, (newShards) => {
+        setShards(prev => {
+          // Merge by id: replace existing, append new
+          const map = new Map(prev.map(s => [s.id, s]))
+          newShards.forEach(s => map.set(s.id, s))
+          const merged = Array.from(map.values())
 
-      // Sort locally
-      const sorted = sortShards(allShards, sortBy)
-      setShards(sorted)
+          // Sort
+          return sortShards(merged, sortBy)
+        })
+      })
+
+      log.debug('Shard loading complete')
     } catch (error) {
       log.error('Failed to load shards:', error)
     }

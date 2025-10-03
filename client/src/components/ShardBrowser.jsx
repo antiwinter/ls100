@@ -108,11 +108,8 @@ const ShardItem = ({
           display: 'flex',
           flexDirection: 'column',
           gap: 1,
-          ...(!editing && {
-            '&:hover': {
-              transform: 'translateY(-2px)'
-            }
-          })
+          opacity: shard.flag === 'loading' ? 0.3 : 1,
+          pointerEvents: shard.flag === 'loading' ? 'none' : 'auto'
         }}
       >
         {/* Cover */}

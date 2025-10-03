@@ -2,70 +2,39 @@ import oss from '../utils/oss'
 import { log } from '../utils/logger'
 
 /**
- * File storage abstraction with local-first approach
- * - Tries local OSS (IndexedDB) first
- * - Falls back to backend API
- * - Auto-migrates BE files to local on access
+ * File storage abstraction - local OSS only
+ * Migration is handled by migrator.js
  */
 export const fileStore = {
   /**
-   * Get file by ID - tries local OSS first, falls back to BE subtitle API
-   * @param {string} id - nvId (local) or subtitle_id (backend)
-   * @param {string} filename - Original filename for reference
+   * Get file by nvId from local OSS
+   * @param {string} nvId - File nvId (obj_xxx)
    * @returns {Promise<{blob: Blob, nvId: string}>}
    */
-  async get(id, filename = 'file') {
-    if (!id) {
-      log.warn('fileStore.get called with empty id')
+  async get(nvId) {
+    if (!nvId) {
+      log.warn('fileStore.get called with empty nvId')
       return { blob: null, nvId: null }
     }
 
-    // Try local OSS first (assumes id is nvId)
-    const obj = await oss.getObj(id)
+    const obj = await oss.getObj(nvId)
     if (obj) {
-      log.debug('File loaded from local OSS', { nvId: id, size: obj.size })
-      return { blob: obj.blob, nvId: id }
+      log.debug('File loaded from OSS', { nvId, size: obj.size })
+      return { blob: obj.blob, nvId }
     }
 
-    // Fallback to BE subtitle API (id is subtitle_id)
-    try {
-      log.debug('File not in local, fetching from BE subtitle API', { subtitle_id: id })
-
-      // Fetch text content directly (don't use apiCall which parses as JSON)
-      const url = `/api/subtitles/${id}/content`
-      const token = localStorage.getItem('token')
-      const response = await fetch(url, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-
-      const text = await response.text()
-      const blob = new Blob([text], { type: 'text/plain; charset=utf-8' })
-
-      // Cache locally
-      const nvId = await oss.blob2NvId(blob)
-      await oss.add([{ filename, blob }], nvId)
-
-      log.info('File fetched from BE and cached', { subtitle_id: id, nvId, size: blob.size })
-
-      return { blob, nvId }
-    } catch (error) {
-      log.error('Failed to load file from BE', { id }, error)
-      return { blob: null, nvId: null }
-    }
+    log.warn('File not found in OSS', { nvId })
+    return { blob: null, nvId: null }
   },
 
   /**
-   * Store file locally in OSS
+   * Store file in local OSS
    * @param {string} filename - Original filename
    * @param {Blob} blob - File content
-   * @param {string} userId - User/shard ID for reference tracking
+   * @param {string} refId - Reference ID for tracking (shard ID)
    * @returns {Promise<string>} nvId of stored file
    */
-  async store(filename, blob, userId = 'sys') {
+  async store(filename, blob, refId = 'sys') {
     if (!blob) {
       log.warn('fileStore.store called with empty blob')
       return null
@@ -73,11 +42,11 @@ export const fileStore = {
 
     try {
       const nvId = await oss.blob2NvId(blob)
-      await oss.add([{ filename, blob }], userId)
-      log.info('File stored in local OSS', { filename, nvId, userId, size: blob.size })
+      await oss.add([{ filename, blob }], refId)
+      log.info('File stored in OSS', { filename, nvId, refId, size: blob.size })
       return nvId
     } catch (error) {
-      log.error('Failed to store file', { filename, userId }, error)
+      log.error('Failed to store file', { filename, refId }, error)
       throw error
     }
   },
@@ -85,19 +54,19 @@ export const fileStore = {
   /**
    * Delete file from local OSS
    * @param {string} nvId - File nvId
-   * @param {string} userId - User/shard ID for reference tracking
+   * @param {string} refId - Reference ID
    */
-  async delete(nvId, userId = 'sys') {
+  async delete(nvId, refId = 'sys') {
     if (!nvId) {
       log.warn('fileStore.delete called with empty nvId')
       return
     }
 
     try {
-      await oss.remove(nvId, userId)
-      log.debug('File reference removed from OSS', { nvId, userId })
+      await oss.remove(nvId, refId)
+      log.debug('File reference removed from OSS', { nvId, refId })
     } catch (error) {
-      log.error('Failed to delete file', { nvId, userId }, error)
+      log.error('Failed to delete file', { nvId, refId }, error)
     }
   },
 
