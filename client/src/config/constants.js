@@ -1,10 +1,11 @@
-/* global __APP_VERSION__, __BUILD_ID__ */
+/* global __APP_VERSION__, __BUILD_ID__, __BRANCH__ */
 // App constants - build-time safe
 // Determine version from build-time define or environment (when imported in Node via Vite config)
 const VERSION = (typeof __APP_VERSION__ !== 'undefined'
   ? __APP_VERSION__
   : (typeof process !== 'undefined' && process.env && process.env.npm_package_version) || '0.0.0')
 const BUILD_ID = (typeof __BUILD_ID__ !== 'undefined' ? __BUILD_ID__ : '')
+const BRANCH = (typeof __BRANCH__ !== 'undefined' ? __BRANCH__ : '')
 
 export const APP = {
   name: 'Loci - Memorize everything',
@@ -13,6 +14,7 @@ export const APP = {
   tagline: 'Memorize everything',
   version: VERSION,
   build: BUILD_ID,
+  branch: BRANCH,
 
   pwa: {
     display: 'standalone',

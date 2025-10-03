@@ -8,6 +8,7 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(process.env.npm_package_version),
     __BUILD_ID__: JSON.stringify(process.env.BUILD_ID || process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || process.env.CI_COMMIT_SHA || ''),
+    __BRANCH__: JSON.stringify(process.env.BRANCH || ''),
     global: 'globalThis' // Polyfill for global
   },
 

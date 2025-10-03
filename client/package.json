@@ -4,8 +4,8 @@
   "version": "0.2.3",
   "type": "module",
   "scripts": {
-    "dev": "BUILD_ID=$(git describe --tags --always --dirty 2>/dev/null || echo) vite",
-    "build": "BUILD_ID=$(git describe --tags --always --dirty 2>/dev/null || echo) vite build",
+    "dev": "BUILD_ID=$(git describe --tags --always --dirty 2>/dev/null || echo) BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo) vite",
+    "build": "BUILD_ID=$(git describe --tags --always --dirty 2>/dev/null || echo) BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo) vite build",
     "lint": "eslint . --fix",
     "preview": "vite preview",
     "test": "vitest run"

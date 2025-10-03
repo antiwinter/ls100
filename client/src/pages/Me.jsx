@@ -7,12 +7,17 @@ import {
 } from '@mui/joy'
 import { Person, Settings, Info, ExitToApp } from '@mui/icons-material'
 import { useAuth } from '../context/AuthContext'
+import { getVersionInfo } from '../utils/getVersionInfo'
 import { APP } from '../config/constants'
 import { useState } from 'react'
 
 export const Me = () => {
   const { user, logout } = useAuth()
   const [/*noop*/,] = useState(null)
+
+  // Parse version info for display
+  const { version, buildInfo, badgeColor } = getVersionInfo()
+
   if (!user) return null
   return (
     <Stack spacing={3}>
@@ -63,8 +68,8 @@ export const Me = () => {
           <Stack direction="row" spacing={2} flexWrap="wrap">
             <Stack direction="row" spacing={1} alignItems="center">
               <Typography level="body-sm" color="neutral">Frontend:</Typography>
-              <Chip size="sm" variant="soft" color="primary">
-                v{APP.version}{APP.build && ` (${APP.build})`}
+              <Chip size="sm" variant="soft" color={badgeColor}>
+                v{version}{buildInfo && ` (${buildInfo})`}
               </Chip>
             </Stack>
           </Stack>
