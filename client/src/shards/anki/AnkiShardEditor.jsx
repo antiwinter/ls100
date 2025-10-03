@@ -3,98 +3,11 @@ import {
   Box,
   Typography,
   Stack,
-  Chip,
-  CircularProgress,
-  Alert
+  Chip
 } from '@mui/joy'
-import { Upload } from '@mui/icons-material'
 import { parseApkgFile } from './apkg/index.js'
 import { log } from '../../utils/logger'
 import { genId } from '../../utils/idGenerator.js'
-
-const UploadArea = ({ onFileSelect, loading }) => {
-  const fileInputRef = useRef(null)
-
-  const handleDragOver = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-  }
-
-  const handleDrop = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-
-    const files = Array.from(e.dataTransfer.files)
-    const ankiFile = files.find(file => file.name.toLowerCase().endsWith('.apkg'))
-
-    if (ankiFile) {
-      onFileSelect(ankiFile)
-    }
-  }
-
-  const handleClick = () => {
-    fileInputRef.current?.click()
-  }
-
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      onFileSelect(file)
-    }
-    // Clear input to allow selecting same file again
-    e.target.value = ''
-  }
-
-  return (
-    <Box
-      onClick={handleClick}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
-      sx={{
-        border: '2px dashed',
-        borderColor: 'neutral.300',
-        borderRadius: 'md',
-        p: 3,
-        textAlign: 'center',
-        cursor: loading ? 'default' : 'pointer',
-        bgcolor: 'background.level1',
-        transition: 'all 0.2s',
-        '&:hover': loading ? {} : {
-          borderColor: 'primary.400',
-          bgcolor: 'primary.50'
-        }
-      }}
-    >
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".apkg"
-        style={{ display: 'none' }}
-        onChange={handleFileChange}
-        disabled={loading}
-      />
-
-      {loading ? (
-        <Stack spacing={2} alignItems="center">
-          <CircularProgress size="lg" />
-          <Typography color="neutral">Processing bundle...</Typography>
-        </Stack>
-      ) : (
-        <Stack spacing={2} alignItems="center">
-          <Upload sx={{ fontSize: '2rem', color: 'neutral.500' }} />
-          <div>
-            <Typography level="title-md" color="neutral">
-              Drop .apkg file here or click to browse
-            </Typography>
-            <Typography level="body-sm" color="neutral">
-              Import Anki bundle files
-            </Typography>
-          </div>
-        </Stack>
-      )}
-    </Box>
-  )
-}
 
 export const AnkiShardEditor = ({
   mode = 'create',
@@ -102,14 +15,9 @@ export const AnkiShardEditor = ({
   detectedInfo = null,
   onChange
 }) => {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
   const processedDetectedFile = useRef(null)
 
   const handleFileSelect = useCallback(async (file, filename, parsedData = null) => {
-    setLoading(true)
-    setError(null)
-
     try {
       log.info('Processing Anki file:', filename, parsedData ? '(using cached data)' : '(parsing)')
 
@@ -151,9 +59,6 @@ export const AnkiShardEditor = ({
 
     } catch (err) {
       log.error('Failed to process import:', err)
-      setError(err.message)
-    } finally {
-      setLoading(false)
     }
   }, [onChange, shardData])
 
@@ -167,24 +72,6 @@ export const AnkiShardEditor = ({
 
   return (
     <Stack spacing={3}>
-      <Box>
-        <Typography level="body-sm" sx={{ mb: 1, fontWeight: 'bold', color: 'text.secondary' }}>
-          Anki Bundles
-        </Typography>
-
-        {error && (
-          <Alert color="danger" sx={{ mb: 2 }}>
-            <Typography level="body-sm">{error}</Typography>
-          </Alert>
-        )}
-
-        <UploadArea onFileSelect={(file) => handleFileSelect(file, file.name, null)} loading={loading} />
-
-        <Typography level="body-xs" sx={{ mt: 1, color: 'text.tertiary' }}>
-          Import .apkg files exported from Anki. Files will be processed when you save the shard.
-        </Typography>
-      </Box>
-
       <Box>
         <Typography level="body-sm" sx={{ mb: 2, color: 'primary.500', fontWeight: 'bold' }}>
           Study Settings

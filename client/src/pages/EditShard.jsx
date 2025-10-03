@@ -114,6 +114,9 @@ export const EditShard = () => {
 
           log.info('🔍 Loaded shard data:', shard)
           setShardData(shard)
+
+          // Mark engine as valid for existing shards (already have valid data)
+          engineValid.current = true
         } catch (error) {
           log.error('❌ Failed to fetch shard details:', error)
           setShardData(navigationShardData)
