@@ -3,10 +3,11 @@ import { genId } from '../utils/idGenerator'
 import { log } from '../utils/logger'
 import { migrate } from './migrator'
 
-// Unified shard metadata store with BE fallback
-const db = new Dexie('ShardMetaDB_v1')
+// Unified shard metadata store
+const db = new Dexie('ShardMetaDB_v2')
 
-db.version(1).stores({
+// Version 2: Added 'name' to indexes for cleanup query
+db.version(2).stores({
   shards: 'id, type, owner_id, updated_at, name'
   // Schema: {
   //   id: string,           // genId('shard', ...) - local ID
@@ -68,6 +69,11 @@ export const shardDb = {
 
     // Extract existing oldIds to avoid re-migration
     const existingOldIds = new Set(localShards.map(s => s.meta?.oldId).filter(Boolean))
+
+    log.debug('Existing oldIds for deduplication', {
+      count: existingOldIds.size,
+      oldIds: Array.from(existingOldIds)
+    })
 
     // Run migrator to fetch and transform BE shards
     const migratedCount = await migrate(existingOldIds, (shards) => {

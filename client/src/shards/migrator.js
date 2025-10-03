@@ -126,6 +126,14 @@ export async function migrate(existingOldIds, onProgress = null) {
     // Filter: skip shards already migrated
     const newShards = beShards.filter(s => !existingOldIds.has(s.id))
 
+    log.debug('Migration filtering', {
+      beTotal: beShards.length,
+      beIds: beShards.map(s => s.id),
+      existingOldIds: Array.from(existingOldIds),
+      newCount: newShards.length,
+      newIds: newShards.map(s => s.id)
+    })
+
     if (newShards.length === 0) {
       log.info('✅ No new shards to migrate')
       return 0
