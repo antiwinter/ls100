@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Box,
@@ -26,13 +26,37 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
   })
   const [editing, setEditing] = useState(false)
   const [selected, setSelected] = useState([])
+  const refreshing = useRef(false)
 
-  const loadShards = useCallback(async () => {
+  const refreshShards = useCallback(async () => {
+    // Local sorting function
+    const sortShards = (shards, sortBy) => {
+      const sorted = [...shards]
+
+      switch (sortBy) {
+      case 'last_used':
+        return sorted.sort((a, b) =>
+          new Date(b.updated_at) - new Date(a.updated_at)
+        )
+      case 'name':
+        return sorted.sort((a, b) =>
+          a.name.localeCompare(b.name)
+        )
+      case 'created':
+        return sorted.sort((a, b) =>
+          new Date(b.created_at) - new Date(a.created_at)
+        )
+      default:
+        return sorted
+      }
+    }
+
     try {
-      // Clean up abandoned drafts first
-      await shardDb.cleanup()
-
       // Load shards progressively (local first, then migrated)
+      if (refreshing.current) return
+
+      refreshing.current = true
+      setShards([])
       await shardDb.list({ sort: sortBy }, (newShards) => {
         setShards(prev => {
           // Merge by id: replace existing, append new
@@ -44,39 +68,19 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
           return sortShards(merged, sortBy)
         })
       })
-
-      log.debug('Shard loading complete')
+      log.debug('Shard refreshing complete')
     } catch (error) {
       log.error('Failed to load shards:', error)
+    } finally {
+      refreshing.current = false
     }
   }, [sortBy])
 
-  // Local sorting function
-  const sortShards = (shards, sortBy) => {
-    const sorted = [...shards]
-
-    switch (sortBy) {
-    case 'last_used':
-      return sorted.sort((a, b) =>
-        new Date(b.updated_at) - new Date(a.updated_at)
-      )
-    case 'name':
-      return sorted.sort((a, b) =>
-        a.name.localeCompare(b.name)
-      )
-    case 'created':
-      return sorted.sort((a, b) =>
-        new Date(b.created_at) - new Date(a.created_at)
-      )
-    default:
-      return sorted
-    }
-  }
 
   // Load user's shards on mount and when sort changes
   useEffect(() => {
-    loadShards()
-  }, [loadShards])
+    refreshShards()
+  }, [refreshShards])
 
   // Notify parent of edit mode changes
   useEffect(() => {
@@ -123,6 +127,7 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
 
   const handleCloseReader = () => {
     setReaderShard(null)
+    refreshShards()
   }
 
   // Selection handlers
@@ -163,11 +168,8 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
       // Delete from local store (also deletes from BE if has oldId)
       await Promise.all(selected.map(id => shardDb.delete(id)))
 
-      // Clear shards state before reloading to remove deleted ones
-      setShards([])
-
       // Reload shards
-      await loadShards()
+      await refreshShards()
 
       // Check if all shards were deleted
       const remainingShards = shards.filter(s => !selected.includes(s.id))
@@ -189,7 +191,7 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
       await Promise.all(selected.map(id =>
         shardDb.update(id, { public: true })
       ))
-      await loadShards()
+      await refreshShards()
     } catch (error) {
       log.error('Failed to make shards public:', error)
     }
@@ -202,7 +204,7 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
       await Promise.all(selected.map(id =>
         shardDb.update(id, { public: false })
       ))
-      await loadShards()
+      await refreshShards()
     } catch (error) {
       log.error('Failed to make shards private:', error)
     }

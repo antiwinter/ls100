@@ -51,6 +51,9 @@ export const shardDb = {
   async list(filters = {}, onProgress = null) {
     log.debug('Loading shards', { filters })
 
+    // Clean up abandoned drafts first
+    await shardDb.cleanup()
+
     // Load local shards first
     let localQuery = db.shards.toCollection()
 

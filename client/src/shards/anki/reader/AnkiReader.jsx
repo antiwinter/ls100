@@ -7,6 +7,7 @@ import { useSnapshot } from 'valtio'
 import { Toolbar } from './overlay/Toolbar.jsx'
 import { AnkiStudy } from './AnkiStudy.jsx'
 import { shardDb } from '../../store.js'
+import { engineCleanup } from '../../engines.js'
 import { log } from '../../../utils/logger'
 
 // On-demand preview for a single card
@@ -60,10 +61,9 @@ export const AnkiReader = ({ shardId, onBack }) => {
   // Fetch shard once per shardId
   useEffect(() => {
     let alive = true
-    setShard(undefined)
     shardDb.read(shardId)
-      .then((shard) => { if (alive) setShard(shard || null) })
-      .catch((err) => { log.error('Failed to load shard:', err); if (alive) setShard(null) })
+      .then((shard) => { if (alive) setShard(shard || 'error') })
+      .catch((err) => { log.error('Failed to load shard:', err); if (alive) setShard('error') })
     return () => { alive = false }
   }, [shardId])
 
@@ -75,7 +75,7 @@ export const AnkiReader = ({ shardId, onBack }) => {
     if (!firstBundleId) {
       setCards([])
       setCss('')
-      setRenderer(null)
+      setRenderer('error')
       return
     }
 
@@ -88,20 +88,20 @@ export const AnkiReader = ({ shardId, onBack }) => {
       try {
         const allCards = await anki.getCardsForBundles([firstBundleId])
         if (!allCards?.length) {
-          if (alive) { setCards([]); setCss(''); setRenderer(null) }
+          if (alive) { setCards([]); setCss(''); setRenderer('error') }
           return
         }
 
         const rctx = await anki.createRender(allCards)
         if (!rctx) {
-          if (alive) { setCards([]); setCss(''); setRenderer(null) }
+          if (alive) { setCards([]); setCss(''); setRenderer('error') }
           return
         }
 
         if (alive) { setRenderer(rctx); setCss(rctx.css || ''); setCards(allCards) }
       } catch (err) {
         log.error('Failed to load cards:', err)
-        if (alive) { setCards([]); setCss(''); setRenderer(null) }
+        if (alive) { setCards([]); setCss(''); setRenderer('error') }
       }
     })()
 
@@ -125,6 +125,28 @@ export const AnkiReader = ({ shardId, onBack }) => {
     }
   }
 
+  // Remove shard handler for error state
+  const handleRemoveShard = async () => {
+    if (!shard || shard === 'error') return
+
+    try {
+      log.info('Removing corrupted shard:', shardId)
+
+      // Cleanup engine-specific data (bundles, cards, etc)
+      await engineCleanup(shard, [])
+
+      // Delete shard from local store
+      await shardDb.delete(shardId)
+
+      log.info('Shard removed successfully:', shardId)
+
+      // Navigate back to home
+      onBack()
+    } catch (error) {
+      log.error('Failed to remove shard:', error)
+    }
+  }
+
   if (shard === undefined) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
@@ -133,31 +155,18 @@ export const AnkiReader = ({ shardId, onBack }) => {
     )
   }
 
-  if (shard === null) {
+  if (shard === 'error' || renderer === 'error') {
     return (
       <Box sx={{ p: 3 }}>
         <Alert color="danger">
           <Typography level="body-sm">Failed to load shard</Typography>
-          <Button size="sm" onClick={() => {
-            setShard(undefined)
-            shardDb.read(shardId)
-              .then((shard) => setShard(shard || null))
-              .catch((err) => { log.error('Failed to load shard:', err); setShard(null) })
-          }} sx={{ mt: 1 }}>
-            Retry
+          <Button size="sm" color="danger" onClick={handleRemoveShard} sx={{ mt: 1, mr: 1 }}>
+            Remove shard
+          </Button>
+          <Button size="sm" variant="outlined" onClick={onBack} sx={{ mt: 1 }}>
+            Go back
           </Button>
         </Alert>
-      </Box>
-    )
-  }
-
-  const firstBundleId = shard?.meta?.bundles?.[0]?.id
-  if (!firstBundleId) {
-    return (
-      <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography color="neutral" sx={{ mb: 2 }}>
-          No content available. Import some .apkg files to get started.
-        </Typography>
       </Box>
     )
   }
