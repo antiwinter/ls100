@@ -29,10 +29,11 @@ export function getVersionInfo() {
   }
 
   // Green: on a rev@ tag (clean release)
-  if (buildId.startsWith('rev@')) {
+  // Only if exactly on the tag (no -g commit hash part)
+  if (buildId.startsWith('rev@') && !buildId.match(/-g[a-f0-9]+$/)) {
     return {
       version,
-      buildInfo: buildId, // e.g., rev@c0.2.3-s0.8.3-ga1b2c3d
+      buildInfo: buildId, // e.g., rev@c0.2.3-s0.8.3
       badgeColor: 'success'
     }
   }
