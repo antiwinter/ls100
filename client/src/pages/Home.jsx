@@ -11,7 +11,7 @@ import { BrowserToolbar } from '../components/BrowserToolbar'
 import { BrowserEditBar } from '../components/BrowserEditBar'
 import { ShardBrowser } from '../components/ShardBrowser'
 import { AppDialog } from '../components/AppDialog'
-import { shardDb } from '../shards/store'
+import { shardApi } from '../shards/shardApi'
 import { engineGetReader, engineCleanup } from '../shards/engines.js'
 import { log } from '../utils/logger'
 import { APP } from '../config/constants'
@@ -57,7 +57,7 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
 
       refreshing.current = true
       setShards([])
-      await shardDb.list({ sort: sortBy }, (newShards) => {
+      await shardApi.list({ sort: sortBy }, (newShards) => {
         setShards(prev => {
           // Merge by id: replace existing, append new
           const map = new Map(prev.map(s => [s.id, s]))
@@ -166,7 +166,7 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
       await Promise.all(shardsToDelete.map(shard => engineCleanup(shard, shards)))
 
       // Delete from local store (also deletes from BE if has oldId)
-      await Promise.all(selected.map(id => shardDb.delete(id)))
+      await Promise.all(selected.map(id => shardApi.delete(id)))
 
       // Reload shards
       await refreshShards()
@@ -189,7 +189,7 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
 
     try {
       await Promise.all(selected.map(id =>
-        shardDb.update(id, { public: true })
+        shardApi.update(id, { public: true })
       ))
       await refreshShards()
     } catch (error) {
@@ -202,7 +202,7 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
 
     try {
       await Promise.all(selected.map(id =>
-        shardDb.update(id, { public: false })
+        shardApi.update(id, { public: false })
       ))
       await refreshShards()
     } catch (error) {
@@ -221,7 +221,7 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
     navigate('/edit-shard', {
       state: {
         mode: 'edit',
-        shardData: shard
+        shard
       }
     })
   }

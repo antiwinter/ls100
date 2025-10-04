@@ -15,8 +15,7 @@ import {
 import { ArrowBack, Upload, Link as LinkIcon } from '@mui/icons-material'
 import { AppDialog } from '../components/AppDialog'
 import { log } from '../utils/logger'
-import { shardDb } from '../shards/store'
-import { fileStore } from '../shards/fileStore'
+import { shardApi } from '../shards/shardApi'
 import {
   engineGetTag,
   engineGetEditor,
@@ -48,6 +47,7 @@ export const EditShard = () => {
     cover: null,
     meta: {}
   })
+  const [transientData, setTransientData] = useState(null) // Transient data not persisted
 
   // Helper to normalize shard data with fallbacks
   const setShardData = (shard) => {
@@ -80,7 +80,7 @@ export const EditShard = () => {
                            detectedInfo?.filename?.replace(/\.[^/.]+$/, '') ||
                            'New Shard'
 
-        const draftId = await shardDb.create({
+        const draftId = await shardApi.create({
           name: '__draft__',
           description: '',
           type: detectedInfo.shardType,
@@ -104,7 +104,7 @@ export const EditShard = () => {
           log.info('📝 Edit mode - loading shard details for ID:', navigationShardData.id)
 
           // Load from local store with BE fallback
-          const shard = await shardDb.read(navigationShardData.id)
+          const shard = await shardApi.read(navigationShardData.id)
 
           if (!shard) {
             log.error('❌ Shard not found:', navigationShardData.id)
@@ -145,20 +145,22 @@ export const EditShard = () => {
       }
 
       if (shardData.coverFile) {
-        const nvId = await fileStore.store(
+        const nvId = await shardApi.addFile(
+          shardId,
           shardData.coverFilename || shardData.cover, // keep original filename or url
-          shardData.coverFile, shardId)
+          shardData.coverFile
+        )
         shardData.cover = `/oss/${nvId}`
         delete shardData.coverFile
         delete shardData.coverFilename
         log.info('✅ Cover stored:', nvId)
       }
 
-      // Process uploads and prepare shardData (engines will use fileStore)
-      await engineSaveData(shardData, fileStore)
+      // Process uploads and prepare shardData (pass transient data separately)
+      await engineSaveData(shardData, transientData)
 
       // Update shard (both create and edit modes update the existing shard)
-      await shardDb.update(shardId, shardData)
+      await shardApi.update(shardId, shardData)
       log.info('✅ Shard saved:', shardId)
 
       // Navigate back to home
@@ -174,7 +176,7 @@ export const EditShard = () => {
     // Clean up draft shard on cancel
     if (mode === 'create' && draftShardId) {
       try {
-        await shardDb.delete(draftShardId)
+        await shardApi.delete(draftShardId)
         log.info('🗑️ Deleted draft shard:', draftShardId)
       } catch (error) {
         log.warn('Failed to delete draft shard:', error)
@@ -207,14 +209,17 @@ export const EditShard = () => {
     setShowCoverDialog(false)
   }
 
-  // Memoized onChange handler to prevent unnecessary re-renders
-  const handleEngineDataChange = useCallback((data) => {
-    // All engine data goes to 'meta' field, preserving existing meta
+  // Separate handlers for persistent meta and transient data
+  const handleMetaChange = useCallback((metaUpdates) => {
     _setShardData(x => ({
       ...x,
-      meta: { ...x.meta, ...data }
+      meta: { ...x.meta, ...metaUpdates }
     }))
     engineValid.current = true
+  }, [])
+
+  const handleDataChange = useCallback((data) => {
+    setTransientData(data)
   }, [])
 
   const getShardTypeDisplayInfo = () => {
@@ -373,9 +378,10 @@ export const EditShard = () => {
               return (
                 <EditorComponent
                   mode={mode}
-                  shardData={shardData}
+                  shard={shardData}
                   detectedInfo={detectedInfo}
-                  onChange={handleEngineDataChange}
+                  onMetaChange={handleMetaChange}
+                  onDataChange={handleDataChange}
                 />
               )
             })()}

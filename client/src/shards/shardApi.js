@@ -2,6 +2,7 @@ import Dexie from 'dexie'
 import { genId } from '../utils/idGenerator'
 import { log } from '../utils/logger'
 import { migrate } from './migrator'
+import oss from '../utils/oss'
 
 // Unified shard metadata store
 const db = new Dexie('ShardMetaDB_v2')
@@ -56,7 +57,7 @@ db.kv?.hook('updating', (modifications) => {
   modifications.updated_at = new Date().toISOString()
 })
 
-export const shardDb = {
+export const shardApi = {
   // READ: local only
   async read(id) {
     const shard = await db.shards.get(id)
@@ -74,7 +75,7 @@ export const shardDb = {
     log.debug('Loading shards', { filters })
 
     // Clean up abandoned drafts first
-    await shardDb.cleanup()
+    await shardApi.cleanup()
 
     // Load local shards first
     let localQuery = db.shards.toCollection()
@@ -120,7 +121,7 @@ export const shardDb = {
     return allShards
   },
 
-  // CREATE: local first
+  // CREATE: local only
   async create(shard) {
     const id = genId('shard', Date.now().toString())
     const newShard = {
@@ -134,7 +135,7 @@ export const shardDb = {
     return id
   },
 
-  // UPDATE: local first
+  // UPDATE: local only
   async update(id, updates) {
     await db.shards.update(id, updates)
     log.debug('Shard updated locally', { id })
@@ -170,6 +171,77 @@ export const shardDb = {
     }
   },
 
+  // FILE OPERATIONS: Manage shard-scoped files via OSS
+
+  // Add file to shard (returns nvId)
+  async addFile(shardId, filename, blob) {
+    // Validate inputs
+    if (!shardId || typeof shardId !== 'string') {
+      throw new Error('Invalid shardId')
+    }
+    if (!filename || typeof filename !== 'string') {
+      throw new Error('Invalid filename')
+    }
+    if (!(blob instanceof Blob)) {
+      throw new Error('Invalid blob: must be Blob instance')
+    }
+    if (blob.size === 0) {
+      throw new Error('Invalid blob: empty file')
+    }
+    if (blob.size > 100 * 1024 * 1024) { // 100MB limit
+      throw new Error('Invalid blob: file too large (max 100MB)')
+    }
+
+    // Check shard exists
+    const shard = await db.shards.get(shardId)
+    if (!shard) {
+      throw new Error(`Shard not found: ${shardId}`)
+    }
+
+    // Add to OSS (with shardId as user)
+    await oss.add([{ filename, blob }], shardId)
+
+    // Return nvId for storage in shard metadata
+    const nvId = await oss.blob2NvId(blob)
+    log.debug('File added to shard', { shardId, filename, nvId })
+    return nvId
+  },
+
+  // Get file by nvId
+  async getFile(nvId) {
+    if (!nvId || typeof nvId !== 'string') {
+      throw new Error('Invalid nvId')
+    }
+
+    const obj = await oss.getObj(nvId)
+    if (!obj) {
+      log.warn('File not found', { nvId })
+      return null
+    }
+
+    return obj.blob
+  },
+
+  // Delete file from shard
+  async deleteFile(shardId, nvId) {
+    if (!shardId || typeof shardId !== 'string') {
+      throw new Error('Invalid shardId')
+    }
+    if (!nvId || typeof nvId !== 'string') {
+      throw new Error('Invalid nvId')
+    }
+
+    // Check shard exists
+    const shard = await db.shards.get(shardId)
+    if (!shard) {
+      throw new Error(`Shard not found: ${shardId}`)
+    }
+
+    // Remove from OSS (decrements refCount, deletes if 0)
+    await oss.remove([nvId], shardId)
+    log.debug('File removed from shard', { shardId, nvId })
+  },
+
   // Get database instance (for advanced usage)
   getDb() {
     return db
@@ -183,5 +255,5 @@ db.open().then(() => {
   log.error('Failed to open ShardMetaDB:', err)
 })
 
-export default shardDb
+export default shardApi
 

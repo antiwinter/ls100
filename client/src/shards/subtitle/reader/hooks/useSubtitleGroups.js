@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { parse } from '@plussub/srt-vtt-parser'
-import { fileStore } from '../../../fileStore'
+import { shardApi } from '../../../shardApi'
 import { log } from '../../../../utils/logger'
 
 export function useSubtitleGroups(languages) {
@@ -36,7 +36,7 @@ export function useSubtitleGroups(languages) {
           if (!subtitle_id) return []
 
           // Get file blob from local OSS (subtitle_id is now nvId)
-          const { blob } = await fileStore.get(subtitle_id)
+          const blob = await shardApi.getFile(subtitle_id)
           if (!blob) {
             log.warn('Failed to load subtitle file', { subtitle_id, code })
             return []

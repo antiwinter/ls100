@@ -2,7 +2,7 @@ import { useEffect, useCallback, useState, useRef, useMemo } from 'react'
 import { Box, Typography, Stack, Chip, Button } from '@mui/joy'
 import ViewerSkeleton from './ViewerSkeleton.jsx'
 import { Bolt } from '@mui/icons-material'
-import { shardDb } from '../../store.js'
+import { shardApi } from '../../shardApi.js'
 import { log } from '../../../utils/logger'
 import { OverlayManager } from '../../../components/overlay/index.jsx'
 import { SubtitleViewer } from './SubtitleViewer.jsx'
@@ -348,7 +348,7 @@ export const SubtitleReader = ({ shardId, onBack }) => {
     let alive = true
     ;(async () => {
       try {
-        const shard = await shardDb.read(shardId)
+        const shard = await shardApi.read(shardId)
         if (!alive) return
         setShard(shard || null)
 

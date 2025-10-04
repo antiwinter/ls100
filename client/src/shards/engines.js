@@ -110,12 +110,14 @@ export const engineDetect = async (filename, buffer) => {
 }
 
 // Save data processing - handles file uploads and engine-specific processing
-export const engineSaveData = async (shard, fileStore) => {
+export const engineSaveData = async (shard, transientData) => {
   const engine = getEngine(shard.type)
   if (!engine?.processData) {
     return
   }
-  await engine.processData(shard, fileStore)
+  // Signature: processData(shard, data)
+  // Engines use shardApi directly for file operations
+  await engine.processData(shard, transientData)
 }
 
 // Cleanup engine-specific data when shard is deleted

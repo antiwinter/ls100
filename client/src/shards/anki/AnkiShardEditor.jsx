@@ -1,74 +1,48 @@
-import { useEffect, useCallback, useRef } from 'react'
+import { useEffect } from 'react'
 import {
   Box,
   Typography,
   Stack,
   Chip
 } from '@mui/joy'
-import { parseApkgFile } from './apkg/index.js'
 import { log } from '../../utils/logger'
 import { genId } from '../../utils/idGenerator.js'
 
 export const AnkiShardEditor = ({
-  mode = 'create',
-  shardData = null,
+  mode: _mode = 'create',
+  shard: _shard = null,
   detectedInfo = null,
-  onChange
+  onMetaChange,
+  onDataChange
 }) => {
-  const processedDetectedFile = useRef(null)
+  useEffect(() => {
+    if (!detectedInfo) return
 
-  const handleFileSelect = useCallback(async (file, filename, parsedData = null) => {
-    try {
-      log.info('Processing Anki file:', filename, parsedData ? '(using cached data)' : '(parsing)')
+    const filename = detectedInfo.filename || 'unknown.apkg'
+    const parsed = detectedInfo.metadata?.parsedData
+    if (!parsed) return
 
-      const parsed = parsedData || await parseApkgFile(file)
-      const bundleId = genId('bundle', filename + (parsed.deckName || parsed.name || ''))
+    const bundleId = genId('bundle', filename + (parsed.deckName || parsed.name || ''))
 
-      // Store parsed data directly in shardData.data
-      const currentDataBundles = shardData?.data?.bundles || []
-      const updatedData = {
-        ...shardData?.data,
-        bundles: [
-          ...currentDataBundles,
-          {
-            ...parsed,
-            bundleId,
-            filename,
-            name: parsed.deckName || parsed.name
-          }
-        ]
-      }
-
-      // Store bundle info in meta
-      const bundleInfo = {
+    onMetaChange?.({
+      bundles: [{
         id: bundleId,
         name: parsed.deckName || parsed.name,
         filename
-      }
-      const currentBundles = shardData?.meta?.bundles || []
-      const updatedMeta = {
-        ...shardData?.meta,
-        bundles: [...currentBundles, bundleInfo]
-      }
+      }]
+    })
 
-      // Update meta (merges data and metadata)
-      onChange?.(updatedData)
-      onChange?.(updatedMeta, true)
+    onDataChange?.({
+      bundles: [{
+        ...parsed,
+        bundleId,
+        filename,
+        name: parsed.deckName || parsed.name
+      }]
+    })
 
-      log.info('Anki import processed:', parsed.name)
-
-    } catch (err) {
-      log.error('Failed to process import:', err)
-    }
-  }, [onChange, shardData])
-
-  useEffect(() => {
-    if (mode === 'create' && detectedInfo?.file && detectedInfo.file !== processedDetectedFile.current) {
-      processedDetectedFile.current = detectedInfo.file
-      const filename = detectedInfo.filename || 'unknown.apkg'
-      handleFileSelect(detectedInfo.file, filename, detectedInfo.metadata?.parsedData)
-    }
-  }, [mode, detectedInfo, handleFileSelect])
+    log.info('Anki import initialized:', parsed.name)
+  }, [detectedInfo, onMetaChange, onDataChange])
 
   return (
     <Stack spacing={3}>

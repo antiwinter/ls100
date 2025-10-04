@@ -1,11 +1,11 @@
-import { shardDb } from '../shards/store'
+import { shardApi } from '../shards/shardApi'
 import { log } from '../utils/logger'
 
 // Dexie-backed storage for Zustand persist
 // Stores rows in db.kv with schema: { id: key, data, topic, shardId, updated_at }
 
 export const createDexieStorage = () => {
-  const db = shardDb.getDb()
+  const db = shardApi.getDb()
 
   return {
     getItem: async (name) => {

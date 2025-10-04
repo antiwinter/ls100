@@ -63,13 +63,13 @@ export const shardTypeInfo = {
 }
 
 // Process shard data - commit bundle imports and update counts
-export const processData = async (shard, _fileStore) => {
+export const processData = async (shard, data) => {
   try {
-    // Process bundles stored in shard.meta.bundles
-    if (shard.meta?.bundles?.length > 0) {
+    // Process bundles from transient data (not persisted in shard)
+    if (data?.bundles?.length > 0) {
       const bundles = []
 
-      for (const bundle of shard.meta.bundles) {
+      for (const bundle of data.bundles) {
         try {
           // Import parsed APKG data
           const result = await importApkgData(bundle)
@@ -85,7 +85,7 @@ export const processData = async (shard, _fileStore) => {
         }
       }
 
-      // Update bundles array in meta
+      // Update bundles array in meta (persistent)
       shard.meta = {
         ...shard.meta,
         bundles
@@ -96,8 +96,6 @@ export const processData = async (shard, _fileStore) => {
     log.error('Failed to process shard data:', error)
   }
 }
-
-// Pending imports system removed - data now stored directly in shardData
 
 // Cleanup function called when shard is deleted
 export const cleanup = async (shard, allShards = []) => {

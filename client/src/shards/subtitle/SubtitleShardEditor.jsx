@@ -19,21 +19,21 @@ import { useLongPress } from '../../utils/useLongPress.js'
 import { log } from '../../utils/logger'
 
 
-// Extract language data from detectedInfo
-const extractLanguage = (detectedInfo) => {
-  if (!detectedInfo) return []
+// Extract language entry from file + metadata
+// Returns {info, file} where info is clean metadata and file is the blob
+const extractLanguage = ({ filename, file, metadata }, isMain) => {
+  const code = metadata?.language || 'en'
+  const movie_name = metadata?.suggestedName || 'Unknown Movie'
 
-  const movieName = detectedInfo.metadata?.movieName || detectedInfo.metadata?.movie_name || 'Unknown Movie'
-  const language = detectedInfo.metadata?.language || 'en'
-  const lang = {
-    code: language,
-    filename: detectedInfo.filename,
-    movie_name: movieName,
-    file: detectedInfo.file,
-    isMain: true
+  return {
+    info: {
+      code,
+      filename,
+      movie_name,
+      isMain
+    },
+    file
   }
-  log.debug('extracted', detectedInfo, lang)
-  return [lang]
 }
 
 const TruncatedFilename = ({ filename, isMain, showTooltip, onTooltipClose }) => (
@@ -95,31 +95,36 @@ const LanguageBox = ({ children, isMain, isAddButton, onClick, onLongPress }) =>
 }
 
 export const SubtitleShardEditor = ({
-  mode = 'create',
-  shardData = null,
+  mode: _mode = 'create',
+  shard = null,
   detectedInfo = null,
-  onChange
+  onMetaChange,
+  onDataChange
 }) => {
   const fileInputRef = useRef(null)
-  const [languages, setLanguages] = useState([])
+  const [languages, setLanguages] = useState(shard?.meta?.languages)
+  const [files, setFiles] = useState({}) // Accumulated files: { filename: blob, ... }
   const [errorDialog, setErrorDialog] = useState({ open: false, message: '' })
   const [activeTooltip, setActiveTooltip] = useState(null)
   const tooltipTimerRef = useRef(null)
 
-  // Initialize languages from shardData or detectedInfo
+  // Initialize state from shard or detectedInfo
   useEffect(() => {
-    let langs =
-      // Edit mode: use shard meta
-      shardData?.meta?.languages ||
-      // Create mode: use detected info
-      extractLanguage(detectedInfo)
-    log.debug('🔍 Languages loaded:', langs)
+    if (!detectedInfo) return
 
-    if (langs && langs.length > 0) {
-      setLanguages(langs)
-      onChange?.({ languages: langs })
-    }
-  }, [mode, detectedInfo, shardData?.meta?.languages, onChange])
+    // Create mode: extract and report initial data
+    const { info, file } = extractLanguage(detectedInfo, true)
+    setLanguages([info])
+    setFiles({ [info.filename]: file })
+  }, [detectedInfo])
+
+  useEffect(() => {
+    onDataChange?.(files)
+  }, [files, onDataChange])
+
+  useEffect(() => {
+    onMetaChange?.({ languages })
+  }, [languages, onMetaChange])
 
   const handleTooltipClick = (filename) => {
     if (tooltipTimerRef.current) {
@@ -147,18 +152,20 @@ export const SubtitleShardEditor = ({
   }, [])
 
   const handleLanguageToggle = (index) => {
-    const langs = languages.map((lang, i) => ({ ...lang, isMain: i === index }))
-    setLanguages(langs)
-    onChange?.({ languages: langs })
+    setLanguages(x => x.map((v, i) => ({ ...v, isMain: i === index })))
   }
 
   const handleLanguageDelete = (index) => {
+    const deletedFilename = languages[index].filename
     const langs = languages.filter((_, i) => i !== index)
     if (languages[index].isMain && langs.length > 0) {
       langs[0].isMain = true
     }
+
+    // Remove the associated file blob
+    const { [deletedFilename]: _removed, ...updatedFiles } = files
     setLanguages(langs)
-    onChange?.({ languages: langs })
+    setFiles(updatedFiles)
   }
 
   const handleAddLanguage = () => {
@@ -181,35 +188,27 @@ export const SubtitleShardEditor = ({
         return
       }
 
-      const language = detection.metadata.language
+      const code = detection.metadata.language
 
       // Check for duplicate language
-      if (languages.find(lang => lang.code === language)) {
+      if (languages.find(lang => lang.code === code)) {
         setErrorDialog({
           open: true,
-          message: `${language.toUpperCase()} language is already added to this shard.`
+          message: `${code.toUpperCase()} language is already added to this shard.`
         })
         return
       }
 
-      // Create new language entry
       const hasMain = languages.some(lang => lang.isMain)
-      const movieName = hasMain
-        ? languages.find(lang => lang.isMain)?.movie_name || 'Unknown Movie'
-        : detection.metadata?.movieName || 'Unknown Movie'
+      const { info, file: blob } = extractLanguage(
+        detection,
+        !hasMain
+      )
 
-      const newLang = {
-        code: language,
-        isMain: !hasMain,
-        filename: file.name,
-        movie_name: movieName,
-        file
-      }
-
-      const langs = [...languages, newLang]
+      const langs = [...languages, info]
+      const updatedFiles = { ...files, [info.filename]: blob }
       setLanguages(langs)
-      onChange?.({ languages: langs })
-
+      setFiles(updatedFiles)
     } catch (error) {
       log.error('❌ Failed to process language file:', error)
       setErrorDialog({

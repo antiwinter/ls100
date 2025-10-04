@@ -3,6 +3,7 @@ import { detectLanguageWithConfidence } from '../../utils/languageDetection'
 import { SubtitleShardEditor } from './SubtitleShardEditor.jsx'
 import { SubtitleCover } from './SubtitleCover.jsx'
 import { SubtitleReader } from './reader/SubtitleReader.jsx'
+import { shardApi } from '../shardApi.js'
 import { log } from '../../utils/logger'
 
 
@@ -160,28 +161,30 @@ export const CoverComponent = SubtitleCover
 
 
 // Store NEW files locally (migration already happened during list/read)
-export const processData = async (shard, fileStore) => {
-  const languages = shard.meta?.languages
+export const processData = async (shard, data) => {
+  // data is a map of { filename: blob, ... }
+  // languages are already in shard.meta.languages (set by handleMetaChange)
+  if (!data || typeof data !== 'object') {
+    return
+  }
 
-  if (languages && Array.isArray(languages)) {
-    for (const language of languages) {
-      // Only process NEW file uploads (user adding new subtitle)
-      if (language.file && language.file instanceof Blob) {
-        log.info('📤 Storing new file locally:', language.filename)
+  const languages = shard.meta.languages
+  if (!languages || !Array.isArray(languages)) {
+    return
+  }
 
-        const nvId = await fileStore.store(
-          language.filename,
-          language.file,
-          shard.id || 'temp'
-        )
+  // Upload files and update corresponding language entries with nvIds
+  for (const [filename, blob] of Object.entries(data)) {
+    if (!(blob instanceof Blob)) continue
 
-        log.info('✅ File stored locally, nvId:', nvId)
+    log.info('📤 Storing new file locally:', filename)
+    const nvId = await shardApi.addFile(shard.id, filename, blob)
+    log.info('✅ File stored locally, nvId:', nvId)
 
-        // Replace file with nvId
-        delete language.file
-        language.nvId = nvId
-      }
-      // Note: Old files with subtitle_id will be migrated by fileStore.get() when reader opens them
+    // Find and update the corresponding language entry
+    const lang = languages.find(l => l.filename === filename)
+    if (lang) {
+      lang.nvId = nvId
     }
   }
 }

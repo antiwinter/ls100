@@ -5,7 +5,7 @@ import anki from '../core/index.js'
 import { AnkiSessionStore } from '../core/sessionStore.js'
 import { Toolbar } from './overlay/Toolbar.jsx'
 import { AnkiStudy } from './AnkiStudy.jsx'
-import { shardDb } from '../../store.js'
+import { shardApi } from '../../shardApi.js'
 import { engineCleanup } from '../../engines.js'
 import { log } from '../../../utils/logger'
 
@@ -59,7 +59,7 @@ export const AnkiReader = ({ shardId, onBack }) => {
   // Fetch shard once per shardId
   useEffect(() => {
     let alive = true
-    shardDb.read(shardId)
+    shardApi.read(shardId)
       .then((shard) => { if (alive) setShard(shard || 'error') })
       .catch((err) => { log.error('Failed to load shard:', err); if (alive) setShard('error') })
     return () => { alive = false }
@@ -134,7 +134,7 @@ export const AnkiReader = ({ shardId, onBack }) => {
       await engineCleanup(shard, [])
 
       // Delete shard from local store
-      await shardDb.delete(shardId)
+      await shardApi.delete(shardId)
 
       log.info('Shard removed successfully:', shardId)
 

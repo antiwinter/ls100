@@ -2,11 +2,11 @@ import { apiCall } from '../config/api'
 import { genId } from '../utils/idGenerator'
 import { log } from '../utils/logger'
 import oss from '../utils/oss'
-import { shardDb } from './store'
+import { shardApi } from './shardApi'
 // Reusable KV migration: move a legacy localStorage key into Dexie kv under unified key
 async function migrateKv(topic, shardId, oldKey) {
   try {
-    const db = shardDb.getDb()
+    const db = shardApi.getDb()
     const newKey = ['ls100', topic, shardId].filter(Boolean).join('-')
     const existing = await db.kv.get(newKey)
     if (existing)
@@ -41,7 +41,7 @@ async function migrateKv(topic, shardId, oldKey) {
 
 /**
  * Migrate BE shards to local FE storage
- * Called by shardDb.list() to progressively load and transform BE shards
+ * Called by shardApi.list() to progressively load and transform BE shards
  */
 
 // Transform BE shard format to FE format
