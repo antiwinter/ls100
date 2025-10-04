@@ -11,7 +11,7 @@ import { BookmarkContent } from './Bookmark.jsx'
 import { ActionDrawer } from '../ActionDrawer.jsx'
 import { log } from '../../utils/logger.js'
 
-const OverlayManager_ = forwardRef(({ onBack, shardId = '', onSeek }, ref) => {
+const OverlayManager_ = forwardRef(({ onBack, session, prefs, onSeek }, ref) => {
   // UI State
   const [xState, setXState] = useState({
     toolbar: false,
@@ -87,11 +87,11 @@ const OverlayManager_ = forwardRef(({ onBack, shardId = '', onSeek }, ref) => {
         {xState.tool === 'dict' && xState.wordCtx  && (<DictNotesPage key="notes" wordCtx={xState.wordCtx} />)}
         {xState.tool === 'dict' && xState.wordCtx  && (<DictMorePage key="more" />)}
 
-        {xState.tool === 'font' && (<FontContent shardId={shardId} />)}
-        {xState.tool === 'search' && (<SearchContent shardId={shardId} onSeek={onSeek} />)}
-        {xState.tool === 'wordlist' && (<WordListContent shardId={shardId} />)}
+        {xState.tool === 'font' && (<FontContent prefs={prefs} session={session} />)}
+        {xState.tool === 'search' && (<SearchContent session={session} onSeek={onSeek} />)}
+        {xState.tool === 'wordlist' && (<WordListContent session={session} />)}
         {/* {xState.tool === 'export' && (<ExportContent shardId={shardId} />)} */}
-        {xState.tool === 'bookmark' && (<BookmarkContent shardId={shardId} onSeek={onSeek} />)}
+        {xState.tool === 'bookmark' && (<BookmarkContent session={session} onSeek={onSeek} />)}
       </ActionDrawer>
     </Box>
   )

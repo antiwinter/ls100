@@ -9,12 +9,10 @@ import {
   IconButton
 } from '@mui/joy'
 import { Search as SearchIcon, Clear as ClearIcon, TipsAndUpdates } from '@mui/icons-material'
-import { useSessionStore } from './stores/useSessionStore'
 import { formatSec } from '../../utils/dateFormat'
 
-export const SearchContent = ({ shardId, onSeek }) => {
-  const sessionStore = useSessionStore(shardId)
-  const { searchResults, searchQuery, setSearchQuery } = sessionStore()
+export const SearchContent = ({ session, onSeek }) => {
+  const { searchResults, searchQuery, setSearchQuery } = session()
 
   const handleSearchChange = (e) => {
     const value = e.target.value

@@ -7,7 +7,7 @@ import { log } from '../../../utils/logger'
 import { OverlayManager } from '../../../components/overlay/index.jsx'
 import { SubtitleViewer } from './SubtitleViewer.jsx'
 import { useSubtitleGroups } from './hooks/useSubtitleGroups.js'
-import { useSessionStore } from '../../../components/overlay/stores/useSessionStore.js'
+import { SubtitleSessionStore } from './sessionStore.js'
 import { useSettingStore } from '../../../components/overlay/stores/useSettingStore.js'
 import Fuse from 'fuse.js'
 
@@ -75,7 +75,7 @@ const SubtitleHeader = ({ shardName, position, total, onReviewClick }) => {
 const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   // Session store and state
   // log.debug('SUBTITLE READER RENDER', shard, shardId)
-  const sessionStore = useSessionStore(shardId)
+  const sessionStore = SubtitleSessionStore(shardId)
   const {
     position, wordlist, langMap, setPosition,
     toggleWord, setHint, searchQuery, setSearchResults,
@@ -83,7 +83,8 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   } = sessionStore()
 
   // Settings from store
-  const { fontSize, fontFamily } = useSettingStore('subtitle-prefs')()
+  const subtitlePrefs = useSettingStore('subtitle-prefs')
+  const { fontSize, fontFamily } = subtitlePrefs()
   const [viewer, setViewer] = useState(null)
   const overlayRef = useRef(null)
 
@@ -306,7 +307,8 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
       <OverlayManager
         ref={overlayRef}
         onBack={onBack}
-        shardId={shardId}
+        session={sessionStore}
+        prefs={subtitlePrefs}
         onSeek={handleSeek}
       />
 
@@ -338,7 +340,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
 export const SubtitleReader = ({ shardId, onBack }) => {
   const [shard, setShard] = useState(undefined)
   const [loading, setLoading] = useState(true)
-  const sessionStore = useSessionStore(shardId)
+  const sessionStore = SubtitleSessionStore(shardId)
   const { setLangMap, setShardName } = sessionStore()
 
   // Load shard and initialize langMap in session store

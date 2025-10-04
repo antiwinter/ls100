@@ -3,7 +3,6 @@ import { Box, Stack, Typography, IconButton, Input, Chip } from '@mui/joy'
 import { Close, Search, KeyboardReturn } from '@mui/icons-material'
 import { useLongPress } from '../../utils/useLongPress.js'
 import { log } from '../../utils/logger.js'
-import { useSessionStore } from './stores/useSessionStore.js'
 
 // Container for word tile with long press handling
 const WordTileContainer = ({
@@ -105,7 +104,7 @@ const WordTile = ({ word, editMode, onWordDelete, isHighlighted, onWordClick, is
   )
 }
 
-export const WordListContent = ({ shardId }) => {
+export const WordListContent = ({ session }) => {
   const [searchTerm, setSearchTerm] = useState('')
   const [editMode, setEditMode] = useState(false)
   const [searchExpanded, setSearchExpanded] = useState(false)
@@ -113,8 +112,7 @@ export const WordListContent = ({ shardId }) => {
   const gridRef = useRef(null)
 
   // Get session store data
-  const sessionStore = useSessionStore(shardId)
-  const { wordlist, toggleWord } = sessionStore()
+  const { wordlist, toggleWord } = session()
 
   // Convert Set to Array and filter
   const wordsArray = useMemo(() => Array.from(wordlist || []).sort(), [wordlist])

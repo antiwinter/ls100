@@ -6,17 +6,13 @@ import {
   Sheet,
   Switch
 } from '@mui/joy'
-import { useSettingStore } from './stores/useSettingStore'
-import { useSessionStore } from './stores/useSessionStore'
 import { getAvailableFonts } from '../../utils/font'
 import { PrettoSlider } from '../Keyparts'
 // import { log } from '../../utils/logger'
 
-export const FontContent = ({ shardId }) => {
-  const { fontSize, selectedFont, setFontSize, setSelectedFont } = useSettingStore('subtitle-prefs')()
-
-  const sessionStore = useSessionStore(shardId)
-  const { langMap, toggleLang } = sessionStore()
+export const FontContent = ({ prefs, session }) => {
+  const { fontSize, selectedFont, setFontSize, setSelectedFont } = prefs()
+  const { langMap, toggleLang } = session()
 
   // Find main language by isMain === true
   const mainLangCode = useMemo(() => {

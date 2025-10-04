@@ -3,12 +3,10 @@ import { InsertDriveFile } from '@mui/icons-material'
 import { generateEudicXML, downloadFileEnhanced, generateFilename, isMobile } from '../../utils/exporters.js'
 
 import { log } from '../../utils/logger.js'
-import { useSessionStore } from './stores/useSessionStore.js'
 
-export const ExportContent = ({ shardId }) => {
+export const ExportContent = ({ session }) => {
   // Get session store data
-  const sessionStore = useSessionStore(shardId)
-  const { wordlist, shardName } = sessionStore()
+  const { wordlist, shardName } = session()
 
   log.debug('ExportContent re-render', { shardId, wordlist, shardName })
 

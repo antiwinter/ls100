@@ -12,13 +12,12 @@ import {
 import 'react-swipeable-list/dist/styles.css'
 
 import { log } from '../../utils/logger'
-import { useSessionStore } from './stores/useSessionStore.js'
 import { formatSec, formatRelativeTime } from '../../utils/dateFormat.js'
 
-export const BookmarkContent = ({ shardId, onSeek }) => {
+export const BookmarkContent = ({ session, onSeek }) => {
   const {
     position, hint, shardName, bookmarks, totalGroups, addBookmark, removeBookmark
-  } = useSessionStore(shardId)()
+  } = session()
 
   const [seek, setSeek] = useState(position || 0)
   const [activeBookmark, setActiveBookmark] = useState(null)
