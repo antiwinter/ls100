@@ -83,7 +83,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   } = sessionStore()
 
   // Settings from store
-  const { fontSize, fontFamily } = useSettingStore('subtitle-shard')()
+  const { fontSize, fontFamily } = useSettingStore('subtitle-prefs')()
   const [viewer, setViewer] = useState(null)
   const overlayRef = useRef(null)
 

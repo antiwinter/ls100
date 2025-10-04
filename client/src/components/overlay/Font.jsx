@@ -13,7 +13,7 @@ import { PrettoSlider } from '../Keyparts'
 // import { log } from '../../utils/logger'
 
 export const FontContent = ({ shardId }) => {
-  const { fontSize, selectedFont, setFontSize, setSelectedFont } = useSettingStore('subtitle-shard')()
+  const { fontSize, selectedFont, setFontSize, setSelectedFont } = useSettingStore('subtitle-prefs')()
 
   const sessionStore = useSessionStore(shardId)
   const { langMap, toggleLang } = sessionStore()

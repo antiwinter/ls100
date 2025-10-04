@@ -6,22 +6,35 @@ import { migrate } from './migrator'
 // Unified shard metadata store
 const db = new Dexie('ShardMetaDB_v2')
 
-// Version 2: Added 'name' to indexes for cleanup query
-db.version(2).stores({
-  shards: 'id, type, owner_id, updated_at, name'
-  // Schema: {
-  //   id: string,           // genId('shard', ...) - local ID
-  //   type: string,         // 'subtitle' | 'anki' | ...
-  //   name: string,
-  //   owner_id: string,
-  //   description: string,
-  //   cover: string,        // nvId → oss.js (or empty)
-  //   public: boolean,
-  //   flag: string,         // 'loading' during migration
-  //   meta: object,         // Unified: oldId + BE metadata + data merged
-  //   created_at: string,
-  //   updated_at: string
-  // }
+// Version 3 (current): unified schema
+// Full schema reference:
+// shards table (engine-agnostic metadata persisted locally):
+// {
+//   id: string,           // genId('shard', ...)
+//   type: string,         // 'subtitle' | 'anki' | ...
+//   name: string,
+//   owner_id: string,
+//   description: string,
+//   cover: string,        // nvId → oss.js (or empty)
+//   public: boolean,
+//   flag: string,         // 'loading' during migration
+//   meta: object,         // oldId + BE metadata + data merged
+//   created_at: string,
+//   updated_at: string
+// }
+//
+// kv table (Zustand persist payloads; raw string payloads for easy pass-through):
+// {
+//   id: string,           // unified key: `ls100-<topic>-<shardId?>`
+//   data: string,         // raw JSON string from persist (contains { state, version })
+//   topic: string,        // logical topic: 'session' | 'subtitle-prefs' | 'anki-prefs' | ...
+//   shardId: string|null, // optional shard scope
+//   version: number|null, // optional extracted persist version for query/migration
+//   updated_at: string
+// }
+db.version(3).stores({
+  shards: 'id, type, owner_id, updated_at, name',
+  kv: 'id, updated_at, topic, shardId, version'
 })
 
 // Auto-timestamps
@@ -31,6 +44,15 @@ db.shards.hook('creating', (primKey, obj) => {
 })
 
 db.shards.hook('updating', (modifications) => {
+  modifications.updated_at = new Date().toISOString()
+})
+
+// Auto-timestamps for kv
+db.kv?.hook('creating', (primKey, obj) => {
+  if (!obj.updated_at) obj.updated_at = new Date().toISOString()
+})
+
+db.kv?.hook('updating', (modifications) => {
   modifications.updated_at = new Date().toISOString()
 })
 
