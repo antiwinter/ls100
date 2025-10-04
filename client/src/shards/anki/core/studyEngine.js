@@ -1,5 +1,6 @@
 import { FSRS, Rating, createEmptyCard } from 'ts-fsrs'
 import db from './db.js'
+import { AnkiSessionStore } from './sessionStore.js'
 import { log } from '../../../utils/logger.js'
 import { TimeSegments } from '../../../utils/timeTracker.js'
 import _ from 'lodash'
@@ -23,7 +24,6 @@ export class StudyEngine {
   async init(prefs, shardId) {
     // prefs: plain state snapshot; session: per-shard engine state
     this.prefs = prefs || {}
-    const { AnkiSessionStore } = await import('./sessionStore.js')
     this.store = AnkiSessionStore(shardId)
 
     // initialize ephemeral fields
@@ -40,10 +40,11 @@ export class StudyEngine {
       // new session, build queues
       await this._buildQueues()
       // Set day flag only after successful queue building
-      this.store.setState({ day: today, currentCard: null, actionLog: [], timeTracking: null })
+      this.day = today
       this.currentCard = null
       this.actionLog = []
       this.timeTracking = null
+      this.flush(['day', 'currentCard', 'actionLog', 'timeTracking'])
     }
 
     this.timeTracker = new TimeSegments({
@@ -105,7 +106,7 @@ export class StudyEngine {
     }
     log.debug('Built queues', this.pile)
     // persist queues to store so user can pause/resume
-    this.store.setState({ pile: this.pile })
+    this.flush(['pile'])
   }
 
   // Card Drawing with Strategy-Based Selection
@@ -145,7 +146,7 @@ export class StudyEngine {
       // Each entry: { id: cardId, from: 'raw'|'review' }
       this.actionLog.unshift({ id: result.card.id, from: result.from })
       // persist current card and action log
-      this.store.setState({ currentCard: this.currentCard, actionLog: this.actionLog })
+      this.flush(['currentCard', 'actionLog'])
       return result.card
     } else {
       this.finish()
@@ -199,7 +200,7 @@ export class StudyEngine {
     log.debug('Card rated:', { cardId: c0.id, rating })
     this.currentCard = null
     // persist piles and clear current card
-    this.store.setState({ pile: this.pile, currentCard: null })
+    this.flush(['pile', 'currentCard'])
   }
 
   // Undo last step using action log
@@ -229,11 +230,7 @@ export class StudyEngine {
     const c1 = await db.cards.get(top.id)
     this.currentCard = c1
     // persist undo state
-    this.store.setState({
-      pile: this.pile,
-      currentCard: this.currentCard,
-      actionLog: this.actionLog
-    })
+    this.flush(['pile', 'currentCard', 'actionLog'])
 
     // FSRS Cleanup: Remove the latest rating that was just applied to c1
     // When we rated c1 and drew the next card (c0), c1's FSRS state was updated
@@ -281,6 +278,12 @@ export class StudyEngine {
 
   finish() {
     this.updateHistory()
+  }
+
+  flush(keys) {
+    const payload = {}
+    for (const k of keys) payload[k] = this[k]
+    this.store.setState(payload)
   }
 }
 

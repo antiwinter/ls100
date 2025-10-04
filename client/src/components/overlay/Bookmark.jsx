@@ -22,13 +22,13 @@ export const BookmarkContent = ({ session, onSeek }) => {
   const [seek, setSeek] = useState(position || 0)
   const [activeBookmark, setActiveBookmark] = useState(null)
 
-  log.debug('BookmarkContent re-render', { shardId, position, hint, shardName, bookmarksCount: bookmarks.length })
+  log.debug('BookmarkContent re-render', { position, hint, shardName, bookmarksCount: bookmarks.length })
 
   // Only initialize seek from position once on mount, not on every position change
   // This prevents circular dependency: position -> seek -> onSeek -> position
   useEffect(() => {
     setSeek(position || 0)
-  }, [shardId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [shardName]) // eslint-disable-line react-hooks/exhaustive-deps
   // Intentionally NOT including 'position' to break circular dependency
 
   const existing = bookmarks.find(b => b.gid === hint?.gid)

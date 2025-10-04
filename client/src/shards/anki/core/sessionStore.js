@@ -15,10 +15,7 @@ export const AnkiSessionStore = (shardId) => {
       pile: { raw: [], review: [], done: [] },
       actionLog: [],
       // Time tracking persisted as { segments, total }
-      timeTracking: null,
-      previewSide: 'back',
-
-
+      timeTracking: null
     })
   )
 }

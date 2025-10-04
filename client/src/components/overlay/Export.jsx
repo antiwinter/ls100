@@ -8,7 +8,7 @@ export const ExportContent = ({ session }) => {
   // Get session store data
   const { wordlist, shardName } = session()
 
-  log.debug('ExportContent re-render', { shardId, wordlist, shardName })
+  log.debug('ExportContent re-render', { wordlist, shardName })
 
   const handleEudicExport = async () => {
     if (!wordlist.length) {

@@ -6,7 +6,6 @@ import anki from '../core/index.js'
 import { log } from '../../../utils/logger.js'
 import { AnkiCard, SessionSummary, RatingButtons } from './components/index.js'
 import { Toolbar } from './overlay/Toolbar.jsx'
-import { AnkiSessionStore } from '../core/sessionStore.js'
 
 export const AnkiStudy = ({ shardId, onExit }) => {
   // Self-contained study engine and refs
@@ -82,7 +81,11 @@ export const AnkiStudy = ({ shardId, onExit }) => {
   }, [shardId, loadCard, ctx])
 
   // Session complete check
-  if (ctx.engine?.session?.isFinished()) {
+  const engine = ctx.engine
+  const rawLeft = engine?.pile?.raw?.length || 0
+  const reviewLeft = engine?.pile?.review?.length || 0
+  const noMoreCards = (!engine) || ((rawLeft + reviewLeft) === 0 && !engine.currentCard)
+  if (noMoreCards) {
     return <SessionSummary onExit={onExit} />
   }
 
