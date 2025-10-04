@@ -60,18 +60,18 @@ export const AnkiStudy = ({ shardId, onExit }) => {
       if (!shardId) return
 
       // Create session store and study engine
-      const sessionStore = AnkiSessionStore(shardId)
+      const prefs = anki.AnkiPrefsStore().getState()
       const engine = new anki.StudyEngine()
-      await engine.init(sessionStore)
+      await engine.init(prefs, shardId)
 
       ctx.engine = engine
 
       // Create renderer for all cards
-      const { raw, review } = engine.session.pile
+      const { raw, review } = engine.pile
       ctx.renderer = await anki.createRender([
         ...raw,
         ...review,
-        engine.session.currentCard
+        engine.currentCard
       ].filter(Boolean))
 
       // Load first card

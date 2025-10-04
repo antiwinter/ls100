@@ -3,6 +3,7 @@ import noteManager from './noteManager.js'
 import mediaManager from './mediaManager.js'
 import { createRender } from '../render/renderDefault.js'
 import { StudyEngine } from './studyEngine.js'
+import { AnkiPrefsStore } from './prefsStore.js'
 import { log } from '../../../utils/logger.js'
 import { getTemplate, addTemplate, removeTemplate, getTemplates } from './template/index.js'
 import _ from 'lodash'
@@ -59,6 +60,7 @@ export const anki = {
   mediaManager,
   createRender,
   StudyEngine,
+  AnkiPrefsStore,
 
   getTemplate,
   addTemplate,

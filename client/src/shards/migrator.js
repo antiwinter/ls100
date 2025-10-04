@@ -2,6 +2,42 @@ import { apiCall } from '../config/api'
 import { genId } from '../utils/idGenerator'
 import { log } from '../utils/logger'
 import oss from '../utils/oss'
+import { shardDb } from './store'
+// Reusable KV migration: move a legacy localStorage key into Dexie kv under unified key
+async function migrateKv(topic, shardId, oldKey) {
+  try {
+    const db = shardDb.getDb()
+    const newKey = ['ls100', topic, shardId].filter(Boolean).join('-')
+    const existing = await db.kv.get(newKey)
+    if (existing)
+    {
+      log.debug('migrateKv already exists', { topic, shardId, oldKey })
+      return true
+    }
+
+    const payload = localStorage.getItem(oldKey)
+    if (!payload)
+    {
+      log.debug('migrateKv not found', { topic, shardId, oldKey })
+      return false
+    }
+
+    await db.kv.put({
+      id: newKey,
+      data: payload,
+      topic,
+      shardId: shardId || null,
+      version: 0
+    })
+
+    // localStorage.removeItem(oldKey)
+    return true
+  } catch (e) {
+    log.warn('migrateKv failed', { topic, shardId, oldKey }, e)
+    return false
+  }
+}
+
 
 /**
  * Migrate BE shards to local FE storage
@@ -114,6 +150,9 @@ async function migrateCover(shard) {
  */
 export async function migrate(existingOldIds, onProgress = null) {
   try {
+    // Migrate old global subtitle prefs key once
+    await migrateKv('subtitle-prefs', null, 'ls100-settings-subtitle-shard')
+
     // Fetch all BE shards
     const beData = await apiCall('/api/shards')
     const beShards = beData.shards || []
@@ -150,6 +189,8 @@ export async function migrate(existingOldIds, onProgress = null) {
         if (shard.type === 'subtitle') {
           shard.flag = 'loading'
         }
+        // Per-shard migration: subtitle session key rename
+        await migrateKv('subtitle-session', shard.id, `ls100-session-${beShard.id}`)
         shards.push(shard)
       } catch (error) {
         log.error('❌ Failed to transform shard', {

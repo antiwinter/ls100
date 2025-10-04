@@ -3,7 +3,7 @@ import { getStore } from '../../../stores/factory'
 export const useSessionStore = (shardId) => {
   if (!shardId) throw new Error('shardId is required for useSessionStore')
   return getStore(
-    { topic: 'session', shardId },
+    { topic: 'subtitle-session', shardId },
     (set, _get) => ({
       langMap: {},
       setLangMap: (langMap) => set((state) => {

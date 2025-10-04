@@ -1,6 +1,5 @@
 import { FSRS, Rating, createEmptyCard } from 'ts-fsrs'
 import db from './db.js'
-import { snapshot } from 'valtio'
 import { log } from '../../../utils/logger.js'
 import { TimeSegments } from '../../../utils/timeTracker.js'
 import _ from 'lodash'
@@ -13,51 +12,75 @@ const fsrs = new FSRS()
 
 // Study Engine class
 export class StudyEngine {
+  _getCurrentDay(dailyResetTime) {
+    const now = Date.now() / (60 * 1000)
+    const resetOffs = (dailyResetTime || 0) * 60
+    const tzOffs = new Date().getTimezoneOffset()
+    const delta = now - resetOffs + tzOffs
+    return Math.floor(delta / (60 * 24))
+  }
   // Initialize study session with proper session management
-  async init(session) {
-    // Valtio session
-    this.session = session
+  async init(prefs, shardId) {
+    // prefs: plain state snapshot; session: per-shard engine state
+    this.prefs = prefs || {}
+    const { AnkiSessionStore } = await import('./sessionStore.js')
+    this.store = AnkiSessionStore(shardId)
 
-    if (session.start()) {
+    // initialize ephemeral fields
+    const s = this.store.getState()
+    this.day = s.day || null
+    this.currentCard = s.currentCard || null
+    this.pile = s.pile || { raw: [], review: [], done: [] }
+    this.actionLog = s.actionLog || []
+    this.timeTracking = s.timeTracking || null
+
+    const today = this._getCurrentDay(this.prefs.dailyResetTime)
+    const prevDay = this.store.getState().day
+    if (!prevDay || prevDay !== today) {
       // new session, build queues
       await this._buildQueues()
       // Set day flag only after successful queue building
-      session.day = session.getCurrentDay()
+      this.store.setState({ day: today, currentCard: null, actionLog: [], timeTracking: null })
+      this.currentCard = null
+      this.actionLog = []
+      this.timeTracking = null
     }
 
     this.timeTracker = new TimeSegments({
-      segments: session.timeTracking?.segments,
+      segments: this.timeTracking?.segments,
       onSegmentChange: (segments, total) => {
-        session.timeTracking = { segments, total }
+        this.timeTracking = { segments, total }
+        // persist time tracking so user can resume after breaks
+        this.store.setState({ timeTracking: this.timeTracking })
       }
     })
 
     this.timeTracker.open()
 
-    log.info('Study session initialized:', snapshot(session))
-    return session
+    log.info('Study session initialized:')
+    return this
   }
 
   // Build study queues with FSRS + sibling filtering
   async _buildQueues() {
     const now = Date.now()
-    const ss = this.session
-
+    const prefs = this.prefs
+    const ses = this.store.getState()
     // Get new cards for bundles (optimized database query using mirrored state)
     let newCards = await db.cards
-      .where('bundleId').anyOf(ss.bundleIds)
+      .where('bundleId').anyOf(ses.bundleIds)
       .and(card => card.state === 'New')
       .toArray()
 
     // Get due cards for review (optimized database query using mirrored due)
     let dueCards = await db.cards
-      .where('bundleId').anyOf(ss.bundleIds)
+      .where('bundleId').anyOf(ses.bundleIds)
       .and(card => card.state !== 'New' && card.due <= now)
       .sortBy('due')
 
     // Sort new cards according to user preference
     function _sort(cards) {
-      switch (ss.newCardOrder) {
+      switch (prefs.newCardOrder) {
       case 'random': return _.shuffle(cards)
       case 'template-random':
         return _(cards).sortBy('templateOrd').groupBy('templateOrd').values().map(_.shuffle).flatten().value()
@@ -69,28 +92,27 @@ export class StudyEngine {
     newCards = _sort(newCards)
 
     // Apply auto-bury siblings if enabled
-    if (ss.autoBurySiblings) {
+    if (prefs.autoBurySiblings) {
       dueCards = _.uniqBy(dueCards, 'noteId')
       newCards = _.uniqBy(newCards, 'noteId')
     }
 
     // Populate tri-queues; ordering within each queue already applied
-    ss.pile = {
-      raw: newCards.slice(0, ss.maxNewCards),
-      review: dueCards.slice(0, ss.maxReviewCards),
+    this.pile = {
+      raw: newCards.slice(0, prefs.maxNewCards),
+      review: dueCards.slice(0, prefs.maxReviewCards),
       done: []
     }
-    log.debug('Built queues', ss.pile)
+    log.debug('Built queues', this.pile)
+    // persist queues to store so user can pause/resume
+    this.store.setState({ pile: this.pile })
   }
 
   // Card Drawing with Strategy-Based Selection
   draw() {
     // Handle empty session gracefully
-    if (!this.session) return null
-    const ss = this.session
-    const { pile } = ss
-
-    if (ss.currentCard) return ss.currentCard
+    const { pile } = this
+    if (this.currentCard) return this.currentCard
 
     // Helper: Extract card from pile if available
     const _pick = (type) => pile[type].length > 0 ?
@@ -111,20 +133,23 @@ export class StudyEngine {
       }
     }
 
-    const pick = strategies[ss.newReviewOrder] || strategies.mixed
+    const pick = strategies[this.prefs.newReviewOrder] || strategies.mixed
     const result = pick()
 
     if (result?.card) {
-      const c0 = ss.currentCard = result.card
+      const c0 = this.currentCard = result.card
 
       c0._drawTs = Date.now()
 
       // Action Log: Stack of draw operations for undo functionality
       // Each entry: { id: cardId, from: 'raw'|'review' }
-      ss.actionLog.unshift({ id: result.card.id, from: result.from })
+      this.actionLog.unshift({ id: result.card.id, from: result.from })
+      // persist current card and action log
+      this.store.setState({ currentCard: this.currentCard, actionLog: this.actionLog })
       return result.card
-    } else
-      ss.finish()
+    } else {
+      this.finish()
+    }
 
     return null
   }
@@ -132,9 +157,7 @@ export class StudyEngine {
   // Rate current card and update scheduling
   async rate(rating) {
     // Handle empty session gracefully
-    if (!this.session) return
-    const ss = this.session
-    const c0 = ss.currentCard
+    const c0 = this.currentCard
     if (!c0)
       throw new Error('No active card')
 
@@ -156,38 +179,40 @@ export class StudyEngine {
 
     // Mirror latest FSRS state to card level for fast queries
     await db.cards.update(c0.id, {
-      fsrs: snapshot(c0.fsrs),
+      fsrs: c0.fsrs,
       due: c0.fsrs[0].due,
       state: c0.fsrs[0].state
     })
 
     // Graduation Rule: Cards graduate to 'done' if due time exceeds initial gap
     // Cards that don't graduate go back to review pile, sorted by due time
-    if (next.card.due - now.getTime() < (ss.initialGap || 0) * 60 * 1000) {
+    const { initialGap } = this.prefs
+    if (next.card.due - now.getTime() < (initialGap || 0) * 60 * 1000) {
       // Insert into review pile in chronological order (new cards without due = 0 go first)
-      const insertIndex = _.sortedIndexBy(ss.pile.review, c0,
+      const insertIndex = _.sortedIndexBy(this.pile.review, c0,
         c => c.due || 0)
-      ss.pile.review.splice(insertIndex, 0, c0)
+      this.pile.review.splice(insertIndex, 0, c0)
     } else
-      ss.pile.done.push(c0)
+      this.pile.done.push(c0)
 
-    this.session.updateHistory()
+    this.updateHistory()
     log.debug('Card rated:', { cardId: c0.id, rating })
-    ss.currentCard = null
+    this.currentCard = null
+    // persist piles and clear current card
+    this.store.setState({ pile: this.pile, currentCard: null })
   }
 
   // Undo last step using action log
   async undo() {
-    const ss = this.session
     // Handle empty session gracefully
-    if (!ss) return null
+    if (!this.actionLog?.length) return null
     // Need at least 2 actions: can't undo if only one card drawn (not rated yet)
-    if ((ss.actionLog?.length || 0) < 2)
+    if ((this.actionLog?.length || 0) < 2)
       return null
 
     // Pop last draw action and verify it matches current card
-    const lastDraw = ss.actionLog.shift()
-    const c0 = ss.currentCard
+    const lastDraw = this.actionLog.shift()
+    const c0 = this.currentCard
     if (lastDraw?.id !== c0?.id) {
       log.warn('Current card not found in action log:', {
         c0,
@@ -197,12 +222,18 @@ export class StudyEngine {
     }
 
     // Return current (unrated) card to its source pile
-    ss.pile[lastDraw.from || 'review'].unshift(c0)
+    this.pile[lastDraw.from || 'review'].unshift(c0)
 
     // Restore previous card from action stack
-    const top = ss.actionLog[0]
+    const top = this.actionLog[0]
     const c1 = await db.cards.get(top.id)
-    ss.currentCard = c1
+    this.currentCard = c1
+    // persist undo state
+    this.store.setState({
+      pile: this.pile,
+      currentCard: this.currentCard,
+      actionLog: this.actionLog
+    })
 
     // FSRS Cleanup: Remove the latest rating that was just applied to c1
     // When we rated c1 and drew the next card (c0), c1's FSRS state was updated
@@ -212,7 +243,7 @@ export class StudyEngine {
     // Persist the reverted state back to database
     if (c1.fsrs.length > 0) {
       await db.cards.update(c1.id, {
-        fsrs: snapshot(c1.fsrs),
+        fsrs: c1.fsrs,
         due: c1.fsrs[0].due,
         state: c1.fsrs[0].state
       })
@@ -226,6 +257,30 @@ export class StudyEngine {
     }
 
     return c1
+  }
+
+  // Compact the finished session into history (per-day aggregate)
+  updateHistory() {
+    const day = this.store.getState().day
+    if (!day) return
+    const res = { raw: 0, learning: 0, review: 0, relearning: 0 }
+    this.pile.done.forEach(card => {
+      res[card.state?.toLowerCase() || 'raw']++
+    })
+
+    const totalCards = this.pile.raw.length + this.pile.review.length + this.pile.done.length
+    const timeTracking = this.timeTracking || {}
+    const completion = Math.round(this.pile.done.length / (totalCards + 0.01))
+    this.store.setState((s) => ({
+      history: {
+        ...s.history,
+        [day]: { ...res, ...timeTracking, completion }
+      }
+    }))
+  }
+
+  finish() {
+    this.updateHistory()
   }
 }
 

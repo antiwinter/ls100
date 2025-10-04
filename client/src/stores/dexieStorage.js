@@ -32,14 +32,7 @@ export const createDexieStorage = () => {
           // ignore parse error: data may not be json (shouldn't happen for persist)
         }
         const { topic, shardId } = meta
-        await db.kv.put({
-          id: name,
-          data,
-          topic,
-          shardId,
-          version,
-          updated_at: new Date().toISOString()
-        })
+        await db.kv.put({ id: name, data, topic, shardId, version })
       } catch (err) {
         log.warn('dexieStorage.setItem failed', { name }, err)
       }

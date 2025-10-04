@@ -3,7 +3,6 @@ import { Box, Typography, Alert, Button } from '@mui/joy'
 import { FixedSizeList as List } from 'react-window'
 import anki from '../core/index.js'
 import { AnkiSessionStore } from '../core/sessionStore.js'
-import { useSnapshot } from 'valtio'
 import { Toolbar } from './overlay/Toolbar.jsx'
 import { AnkiStudy } from './AnkiStudy.jsx'
 import { shardDb } from '../../store.js'
@@ -55,8 +54,7 @@ export const AnkiReader = ({ shardId, onBack }) => {
 
   // Session store: react to previewSide
   const store = AnkiSessionStore(shardId)
-  const snap = useSnapshot(store)
-  const previewSide = snap.previewSide || 'back'
+  const previewSide = store(state => state.previewSide || 'back')
 
   // Fetch shard once per shardId
   useEffect(() => {
@@ -81,7 +79,7 @@ export const AnkiReader = ({ shardId, onBack }) => {
 
     // Save bundleIds to session
     const bundleIds = shard.meta.bundles.map(b => b.id)
-    store.bundleIds = bundleIds
+    store.setState({ bundleIds })
 
     let alive = true
     ;(async () => {

@@ -17,7 +17,7 @@ export const getStore = (scope, createSlice, options = {}) => {
 
   const storage = createDexieStorage()
   const { topic, shardId } = scope
-  const { partialize } = options
+  const { partialize = (state) => state } = options
 
   const store = create(
     persist(
