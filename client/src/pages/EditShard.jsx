@@ -12,7 +12,7 @@ import {
   IconButton,
   Link
 } from '@mui/joy'
-import { ArrowBack, Upload, Link as LinkIcon } from '@mui/icons-material'
+import { ArrowBack, Upload } from '@mui/icons-material'
 import { AppDialog } from '../components/AppDialog'
 import { log } from '../utils/logger'
 import { shardApi } from '../shards/shardApi'
@@ -27,11 +27,10 @@ import {
 export const EditShard = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const fileInputRef = useRef(null)
+  const inputShard = location.state?.shard
 
   // Get data passed from navigation state
   const { mode = 'create', detectedInfo = null } = location.state || {}
-  const navigationShardData = location.state?.shardData
 
   // Set dynamic page title based on mode
   usePageTitle(
@@ -42,39 +41,34 @@ export const EditShard = () => {
   )
 
   // Unified shard data structure for both create and edit modes
-  const [shardData, _setShardData] = useState({
-    name: '',
-    description: '',
-    cover: null,
-    type: navigationShardData?.type || detectedInfo?.shardType || null,
-    meta: {}
-  })
-  const [transientData, setTransientData] = useState(null) // Transient data not persisted
+  const [draft, setDraft] = useState(null)
 
-  // Helper to normalize shard data with fallbacks
-  const setShardData = (shard) => {
-    _setShardData({
-      id: shard.id,
-      name: shard.name || '',
-      description: shard.description || '',
-      cover: shard.cover || null,
-      type: shard.type || null,
-      public: shard.public !== undefined ? shard.public : false, // Default to private
-      meta: shard.meta || {}
-    })
-  }
+  const [transientData, setTransientData] = useState(null) // Transient data not persisted
   const [saving, setSaving] = useState(false)
   const [showDescriptionDialog, setShowDescriptionDialog] = useState(false)
   const [showCoverDialog, setShowCoverDialog] = useState(false)
-  const [coverUrl, setCoverUrl] = useState('')
-  const engineValid = useRef(false)
-  const [draftShardId, setDraftShardId] = useState(null)
 
-  const shardId = navigationShardData?.id || draftShardId
+  const baseDraft = useRef(null)
+  const isModified = useRef(false)
+  const fileInputRef = useRef(null)
+  const uploadRef = useRef(null) // { file, filename } for pending upload
+  const originalCoverRef = useRef(null) // Track original cover for deletion
+
+  useEffect(() => {
+    if (typeof draft !== 'object') return
+
+    const coming = JSON.stringify(draft)
+    if (!baseDraft.current) {
+      baseDraft.current = coming
+      originalCoverRef.current = draft.cover
+    }
+    else if (baseDraft.current !== coming)
+      isModified.current = true
+  }, [draft])
 
   useEffect(() => {
     const init = async () => {
-      log.info('🚀 EditShard init:', { mode, hasDetectedInfo: !!detectedInfo, hasNavigationShardData: !!navigationShardData })
+      log.info('🚀 EditShard init:', { mode, hasDetectedInfo: !!detectedInfo, hasNavigationDraft: !!inputShard })
 
       if (mode === 'create' && detectedInfo) {
         // Create mode: create draft shard immediately to get valid ID
@@ -82,46 +76,33 @@ export const EditShard = () => {
                            detectedInfo?.filename?.replace(/\.[^/.]+$/, '') ||
                            'New Shard'
 
-        const draftId = await shardApi.create({
+        const d = await shardApi.create({
           name: '__draft__',
-          description: '',
-          type: detectedInfo.shardType,
-          public: false,
-          meta: {}
+          type: detectedInfo.shardType
         })
 
-        setDraftShardId(draftId)
-        log.info('✅ Created draft shard:', draftId)
-
-        setShardData({
-          id: draftId,
-          name: defaultName,
-          description: '',
-          type: detectedInfo.shardType,
-          public: false,
-          meta: {}
+        setDraft({
+          ...d,
+          name: defaultName
         })
-      } else if (mode === 'edit' && navigationShardData) {
+      } else if (mode === 'edit' && inputShard) {
         try {
-          log.info('📝 Edit mode - loading shard details for ID:', navigationShardData.id)
+          log.info('📝 Edit mode - loading shard details for ID:', inputShard.id)
 
           // Load from local store with BE fallback
-          const shard = await shardApi.read(navigationShardData.id)
+          const d = await shardApi.read(inputShard.id)
 
-          if (!shard) {
-            log.error('❌ Shard not found:', navigationShardData.id)
-            setShardData(navigationShardData)
+          if (!d) {
+            log.error('❌ Shard not found:', inputShard)
+            setDraft('error')
             return
           }
 
-          log.info('🔍 Loaded shard data:', shard)
-          setShardData(shard)
-
-          // Mark engine as valid for existing shards (already have valid data)
-          engineValid.current = true
+          log.info('🔍 Loaded shard data:', d)
+          setDraft(d)
         } catch (error) {
           log.error('❌ Failed to fetch shard details:', error)
-          setShardData(navigationShardData)
+          setDraft('error')
         }
       } else {
         log.warn('⚠️ Init skipped - unhandled case')
@@ -135,37 +116,42 @@ export const EditShard = () => {
   const handleSave = async () => {
     setSaving(true)
     try {
-      log.info('💾 Saving shard data:', shardData)
+      log.info('💾 Saving shard:', draft)
 
-      if (shardData.cover?.startsWith('http')) {
-        // User pasted HTTP URL - fetch and store now
-        log.info('📥 Fetching cover from URL:', shardData.cover)
-        const response = await fetch(shardData.cover)
+      // Delete old cover if changed
+      const old = originalCoverRef.current
+      if (old?.startsWith('/oss/') && old !== draft.cover) {
+        const nvid = old.replace('/oss/', '')
+        await shardApi.deleteFile(draft.id, nvid)
+        log.info('🗑️ Deleted old cover:', nvid)
+      }
+
+      // Handle new cover upload
+      let cover = draft.cover
+      let { blob, filename } = uploadRef.current || {}
+
+      if (cover?.startsWith('http')) {
+        // Fetch HTTP URL and upload
+        log.info('📥 Fetching cover from URL:', draft.cover)
+        const response = await fetch(draft.cover)
         if (!response.ok) {
           throw new Error(`Failed to fetch cover: ${response.statusText}`)
         }
-        shardData.coverFile = await response.blob()
-        log.info('✅ Cover stored:', shardData.cover)
+        blob = await response.blob()
+        filename = cover
       }
 
-      if (shardData.coverFile) {
-        const nvId = await shardApi.addFile(
-          shardId,
-          shardData.coverFilename || shardData.cover, // keep original filename or url
-          shardData.coverFile
-        )
-        shardData.cover = `/oss/${nvId}`
-        delete shardData.coverFile
-        delete shardData.coverFilename
-        log.info('✅ Cover stored:', nvId)
+      if (blob) {
+        const nvid = await shardApi.addFile(draft.id, filename, blob)
+        cover = `/oss/${nvid}`
       }
 
-      // Process uploads and prepare shardData (pass transient data separately)
-      await engineSaveData(shardData, transientData)
+      // Process engine data
+      await engineSaveData(draft, transientData)
 
-      // Update shard (both create and edit modes update the existing shard)
-      await shardApi.update(shardId, shardData)
-      log.info('✅ Shard saved:', shardId)
+      // Update shard
+      await shardApi.update(draft.id, { ...draft, cover })
+      log.info('✅ Shard saved:', draft.id)
 
       // Navigate back to home
       navigate('/')
@@ -178,10 +164,10 @@ export const EditShard = () => {
 
   const handleBack = async () => {
     // Clean up draft shard on cancel
-    if (mode === 'create' && draftShardId) {
+    if (mode === 'create' && draft?.id) {
       try {
-        await shardApi.delete(draftShardId)
-        log.info('🗑️ Deleted draft shard:', draftShardId)
+        await shardApi.delete(draft?.id)
+        log.info('🗑️ Deleted draft shard:', draft)
       } catch (error) {
         log.warn('Failed to delete draft shard:', error)
       }
@@ -190,36 +176,26 @@ export const EditShard = () => {
   }
 
   const handleCoverUpload = (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const blob = e.target.files?.[0]
+    if (!blob) return
 
-    const url = URL.createObjectURL(file)
-    _setShardData(prev => ({ ...prev, cover: url, coverFile: file, coverFilename: file.name }))
-    setShowCoverDialog(false)
-  }
-
-  const handleCoverUrl = () => {
-    const url = coverUrl.trim()
-    if (!url) return
-
-    // Just set the URL directly, fetch on save
-    _setShardData(prev => ({ ...prev, cover: url }))
-    setCoverUrl('')
+    uploadRef.current = { blob, filename: blob.name }
+    setDraft(d => ({ ...d, cover: URL.createObjectURL(blob) }))
     setShowCoverDialog(false)
   }
 
   const resetCover = () => {
-    _setShardData(prev => ({ ...prev, cover: null, coverFile: null }))
+    uploadRef.current = null
+    setDraft(d => ({ ...d, cover: null }))
     setShowCoverDialog(false)
   }
 
   // Separate handlers for persistent meta and transient data
   const handleMetaChange = useCallback((metaUpdates) => {
-    _setShardData(x => ({
-      ...x,
-      meta: { ...x.meta, ...metaUpdates }
+    setDraft(d => ({
+      ...d,
+      meta: { ...d.meta, ...metaUpdates }
     }))
-    engineValid.current = true
   }, [])
 
   const handleDataChange = useCallback((data) => {
@@ -227,11 +203,32 @@ export const EditShard = () => {
   }, [])
 
   const getShardTypeDisplayInfo = () => {
-    // Get type info from current shardData
-    return shardData.type ? engineGetTag(shardData.type) : { displayName: 'Unknown', color: '#666' }
+    // Get type info from current draft
+    return draft?.type ? engineGetTag(draft.type) : { displayName: 'Unknown', color: '#666' }
   }
 
   const shardTypeInfo = getShardTypeDisplayInfo()
+
+  // Error state
+  if (draft === 'error') {
+    return (
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Stack spacing={2} alignItems="center">
+          <Typography level="h4" color="danger">Failed to load shard</Typography>
+          <Button variant="outlined" onClick={handleBack}>Go Back</Button>
+        </Stack>
+      </Box>
+    )
+  }
+
+  // Loading state
+  if (!draft) {
+    return (
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Typography level="body-lg">Loading...</Typography>
+      </Box>
+    )
+  }
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.body' }}>
@@ -289,16 +286,16 @@ export const EditShard = () => {
                 </Chip>
               </Stack>
               <Input
-                value={shardData.name}
-                onChange={(e) => _setShardData(prev => ({ ...prev, name: e.target.value }))}
+                value={draft.name}
+                onChange={(e) => setDraft(d => ({ ...d, name: e.target.value }))}
                 placeholder="Enter shard name"
                 size="sm"
                 sx={{ mb: 0.5 }}
               />
               {/* Description - tightly coupled with name input */}
-              {shardData.description ? (
+              {draft.description ? (
                 <Typography level="body-sm" component="div">
-                  {shardData.description}{' '}
+                  {draft.description}{' '}
                   <Link
                     component="button"
                     level="body-sm"
@@ -339,9 +336,9 @@ export const EditShard = () => {
               }}
               onClick={() => setShowCoverDialog(true)}
             >
-              {shardData.cover ? (
+              {draft.cover ? (
                 <img
-                  src={shardData.cover}
+                  src={draft.cover}
                   alt="Cover preview"
                   style={{
                     width: '100%',
@@ -351,8 +348,8 @@ export const EditShard = () => {
                   }}
                 />
               ) : (
-                shardData.type ? (
-                  engineGenCover(shardData)
+                draft.type ? (
+                  engineGenCover(draft)
                 ) : (
                   <Box sx={{
                     fontSize: '11px',
@@ -369,28 +366,28 @@ export const EditShard = () => {
           {/* Shard-Specific Configuration */}
           <Box>
             {(() => {
-              log.info('🎯 EditShard render editor:', { type: shardData.type, mode, shardData })
-              const EditorComponent = engineGetEditor(shardData.type)
+              log.info('🎯 EditShard render editor:', { type: draft.type, mode, draft })
+              const EditorComponent = engineGetEditor(draft.type)
               log.info('🔍 EditorComponent:', EditorComponent)
 
               if (!EditorComponent) {
-                log.warn('⚠️ No editor available for type:', shardData.type)
+                log.warn('⚠️ No editor available for type:', draft.type)
                 return (
                   <Typography level="body-sm" color="warning">
-                    No editor available for {shardData.type} shards
+                    No editor available for {draft.type} shards
                   </Typography>
                 )
               }
-              if (!shardData?.id) {
+              if (!draft?.id) {
                 log.debug('shard not ready, skip loading compoennt editor')
                 return
               }
 
-              log.info('✅ Rendering editor:', { mode, shardId: shardData.id, hasDetectedInfo: !!detectedInfo })
+              log.info('✅ Rendering editor:', { mode, draft, hasDetectedInfo: !!detectedInfo })
               return (
                 <EditorComponent
                   mode={mode}
-                  shard={shardData}
+                  shard={draft}
                   detectedInfo={detectedInfo}
                   onMetaChange={handleMetaChange}
                   onDataChange={handleDataChange}
@@ -427,7 +424,7 @@ export const EditShard = () => {
           size="sm"
           onClick={handleSave}
           loading={saving}
-          disabled={!shardData.name.trim() || !engineValid.current}
+          disabled={!draft.name.trim() || !isModified.current}
         >
           {mode === 'create' ? 'Create Shard' : 'Save Changes'}
         </Button>
@@ -442,8 +439,8 @@ export const EditShard = () => {
       >
         <Stack spacing={2}>
           <Textarea
-            value={shardData.description}
-            onChange={(e) => _setShardData(prev => ({ ...prev, description: e.target.value }))}
+            value={draft.description}
+            onChange={(e) => setDraft(d => ({ ...d, description: e.target.value }))}
             placeholder="Describe this learning content..."
             minRows={3}
             maxRows={6}
@@ -491,22 +488,14 @@ export const EditShard = () => {
             <Stack direction="row" spacing={1}>
               <Input
                 placeholder="Or paste image URL..."
-                value={coverUrl}
-                onChange={(e) => setCoverUrl(e.target.value)}
+                value={draft.cover}
+                onChange={(e) => setDraft(d => ({ ...d, cover: e.target.value }))}
                 size="sm"
                 sx={{ flex: 1 }}
               />
-              <Button
-                size="sm"
-                startDecorator={<LinkIcon />}
-                onClick={handleCoverUrl}
-                disabled={!coverUrl.trim()}
-              >
-                Set
-              </Button>
             </Stack>
 
-            {shardData.cover && (
+            {draft.cover && (
               <Button
                 variant="outlined"
                 color="danger"

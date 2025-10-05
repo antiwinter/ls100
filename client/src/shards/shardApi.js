@@ -57,6 +57,23 @@ db.kv?.hook('updating', (modifications) => {
   modifications.updated_at = new Date().toISOString()
 })
 
+function formalize(draft) {
+  const shard = {
+    type: draft.type,
+    name: draft.name,
+    description: draft.description || '',
+    cover: draft.cover || '',
+    public: draft.public || false,
+    owner_id: draft.owner_id,
+    meta: draft.meta || {},
+    created_at: draft.created_at,
+    updated_at: draft.updated_at
+  }
+
+  // TODO: check if meta is bloated, return null if not valid
+  return shard
+}
+
 export const shardApi = {
   // READ: local only
   async read(id) {
@@ -122,22 +139,20 @@ export const shardApi = {
   },
 
   // CREATE: local only
-  async create(shard) {
-    const id = genId('shard', Date.now().toString())
-    const newShard = {
-      ...shard,
-      id,
-      meta: shard.meta || {}
+  async create(draft) {
+    const shard = {
+      ...formalize(draft),
+      id: genId('shard', Date.now().toString())
     }
 
-    await db.shards.add(newShard)
-    log.info('Shard created locally', { id, type: shard.type })
-    return id
+    await db.shards.add(shard)
+    log.info('Shard created', shard)
+    return shard
   },
 
   // UPDATE: local only
-  async update(id, updates) {
-    await db.shards.update(id, updates)
+  async update(id, draft) {
+    await db.shards.update(id, { ...formalize(draft), id })
     log.debug('Shard updated locally', { id })
   },
 
