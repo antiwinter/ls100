@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import {
   Box,
   Typography,
@@ -15,30 +15,24 @@ export const AnkiShardEditor = ({
   onMetaChange,
   onDataChange
 }) => {
-  log.info('🎨 AnkiShardEditor render:', { mode, shard, detectedInfo })
+  const initialized = useRef(false)
 
   useEffect(() => {
-    log.info('🔄 AnkiShardEditor useEffect triggered:', { mode, hasDetectedInfo: !!detectedInfo, hasShard: !!shard })
+    if (initialized.current) return
 
     if (mode === 'edit' && shard?.meta?.bundles) {
-      log.info('📝 Edit mode: using existing shard data:', shard.meta.bundles)
       return // In edit mode, just render - don't call callbacks
     }
 
-    if (!detectedInfo) {
-      log.info('⏭️ No detectedInfo, skipping')
-      return
-    }
+    if (!detectedInfo) return
 
     const filename = detectedInfo.filename || 'unknown.apkg'
     const parsed = detectedInfo.metadata?.parsedData
 
     if (!parsed) {
-      log.error('❌ No parsed data in detectedInfo')
+      log.error('No parsed data in detectedInfo')
       return
     }
-
-    log.info('📦 Creating bundle from detectedInfo:', { filename, parsed })
 
     const bundleId = genId('bundle', filename + (parsed.deckName || parsed.name || ''))
 
@@ -59,7 +53,8 @@ export const AnkiShardEditor = ({
       }]
     })
 
-    log.info('✅ Anki import initialized:', parsed.name)
+    log.info('Anki import initialized:', parsed.name)
+    initialized.current = true
   }, [mode, shard, detectedInfo, onMetaChange, onDataChange])
 
   return (

@@ -49,7 +49,7 @@ export const EditShard = () => {
   const [showCoverDialog, setShowCoverDialog] = useState(false)
 
   const baseDraft = useRef(null)
-  const isModified = useRef(false)
+  const [isModified, setIsModified] = useState(false)
   const fileInputRef = useRef(null)
   const uploadRef = useRef(null) // { file, filename } for pending upload
   const originalCoverRef = useRef(null) // Track original cover for deletion
@@ -61,9 +61,12 @@ export const EditShard = () => {
     if (!baseDraft.current) {
       baseDraft.current = coming
       originalCoverRef.current = draft.cover
+      log.debug('Set baseline draft')
     }
-    else if (baseDraft.current !== coming)
-      isModified.current = true
+    else if (baseDraft.current !== coming) {
+      setIsModified(true)
+      log.debug('Draft modified, enabled save button')
+    }
   }, [draft])
 
   useEffect(() => {
@@ -420,7 +423,7 @@ export const EditShard = () => {
           size="sm"
           onClick={handleSave}
           loading={saving}
-          disabled={!draft.name.trim() || !isModified.current}
+          disabled={!draft.name.trim() || !isModified}
         >
           {mode === 'create' ? 'Create Shard' : 'Save Changes'}
         </Button>
