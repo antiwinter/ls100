@@ -31,6 +31,7 @@ export const EditShard = () => {
 
   // Get data passed from navigation state
   const { mode = 'create', detectedInfo = null } = location.state || {}
+  const navigationShardData = location.state?.shardData
 
   // Set dynamic page title based on mode
   usePageTitle(
@@ -45,6 +46,7 @@ export const EditShard = () => {
     name: '',
     description: '',
     cover: null,
+    type: navigationShardData?.type || detectedInfo?.shardType || null,
     meta: {}
   })
   const [transientData, setTransientData] = useState(null) // Transient data not persisted
@@ -68,12 +70,12 @@ export const EditShard = () => {
   const engineValid = useRef(false)
   const [draftShardId, setDraftShardId] = useState(null)
 
-  // Get shard data from navigation or URL
-  const navigationShardData = location.state?.shardData
   const shardId = navigationShardData?.id || draftShardId
 
   useEffect(() => {
     const init = async () => {
+      log.info('🚀 EditShard init:', { mode, hasDetectedInfo: !!detectedInfo, hasNavigationShardData: !!navigationShardData })
+
       if (mode === 'create' && detectedInfo) {
         // Create mode: create draft shard immediately to get valid ID
         const defaultName = detectedInfo?.metadata?.suggestedName ||
@@ -121,6 +123,8 @@ export const EditShard = () => {
           log.error('❌ Failed to fetch shard details:', error)
           setShardData(navigationShardData)
         }
+      } else {
+        log.warn('⚠️ Init skipped - unhandled case')
       }
     }
 
@@ -365,16 +369,24 @@ export const EditShard = () => {
           {/* Shard-Specific Configuration */}
           <Box>
             {(() => {
+              log.info('🎯 EditShard render editor:', { type: shardData.type, mode, shardData })
               const EditorComponent = engineGetEditor(shardData.type)
+              log.info('🔍 EditorComponent:', EditorComponent)
 
               if (!EditorComponent) {
+                log.warn('⚠️ No editor available for type:', shardData.type)
                 return (
                   <Typography level="body-sm" color="warning">
                     No editor available for {shardData.type} shards
                   </Typography>
                 )
               }
+              if (!shardData?.id) {
+                log.debug('shard not ready, skip loading compoennt editor')
+                return
+              }
 
+              log.info('✅ Rendering editor:', { mode, shardId: shardData.id, hasDetectedInfo: !!detectedInfo })
               return (
                 <EditorComponent
                   mode={mode}

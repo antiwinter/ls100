@@ -102,7 +102,7 @@ export const SubtitleShardEditor = ({
   onDataChange
 }) => {
   const fileInputRef = useRef(null)
-  const [languages, setLanguages] = useState(shard?.meta?.languages)
+  const [languages, setLanguages] = useState(shard?.meta?.languages || [])
   const [files, setFiles] = useState({}) // Accumulated files: { filename: blob, ... }
   const [errorDialog, setErrorDialog] = useState({ open: false, message: '' })
   const [activeTooltip, setActiveTooltip] = useState(null)

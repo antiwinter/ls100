@@ -221,7 +221,7 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
     navigate('/edit-shard', {
       state: {
         mode: 'edit',
-        shard
+        shardData: shard
       }
     })
   }

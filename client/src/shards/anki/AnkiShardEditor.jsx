@@ -9,18 +9,36 @@ import { log } from '../../utils/logger'
 import { genId } from '../../utils/idGenerator.js'
 
 export const AnkiShardEditor = ({
-  mode: _mode = 'create',
-  shard: _shard = null,
+  mode = 'create',
+  shard = null,
   detectedInfo = null,
   onMetaChange,
   onDataChange
 }) => {
+  log.info('🎨 AnkiShardEditor render:', { mode, shard, detectedInfo })
+
   useEffect(() => {
-    if (!detectedInfo) return
+    log.info('🔄 AnkiShardEditor useEffect triggered:', { mode, hasDetectedInfo: !!detectedInfo, hasShard: !!shard })
+
+    if (mode === 'edit' && shard?.meta?.bundles) {
+      log.info('📝 Edit mode: using existing shard data:', shard.meta.bundles)
+      return // In edit mode, just render - don't call callbacks
+    }
+
+    if (!detectedInfo) {
+      log.info('⏭️ No detectedInfo, skipping')
+      return
+    }
 
     const filename = detectedInfo.filename || 'unknown.apkg'
     const parsed = detectedInfo.metadata?.parsedData
-    if (!parsed) return
+
+    if (!parsed) {
+      log.error('❌ No parsed data in detectedInfo')
+      return
+    }
+
+    log.info('📦 Creating bundle from detectedInfo:', { filename, parsed })
 
     const bundleId = genId('bundle', filename + (parsed.deckName || parsed.name || ''))
 
@@ -41,8 +59,8 @@ export const AnkiShardEditor = ({
       }]
     })
 
-    log.info('Anki import initialized:', parsed.name)
-  }, [detectedInfo, onMetaChange, onDataChange])
+    log.info('✅ Anki import initialized:', parsed.name)
+  }, [mode, shard, detectedInfo, onMetaChange, onDataChange])
 
   return (
     <Stack spacing={3}>
