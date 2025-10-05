@@ -55,7 +55,7 @@ export const EditShard = () => {
   const originalCoverRef = useRef(null) // Track original cover for deletion
 
   useEffect(() => {
-    if (typeof draft !== 'object') return
+    if (!draft || typeof draft !== 'object') return
 
     const coming = JSON.stringify(draft)
     if (!baseDraft.current) {
@@ -366,24 +366,20 @@ export const EditShard = () => {
           {/* Shard-Specific Configuration */}
           <Box>
             {(() => {
-              log.info('🎯 EditShard render editor:', { type: draft.type, mode, draft })
               const EditorComponent = engineGetEditor(draft.type)
-              log.info('🔍 EditorComponent:', EditorComponent)
 
               if (!EditorComponent) {
-                log.warn('⚠️ No editor available for type:', draft.type)
                 return (
                   <Typography level="body-sm" color="warning">
                     No editor available for {draft.type} shards
                   </Typography>
                 )
               }
+
               if (!draft?.id) {
-                log.debug('shard not ready, skip loading compoennt editor')
-                return
+                return null
               }
 
-              log.info('✅ Rendering editor:', { mode, draft, hasDetectedInfo: !!detectedInfo })
               return (
                 <EditorComponent
                   mode={mode}
