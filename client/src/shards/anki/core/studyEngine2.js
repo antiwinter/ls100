@@ -6,24 +6,17 @@ import { TimeTracker } from '../../../utils/timeTracker.js'
 
 const fsrs = new FSRS()
 
-function mix(review, fresh) {
-  if ((review?.length || 0) === 0) return [...fresh]
-  if ((fresh?.length || 0) === 0) return [...review]
+function mix(dst, src) {
+  if (!dst?.length || !src?.length) return
 
-  // Distribute new across gaps between due-ordered review, preserving review order
-  const buckets = Array(review.length + 1).fill(0).map(() => [])
-  for (const c of fresh) {
-    const idx = Math.floor(Math.random() * buckets.length)
-    buckets[idx].push(c)
-  }
+  // N random positions
+  const pos = _.shuffle(_.range(0, dst.length + 1))
+    .slice(0, src.length)     // Take first N positions (N = src.length)
+    .sort((a, b) => a - b)    // Sort ascending for sequential insertion
 
-  const out = []
-  for (let i = 0; i < review.length; i++) {
-    if (buckets[i].length) out.push(...buckets[i])
-    out.push(review[i])
-  }
-  if (buckets[review.length].length) out.push(...buckets[review.length])
-  return out
+  src.forEach((x, i) => {
+    dst.splice(pos[i] + i, 0, x)  // +i adjusts for previous insertions
+  })
 }
 
 export class StudyEngine2 {
@@ -107,14 +100,13 @@ export class StudyEngine2 {
 
     // Build queue per strategy
     const mode = this.prefs.newReviewOrder || 'mixed'
-    let q = []
+    let q = [...review]
     if (mode === 'new-first') {
-      q = [...fresh, ...review]
+      q = [...fresh, ...q]
     } else if (mode === 'review-first') {
-      q = [...review, ...fresh]
-    } else {
-      q = mix(review, fresh)
-    }
+      q.push(...fresh)
+    } else
+      mix(q, fresh)
 
     // Sentinel marks end-of-session when it reaches the head
     q.push(null)
