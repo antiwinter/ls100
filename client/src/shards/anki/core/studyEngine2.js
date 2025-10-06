@@ -1,8 +1,8 @@
+import _ from 'lodash'
 import { FSRS, createEmptyCard } from 'ts-fsrs'
 import db from './db.js'
 import { log } from '../../../utils/logger.js'
-import _ from 'lodash'
-import { ThreeSixty } from '@mui/icons-material'
+import { TimeTracker } from '../../../utils/timeTracker.js'
 
 const fsrs = new FSRS()
 
@@ -32,8 +32,20 @@ export class StudyEngine2 {
     this.store = store
 
     Object.assign(this, store.getState())
-    // fixme: time tracking
+
+    // time tracking (auto-open, auto-idle)
+    this._trackTime = this._trackTime.bind(this)
+    this._tt = new TimeTracker({
+      ttd: this.ttd,
+      onSlice: this._trackTime
+    })
+
     // history management, may be not here
+  }
+
+  _trackTime(_slice, ttd) {
+    this.ttd = ttd
+    this._flush(['ttd'])
   }
 
   _flush(keys) {
@@ -41,7 +53,7 @@ export class StudyEngine2 {
     for (const k of keys) {
       payload[k] =
         // dry the queue before _flushing
-       k === 'queue' ? this[k].map(c => c?.id)
+       k === 'queue' ? this[k].map(c => c?.id ?? null)
          : this[k]
     }
     this.store.setState(payload)
@@ -118,6 +130,9 @@ export class StudyEngine2 {
     ) {
       await this._buildQueue()
       this.day = today
+      // reset time tracking for new day
+      this._tt?.destroy()
+      this._tt = new TimeTracker({ onSlice: this._trackTime })
       this._flush(['day', 'queue'])
     }
   }
@@ -137,7 +152,7 @@ export class StudyEngine2 {
 
   // Stamp draw time for response_time tracking; UI may call this when showing the head
   draw() {
-    // don't polute the queue
+    // don't pollute the queue
     this._drawTs = Date.now()
     return this.head()
   }
@@ -145,7 +160,7 @@ export class StudyEngine2 {
   async rate(rating) {
     const head = this.head()
     if (!head) {
-      log.warn('No card to rate, shoudn\'t call')
+      log.warn('No card to rate, shouldn\'t call')
       return
     }
 
@@ -183,11 +198,15 @@ export class StudyEngine2 {
         state: tail.fsrs[0]?.state || 'New'
       })
     } else
-      log.warn('No FSRS history to revert, shoudn\'t call')
+      log.warn('No FSRS history to revert, shouldn\'t call')
 
     this.queue.unshift(this.queue.pop())
     this._flush(['queue'])
     return tail
+  }
+
+  isFinished() {
+    return Array.isArray(this.queue) && this.queue[0] === null
   }
 }
 
@@ -196,7 +215,8 @@ export async function createEngine(prefs, store) {
   const eng = new StudyEngine2(prefs, store)
   // hydrate the queue
   if (Array.isArray(eng.queue))
-    eng.queue = await Promise.all(eng.queue.map(async c => await db.cards.get(c.id)))
+    eng.queue = await Promise.all(eng.queue.map(async c =>
+      c?.id ? await db.cards.get(c.id) : null))
 
   await eng._bump()
   log.info('StudyEngine2 initialized')

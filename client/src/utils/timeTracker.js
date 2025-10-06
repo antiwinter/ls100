@@ -1,91 +1,53 @@
-import { log } from './logger.js'
+// Minimal time tracker with fixed tick and compact ttd shape
+// ttd: { base: unix_sec, total: secs, slices: [[t0, t1], ...] }
+export class TimeTracker {
+  constructor({ ttd, onSlice, tickSec = 5, idleGapSec = 30 } = {}) {
+    this.base = ttd?.base || Math.floor(Date.now() / 1000)
+    // normalize: ensure t1 is numeric; if missing, set to t0 (zero-length to start)
+    this.slices = (ttd?.slices || []).map(([t0, t1]) => [t0 || 0, (t1 == null ? (t0 || 0) : t1)])
+    this.onSlice = onSlice
+    this._tickSec = Math.max(1, tickSec)
+    this._idleGapSec = Math.max(1, idleGapSec)
+    this._timer = null
 
-export class TimeSegments {
-  constructor(options = {}) {
-    this.segments = options.segments || []
-    this.autoIdleDetection = options.autoIdleDetection ?? true
-    this.debounceMs = options.debounceMs ?? 60 * 1000 // 1 minute default
-    this.onSegmentChange = options.onSegmentChange
-    this._visibilityHandler = null
-    this._debounceTimer = null
-
-    if (this.autoIdleDetection && typeof document !== 'undefined') {
-      this._setupVisibilityListener()
-    }
-
-    // Fire initial change to sync any restored segments
-    this.onSegmentChange?.(this.segments, this.total())
+    // periodic tick
+    this._timer = setInterval(() => this._tick(), this._tickSec * 1000)
   }
 
-  open() {
-    // Check if current tail is incomplete
-    const last = this.segments[this.segments.length - 1]
-    if (last && !last.end) {
-      log.debug('TimeSegments: segment already open')
-      return
-    }
-
-    this.segments.push({ start: Date.now(), end: null })
-    log.debug('TimeSegments: opened new segment')
-    this.onSegmentChange?.(this.segments, this.total())
-  }
-
-  close() {
-    const last = this.segments[this.segments.length - 1]
-    if (!last || last.end) {
-      log.debug('TimeSegments: no open segment to close')
-      return
-    }
-
-    last.end = Date.now()
-    log.debug('TimeSegments: closed segment')
-    this.onSegmentChange?.(this.segments, this.total())
+  _nowOffs() {
+    return Math.floor(Date.now() / 1000) - this.base
   }
 
   total() {
-    return this.segments.reduce((sum, segment) => {
-      if (segment.start && segment.end) {
-        return sum + (segment.end - segment.start)
-      } else if (segment.start && !segment.end) {
-        // Current open segment
-        return sum + (Date.now() - segment.start)
-      }
-      return sum
-    }, 0)
+    let sum = 0
+    for (const [t0, t1] of this.slices) {
+      sum += Math.max(0, (t1 - (t0 || 0)))
+    }
+    return sum
   }
 
-  defer(cb) {
-    if (this._debounceTimer) {
-      clearTimeout(this._debounceTimer)
-      this._debounceTimer = null
-    }
-    if (cb)
-      this._debounceTimer = setTimeout(() => {
-        cb()
-      }, this.debounceMs)
+  _emit(slice) {
+    this.onSlice?.(slice, { base: this.base, total: this.total(), slices: this.slices })
   }
 
-  _setupVisibilityListener() {
-    this._visibilityHandler = () => {
-      if (document.hidden) {
-        this.defer(() => this.close())
-      } else {
-        // Clear the debounce timer when becoming visible (event debouncing)
-        this.defer()
-        this.open()
-      }
+  _tick() {
+    const now = this._nowOffs()
+    const last = this.slices[this.slices.length - 1]
+
+    if (!last || (now - last[1]) >= this._idleGapSec) {
+      const s = [now, now + this._tickSec]
+      this.slices.push(s)
+      this._emit(s)
+    } else if (!document?.hidden) {
+      last[1] = now
+      this._emit(last)
     }
-    document.addEventListener('visibilitychange', this._visibilityHandler)
   }
 
   destroy() {
-    // Clear any pending timer
-    this.defer()
-
-    if (this._visibilityHandler) {
-      document.removeEventListener('visibilitychange', this._visibilityHandler)
-      this._visibilityHandler = null
+    if (this._timer) {
+      clearInterval(this._timer)
+      this._timer = null
     }
-    this.close() // Close any open segment
   }
 }
