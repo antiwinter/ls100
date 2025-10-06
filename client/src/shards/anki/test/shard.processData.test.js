@@ -24,12 +24,12 @@ describe('AnkiShard.processData', () => {
       notes: [ { id: 1, mid: '123', flds: ['Q', 'A'], tags: [] } ],
       media: {}
     }
-    const shard = { id: 's1', name: 'Test', data: { bundles: [parsed] }, metadata: {} }
+    const shard = { id: 's1', name: 'Test', data: { bundles: [parsed] }, meta: {} }
     await processData(shard)
-    expect(Array.isArray(shard.metadata.bundles)).toBe(true)
-    expect(shard.metadata.bundles.length).toBeGreaterThan(0)
-    expect(shard.metadata.bundles[0]).toHaveProperty('id')
-    expect(shard.metadata.bundles[0]).toHaveProperty('name')
+    expect(Array.isArray(shard.meta.bundles)).toBe(true)
+    expect(shard.meta.bundles.length).toBeGreaterThan(0)
+    expect(shard.meta.bundles[0]).toHaveProperty('id')
+    expect(shard.meta.bundles[0]).toHaveProperty('name')
   })
 })
 

@@ -1,26 +1,10 @@
 import { describe, test, expect, beforeEach } from 'vitest'
-import { proxy } from 'valtio'
 import db from '../core/db.js'
 import mediaManager from '../core/mediaManager.js'
-import { StudyEngine } from '../core/studyEngine.js'
+import { createEngine } from '../core/studyEngine2.js'
+import { AnkiSessionStore } from '../core/sessionStore.js'
 
-function store(init = {}) {
-  return proxy({
-    bundleIds: [], newCardOrder: 'gather', newReviewOrder: 'mixed',
-    autoBurySiblings: false, maxNewCards: 9999, maxReviewCards: 9999,
-    timeSegments: [], actionLog: [], pile: { raw: [], review: [], done: [] }, day: 0, currentCard: null,
-    ...init,
-    
-    // Mock session methods
-    start() { return true },
-    finish() {},
-    updateHistory: () => {},
-    getCurrentDay() { return Math.floor(Date.now() / (1000 * 60 * 60 * 24)) },
-    setPreferences(pref) {
-      Object.assign(this, pref || {})
-    }
-  })
-}
+let testCounter = 0
 
 async function seedWithTemplateOrd(bundleId) {
   const now = Date.now()
@@ -31,23 +15,27 @@ async function seedWithTemplateOrd(bundleId) {
   await db.cards.put({ id: 'c2', noteId, bundleId, templateOrd: 2, due: now, state: 'New', fsrs: null, created: now, modified: now })
 }
 
-describe('StudyEngine new card ordering', () => {
+describe('StudyEngine2 new card ordering', () => {
   beforeEach(async () => {
     await db.notes.clear(); await db.bundles.clear(); await db.templates.clear(); await db.cards.clear(); await mediaManager.clear()
   })
 
   test('gather preserves original order (no shuffle)', async () => {
     const b = 'b'; await seedWithTemplateOrd(b)
-    const st = store({ bundleIds: [b], newCardOrder: 'gather' })
-    const e = new StudyEngine(); await e.init(st)
-    expect(st.pile.raw.map(c => c.id)).toEqual(['c0', 'c1', 'c2'])
+    const prefs = { newCardOrder: 'gather' }
+    const store = AnkiSessionStore(`test-${++testCounter}`)
+    store.setState({ bundleIds: [b], day: null, queue: null })
+    const e = await createEngine(prefs, store)
+    expect(e.cards().map(c => c.id)).toEqual(['c0', 'c1', 'c2'])
   })
 
   test('template-random groups by templateOrd', async () => {
     const b = 'b'; await seedWithTemplateOrd(b)
-    const st = store({ bundleIds: [b], newCardOrder: 'template-random' })
-    const e = new StudyEngine(); await e.init(st)
-    const ords = st.pile.raw.map(c => c.templateOrd)
+    const prefs = { newCardOrder: 'template-random' }
+    const store = AnkiSessionStore(`test-${++testCounter}`)
+    store.setState({ bundleIds: [b], day: null, queue: null })
+    const e = await createEngine(prefs, store)
+    const ords = e.cards().map(c => c.templateOrd)
     expect(new Set(ords)).toEqual(new Set([0,1,2]))
   })
 })

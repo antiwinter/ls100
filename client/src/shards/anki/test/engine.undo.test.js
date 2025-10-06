@@ -1,26 +1,10 @@
 import { describe, test, expect, beforeEach } from 'vitest'
-import { proxy } from 'valtio'
 import db from '../core/db.js'
 import mediaManager from '../core/mediaManager.js'
-import { StudyEngine } from '../core/studyEngine.js'
+import { createEngine } from '../core/studyEngine2.js'
+import { AnkiSessionStore } from '../core/sessionStore.js'
 
-function store(init = {}) {
-  return proxy({
-    bundleIds: [], newCardOrder: 'gather', newReviewOrder: 'mixed',
-    autoBurySiblings: false, maxNewCards: 9999, maxReviewCards: 9999,
-    timeSegments: [], actionLog: [], pile: { raw: [], review: [], done: [] }, day: 0, currentCard: null,
-    ...init,
-    
-    // Mock session methods
-    start() { return true },
-    finish() {},
-    updateHistory: () => {},
-    getCurrentDay() { return Math.floor(Date.now() / (1000 * 60 * 60 * 24)) },
-    setPreferences(pref) {
-      Object.assign(this, pref || {})
-    }
-  })
-}
+let testCounter = 0
 
 async function seedSimple(bundleId) {
   const now = Date.now()
@@ -32,30 +16,33 @@ async function seedSimple(bundleId) {
   await db.cards.put({ id: 'c2', noteId: noteId2, bundleId, templateOrd: 0, due: now, state: 'New', fsrs: null, created: now, modified: now })
 }
 
-describe('StudyEngine.undo', () => {
+describe('StudyEngine2.undo', () => {
   beforeEach(async () => {
     await db.notes.clear(); await db.bundles.clear(); await db.templates.clear(); await db.cards.clear(); await mediaManager.clear()
   })
 
-  test('returns null when insufficient actions', async () => {
+  test('returns null when no actions to undo', async () => {
     const b = 'b'; await seedSimple(b)
-    const st = store({ bundleIds: [b] })
-    const e = new StudyEngine(); await e.init(st)
-    e.draw() // one draw
+    const prefs = {}
+    const store = AnkiSessionStore(`test-${++testCounter}`)
+    store.setState({ bundleIds: [b], day: null, queue: null })
+    const e = await createEngine(prefs, store)
+    e.draw() // just draw, no rate
     const res = await e.undo()
     expect(res).toBeNull()
   })
 
-  test('undo one card restores current card (avoid fragile FSRS invariants)', async () => {
+  test('undo reverts last rated card and moves it back to front', async () => {
     const b = 'b'; await seedSimple(b)
-    const st = store({ bundleIds: [b] })
-    const e = new StudyEngine(); await e.init(st)
+    const prefs = {}
+    const store = AnkiSessionStore(`test-${++testCounter}`)
+    store.setState({ bundleIds: [b], day: null, queue: null })
+    const e = await createEngine(prefs, store)
     const card1 = e.draw()
     await e.rate(3)
-    e.draw() // draw next
     const restored = await e.undo()
     expect(restored?.id).toBe(card1.id)
-    expect(st.currentCard?.id).toBe(card1.id)
+    expect(e.head()?.id).toBe(card1.id)
   })
 })
 

@@ -63,7 +63,7 @@ export const shardTypeInfo = {
 }
 
 // Process shard data - commit bundle imports and update counts
-export const processData = async (shard, data) => {
+export const processData = async (shard, data = shard?.data) => {
   try {
     // Process bundles from transient data (not persisted in shard)
     if (data?.bundles?.length > 0) {

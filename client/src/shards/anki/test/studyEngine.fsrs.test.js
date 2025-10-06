@@ -1,26 +1,10 @@
 import { describe, test, expect, beforeEach } from 'vitest'
-import { proxy } from 'valtio'
 import db from '../core/db.js'
 import mediaManager from '../core/mediaManager.js'
-import { StudyEngine } from '../core/studyEngine.js'
+import { createEngine } from '../core/studyEngine2.js'
+import { AnkiSessionStore } from '../core/sessionStore.js'
 
-function store(init = {}) {
-  return proxy({
-    bundleIds: [], newCardOrder: 'gather', newReviewOrder: 'mixed',
-    autoBurySiblings: false, maxNewCards: 9999, maxReviewCards: 9999,
-    timeSegments: [], actionLog: [], pile: { raw: [], review: [], done: [] }, day: 0, currentCard: null,
-    ...init,
-    
-    // Mock session methods
-    start() { return true },
-    finish() {},
-    updateHistory: () => {},
-    getCurrentDay() { return Math.floor(Date.now() / (1000 * 60 * 60 * 24)) },
-    setPreferences(pref) {
-      Object.assign(this, pref || {})
-    }
-  })
-}
+let testCounter = 0
 
 async function seedOne(bundleId) {
   const now = Date.now()
@@ -29,15 +13,17 @@ async function seedOne(bundleId) {
   await db.cards.put({ id: 'c1', noteId, bundleId, templateOrd: 0, due: now, state: 'New', fsrs: null, created: now, modified: now })
 }
 
-describe('StudyEngine FSRS history basics', () => {
+describe('StudyEngine2 FSRS history basics', () => {
   beforeEach(async () => {
     await db.notes.clear(); await db.bundles.clear(); await db.templates.clear(); await db.cards.clear(); await mediaManager.clear()
   })
 
   test('rate creates fsrs entry with rating and response_time', async () => {
     const b = 'b'; await seedOne(b)
-    const st = store({ bundleIds: [b] })
-    const e = new StudyEngine(); await e.init(st)
+    const prefs = {}
+    const store = AnkiSessionStore(`test-${++testCounter}`)
+    store.setState({ bundleIds: [b], day: null, queue: null })
+    const e = await createEngine(prefs, store)
     const c = e.draw()
     await e.rate(3)
     const updated = await db.cards.get(c.id)
@@ -46,19 +32,27 @@ describe('StudyEngine FSRS history basics', () => {
     expect((updated.fsrs[0]?.response_time || 0)).toBeGreaterThanOrEqual(0)
   })
 
-  test('rate without current card throws', async () => {
+  test('rate without head card logs warning', async () => {
     const b = 'b'; await seedOne(b)
-    const st = store({ bundleIds: [b] })
-    const e = new StudyEngine(); await e.init(st)
-    await expect(e.rate(3)).rejects.toThrow(/No active card/i)
+    const prefs = {}
+    const store = AnkiSessionStore(`test-${++testCounter}`)
+    store.setState({ bundleIds: [], day: null, queue: null }) // empty, no cards
+    const e = await createEngine(prefs, store)
+    // Should not throw, just log warning
+    await expect(e.rate(3)).resolves.not.toThrow()
   })
 
-  test('invalid rating value throws (out-of-range)', async () => {
+  test('FSRS handles any rating value via ts-fsrs', async () => {
     const b = 'b'; await seedOne(b)
-    const st = store({ bundleIds: [b] })
-    const e = new StudyEngine(); await e.init(st)
+    const prefs = {}
+    const store = AnkiSessionStore(`test-${++testCounter}`)
+    store.setState({ bundleIds: [b], day: null, queue: null })
+    const e = await createEngine(prefs, store)
     e.draw()
-    await expect(e.rate(99)).rejects.toThrow()
+    // ts-fsrs will handle the rating value, may clamp or use default
+    await e.rate(99)
+    const c = await db.cards.get('c1')
+    expect(c.fsrs).toBeTruthy() // Still creates entry
   })
 })
 

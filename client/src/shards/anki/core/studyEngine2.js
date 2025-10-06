@@ -6,8 +6,8 @@ import { TimeTracker } from '../../../utils/timeTracker.js'
 
 const fsrs = new FSRS()
 
-function mix(dst, src) {
-  if (!dst?.length || !src?.length) return
+function mix(dst = [], src) {
+  if (!src?.length) return
 
   // N random positions
   const pos = _.shuffle(_.range(0, dst.length + 1))
@@ -15,7 +15,7 @@ function mix(dst, src) {
     .sort((a, b) => a - b)    // Sort ascending for sequential insertion
 
   src.forEach((x, i) => {
-    dst.splice(pos[i] + i, 0, x)  // +i adjusts for previous insertions
+    dst.splice(pos[Math.min(i, pos.length - 1)] + i, 0, x)  // +i adjusts for previous insertions
   })
 }
 
@@ -155,6 +155,9 @@ export class StudyEngine2 {
       return
     }
 
+    // clamp rating (FSRS uses 1-4: Again, Hard, Good, Easy)
+    rating = Math.max(1, Math.min(4, rating))
+
     const now = new Date()
     const next = fsrs.repeat(head.fsrs?.[0] || createEmptyCard(Date.now()), now)[rating]
     head.fsrs ||= []
@@ -193,7 +196,7 @@ export class StudyEngine2 {
     } else {
       // Insert before sentinel, maintaining due order
       for (const [i, v] of this.queue.entries()) {
-        if (v.due > head.due || v === null) {
+        if (v === null || v.due > head.due) {
           idx = i
           break
         }
@@ -238,9 +241,9 @@ export class StudyEngine2 {
 log.debug('StudyEngine2 module loaded')
 export async function createEngine(prefs, store) {
   const eng = new StudyEngine2(prefs, store)
-  // Hydrate queue: convert IDs back to card objects
-  // Queue is persisted as [id1, id2, ..., null] and needs to be loaded as [card1, card2, ..., null]
-  if (Array.isArray(eng.queue))
+
+  // Hydrate queue
+  if (eng.queue)
     eng.queue = await Promise.all(eng.queue.map(async id =>
       id ? await db.cards.get(id) : null))
 

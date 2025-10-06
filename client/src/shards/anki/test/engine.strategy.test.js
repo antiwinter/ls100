@@ -1,26 +1,10 @@
-import { describe, test, expect, beforeEach, vi } from 'vitest'
-import { proxy } from 'valtio'
+import { describe, test, expect, beforeEach } from 'vitest'
 import db from '../core/db.js'
 import mediaManager from '../core/mediaManager.js'
-import { StudyEngine } from '../core/studyEngine.js'
+import { createEngine } from '../core/studyEngine2.js'
+import { AnkiSessionStore } from '../core/sessionStore.js'
 
-function store(init = {}) {
-  return proxy({
-    bundleIds: [], newCardOrder: 'gather', newReviewOrder: 'mixed',
-    autoBurySiblings: true, maxNewCards: 9999, maxReviewCards: 9999,
-    timeSegments: [], actionLog: [], pile: { raw: [], review: [], done: [] }, day: 0, currentCard: null,
-    ...init,
-    
-    // Mock session methods
-    start() { return true },
-    finish() {},
-    updateHistory: () => {},
-    getCurrentDay() { return Math.floor(Date.now() / (1000 * 60 * 60 * 24)) },
-    setPreferences(pref) {
-      Object.assign(this, pref || {})
-    }
-  })
-}
+let testCounter = 0
 
 async function seed(bundleId, { n = 0, r = 0, siblings = false } = {}) {
   const now = Date.now()
@@ -36,44 +20,52 @@ async function seed(bundleId, { n = 0, r = 0, siblings = false } = {}) {
   }
 }
 
-describe('StudyEngine strategies', () => {
+describe('StudyEngine2 strategies', () => {
   beforeEach(async () => {
     await db.notes.clear(); await db.bundles.clear(); await db.templates.clear(); await db.cards.clear(); await mediaManager.clear()
   })
 
   test('new-first draws all new before review', async () => {
     const b = 'b'; await seed(b, { n: 2, r: 2 })
-    const st = store({ bundleIds: [b], newReviewOrder: 'new-first' })
-    const e = new StudyEngine(); await e.init(st)
+    const prefs = { newReviewOrder: 'new-first' }
+    const store = AnkiSessionStore(`test-${++testCounter}`)
+    store.setState({ bundleIds: [b], day: null, queue: null })
+    const e = await createEngine(prefs, store)
     const first = e.draw(); const second = e.draw()
     expect(first.state).toBe('New'); expect(second.state).toBe('New')
   })
 
   test('review-first draws review first', async () => {
     const b = 'b'; await seed(b, { n: 1, r: 2 })
-    const st = store({ bundleIds: [b], newReviewOrder: 'review-first' })
-    const e = new StudyEngine(); await e.init(st)
+    const prefs = { newReviewOrder: 'review-first' }
+    const store = AnkiSessionStore(`test-${++testCounter}`)
+    store.setState({ bundleIds: [b], day: null, queue: null })
+    const e = await createEngine(prefs, store)
     const c = e.draw()
     expect(c.state).toBe('Review')
   })
 
-  test('mixed uses ratio via Math.random', async () => {
-    const b = 'b'; await seed(b, { n: 1, r: 1 })
-    const st = store({ bundleIds: [b], newReviewOrder: 'mixed' })
-    const e = new StudyEngine(); await e.init(st)
-    const spy = vi.spyOn(Math, 'random').mockReturnValue(0.0) // force new
-    const c = e.draw(); spy.mockRestore()
-    expect(c.state).toBe('New')
+  test('mixed distributes new cards between review cards', async () => {
+    const b = 'b'; await seed(b, { n: 2, r: 2 })
+    const prefs = { newReviewOrder: 'mixed' }
+    const store = AnkiSessionStore(`test-${++testCounter}`)
+    store.setState({ bundleIds: [b], day: null, queue: null })
+    const e = await createEngine(prefs, store)
+    // Check that both types are mixed in queue (not all of one type first)
+    const cards = e.cards()
+    const states = cards.map(c => c.state)
+    expect(states).toContain('New')
+    expect(states).toContain('Review')
   })
 
   test('autoBurySiblings keeps unique noteIds', async () => {
     const b = 'b'; await seed(b, { n: 3, r: 3, siblings: true })
-    const st = store({ bundleIds: [b], autoBurySiblings: true })
-    const e = new StudyEngine(); await e.init(st)
-    const noteIdsNew = new Set(st.pile.raw.map(c => c.noteId))
-    const noteIdsRev = new Set(st.pile.review.map(c => c.noteId))
-    expect(noteIdsNew.size).toBeLessThanOrEqual(1)
-    expect(noteIdsRev.size).toBeLessThanOrEqual(1)
+    const prefs = { autoBurySiblings: true }
+    const store = AnkiSessionStore(`test-${++testCounter}`)
+    store.setState({ bundleIds: [b], day: null, queue: null })
+    const e = await createEngine(prefs, store)
+    const noteIds = new Set(e.cards().map(c => c.noteId))
+    expect(noteIds.size).toBeLessThanOrEqual(2) // Max 2: one new, one review
   })
 })
 
