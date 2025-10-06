@@ -180,6 +180,21 @@ export class StudyEngine2 {
       state: head.fsrs[0].state
     })
 
+    // Update per-day history bound to bundle
+    const bundleId = head.bundleId
+    const rkey = String(rating)
+    const h = (await db.history.get([bundleId, this.day])) || {
+      bundleId,
+      day: this.day,
+      studied: 0,
+      ratings: {}
+    }
+    h.studied += 1
+    h.ratings[rkey] = (h.ratings[rkey] || 0) + 1
+    // Sync time only on rate
+    h.ttd = this.ttd
+    await db.history.put(h)
+
     // Push to tail; sentinel will drift toward head and end session
     this.queue.push(this.queue.shift())
     this._flush(['queue'])

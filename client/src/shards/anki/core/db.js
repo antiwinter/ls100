@@ -46,7 +46,7 @@ db.version(1).stores({
   // - fsrs: array of FSRS state history [newest, older, oldest] - source of truth
   // - created/modified: timestamps
   // Used by: studyEngine for scheduling (fast filters on due/state), ankiApi for CRUD operations
-  media: '++id, nvId, bundleId, userId, filename'
+  media: '++id, nvId, bundleId, userId, filename',
   // Media table: Tracks media ownership for OSS cleanup
   // Schema: { id, nvId, bundleId, userId, filename, created }
   // - id: auto-increment primary key for unique references
@@ -56,7 +56,18 @@ db.version(1).stores({
   // - filename: original filename for reference
   // - created: timestamp when reference was created
   // Used by: mediaManager for tracking references and OSS cleanup
+  history: '[bundleId+day], bundleId, day'
+  // History table: Per-day study aggregates per bundle
+  // Schema: { bundleId, day, studied, correct, ratings{}, ttd }
+  // - bundleId: bundle identifier to scope history
+  // - day: integer day number from engine (_getDay)
+  // - studied: number of cards rated on that day
+  // - ratings: object map of rating value -> count (e.g., { '1': 3, '2': 1, '3': 10, '4': 15 })
+  // - ttd: time tracking data { base: unix_sec, total: secs, slices: [[t0, t1], ...] }
+  // Used by: StudyEngine2 to upsert on rate; UI can read for summaries/statistics
 })
+
+// v2 removed (history moved to v1 for simplicity)
 
 // Auto-timestamps for notes
 db.notes.hook('creating', (primKey, obj) => {

@@ -15,7 +15,7 @@
 
 - [ ] cloze && Add cloze conditional detection (/^c\d+$/)
 
-- [ ] piles only save card id
-- [ ] move history to db
-- [ ] 3 queues?
-- [ ] time tracking => {basetime: 1759670192708, segments: [start_s, end_s], [start_s, end_s]}
+- [x] piles only save card id
+- [x] move history to db
+- [x] 3 queues?
+- [x] time tracking => {basetime: 1759670192708, segments: [start_s, end_s], [start_s, end_s]}
