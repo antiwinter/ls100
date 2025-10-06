@@ -54,6 +54,7 @@ export const AnkiReader = ({ shardId, onBack }) => {
 
   // Session store: react to previewSide
   const store = AnkiSessionStore(shardId)
+  // fixme: previewSide should be in prefs
   const previewSide = store(state => state.previewSide || 'back')
 
   // Fetch shard once per shardId

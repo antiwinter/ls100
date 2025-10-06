@@ -14,3 +14,8 @@
 - [ ] filter cat into several files, prioritiezed
 
 - [ ] cloze && Add cloze conditional detection (/^c\d+$/)
+
+- [ ] piles only save card id
+- [ ] move history to db
+- [ ] 3 queues?
+- [ ] time tracking => {basetime: 1759670192708, segments: [start_s, end_s], [start_s, end_s]}
