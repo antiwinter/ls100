@@ -128,6 +128,12 @@ export class StudyEngine2 {
     }
   }
 
+  async _rate(card) {
+    await db.cards.update(card.id, { fsrs: card.fsrs })
+    card.due = card.fsrs[0]?.due || Date.now()
+    card.state = card.fsrs[0]?.state || 'New'
+  }
+
   // Cards only, exclude sentinel
   cards() {
     return (this.queue || []).filter(Boolean)
@@ -168,7 +174,7 @@ export class StudyEngine2 {
       response_time: rt
     })
 
-    await db.cards.update(head.id, { fsrs: head.fsrs })
+    await this._rate(head)
 
     // Update per-day history bound to bundle
     const bundleId = head.bundleId
@@ -196,6 +202,7 @@ export class StudyEngine2 {
     } else {
       // Insert before sentinel, maintaining due order
       for (const [i, v] of this.queue.entries()) {
+        log.debug('try re-insert card', v?.due, new Date(head.due))
         if (v === null || v.due > head.due) {
           idx = i
           break
@@ -221,7 +228,7 @@ export class StudyEngine2 {
 
     // dangers eliminated, do them all
     card.fsrs.shift()
-    await db.cards.update(card.id, { fsrs: card.fsrs })
+    await this._rate(card)
     this.queue.splice(idx, 1)
     this.queue.unshift(card)
     this.actions.shift()
