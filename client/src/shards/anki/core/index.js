@@ -2,7 +2,7 @@ import db from './db.js'
 import noteManager from './noteManager.js'
 import mediaManager from './mediaManager.js'
 import { createRender } from '../render/renderDefault.js'
-import { StudyEngine } from './studyEngine.js'
+import { createEngine } from './studyEngine2.js'
 import { AnkiPrefsStore } from './prefsStore.js'
 import { log } from '../../../utils/logger.js'
 import { getTemplate, addTemplate, removeTemplate, getTemplates } from './template/index.js'
@@ -59,7 +59,7 @@ export const anki = {
   noteManager,
   mediaManager,
   createRender,
-  StudyEngine,
+  createEngine,
   AnkiPrefsStore,
 
   getTemplate,

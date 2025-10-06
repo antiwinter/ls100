@@ -6,16 +6,11 @@ export const AnkiSessionStore = (shardId) => {
   return getStore(
     { topic: 'anki-session', shardId },
     (_set) => ({
-      // Session aggregates / resumable data (engine state)
-      history: {},
+      // Session state for studyEngine2
       day: null,
       bundleIds: [],
-      // Persisted session state: allow pause/resume sessions
-      currentCard: null,
-      pile: { raw: [], review: [], done: [] },
-      actionLog: [],
-      // Time tracking persisted as { segments, total }
-      timeTracking: null
+      queue: null, // Array of card IDs (hydrated on load), null = sentinel at head
+      ttd: null    // Time tracking data: { base, total, slices }
     })
   )
 }

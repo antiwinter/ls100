@@ -23,14 +23,6 @@ export {
   importApkgData
 } from './apkg/index.js'
 
-// Study engine utilities - import and re-export from studyEngine directly
-export {
-  RATINGS,
-  STATES,
-  formatInterval,
-  getRatingLabel
-} from './core/studyEngine.js'
-
 // Demo utilities
 export {
   setupDemo,

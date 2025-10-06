@@ -60,32 +60,30 @@ export const AnkiStudy = ({ shardId, onExit }) => {
 
       // Create session store and study engine
       const prefs = anki.AnkiPrefsStore().getState()
-      const engine = new anki.StudyEngine()
-      await engine.init(prefs, shardId)
+      const { AnkiSessionStore } = await import('../core/sessionStore.js')
+      const store = AnkiSessionStore(shardId)
+      const engine = await anki.createEngine(prefs, store)
 
       ctx.engine = engine
 
       // Create renderer for all cards
-      const { raw, review } = engine.pile
-      ctx.renderer = await anki.createRender([
-        ...raw,
-        ...review,
-        engine.currentCard
-      ].filter(Boolean))
+      ctx.renderer = await anki.createRender(engine.cards())
 
       // Load first card
       loadCard()
     }
 
     init()
+
+    // Cleanup: stop time tracker when unmounting
+    return () => {
+      ctx.engine?.exit()
+    }
   }, [shardId, loadCard, ctx])
 
   // Session complete check
   const engine = ctx.engine
-  const rawLeft = engine?.pile?.raw?.length || 0
-  const reviewLeft = engine?.pile?.review?.length || 0
-  const noMoreCards = (!engine) || ((rawLeft + reviewLeft) === 0 && !engine.currentCard)
-  if (noMoreCards) {
+  if (engine?.isFinished()) {
     return <SessionSummary onExit={onExit} />
   }
 

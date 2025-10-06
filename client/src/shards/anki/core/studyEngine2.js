@@ -215,15 +215,20 @@ export class StudyEngine2 {
   isFinished() {
     return Array.isArray(this.queue) && this.queue[0] === null
   }
+
+  exit() {
+    this._tt?.destroy()
+  }
 }
 
 log.debug('StudyEngine2 module loaded')
 export async function createEngine(prefs, store) {
   const eng = new StudyEngine2(prefs, store)
-  // hydrate the queue
+  // Hydrate queue: convert IDs back to card objects
+  // Queue is persisted as [id1, id2, ..., null] and needs to be loaded as [card1, card2, ..., null]
   if (Array.isArray(eng.queue))
-    eng.queue = await Promise.all(eng.queue.map(async c =>
-      c?.id ? await db.cards.get(c.id) : null))
+    eng.queue = await Promise.all(eng.queue.map(async id =>
+      id ? await db.cards.get(id) : null))
 
   await eng._bump()
   log.info('StudyEngine2 initialized')
