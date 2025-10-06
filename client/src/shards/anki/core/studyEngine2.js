@@ -32,8 +32,6 @@ export class StudyEngine2 {
       ttd: this.ttd,
       onSlice: this._trackTime
     })
-
-    // history management, may be not here
   }
 
   _trackTime(_slice, ttd) {
@@ -122,10 +120,11 @@ export class StudyEngine2 {
     ) {
       await this._buildQueue()
       this.day = today
+      this.actions = []
       // reset time tracking for new day
       this._tt?.destroy()
       this._tt = new TimeTracker({ onSlice: this._trackTime })
-      this._flush(['day', 'queue'])
+      this._flush(['day', 'queue', 'actions'])
     }
   }
 
@@ -166,11 +165,7 @@ export class StudyEngine2 {
       response_time: rt
     })
 
-    await db.cards.update(head.id, {
-      fsrs: head.fsrs,
-      due: head.fsrs[0].due,
-      state: head.fsrs[0].state
-    })
+    await db.cards.update(head.id, { fsrs: head.fsrs })
 
     // Update per-day history bound to bundle
     const bundleId = head.bundleId
@@ -187,29 +182,48 @@ export class StudyEngine2 {
     h.ttd = this.ttd
     await db.history.put(h)
 
-    // Push to tail; sentinel will drift toward head and end session
-    this.queue.push(this.queue.shift())
-    this._flush(['queue'])
+    // Remove head and decide where to insert
+    this.queue.shift()
+
+    const { gradGap = 10 } = this.prefs
+    let idx = 0
+    if (next.card.due - now.getTime() > gradGap * 60 * 1000) {
+      // Graduated? Push to back (before sentinel)
+      idx = this.queue.length - 1
+    } else {
+      // Insert before sentinel, maintaining due order
+      for (const [i, v] of this.queue.entries()) {
+        if (v.due > head.due || v === null) {
+          idx = i
+          break
+        }
+      }
+    }
+
+    this.queue.splice(idx, 0, head)
+    this.actions.unshift(idx)
+    this._flush(['queue', 'actions'])
   }
 
   async undo() {
-    const tail = this.tail()
-    if (!tail) return null
+    const idx = this.actions[0]
+    if (idx === undefined) return null
+    const card = this.queue[idx]
+    if (!card || !card.fsrs?.length) {
+      log.error('Undo actions are broken, CLEARED')
+      this.actions = []
+      this._flush(['actions'])
+      return null
+    }
 
-    // Revert latest FSRS entry
-    if (tail.fsrs?.length) {
-      tail.fsrs.shift()
-      await db.cards.update(tail.id, {
-        fsrs: tail.fsrs,
-        due: tail.fsrs[0]?.due || Date.now(),
-        state: tail.fsrs[0]?.state || 'New'
-      })
-    } else
-      log.warn('No FSRS history to revert, shouldn\'t call')
-
-    this.queue.unshift(this.queue.pop())
-    this._flush(['queue'])
-    return tail
+    // dangers eliminated, do them all
+    card.fsrs.shift()
+    await db.cards.update(card.id, { fsrs: card.fsrs })
+    this.queue.splice(idx, 1)
+    this.queue.unshift(card)
+    this.actions.shift()
+    this._flush(['queue', 'actions'])
+    return card
   }
 
   isFinished() {

@@ -9,8 +9,9 @@ export const AnkiSessionStore = (shardId) => {
       // Session state for studyEngine2
       day: null,
       bundleIds: [],
-      queue: null, // Array of card IDs (hydrated on load), null = sentinel at head
-      ttd: null    // Time tracking data: { base, total, slices }
+      queue: null,   // Array of card IDs (hydrated on load), null = sentinel at head
+      actions: [],   // Undo stack: indices of rated cards in queue
+      ttd: null      // Time tracking data: { base, total, slices }
     })
   )
 }

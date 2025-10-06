@@ -10,7 +10,7 @@ export const AnkiPrefsStore = (shardId = null) => {
       maxReviewCards: 188,
       dailyResetTime: 4,
       // New cards only graduate out of current session when next due is beyond this gap (minutes)
-      initialGap: 10,
+      gradGap: 10,
 
       // Display
       showAnswer: false,

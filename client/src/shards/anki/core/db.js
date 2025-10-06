@@ -78,6 +78,14 @@ db.notes.hook('updating', (modifications) => {
   modifications.modified = Date.now()
 })
 
+// Mirror latest FSRS state to card level for fast queries
+db.cards.hook('updating', (mods) => {
+  if (mods.fsrs) {
+    mods.due = mods.fsrs[0]?.due || Date.now()
+    mods.state = mods.fsrs[0]?.state || 'New'
+  }
+})
+
 // Open database with enhanced error handling
 db.open().then(() => {
   log.debug('Dexie database opened successfully: AnkiDB_v4')

@@ -187,8 +187,8 @@ export class StudyEngine {
 
     // Graduation Rule: Cards graduate to 'done' if due time exceeds initial gap
     // Cards that don't graduate go back to review pile, sorted by due time
-    const { initialGap } = this.prefs
-    if (next.card.due - now.getTime() < (initialGap || 0) * 60 * 1000) {
+    const { gradGap } = this.prefs
+    if (next.card.due - now.getTime() < (gradGap || 0) * 60 * 1000) {
       // Insert into review pile in chronological order (new cards without due = 0 go first)
       const insertIndex = _.sortedIndexBy(this.pile.review, c0,
         c => c.due || 0)
