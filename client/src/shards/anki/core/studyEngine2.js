@@ -51,20 +51,21 @@ export class StudyEngine2 {
   }
 
   _getDay() {
-    const now = Date.now() / (60 * 1000)
-    const resetOffs = (this.prefs.dailyResetTime || 0) * 60
-    const tzOffs = new Date().getTimezoneOffset()
-    const delta = now - resetOffs + tzOffs
-    return Math.floor(delta / (60 * 24))
+    const offs = (this.prefs.dailyResetTime || 0) * 60 +
+      new Date().getTimezoneOffset() // tz fix
+    const ts = Date.now() / 1000 / 3600 - offs / 60
+    return Math.floor(ts / 24)
   }
 
   async _buildQueue() {
-    const now = Date.now()
+    const offs = (this.prefs.dailyResetTime || 0) * 60 +
+      new Date().getTimezoneOffset() // tz fix
+    const due = ((this._getDay() + 1) * 24 * 60 + offs) * 60 * 1000
 
     // Collect cards
     let review = await db.cards
       .where('bundleId').anyOf(this.bundleIds)
-      .and(c => c.state !== 'New' && c.due <= now)
+      .and(c => c.state !== 'New' && c.due <= due)
       .sortBy('due')
 
     let fresh = await db.cards
@@ -106,9 +107,10 @@ export class StudyEngine2 {
     } else
       mix(q, fresh)
 
-    // Sentinel marks end-of-session when it reaches the head
-    q.push(null)
-    this.queue = q
+    // Sentinel marks end-of-session when it reaches the card
+    this.queue = [...q.map(c => ({ ...c,
+      // all learn in this session
+      due: Date.now() })), null]
     log.debug('StudyEngine2 queue built', { length: q.length })
   }
 
@@ -139,45 +141,46 @@ export class StudyEngine2 {
     return (this.queue || []).filter(Boolean)
   }
 
-  head() {
-    return this.queue?.[0]
-  }
-
-  tail() {
-    return this.queue?.[this.queue.length - 1]
-  }
-
-  // Stamp draw time for response_time tracking; UI may call this when showing the head
+  // Stamp draw time for response_time tracking; UI may call this when showing the card
   draw() {
     // don't pollute the queue
     this._drawTs = Date.now()
-    return this.head()
+    return this.queue.find(c => c && c.due <= this._drawTs)
   }
 
-  async rate(rating) {
-    const head = this.head()
-    if (!head) {
-      log.warn('No card to rate, shouldn\'t call')
-      return
-    }
-
+  async rate(card, rating) {
     // clamp rating (FSRS uses 1-4: Again, Hard, Good, Easy)
     rating = Math.max(1, Math.min(4, rating))
 
     const now = new Date()
-    const next = fsrs.repeat(head.fsrs?.[0] || createEmptyCard(Date.now()), now)[rating]
-    head.fsrs ||= []
+    const next = fsrs.repeat(card.fsrs?.[0] || createEmptyCard(Date.now()), now)[rating]
+    card.fsrs ||= []
     const rt = this._drawTs ? now.getTime() - this._drawTs : 0
-    head.fsrs.unshift({
+    card.fsrs.unshift({
       ...next.card,
       rating,
       response_time: rt
     })
+    await this._rate(card)
 
-    await this._rate(head)
+    // Remove card and decide where to insert
+    const x = this.queue.findIndex(c => c.id === card.id)
+    this.queue.splice(x, 1)
+
+    const { gradGap = 24 * 60 } = this.prefs
+    if (next.card.due - now.getTime() > gradGap * 60 * 1000) {
+      // Graduated? Push to back (before sentinel)
+      this.queue.push(card)
+    } else {
+      // Push to front, draw() auto skip cooldown
+      this.queue.unshift(card)
+    }
+
+    this.actions.unshift(card.id)
+    this._flush(['queue', 'actions'])
 
     // Update per-day history bound to bundle
-    const bundleId = head.bundleId
+    const bundleId = card.bundleId
     const rkey = String(rating)
     const h = (await db.history.get([bundleId, this.day])) || {
       bundleId,
@@ -190,38 +193,16 @@ export class StudyEngine2 {
     // Sync time only on rate
     h.ttd = this.ttd
     await db.history.put(h)
-
-    // Remove head and decide where to insert
-    this.queue.shift()
-
-    const { gradGap = 10 } = this.prefs
-    let idx = 0
-    if (next.card.due - now.getTime() > gradGap * 60 * 1000) {
-      // Graduated? Push to back (before sentinel)
-      idx = this.queue.length - 1
-    } else {
-      // Insert before sentinel, maintaining due order
-      for (const [i, v] of this.queue.entries()) {
-        log.debug('try re-insert card', v?.due, new Date(head.due))
-        if (v === null || v.due > head.due) {
-          idx = i
-          break
-        }
-      }
-    }
-
-    this.queue.splice(idx, 0, head)
-    this.actions.unshift(idx)
-    this._flush(['queue', 'actions'])
   }
 
   async undo() {
-    const idx = this.actions[0]
-    if (idx === undefined) return null
+    const id = this.actions[0]
+    if (id === undefined) return null
+    const idx = this.queue.findIndex(c => c.id === id)
     const card = this.queue[idx]
     if (!card || !card.fsrs?.length) {
       log.error('Undo actions are broken, CLEARED')
-      this.actions = []
+      this.actions.shift()
       this._flush(['actions'])
       return null
     }
@@ -229,6 +210,7 @@ export class StudyEngine2 {
     // dangers eliminated, do them all
     card.fsrs.shift()
     await this._rate(card)
+    card.due = Date.now()
     this.queue.splice(idx, 1)
     this.queue.unshift(card)
     this.actions.shift()
