@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Box, Typography } from '@mui/joy'
+import { Box, Typography, Button } from '@mui/joy'
 import { FixedSizeList as List } from 'react-window'
 import anki from '../core/index.js'
 import { Toolbar } from './overlay/Toolbar.jsx'
@@ -64,6 +64,9 @@ export const AnkiViewer = ({ prefs, session, shardName, onExit, onStudy }) => {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
         <Typography color="neutral">Failed to load cards</Typography>
+        <Button size="sm" variant="outlined" onClick={onExit} sx={{ mt: 1 }}>
+            Go back
+        </Button>
       </Box>
     )
   }
@@ -94,7 +97,8 @@ export const AnkiViewer = ({ prefs, session, shardName, onExit, onStudy }) => {
             const TOOLBAR_HEIGHT = 70
             const HEADER_HEIGHT = 80
             const listHeight = Math.max(400, viewportHeight - (TOOLBAR_HEIGHT + HEADER_HEIGHT))
-            const ROW_HEIGHT = 300
+            const CARD_HEIGHT = 300
+            const ROW_HEIGHT = CARD_HEIGHT + 16  // Card height + gap
             const isBoth = previewSide === 'both'
             const rowCount = isBoth ? cards.length : Math.ceil(cards.length / 2)
 
@@ -114,9 +118,23 @@ export const AnkiViewer = ({ prefs, session, shardName, onExit, onStudy }) => {
 
               return (
                 <Box style={style} sx={{ px: 2, boxSizing: 'border-box' }}>
-                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                    <Box>{leftCard && <CardPreview renderer={renderer} card={leftCard} side={leftSide} />}</Box>
-                    <Box>{rightCard && <CardPreview renderer={renderer} card={rightCard} side={rightSide} />}</Box>
+                  <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+                    {leftCard && (
+                      <CardPreview
+                        renderer={renderer}
+                        card={leftCard}
+                        side={leftSide}
+                        height={CARD_HEIGHT}
+                      />
+                    )}
+                    {rightCard && (
+                      <CardPreview
+                        renderer={renderer}
+                        card={rightCard}
+                        side={rightSide}
+                        height={CARD_HEIGHT}
+                      />
+                    )}
                   </Box>
                 </Box>
               )

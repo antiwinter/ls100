@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Box, Typography } from '@mui/joy'
 
-export const CardPreview = ({ renderer, card, side = 'back' }) => {
+export const CardPreview = ({ renderer, card, side = 'back', height = 250 }) => {
   const [rendered, setRendered] = useState(null)
   const reqIdRef = useRef(0)
 
@@ -18,19 +18,48 @@ export const CardPreview = ({ renderer, card, side = 'back' }) => {
     })()
   }, [renderer, card])
 
+  const CARD_WIDTH = 330
+  const CARD_HEIGHT =  932
+  const width = window.innerWidth / 2 - 20
+  const scale = width / CARD_WIDTH
   return (
     <Box sx={{
-      p: 2,
+      width: width,
+      height: height,
       border: 1,
       borderColor: 'divider',
       borderRadius: 'md',
       bgcolor: 'background.body',
       overflow: 'hidden',
-      '& img': { maxWidth: '100%', height: 'auto' }
+      flexShrink: 0
     }}>
-      {rendered
-        ? <div dangerouslySetInnerHTML={{ __html: side === 'back' ? (rendered.back || '') : (rendered.front || '') }} />
-        : <Typography level="body-sm" color="neutral">Loading…</Typography>}
+      {rendered ? (
+        <>
+          <Box
+            className='card'
+            sx={{
+              width: CARD_WIDTH,
+              height: CARD_HEIGHT,
+              transform: `scale(${scale})`,
+              transformOrigin: 'top left',
+              // zoom: scale,
+              // p: 2.5,
+              // boxSizing: 'border-box',
+              // '& img': { maxWidth: '100%', height: 'auto' }
+            }}>
+            {/* Inject bundle-scoped CSS if available */}
+            {rendered?.css && <style>{rendered.css}</style>}
+
+            {/* Content */}
+            <div style={{ padding: '20px' }} dangerouslySetInnerHTML={{
+              __html: side === 'front' ? rendered.front : rendered.back
+            }} />
+
+          </Box>
+        </>
+      ) : (
+        <Typography level="body-sm" color="neutral">Loading…</Typography>
+      )}
     </Box>
   )
 }

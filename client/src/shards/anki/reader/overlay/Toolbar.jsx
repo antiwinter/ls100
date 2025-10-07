@@ -33,13 +33,13 @@ const TOOLS = [
 export const Toolbar = ({
   shardId,
   onBack,
-  onToolSelect
+  onStudy
 }) => {
   const _sessionStore = AnkiSessionStore(shardId)
 
   const handleToolClick = (tool) => {
     log.debug('Anki tool selected:', tool)
-    onToolSelect?.(tool)
+    onStudy?.(tool)
   }
 
   return (

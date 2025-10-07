@@ -38,9 +38,9 @@ export const AnkiStudy = ({ prefs, session, onExit }) => {
   }, [ctx])
 
   const handleRate = useCallback(async (rating) => {
-    await ctx.engine.rate(rating)
+    await ctx.engine.rate(card, rating)
     loadCard(rating === Rating.Again ? -1 : 1)
-  }, [loadCard, ctx])
+  }, [loadCard, ctx, card])
 
   const handleCardExit = useCallback(async (ox) => {
     await ctx.engine.rate(ox < 0 ? Rating.Again : Rating.Good)
