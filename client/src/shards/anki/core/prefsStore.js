@@ -15,7 +15,7 @@ export const AnkiPrefsStore = (shardId = null) => {
       // Display
       showAnswer: false,
       autoReveal: false,
-      previewSide: 'back', // 'front' | 'back' | 'both'
+      previewSide: 'back', // 'front' | 'back' | 'both' (for browse mode)
 
       // Study Flow
       newReviewOrder: 'mixed',  // 'mixed' | 'new-first' | 'review-first'

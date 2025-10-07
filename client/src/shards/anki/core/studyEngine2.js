@@ -61,12 +61,12 @@ export class StudyEngine2 {
 
     // Collect cards
     let review = await db.cards
-      .where('bundleId').anyOf(this.bundleIds)
+      .where('bundleId').equals(this.bundleId)
       .and(c => c.state !== 'New' && c.due <= due)
       .sortBy('due')
 
     let fresh = await db.cards
-      .where('bundleId').anyOf(this.bundleIds)
+      .where('bundleId').equals(this.bundleId)
       .and(c => c.state === 'New')
       .toArray()
 

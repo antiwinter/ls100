@@ -7,7 +7,7 @@ import { log } from '../../../utils/logger.js'
 import { AnkiCard, SessionSummary, RatingButtons } from './components/index.js'
 import { Toolbar } from './overlay/Toolbar.jsx'
 
-export const AnkiStudy = ({ shardId, onExit }) => {
+export const AnkiStudy = ({ prefs, session, onExit }) => {
   // Self-contained study engine and refs
   const ak = useRef(null)
   const _ctx = useRef({})
@@ -15,7 +15,10 @@ export const AnkiStudy = ({ shardId, onExit }) => {
   const [glow, setGlow] = useState(null)
   const [card, setCard] = useState(null)
 
-  log.debug('AnkiStudy-render', { shardId, onExit, card })
+  const bundleId = session(state => state.bundleId)
+
+  log.debug('AnkiStudy-render', { bundleId, onExit, card })
+
   // Clean card loading
   const loadCard = useCallback(async (exit = 1) => {
     if (!ctx.engine) return
@@ -56,13 +59,13 @@ export const AnkiStudy = ({ shardId, onExit }) => {
   // Initialize study engine and renderer
   useEffect(() => {
     const init = async () => {
-      if (!shardId) return
+      if (!bundleId) return
 
-      // Create session store and study engine
-      const prefs = anki.AnkiPrefsStore().getState()
-      const { AnkiSessionStore } = await import('../core/sessionStore.js')
-      const store = AnkiSessionStore(shardId)
-      const engine = await anki.createEngine(prefs, store)
+      // Get prefs from store
+      const prefsState = prefs.getState()
+
+      // Create study engine with session store
+      const engine = await anki.createEngine(prefsState, session)
 
       ctx.engine = engine
 
@@ -79,7 +82,7 @@ export const AnkiStudy = ({ shardId, onExit }) => {
     return () => {
       ctx.engine?.exit()
     }
-  }, [shardId, loadCard, ctx])
+  }, [bundleId, prefs, session, loadCard, ctx])
 
   // Session complete check
   const engine = ctx.engine
@@ -90,7 +93,7 @@ export const AnkiStudy = ({ shardId, onExit }) => {
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Toolbar
-        shardId={shardId}
+        shardId={bundleId}
         onBack={onExit}
       />
 
