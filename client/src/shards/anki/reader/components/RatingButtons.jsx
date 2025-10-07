@@ -7,16 +7,16 @@ import { useDrag } from '@use-gesture/react'
 import { log } from '../../../../utils/logger.js'
 
 const ATIME_SNAP = 250
-const ATIME_HINT = 100
+const ATIME_GLOW = 100
 const BTN_WIDTH = 48
 const BTN_MARGIN = 8
 
 // Vertical rating buttons (right side). No labels, only intervals.
-export const RatingButtons = ({ onRate, fsrs, hint, side: initialSide = 1 }) => {
+export const RatingButtons = ({ onRate, fsrs, glow, side: initialSide = 1 }) => {
   const sideRef = useRef(initialSide) // 1 / -1
   const containerRef = useRef(null)
 
-  log.debug('RatingButtons', { fsrs, hint, side: initialSide })
+  log.debug('RatingButtons', { fsrs, glow, side: initialSide })
   const engine = useMemo(() => new FSRS(), [])
   const nextByRating = useMemo(() => {
     const now = new Date()
@@ -42,33 +42,33 @@ export const RatingButtons = ({ onRate, fsrs, hint, side: initialSide = 1 }) => 
     [Rating.Good, '#4CAF50', '#66BB6A']    // Green
   ], [])
 
-  // Hint glow animation
+  // Glow animation
   const refs = useRef({})
-  const _hint = useCallback((hint, cb) => {
+  const _glow = useCallback((glow, cb) => {
     const all = Object.values(refs.current).filter(Boolean)
-    const elHint = hint ? refs.current[hint] : null
-    const entry = hint != null ? order.find(([rating]) => rating === hint) : undefined
+    const elGlow = glow ? refs.current[glow] : null
+    const entry = glow != null ? order.find(([rating]) => rating === glow) : undefined
     const shadowColor = entry ? entry[2] : undefined
     animate(all, {
-      // scale: el => el === elHint ? 1.08 : 1,
-      boxShadow: el => el === elHint && shadowColor ? `0 0 7px 2px ${shadowColor}` : '0 0 0 0 rgba(0,0,0,0)',
-      duration: ATIME_HINT,
-      border: el => el === elHint && '1px solid #fff',
+      // scale: el => el === elGlow ? 1.08 : 1,
+      boxShadow: el => el === elGlow && shadowColor ? `0 0 7px 2px ${shadowColor}` : '0 0 0 0 rgba(0,0,0,0)',
+      duration: ATIME_GLOW,
+      border: el => el === elGlow && '1px solid #fff',
       easing: 'easeOutCubic',
       onComplete: cb
     })
   }, [order])
 
   useEffect(() => {
-    _hint(hint)
-  }, [hint, _hint])
+    _glow(glow)
+  }, [glow, _glow])
 
   const handleClick = useCallback((rating) => {
     onRate?.(rating)
-    _hint(rating, () => {
-      _hint(null)
+    _glow(rating, () => {
+      _glow(null)
     })
-  }, [onRate, _hint])
+  }, [onRate, _glow])
 
   // snap effect
   const to = useCallback(() => {

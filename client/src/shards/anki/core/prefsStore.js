@@ -24,7 +24,6 @@ export const AnkiPrefsStore = (shardId = null) => {
       // Anki behavior
       autoBurySiblings: true,   // Hide sibling cards from same note during queue building
       naturalCooldown: false,   // Use natural cooldown instead of daily reset
-      inSessionCooldown: true, // Use in-session cooldown instead of daily reset
 
       setPreferences: (pref) => set((s) => Object.assign(s, pref || {}))
     })

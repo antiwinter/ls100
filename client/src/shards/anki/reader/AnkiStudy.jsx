@@ -12,7 +12,7 @@ export const AnkiStudy = ({ shardId, onExit }) => {
   const ak = useRef(null)
   const _ctx = useRef({})
   const ctx = _ctx.current
-  const [hint, setHint] = useState(null)
+  const [glow, setGlow] = useState(null)
   const [card, setCard] = useState(null)
 
   log.debug('AnkiStudy-render', { shardId, onExit, card })
@@ -41,7 +41,7 @@ export const AnkiStudy = ({ shardId, onExit }) => {
 
   const handleCardExit = useCallback(async (ox) => {
     await ctx.engine.rate(ox < 0 ? Rating.Again : Rating.Good)
-    setHint(null)
+    setGlow(null)
     loadCard(0)
   }, [ctx, loadCard])
 
@@ -50,7 +50,7 @@ export const AnkiStudy = ({ shardId, onExit }) => {
   }, [])
 
   const handleMove = useCallback((ox) => {
-    setHint(!ox ? null : ox < 0 ? Rating.Again : Rating.Good)
+    setGlow(!ox ? null : ox < 0 ? Rating.Again : Rating.Good)
   }, [])
 
   // Initialize study engine and renderer
@@ -83,7 +83,7 @@ export const AnkiStudy = ({ shardId, onExit }) => {
 
   // Session complete check
   const engine = ctx.engine
-  if (engine?.isFinished()) {
+  if (engine?.status()?.done) {
     return <SessionSummary onExit={onExit} />
   }
 
@@ -103,7 +103,7 @@ export const AnkiStudy = ({ shardId, onExit }) => {
       <RatingButtons
         onRate={handleRate}
         fsrs={card?.fsrs?.[0]}
-        hint={hint}
+        glow={glow}
         side={1}
       />
     </Box>

@@ -151,7 +151,7 @@ export class StudyEngine2 {
         hand = c
     }
     // if no inSessionCooldown, return the next due card
-    return !this.prefs.inSessionCooldown && hand
+    return !this.prefs.naturalCooldown && hand
   }
 
   async rate(card, rating) {
