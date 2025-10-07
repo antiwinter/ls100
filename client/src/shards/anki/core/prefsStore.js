@@ -5,6 +5,8 @@ export const AnkiPrefsStore = (shardId = null) => {
   return getStore(
     { topic: 'anki-prefs', shardId },
     (set) => ({
+      previewSide: 'back', // 'front' | 'back' | 'both' (for browse mode)
+
       // STUDY OPTIONS
       maxNewCards: 18,
       maxReviewCards: 188,
@@ -12,10 +14,9 @@ export const AnkiPrefsStore = (shardId = null) => {
       // New cards only graduate out of current session when next due is beyond this gap (minutes)
       gradGap: 10,
 
-      // Display
-      showAnswer: false,
+      // Accessibility
       autoReveal: false,
-      previewSide: 'back', // 'front' | 'back' | 'both' (for browse mode)
+      autoPlayAudio: true,
 
       // Study Flow
       newReviewOrder: 'mixed',  // 'mixed' | 'new-first' | 'review-first'
