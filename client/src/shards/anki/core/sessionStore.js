@@ -10,7 +10,7 @@ export const AnkiSessionStore = (shardId) => {
       day: null,
       bundleIds: [],
       queue: null,   // Array of card IDs (hydrated on load), null = sentinel at head
-      actions: [],   // Undo stack: indices of rated cards in queue
+      actions: [],   // Undo stack: ids of rated cards in queue
       ttd: null      // Time tracking data: { base, total, slices }
     })
   )

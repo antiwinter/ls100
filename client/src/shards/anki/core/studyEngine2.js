@@ -23,8 +23,14 @@ export class StudyEngine2 {
   constructor(prefs, store) {
     this.prefs = prefs || {}
     this.store = store
-
     Object.assign(this, store.getState())
+
+    // setup engine time
+    const offs = (this.prefs.dailyResetTime || 0) * 60 +
+    new Date().getTimezoneOffset() // tz fix
+    const ts = Date.now() / 1000 / 3600 - offs / 60
+    this.today = Math.floor(ts / 24)
+    this.nextReset = ((this.today + 1) * 24 * 60 + offs) * 60 * 1000
 
     // time tracking (auto-open, auto-idle)
     this._trackTime = this._trackTime.bind(this)
@@ -50,17 +56,8 @@ export class StudyEngine2 {
     this.store.setState(payload)
   }
 
-  _getDay() {
-    const offs = (this.prefs.dailyResetTime || 0) * 60 +
-      new Date().getTimezoneOffset() // tz fix
-    const ts = Date.now() / 1000 / 3600 - offs / 60
-    return Math.floor(ts / 24)
-  }
-
   async _buildQueue() {
-    const offs = (this.prefs.dailyResetTime || 0) * 60 +
-      new Date().getTimezoneOffset() // tz fix
-    const due = ((this._getDay() + 1) * 24 * 60 + offs) * 60 * 1000
+    const due = this.prefs.naturalCooldown ? Date.now() : this.nextReset
 
     // Collect cards
     let review = await db.cards
@@ -107,7 +104,7 @@ export class StudyEngine2 {
     } else
       mix(q, fresh)
 
-    // Sentinel marks end-of-session when it reaches the card
+    // Sentinel marks end-of-session when it reaches the front
     this.queue = [...q.map(c => ({ ...c,
       // all learn in this session
       due: Date.now() })), null]
@@ -115,13 +112,12 @@ export class StudyEngine2 {
   }
 
   async _bump() {
-    const today = this._getDay()
     if (!this.day // first run
-        || this.day !== today // new day
+        || this.day !== this.today // new day
         || !Array.isArray(this.queue) // bad queue
     ) {
       await this._buildQueue()
-      this.day = today
+      this.day = this.today
       this.actions = []
       // reset time tracking for new day
       this._tt?.destroy()
@@ -145,10 +141,26 @@ export class StudyEngine2 {
   draw() {
     // don't pollute the queue
     this._drawTs = Date.now()
-    return this.queue.find(c => c && c.due <= this._drawTs)
+    let hand = null
+    for (const c of (this.queue || [])) {
+      if (!c) break
+      if (c.due <= this._drawTs)
+        return c
+
+      if (!hand || c.due < hand.due)
+        hand = c
+    }
+    // if no inSessionCooldown, return the next due card
+    return !this.prefs.inSessionCooldown && hand
   }
 
   async rate(card, rating) {
+    // Remove card and decide where to insert
+    const x = this.queue.findIndex(c => c.id === card.id)
+    if (x < 0) {
+      log.error('Rating card not in queue', card, this.queue)
+      return
+    }
     // clamp rating (FSRS uses 1-4: Again, Hard, Good, Easy)
     rating = Math.max(1, Math.min(4, rating))
 
@@ -163,13 +175,11 @@ export class StudyEngine2 {
     })
     await this._rate(card)
 
-    // Remove card and decide where to insert
-    const x = this.queue.findIndex(c => c.id === card.id)
-    this.queue.splice(x, 1)
 
+    this.queue.splice(x, 1)
     const { gradGap = 24 * 60 } = this.prefs
     if (next.card.due - now.getTime() > gradGap * 60 * 1000) {
-      // Graduated? Push to back (before sentinel)
+      // Graduated? Push to back
       this.queue.push(card)
     } else {
       // Push to front, draw() auto skip cooldown
@@ -181,7 +191,6 @@ export class StudyEngine2 {
 
     // Update per-day history bound to bundle
     const bundleId = card.bundleId
-    const rkey = String(rating)
     const h = (await db.history.get([bundleId, this.day])) || {
       bundleId,
       day: this.day,
@@ -189,7 +198,7 @@ export class StudyEngine2 {
       ratings: {}
     }
     h.studied += 1
-    h.ratings[rkey] = (h.ratings[rkey] || 0) + 1
+    h.ratings[rating] = (h.ratings[rating] || 0) + 1
     // Sync time only on rate
     h.ttd = this.ttd
     await db.history.put(h)
@@ -218,8 +227,17 @@ export class StudyEngine2 {
     return card
   }
 
-  isFinished() {
-    return Array.isArray(this.queue) && this.queue[0] === null
+  status() {
+    let cooldowns = []
+    for (const c of this.queue) {
+      if (!c) break
+      cooldowns.push(c.due)
+    }
+
+    return {
+      done: this.queue?.[0] === null,
+      cooldowns
+    }
   }
 
   exit() {
