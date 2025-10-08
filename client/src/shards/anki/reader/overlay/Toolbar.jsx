@@ -1,89 +1,100 @@
+import { useEffect } from 'react'
 import {
   Box,
   Stack,
   IconButton,
   Typography
 } from '@mui/joy'
-import {
-  ArrowBack,
-  BarChart,
-  PlayArrow,
-  Settings,
-  Search
-} from '@mui/icons-material'
-import { AnkiSessionStore } from '../../core/sessionStore.js'
+import { ArrowBack } from '@mui/icons-material'
 import { log } from '../../../../utils/logger'
 
-// Button styles for consistency
 const btnSx = {
   minHeight: 'auto',
-  p: 1,
-  borderRadius: 'sm'
+  p: 0.5,
+  borderRadius: 'sm',
+  '&:active': {
+    bgcolor: 'transparent'
+  }
 }
 
-// Toolbar buttons in order
-const TOOLS = [
-  { key: 'statistics', title: 'Statistics', Icon: BarChart },
-  { key: 'study', title: 'Begin Study', Icon: PlayArrow, color: 'primary', variant: 'soft' },
-  { key: 'settings', title: 'Settings', Icon: Settings },
-  { key: 'search', title: 'Search', Icon: Search }
-]
-
-// Anki reader toolbar with study tools
 export const Toolbar = ({
-  shardId,
+  visible = true,
+  title,
   onBack,
-  onStudy
+  buttons = [],
+  activeKey,
+  onSelect
 }) => {
-  const _sessionStore = AnkiSessionStore(shardId)
+  useEffect(() => {
+    log.debug(`🔧 Anki toolbar visibility: ${visible}`)
+  }, [visible])
 
-  const handleToolClick = (tool) => {
-    log.debug('Anki tool selected:', tool)
-    onStudy?.(tool)
+  const handleButtonClick = (button) => {
+    log.debug('Anki toolbar button:', button.key)
+    if (button.onClick) {
+      button.onClick(button.key)
+      return
+    }
+    onSelect?.(button.key)
   }
 
   return (
     <Box
       sx={{
-        py: 2,
-        px: 3,
-        borderBottom: 1,
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 150,
+        bgcolor: 'background.body',
+        py: 1,
+        px: 2,
+        borderBottom: visible ? 1 : 0,
         borderColor: 'divider',
-        bgcolor: 'background.surface'
+        transform: visible ? 'translateY(0)' : 'translateY(-110%)',
+        transition: 'transform 0.3s ease-out',
+        boxShadow: visible ? 'sm' : 'none'
       }}
     >
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
-        {/* Left side: Back button + Title */}
-        <Stack direction="row" spacing={1} alignItems="center">
+      <Stack direction='row' justifyContent='space-between' alignItems='center'>
+        <Stack direction='row' spacing={1} alignItems='center'>
           <IconButton
             onClick={onBack}
-            variant="plain"
-            size="sm"
-            sx={btnSx}
-            title="Back"
+            variant='plain'
+            size='sm'
+            sx={{
+              minHeight: 'auto',
+              p: 0.5
+            }}
           >
             <ArrowBack />
           </IconButton>
-          <Typography level="title-md" color="neutral">
-            Browse Notes
-          </Typography>
+          {title && (
+            <Typography level='title-md' color='neutral'>
+              {title}
+            </Typography>
+          )}
         </Stack>
 
-        {/* Right side: Tool buttons */}
-        <Stack direction="row" spacing={1} alignItems="center">
-          {TOOLS.map((tool) => (
-            <IconButton
-              key={tool.key}
-              onClick={() => handleToolClick(tool.key)}
-              variant={tool.variant || 'plain'}
-              color={tool.color || 'neutral'}
-              size="sm"
-              sx={btnSx}
-              title={tool.title}
-            >
-              <tool.Icon />
-            </IconButton>
-          ))}
+        <Stack direction='row' spacing={1} alignItems='center'>
+          {buttons.map((button) => {
+            const { key, Icon, title: tooltip, variant, color, disabled } = button
+            const active = activeKey && activeKey === key
+            return (
+              <IconButton
+                key={key}
+                onClick={() => handleButtonClick(button)}
+                variant={variant || (active ? 'soft' : 'plain')}
+                color={color || (active ? 'primary' : 'neutral')}
+                size='sm'
+                sx={btnSx}
+                title={tooltip}
+                disabled={disabled}
+              >
+                {Icon && <Icon />}
+              </IconButton>
+            )
+          })}
         </Stack>
       </Stack>
     </Box>

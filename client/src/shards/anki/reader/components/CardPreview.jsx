@@ -41,7 +41,7 @@ export const CardPreview = ({ renderer, card, side = 'back', height = 250 }) => 
               width: CARD_WIDTH,
               height: CARD_HEIGHT,
               transform: `scale(${scale})`,
-              transformOrigin: 'top left',
+              transformOrigin: 'top left'
               // zoom: scale,
               // p: 2.5,
               // boxSizing: 'border-box',
