@@ -50,7 +50,7 @@ export class StudyEngine2 {
     for (const k of keys) {
       payload[k] =
         // dry the queue before _flushing
-       k === 'queue' ? this[k].map(c => c?.id ?? null)
+       k.match(/queue|buried/i) ? this[k].map(c => c?.id ?? null)
          : this[k]
     }
     this.store.setState(payload)
@@ -112,24 +112,37 @@ export class StudyEngine2 {
   }
 
   async _bump() {
-    if (!this.day // first run
-        || this.day !== this.today // new day
-        || !Array.isArray(this.queue) // bad queue
-    ) {
-      await this._buildQueue()
-      this.day = this.today
-      this.actions = []
-      // reset time tracking for new day
-      this._tt?.destroy()
-      this._tt = new TimeTracker({ onSlice: this._trackTime })
-      this._flush(['day', 'queue', 'actions'])
-    }
+
+    await this._buildQueue()
+    this.day = this.today
+    this.actions = []
+    this.buried = []
+    // reset time tracking for new day
+    this._tt?.destroy()
+    this._tt = new TimeTracker({ onSlice: this._trackTime })
+    this._flush(['day', 'queue', 'actions', 'buried'])
   }
 
-  async _rate(card) {
-    await db.cards.update(card.id, { fsrs: card.fsrs })
-    card.due = card.fsrs[0]?.due || Date.now()
+  async _update(card, op) {
+    const now = new Date()
+    if (Number.isFinite(op)) {
+      const rating = Math.max(1, Math.min(4, op)) // clamp (FSRS uses 1-4)
+      const next = fsrs.repeat(card.fsrs?.[0] || createEmptyCard(now), now)[rating]
+      card.fsrs ||= []
+      card.fsrs.unshift({
+        ...next.card,
+        rating,
+        response_time: this._drawTs ? now.getTime() - this._drawTs : 0
+      })
+    } else if (op === 'suspend')
+      card.suspend = 1
+
+
+    // update card
+    card.due = card.fsrs[0]?.due || now.getTime()
     card.state = card.fsrs[0]?.state || 'New'
+    await db.cards.update(card.id, card)
+    return  card.due - now.getTime()
   }
 
   // Cards only, exclude sentinel
@@ -161,25 +174,14 @@ export class StudyEngine2 {
       log.error('Rating card not in queue', card, this.queue)
       return
     }
-    // clamp rating (FSRS uses 1-4: Again, Hard, Good, Easy)
-    rating = Math.max(1, Math.min(4, rating))
 
-    const now = new Date()
-    const next = fsrs.repeat(card.fsrs?.[0] || createEmptyCard(Date.now()), now)[rating]
-    card.fsrs ||= []
-    const rt = this._drawTs ? now.getTime() - this._drawTs : 0
-    card.fsrs.unshift({
-      ...next.card,
-      rating,
-      response_time: rt
-    })
-    await this._rate(card)
 
+    const gap = await this._update(card, rating)
 
     this.queue.splice(x, 1)
     const { gradGap = 24 * 60 } = this.prefs
-    if (next.card.due - now.getTime() > gradGap * 60 * 1000) {
-      // Graduated? Push to back
+    if (gap > gradGap * 60 * 1000) {
+      // Graduated or suspend? Push to back
       this.queue.push(card)
     } else {
       // Push to front, draw() auto skip cooldown
@@ -218,7 +220,7 @@ export class StudyEngine2 {
 
     // dangers eliminated, do them all
     card.fsrs.shift()
-    await this._rate(card)
+    await this._update(card)
     card.due = Date.now()
     this.queue.splice(idx, 1)
     this.queue.unshift(card)
@@ -227,9 +229,71 @@ export class StudyEngine2 {
     return card
   }
 
+  async reset(rebuild = false) {
+    if (!rebuild) {
+      let guard = 0
+      while (this.actions.length) {
+        guard += 1
+        const undone = await this.undo()
+        if (!undone || guard > 2048) break
+      }
+      this.buried = []
+      this.day = null
+      this.queue = null
+      this.actions = []
+      this.ttd = null
+      this._tt?.destroy()
+      this._tt = null
+      this._flush(['day', 'queue', 'actions', 'ttd', 'buried'])
+      await this._bump()
+      return
+    }
+
+    await this._buildQueue()
+    this.day = this.today
+    if (Array.isArray(this.queue)) {
+      const done = new Set(this.actions)
+      const filtered = this.queue.filter(card => card === null || !done.has(card.id))
+      if (!filtered.length || filtered[filtered.length - 1] !== null) filtered.push(null)
+      this.queue = filtered
+    }
+    this.buried = []
+    if (!this._tt) {
+      this._tt = new TimeTracker({ ttd: this.ttd, onSlice: this._trackTime })
+    }
+    this._flush(['day', 'queue', 'buried'])
+  }
+
+  async bury(card) {
+    if (!card?.id) return
+    if (!Array.isArray(this.queue)) return
+    const idx = this.queue.findIndex(c => c?.id === card.id)
+    if (idx >= 0) {
+      this.queue.splice(idx, 1)
+    }
+    if (!this.buried.includes(card.id)) {
+      this.buried.push(card.id)
+    }
+    this._flush(['queue', 'buried'])
+  }
+
+  async suspend(card) {
+    if (!card) return
+    await db.cards.update(card.id, { suspend: 1, state: 'Suspended' })
+    if (!Array.isArray(this.queue)) return
+    const idx = this.queue.findIndex(c => c?.id === card.id)
+    if (idx >= 0) {
+      this.queue.splice(idx, 1)
+      if (!this.queue.length || this.queue[this.queue.length - 1] !== null) {
+        this.queue.push(null)
+      }
+      this._flush(['queue'])
+    }
+  }
+
   status() {
-    let cooldowns = []
-    for (const c of this.queue) {
+    const cooldowns = []
+    for (const c of this.queue || []) {
       if (!c) break
       cooldowns.push(c.due)
     }
@@ -242,6 +306,7 @@ export class StudyEngine2 {
 
   exit() {
     this._tt?.destroy()
+    this._tt = null
   }
 }
 
@@ -250,11 +315,19 @@ export async function createEngine(prefs, store) {
   const eng = new StudyEngine2(prefs, store)
 
   // Hydrate queue
-  if (eng.queue)
-    eng.queue = await Promise.all(eng.queue.map(async id =>
+  const _hydrate = async (q = []) => {
+    return await Promise.all(q.map(async id =>
       id ? await db.cards.get(id) : null))
+  }
+  eng.queue = await _hydrate(eng.queue)
+  eng.buried = await _hydrate(eng.buried)
 
-  await eng._bump()
+  if (!this.day // first run
+    || this.day !== this.today // new day
+    || !Array.isArray(this.queue) // bad queue
+  )
+    await eng._bump()
+
   log.info('StudyEngine2 initialized')
   return eng
 }

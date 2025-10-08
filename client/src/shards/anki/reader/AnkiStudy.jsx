@@ -2,12 +2,9 @@ import { useRef, useEffect, useCallback, useState } from 'react'
 import { Box } from '@mui/joy'
 import { Rating } from 'ts-fsrs'
 import anki from '../core/index.js'
-import db from '../core/db.js'
 import { log } from '../../../utils/logger.js'
 import { AnkiCard, SessionSummary, RatingButtons } from './components/index.js'
 import { StudyOverlay } from './overlay/StudyOverlay.jsx'
-
-const YEAR_MS = 365 * 24 * 60 * 60 * 1000
 
 export const AnkiStudy = ({ prefs, session, onExit }) => {
   const ak = useRef(null)
@@ -15,14 +12,13 @@ export const AnkiStudy = ({ prefs, session, onExit }) => {
   const ctx = _ctx.current
   const [glow, setGlow] = useState(null)
   const [card, setCard] = useState(null)
-  const [engineKey, setEngineKey] = useState(0)
 
   const bundleId = session(state => state.bundleId)
   const actions = session(state => state.actions)
   const queueSnapshot = session(state => state.queue)
   const ttd = session(state => state.ttd)
 
-  log.debug('AnkiStudy-render', { bundleId, onExit, cardId: card?.id, engineKey })
+  log.debug('AnkiStudy-render', { bundleId, onExit, cardId: card?.id })
 
   const loadCard = useCallback(async (exit = 1) => {
     if (!ctx.engine || !ctx.renderer) return
@@ -75,53 +71,40 @@ export const AnkiStudy = ({ prefs, session, onExit }) => {
     setGlow(!ox ? null : ox < 0 ? Rating.Again : Rating.Good)
   }, [])
 
+  const rebuildRenderer = useCallback(async () => {
+    if (!ctx.engine) return
+    const cardsForRender = ctx.engine.cards()
+    ctx.renderer = cardsForRender.length ? await anki.createRender(cardsForRender) : null
+  }, [ctx])
+
   const handleResetSession = useCallback(async () => {
     if (!ctx.engine) return
-    try {
-      while (ctx.engine.actions?.length) {
-        await ctx.engine.undo()
-      }
-    } catch (err) {
-      log.error('Reset undo loop failed', err)
-    }
-    ctx.engine.exit()
-    session.setState({ day: null, queue: null, actions: [], ttd: null })
+    await ctx.engine.reset(false)
+    await rebuildRenderer()
     setGlow(null)
     setCard(null)
-    setEngineKey(key => key + 1)
-  }, [ctx, session])
+    await loadCard()
+  }, [ctx, loadCard, rebuildRenderer])
 
   const handleRebuildSession = useCallback(async () => {
-    ctx.engine?.exit()
-    session.setState(state => ({ ...state, queue: null }))
+    if (!ctx.engine) return
+    await ctx.engine.reset(true)
+    await rebuildRenderer()
     setGlow(null)
     setCard(null)
-    setEngineKey(key => key + 1)
-  }, [ctx, session])
+    await loadCard()
+  }, [ctx, loadCard, rebuildRenderer])
 
   const handleBury = useCallback(async () => {
     if (!ctx.engine || !card) return
-    const idx = ctx.engine.queue?.findIndex(c => c?.id === card.id)
-    if (idx !== undefined && idx >= 0) {
-      ctx.engine.queue.splice(idx, 1)
-      ctx.engine._flush?.(['queue'])
-    }
+    await ctx.engine.bury(card)
     setGlow(null)
     await loadCard(0)
   }, [ctx, card, loadCard])
 
   const handleSuspend = useCallback(async () => {
     if (!ctx.engine || !card) return
-    await db.cards.update(card.id, {
-      state: 'Suspended',
-      due: Date.now() + YEAR_MS,
-      fsrs: card.fsrs
-    })
-    const idx = ctx.engine.queue?.findIndex(c => c?.id === card.id)
-    if (idx !== undefined && idx >= 0) {
-      ctx.engine.queue.splice(idx, 1)
-      ctx.engine._flush?.(['queue'])
-    }
+    await ctx.engine.suspend(card)
     setGlow(null)
     await loadCard(0)
   }, [ctx, card, loadCard])
@@ -149,7 +132,7 @@ export const AnkiStudy = ({ prefs, session, onExit }) => {
     return () => {
       ctx.engine?.exit()
     }
-  }, [bundleId, prefs, session, loadCard, ctx, engineKey])
+  }, [bundleId, prefs, session, loadCard, ctx])
 
   const engine = ctx.engine
   if (engine?.status()?.done) {
