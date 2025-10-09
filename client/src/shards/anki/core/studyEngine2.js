@@ -27,7 +27,7 @@ export class StudyEngine2 {
     Object.assign(this, store.getState())
   }
 
-  async _init(reset = false) {
+  async _init() {
     // setup engine time
     const offs = (this.prefs.dailyResetTime || 0) * 60 +
         new Date().getTimezoneOffset() // tz fix
@@ -41,10 +41,6 @@ export class StudyEngine2 {
     ) {
       this.day = this.today
       this.ttd = undefined
-      reset = 1
-    }
-
-    if (reset) {
       this.queue = [null]
       this.actions = []
       await this._fill()
@@ -55,8 +51,11 @@ export class StudyEngine2 {
     // time tracking (auto-open, auto-idle)
     this._tt?.destroy()
     this._tt = new TimeTracker({
-      ttd: reset ? undefined : this.ttd,
-      onSlice: this._trackTime
+      ttd: this.ttd,
+      onSlice: (_, ttd) => {
+        this.ttd = ttd
+        this._flush(['ttd'])
+      }
     })
   }
 
@@ -124,7 +123,6 @@ export class StudyEngine2 {
         [...review, ...fresh]
 
     this.queue.unshift(...q.map(c => ({ ...c, due: Date.now() })))
-    this._flush(['queue'])
   }
 
   async _schedule(card, op, inv) {
@@ -236,7 +234,7 @@ export class StudyEngine2 {
     }
 
     // dangers eliminated, do them all
-    await this._schedule(id, op, 1) // revert card op
+    await this._schedule(card, op, 1) // revert card op
     card.due = Date.now() // reset cd, (in-mem only)
     this.queue.unshift(card) // move to front, attached
     this._flush(['queue', 'actions'])
@@ -245,13 +243,21 @@ export class StudyEngine2 {
 
   async reset() {
     this.actions = []
-    this.queue.forEach(c => c?.id && this._schedule(c, 1, 2))
+    await Promise.all(this.queue.map(c =>
+      c?.id ? this._schedule(c, 1, 2) : Promise.resolve()
+    ))
     this._sort()
-    this._flush('actions', 'queue')
+    this._flush(['actions', 'queue'])
   }
 
   async extend(n, m) {
-    this._fill(n, m)
+    if (this.queue[0] != null) {
+      log.warn('Session not ended, unable to extend', this.queue)
+      return
+    }
+
+    await this._fill(n, m)
+    this._flush(['queue'])
   }
 
   status() {
