@@ -224,10 +224,10 @@ const buildSettingsPages = (state, update) => [
         />
         <NumberField
           label='Graduation gap (minutes)'
-          value={state.gradGap}
+          value={state.gradCd}
           min={1}
           max={720}
-          onChange={(value) => update({ gradGap: value })}
+          onChange={(value) => update({ gradCd: value })}
         />
 
         <Divider sx={{ my: 1 }} />

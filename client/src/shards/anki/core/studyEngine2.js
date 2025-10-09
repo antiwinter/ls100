@@ -157,7 +157,7 @@ export class StudyEngine2 {
       log.warn('undifined op', card, op)
 
     await db.cards.update(card.id, card)
-    return card.due - now
+    return (card.due - now) / 60_000 // in minutes
   }
 
   // Cards only, exclude sentinel
@@ -197,9 +197,9 @@ export class StudyEngine2 {
     card = this._detach(card.id)
     if (!card) return
 
-    const gap = await this._schedule(card, op)
-    const { gradGap = 24 * 60 } = this.prefs
-    if (gap > gradGap * 60 * 1000) {
+    const cd = await this._schedule(card, op)
+    const { gradCd } = this.prefs
+    if (cd > gradCd) {
       // Graduated or suspend/bury? Push to back
       this.queue.push(card)
     } else {

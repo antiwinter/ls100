@@ -249,7 +249,7 @@ describe('StudyEngine.rate', () => {
   })
 
   test('should handle graduation rules properly', async () => {
-    // Test gradGap-based graduation
+    // Test gradCd-based graduation
     // Verify pile transitions (review -> done)
     // Test chronological insertion in review pile
   })

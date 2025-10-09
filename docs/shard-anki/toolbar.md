@@ -24,7 +24,7 @@ previewSide: 'both', 'front', 'back'
       maxReviewCards: 188,
       dailyResetTime: 4, // in hours
       // New cards only graduate out of current session when next due is beyond this gap (minutes)
-      gradGap: 10,
+      gradCd: 10,
 
       // Accessibility
       autoReveal: false,

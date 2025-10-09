@@ -172,7 +172,7 @@ head.state = head.fsrs[0].state
 
 // Use fresh due date for queue insertion
 const newDue = head.fsrs[0].due
-if (newDue - now.getTime() > gradGap * 60 * 1000) {
+if (newDue - now.getTime() > gradCd * 60 * 1000) {
   // Graduated? Push to back
   idx = this.queue.length - 1
 } else {

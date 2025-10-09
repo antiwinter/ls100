@@ -32,7 +32,7 @@ const mockPrefs = {
   autoBurySiblings: false,
   newCardOrder: 'random',
   newReviewOrder: 'mixed',
-  gradGap: 24 * 60 // 24 hours in minutes
+  gradCd: 24 * 60 // 24 hours in minutes
 }
 
 describe('StudyEngine2 Comprehensive Tests', () => {
