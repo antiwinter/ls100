@@ -15,8 +15,7 @@ export const AnkiSessionStore = (shardId) => {
       bundleId: null,  // Runtime only - loaded from shard.meta
       queue: null,    // Array of card IDs (hydrated on load), null = sentinel at head
       actions: [],    // Undo stack: ids of rated cards in queue
-      ttd: null,      // Time tracking data: { base, total, slices }
-      buried: []      // Session-buried card ids
+      ttd: null      // Time tracking data: { base, total, slices }
     })
   )
 }
