@@ -184,12 +184,12 @@ export class StudyEngine2 {
 
   _detach(id) {
     // Remove card and decide where to insert
-    const x = this.queue.findIndex(c => c.id === id)
+    const x = this.queue.findIndex(c => c?.id === id)
     if (x < 0) {
       log.error('Rating card not in queue', id, this.queue)
       return null
     }
-    return this.queue.splice(x, 1)
+    return this.queue.splice(x, 1)[0]  // Return the card object, not array
   }
 
   async schedule(card, op) {
