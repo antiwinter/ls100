@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
   Box,
   Stack,
@@ -19,6 +19,8 @@ import {
 import { fsrs as createFsrs } from 'ts-fsrs'
 import db from '../../core/db.js'
 import anki from '../../core/index.js'
+import { AnkiSessionStore } from '../../core/sessionStore.js'
+import { useShardId } from '../../../../stores/shardStore.js'
 import { Toolbar } from './Toolbar.jsx'
 import { ActionDrawer } from '../../../../components/ActionDrawer.jsx'
 import { log } from '../../../../utils/logger'
@@ -63,7 +65,7 @@ const TimelineBar = ({ slices }) => {
   )
 }
 
-const SessionContent = ({ stats, onReset, onRebuild, onClose }) => {
+const SessionContent = ({ stats, onAction, onClose }) => {
   const { studiedCount, remainingCount, newCount, reviewCount, totalCount, ttd } = stats || {}
   const totalMinutes = Math.round((ttd?.total || 0) / 60)
   const completion = totalCount ? Math.round((studiedCount / totalCount) * 100) : 0
@@ -100,10 +102,10 @@ const SessionContent = ({ stats, onReset, onRebuild, onClose }) => {
 
       <Stack spacing={1}>
         <Typography level='title-sm'>Operations</Typography>
-        <Button variant='solid' color='danger' size='sm' onClick={async () => { await onReset?.(); onClose?.() }}>
+        <Button variant='solid' color='danger' size='sm' onClick={async () => { await onAction?.('reset-session'); onClose?.() }}>
           Reset session
         </Button>
-        <Button variant='outlined' color='neutral' size='sm' onClick={async () => { await onRebuild?.(); onClose?.() }}>
+        <Button variant='outlined' color='neutral' size='sm' onClick={async () => { await onAction?.('rebuild-session'); onClose?.() }}>
           Rebuild session
         </Button>
       </Stack>
@@ -212,7 +214,7 @@ const EditContent = ({ card, onSaved }) => {
   )
 }
 
-const CardContent = ({ card, onBury, onSuspend, onClose }) => {
+const CardContent = ({ card, onAction, onClose }) => {
   const latest = card?.fsrs?.[0]
   const stability = latest?.stability || 0
   const difficulty = latest?.difficulty || 0
@@ -276,10 +278,10 @@ const CardContent = ({ card, onBury, onSuspend, onClose }) => {
 
       <Stack spacing={1}>
         <Typography level='title-sm'>Operations</Typography>
-        <Button variant='outlined' color='neutral' size='sm' onClick={async () => { await onBury?.(); onClose?.() }}>
+        <Button variant='outlined' color='neutral' size='sm' onClick={async () => { await onAction?.('bury'); onClose?.() }}>
           Bury card
         </Button>
-        <Button variant='solid' color='danger' size='sm' onClick={async () => { await onSuspend?.(); onClose?.() }}>
+        <Button variant='solid' color='danger' size='sm' onClick={async () => { await onAction?.('suspend'); onClose?.() }}>
           Suspend card
         </Button>
       </Stack>
@@ -287,21 +289,33 @@ const CardContent = ({ card, onBury, onSuspend, onClose }) => {
   )
 }
 
-export const StudyOverlay = ({
-  title,
-  onBack,
-  canUndo,
-  onUndo,
-  onResetSession,
-  onRebuildSession,
-  sessionStats,
-  card,
-  onCardSaved,
-  onBury,
-  onSuspend
-}) => {
+export const StudyOverlay = ({ onAction, card }) => {
   const [tool, setTool] = useState(null)
   const drawerRef = useRef(null)
+  const shardId = useShardId()
+  const session = AnkiSessionStore(shardId)
+
+  // Get session state
+  const actions = session(state => state.actions)
+  const queueSnapshot = session(state => state.queue)
+  const ttd = session(state => state.ttd)
+
+  // Calculate session stats
+  const sessionStats = useMemo(() => {
+    const queueCards = queueSnapshot?.filter(Boolean) || []
+    const newCount = queueCards.filter(c => c?.state === 'New').length
+    const reviewCount = queueCards.length - newCount
+    return {
+      studiedCount: actions?.length || 0,
+      remainingCount: queueCards.length,
+      newCount,
+      reviewCount,
+      totalCount: (actions?.length || 0) + queueCards.length,
+      ttd
+    }
+  }, [actions, queueSnapshot, ttd])
+
+  const canUndo = (actions?.length || 0) > 0
 
   const buttons = useMemo(() => [
     { key: 'undo', title: 'Undo', Icon: UndoIcon, disabled: !canUndo },
@@ -312,11 +326,16 @@ export const StudyOverlay = ({
 
   const handleSelect = (key) => {
     if (key === 'undo') {
-      onUndo?.()
+      onAction?.('undo')
       return
     }
     setTool((prev) => prev === key ? null : key)
   }
+
+  const handleCardSaved = useCallback(() => {
+    onAction?.('card-saved')
+    setTool(null)
+  }, [onAction])
 
   useEffect(() => {
     if (tool && drawerRef.current) {
@@ -335,10 +354,7 @@ export const StudyOverlay = ({
       return (
         <EditContent
           card={card}
-          onSaved={(shouldRefresh) => {
-            if (shouldRefresh) onCardSaved?.()
-            setTool(null)
-          }}
+          onSaved={handleCardSaved}
         />
       )
     }
@@ -346,8 +362,7 @@ export const StudyOverlay = ({
       return (
         <SessionContent
           stats={sessionStats}
-          onReset={onResetSession}
-          onRebuild={onRebuildSession}
+          onAction={onAction}
           onClose={() => setTool(null)}
         />
       )
@@ -356,21 +371,19 @@ export const StudyOverlay = ({
       return (
         <CardContent
           card={card}
-          onBury={onBury}
-          onSuspend={onSuspend}
+          onAction={onAction}
           onClose={() => setTool(null)}
         />
       )
     }
     return null
-  }, [tool, card, sessionStats, onResetSession, onRebuildSession, onBury, onSuspend, onCardSaved])
+  }, [tool, card, sessionStats, onAction, handleCardSaved])
 
   return (
     <Box sx={{ position: 'relative', zIndex: 100 }}>
       <Toolbar
         visible
-        title={title || 'Study session'}
-        onBack={onBack}
+        title='Study session'
         buttons={buttons}
         activeKey={tool}
         onSelect={handleSelect}

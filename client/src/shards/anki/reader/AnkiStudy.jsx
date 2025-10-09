@@ -14,9 +14,6 @@ export const AnkiStudy = ({ prefs, session, onExit }) => {
   const [card, setCard] = useState(null)
 
   const bundleId = session(state => state.bundleId)
-  const actions = session(state => state.actions)
-  const queueSnapshot = session(state => state.queue)
-  const ttd = session(state => state.ttd)
 
   log.debug('AnkiStudy-render', { bundleId, onExit, cardId: card?.id })
 
@@ -109,6 +106,31 @@ export const AnkiStudy = ({ prefs, session, onExit }) => {
     await loadCard(0)
   }, [ctx, card, loadCard])
 
+  const handleAction = useCallback(async (action) => {
+    switch (action) {
+    case 'undo':
+      await handleUndo()
+      break
+    case 'bury':
+      await handleBury()
+      break
+    case 'suspend':
+      await handleSuspend()
+      break
+    case 'reset-session':
+      await handleResetSession()
+      break
+    case 'rebuild-session':
+      await handleRebuildSession()
+      break
+    case 'card-saved':
+      await refreshCard()
+      break
+    default:
+      log.warn('Unknown action:', action)
+    }
+  }, [handleUndo, handleBury, handleSuspend, handleResetSession, handleRebuildSession, refreshCard])
+
   useEffect(() => {
     const init = async () => {
       if (!bundleId) return
@@ -139,38 +161,11 @@ export const AnkiStudy = ({ prefs, session, onExit }) => {
     return <SessionSummary onExit={onExit} />
   }
 
-  const canUndo = (actions?.length || 0) > 0
-
-  const queueCards = ctx.engine?.queue?.filter(Boolean) || []
-  const remainingFromQueue = queueSnapshot
-    ? queueSnapshot.filter(id => id).length
-    : queueCards.length
-  const newCount = queueCards.filter(c => c?.state === 'New').length
-  const reviewCount = queueCards.length - newCount
-
-  const sessionStats = {
-    studiedCount: actions?.length || 0,
-    remainingCount: remainingFromQueue,
-    newCount,
-    reviewCount,
-    totalCount: (actions?.length || 0) + remainingFromQueue,
-    ttd
-  }
-
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.body' }}>
       <StudyOverlay
-        title='Study'
-        onBack={onExit}
-        canUndo={canUndo}
-        onUndo={handleUndo}
-        onResetSession={handleResetSession}
-        onRebuildSession={handleRebuildSession}
-        sessionStats={sessionStats}
+        onAction={handleAction}
         card={card}
-        onCardSaved={refreshCard}
-        onBury={handleBury}
-        onSuspend={handleSuspend}
       />
 
       <AnkiCard
@@ -179,6 +174,7 @@ export const AnkiStudy = ({ prefs, session, onExit }) => {
         onExit={handleCardExit}
         onMove={handleMove}
       />
+
       <RatingButtons
         onRate={handleRate}
         fsrs={card?.fsrs?.[0]}
