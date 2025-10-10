@@ -283,7 +283,7 @@ const buildSettingsPages = (state, update) => [
   }
 ]
 
-export const ViewerOverlay = ({
+export const BrowserTools = ({
   title,
   cards,
   notes,

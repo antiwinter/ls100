@@ -1,12 +1,12 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
 import { Box } from '@mui/joy'
 import { Rating } from 'ts-fsrs'
-import anki from '../core/index.js'
-import { log } from '../../../utils/logger.js'
-import { AnkiCard, SessionSummary, RatingButtons } from './components/index.js'
-import { StudyOverlay } from './study/StudyOverlay.jsx'
+import anki from '../../core/index.js'
+import { log } from '../../../../utils/logger.js'
+import { SuperCard, SessionSummary, RatingButtons } from '../components/index.js'
+import { StudyOverlay } from './tools.jsx'
 
-export const AnkiStudy = ({ prefs, session, onExit }) => {
+export const StudySession = ({ prefs, session, onExit }) => {
   const ak = useRef(null)
   const _ctx = useRef({})
   const ctx = _ctx.current
@@ -15,7 +15,7 @@ export const AnkiStudy = ({ prefs, session, onExit }) => {
 
   const bundleId = session(state => state.bundleId)
 
-  log.debug('AnkiStudy-render', { bundleId, onExit, cardId: card?.id })
+  log.debug('StudySession-render', { bundleId, onExit, cardId: card?.id })
 
   const loadCard = useCallback(async (exit = 1) => {
     if (!ctx.engine || !ctx.renderer) return
@@ -168,7 +168,7 @@ export const AnkiStudy = ({ prefs, session, onExit }) => {
         card={card}
       />
 
-      <AnkiCard
+      <SuperCard
         ref={ak}
         onFlip={handleFlip}
         onExit={handleCardExit}

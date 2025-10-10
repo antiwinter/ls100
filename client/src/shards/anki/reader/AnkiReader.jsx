@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react'
 import { Box, Typography, Alert, Button } from '@mui/joy'
 import anki from '../core/index.js'
 import { AnkiSessionStore } from '../core/sessionStore.js'
-import { AnkiViewer } from './AnkiViewer.jsx'
-import { AnkiStudy } from './AnkiStudy.jsx'
+import { Browser } from './Browser.jsx'
+import { StudySession } from './StudySession.jsx'
 import { shardApi } from '../../shardApi.js'
 import { log } from '../../../utils/logger'
 
@@ -60,7 +60,7 @@ export const AnkiReader = ({ shardId, onBack }) => {
   // Route to appropriate mode
   if (mode === 'study') {
     return (
-      <AnkiStudy
+      <StudySession
         prefs={prefs}
         session={session}
         onExit={() => setMode('view')}
@@ -69,7 +69,7 @@ export const AnkiReader = ({ shardId, onBack }) => {
   }
 
   return (
-    <AnkiViewer
+    <Browser
       prefs={prefs}
       session={session}
       shardName={shard?.name}

@@ -3,7 +3,7 @@ import { Box, Typography, Button } from '@mui/joy'
 import { FixedSizeList as List } from 'react-window'
 import anki from '../core/index.js'
 import db from '../core/db.js'
-import { ViewerOverlay } from './overlay/ViewerOverlay.jsx'
+import { BrowserTools } from './overlay/BrowserTools.jsx'
 import { log } from '../../../utils/logger'
 import { CardPreview } from './components/CardPreview.jsx'
 
@@ -12,7 +12,7 @@ const ROW_GAP = 16
 const TOOLBAR_HEIGHT = 72
 const HEADER_HEIGHT = 92
 
-export const AnkiViewer = ({ prefs, session, shardName, onExit, onStudy }) => {
+export const Browser = ({ prefs, session, shardName, onExit, onStudy }) => {
   const [cards, setCards] = useState([])
   const [displayCards, setDisplayCards] = useState([])
   const [noteMap, setNoteMap] = useState(new Map())
@@ -183,7 +183,7 @@ export const AnkiViewer = ({ prefs, session, shardName, onExit, onStudy }) => {
 
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.body' }}>
-      <ViewerOverlay
+      <BrowserTools
         title={shardName || 'Anki shard'}
         cards={cards}
         notes={noteMap}

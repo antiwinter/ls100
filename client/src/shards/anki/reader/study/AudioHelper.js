@@ -1,4 +1,4 @@
-// Audio handling utilities for AnkiCard
+// Audio handling utilities for SuperCard
 
 // Handle audio element clicks with play/pause and event management
 export const handleAudioClick = (e, containerRef) => {

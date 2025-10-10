@@ -11,8 +11,8 @@ const ATIME_EXIT = 300
 const ATIME_FLIP = 1500
 const hint_cap = 50
 
-// AnkiCard component with flip animation and gesture-based drag
-export const AnkiCard = forwardRef(({
+// SuperCard component with flip animation and gesture-based drag
+export const SuperCard = forwardRef(({
   onFlip,
   onExit,
   onMove

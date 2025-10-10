@@ -10,8 +10,8 @@ export {
 } from './AnkiShard.js'
 
 export { AnkiReader } from './reader/AnkiReader.jsx'
-export { AnkiViewer } from './reader/AnkiViewer.jsx'
-export { AnkiStudy } from './reader/AnkiStudy.jsx'
+export { Browser } from './reader/Browser.jsx'
+export { StudySession } from './reader/StudySession.jsx'
 export { AnkiShardEditor } from './AnkiShardEditor.jsx'
 
 // Core API - export the structured API
