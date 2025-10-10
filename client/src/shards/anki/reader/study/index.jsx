@@ -4,7 +4,7 @@ import { Rating } from 'ts-fsrs'
 import anki from '../core/index.js'
 import { log } from '../../../utils/logger.js'
 import { AnkiCard, SessionSummary, RatingButtons } from './components/index.js'
-import { StudyOverlay } from './overlay/StudyOverlay.jsx'
+import { StudyOverlay } from './study/StudyOverlay.jsx'
 
 export const AnkiStudy = ({ prefs, session, onExit }) => {
   const ak = useRef(null)

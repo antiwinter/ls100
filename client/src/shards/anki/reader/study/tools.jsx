@@ -21,9 +21,9 @@ import db from '../../core/db.js'
 import anki from '../../core/index.js'
 import { AnkiSessionStore } from '../../core/sessionStore.js'
 import { useShardId } from '../../../../stores/shardStore.js'
-import { Toolbar } from './Toolbar.jsx'
+import { Toolbar } from '../components/Toolbar.jsx'
 import { ActionDrawer } from '../../../../components/ActionDrawer.jsx'
-import { log } from '../../../../utils/logger'
+import { log } from '../../../../utils/logger.js'
 
 const fsrsModel = createFsrs({})
 
