@@ -19,7 +19,7 @@ import {
   Search as SearchIcon
 } from '@mui/icons-material'
 import Fuse from 'fuse.js'
-import { Toolbar } from './Toolbar.js'
+import { Toolbar } from '../components/Toolbar.jsx'
 import { ActionDrawer } from '../../../../components/ActionDrawer.jsx'
 
 const StatsContent = () => {

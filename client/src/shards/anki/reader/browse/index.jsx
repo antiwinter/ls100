@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Box, Typography, Button } from '@mui/joy'
 import { FixedSizeList as List } from 'react-window'
-import anki from '../core/index.js'
-import db from '../core/db.js'
-import { BrowserTools } from './overlay/BrowserTools.jsx'
-import { log } from '../../../utils/logger'
-import { CardPreview } from './components/CardPreview.jsx'
+import anki from '../../core/index.js'
+import db from '../../core/db.js'
+import { BrowserTools } from './tools.jsx'
+import { log } from '../../../../utils/logger'
+import { CardPreview } from './CardPreview.jsx'
 
 const CARD_HEIGHT = 300
 const ROW_GAP = 16
