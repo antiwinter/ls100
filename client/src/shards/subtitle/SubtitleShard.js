@@ -155,7 +155,9 @@ export const shardTypeInfo = {
 
 // Engine components
 export const EditorComponent = SubtitleShardEditor
-export const ReaderComponent = SubtitleReader
+export const ReaderComponent = {
+  default: SubtitleReader
+}
 export const CoverComponent = SubtitleCover
 
 

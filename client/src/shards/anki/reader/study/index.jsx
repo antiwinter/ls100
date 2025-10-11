@@ -1,4 +1,5 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Box } from '@mui/joy'
 import { Rating } from 'ts-fsrs'
 import anki from '../../core/index.js'
@@ -8,7 +9,8 @@ import { SuperCard } from './Card.jsx'
 import { RatingButtons } from './RatingButtons.jsx'
 import { StudyOverlay } from './tools.jsx'
 
-export const StudySession = ({ prefs, session, onExit }) => {
+export const StudySession = ({ prefs, session }) => {
+  const navigate = useNavigate()
   const ak = useRef(null)
   const _ctx = useRef({})
   const ctx = _ctx.current
@@ -17,7 +19,7 @@ export const StudySession = ({ prefs, session, onExit }) => {
 
   const bundleId = session(state => state.bundleId)
 
-  log.debug('StudySession-render', { bundleId, onExit, cardId: card?.id })
+  log.debug('StudySession-render', { bundleId, cardId: card?.id })
 
   const loadCard = useCallback(async (exit = 1) => {
     if (!ctx.engine || !ctx.renderer) return
@@ -160,7 +162,7 @@ export const StudySession = ({ prefs, session, onExit }) => {
 
   const engine = ctx.engine
   if (engine?.status()?.done) {
-    return <SessionSummary onExit={onExit} />
+    return <SessionSummary onExit={() => navigate(-1)} />
   }
 
   return (

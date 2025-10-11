@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Stack,
@@ -288,11 +289,11 @@ export const BrowserTools = ({
   cards,
   notes,
   prefs,
-  onBack,
-  onStudy,
+  shardId,
   onSearchChange,
   onLocateCard
 }) => {
+  const navigate = useNavigate()
   const drawerRef = useRef(null)
   const [tool, setTool] = useState(null)
 
@@ -344,7 +345,7 @@ export const BrowserTools = ({
 
   const handleSelect = (key) => {
     if (key === 'study') {
-      onStudy?.()
+      navigate(`/shard/${shardId}/study`)
       return
     }
     setTool((prev) => prev === key ? null : key)
@@ -363,10 +364,10 @@ export const BrowserTools = ({
 
   const buttons = useMemo(() => [
     { key: 'statistics', title: 'Statistics', Icon: BarChart },
-    { key: 'study', title: 'Begin study', Icon: PlayArrow, variant: 'solid', color: 'primary', onClick: () => onStudy?.() },
+    { key: 'study', title: 'Begin study', Icon: PlayArrow, variant: 'solid', color: 'primary', onClick: () => navigate(`/shard/${shardId}/study`) },
     { key: 'settings', title: 'Settings', Icon: Settings },
     { key: 'search', title: 'Search', Icon: SearchIcon }
-  ], [onStudy])
+  ], [navigate, shardId])
 
   const drawerSize = tool === 'statistics'
     ? '85vh'
@@ -402,7 +403,7 @@ export const BrowserTools = ({
       <Toolbar
         visible
         title={title || 'Browse notes'}
-        onBack={onBack}
+        onBack={() => navigate(-1)}
         buttons={buttons}
         activeKey={tool}
         onSelect={handleSelect}

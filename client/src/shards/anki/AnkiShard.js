@@ -1,6 +1,6 @@
 import { AnkiShardEditor } from './AnkiShardEditor.jsx'
 import { AnkiCover } from './AnkiCover.jsx'
-import { AnkiReader as AnkiReaderComponent } from './reader/AnkiReader.jsx'
+import { AnkiBrowser, AnkiStudy } from './reader/AnkiReader.jsx'
 import { parseApkgFile, importApkgData } from './apkg/index.js'
 import anki from './core/index.js'
 import { log } from '../../utils/logger'
@@ -133,7 +133,10 @@ export const cleanup = async (shard, allShards = []) => {
 
 // Engine components
 export const EditorComponent = AnkiShardEditor
-export const ReaderComponent = AnkiReaderComponent
+export const ReaderComponent = {
+  default: AnkiBrowser,
+  study: AnkiStudy
+}
 export const CoverComponent = AnkiCover
 
 log.debug('Anki shard engine initialized')

@@ -79,10 +79,10 @@ export const engineGetEditor = (shardType) => {
   return engine?.EditorComponent || null
 }
 
-// Get reader component
-export const engineGetReader = (shardType) => {
-  const engine = getEngine(shardType)
-  return engine?.ReaderComponent || null
+// Get reader component for specific mode
+export const engineGetReader = (shardType, mode) => {
+  const RC = getEngine(shardType)?.ReaderComponent
+  return RC?.[mode] || RC?.default
 }
 
 // File detection across all engines

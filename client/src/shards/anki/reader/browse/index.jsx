@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Box, Typography, Button } from '@mui/joy'
 import { FixedSizeList as List } from 'react-window'
 import anki from '../../core/index.js'
@@ -12,7 +13,8 @@ const ROW_GAP = 16
 const TOOLBAR_HEIGHT = 72
 const HEADER_HEIGHT = 92
 
-export const Browser = ({ prefs, session, shardName, onExit, onStudy }) => {
+export const Browser = ({ prefs, session, shardName, shardId }) => {
+  const navigate = useNavigate()
   const [cards, setCards] = useState([])
   const [displayCards, setDisplayCards] = useState([])
   const [noteMap, setNoteMap] = useState(new Map())
@@ -127,7 +129,7 @@ export const Browser = ({ prefs, session, shardName, onExit, onStudy }) => {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
         <Typography color='neutral'>Failed to load cards</Typography>
-        <Button size='sm' variant='outlined' onClick={onExit} sx={{ mt: 1 }}>
+        <Button size='sm' variant='outlined' onClick={() => navigate(-1)} sx={{ mt: 1 }}>
           Go back
         </Button>
       </Box>
@@ -188,8 +190,7 @@ export const Browser = ({ prefs, session, shardName, onExit, onStudy }) => {
         cards={cards}
         notes={noteMap}
         prefs={prefs}
-        onBack={onExit}
-        onStudy={onStudy}
+        shardId={shardId}
         onSearchChange={handleSearchChange}
         onLocateCard={handleLocateCard}
       />

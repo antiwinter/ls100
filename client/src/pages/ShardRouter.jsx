@@ -33,13 +33,13 @@ export const ShardRouter = () => {
     return null
   }
 
-  // Get reader component for this shard type
-  const Reader = engineGetReader(shard?.type)
+  // Get reader component for this shard type and mode
+  const Reader = engineGetReader(shard?.type, mode)
   if (!Reader) {
     return (
       <Box sx={{ p: 4, textAlign: 'center' }}>
         <Typography level="h4" sx={{ mb: 2 }}>
-          Invalid shard: {shardId} {shard?.type}
+          Invalid shard: {shardId} {shard?.type} mode: {mode}
         </Typography>
         <Button onClick={() => navigate(-1)}>
           Go back
@@ -51,7 +51,6 @@ export const ShardRouter = () => {
   return (
     <Reader
       shard={shard}
-      mode={mode}
     />
   )
 }
