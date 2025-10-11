@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Box, Typography, Button } from '@mui/joy'
 import { FixedSizeList as List } from 'react-window'
@@ -75,27 +75,6 @@ export const Browser = ({ prefs, session }) => {
     setDisplayCards(!q ? cards : fuse?.search(q)?.map(r => r.item) || [])
   }, [cards, searchQuery, fuse])
 
-  const renderRow = useCallback(({ index, style }) => {
-    const cards = side === 'both'
-      ? [displayCards[index], displayCards[index]]
-      : [displayCards[index * 2], displayCards[index * 2 + 1]]
-    const sides = side === 'both' ? ['front', 'back'] : [side, side]
-
-    return (
-      <Box style={style} sx={{ px: 2, display: 'flex', gap: 2, justifyContent: 'center' }}>
-        {cards.map((card, i) => card && (
-          <CardPreview
-            key={card.id}
-            renderer={renderer}
-            card={card}
-            side={sides[i]}
-            height={cardSize}
-          />
-        ))}
-      </Box>
-    )
-  }, [side, displayCards, renderer])
-
   if (!renderer) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
@@ -120,6 +99,28 @@ export const Browser = ({ prefs, session }) => {
   const rowHeight = cardSize + 16
   const listHeight = (window?.innerHeight || 800) - headerHeight
   const rowCount = Math.ceil((displayCards?.length || 0) / (side === 'both' ? 1 : 2))
+
+  const renderRow = ({ index, style }) => {
+    const cards = side === 'both'
+      ? [displayCards[index], displayCards[index]]
+      : [displayCards[index * 2], displayCards[index * 2 + 1]]
+    const sides = side === 'both' ? ['front', 'back'] : [side, side]
+
+    return (
+      <Box style={style} sx={{ px: 2, display: 'flex', gap: 2, justifyContent: 'center' }}>
+        {cards.map((card, i) => card && (
+          <CardPreview
+            key={card.id}
+            renderer={renderer}
+            card={card}
+            side={sides[i]}
+            height={cardSize}
+          />
+        ))}
+      </Box>
+    )
+  }
+
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.body' }}>
       <BrowserTools
@@ -132,11 +133,11 @@ export const Browser = ({ prefs, session }) => {
         position: 'fixed',
         top: 0,
         left: 0,
+        right: 0,
         zIndex: 100,
         bgcolor: 'background.body',
         p: 2,
         height: headerHeight,
-        width: '100%',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center'
