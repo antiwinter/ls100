@@ -11,7 +11,8 @@ export const AnkiBrowser = ({ shard }) => {
   useEffect(() => {
     if (!shard) return
     session.setState({
-      bundleId: shard.meta?.bundles?.map(b => b.id)?.[0]
+      shard,
+      bundleId: shard.meta?.bundles?.[0]?.id
     })
   }, [shard, session])
 
@@ -19,8 +20,6 @@ export const AnkiBrowser = ({ shard }) => {
     <Browser
       prefs={prefs}
       session={session}
-      shardName={shard?.name}
-      shardId={shard.id}
     />
   )
 }
@@ -32,7 +31,7 @@ export const AnkiStudy = ({ shard }) => {
   useEffect(() => {
     if (!shard) return
     session.setState({
-      bundleId: shard.meta?.bundles?.map(b => b.id)?.[0]
+      bundleId: shard.meta?.bundles?.[0]?.id
     })
   }, [shard, session])
 

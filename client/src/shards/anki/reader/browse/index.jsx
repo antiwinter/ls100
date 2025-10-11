@@ -1,121 +1,100 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Box, Typography, Button } from '@mui/joy'
 import { FixedSizeList as List } from 'react-window'
+import Fuse from 'fuse.js'
 import anki from '../../core/index.js'
 import db from '../../core/db.js'
 import { BrowserTools } from './tools.jsx'
 import { log } from '../../../../utils/logger'
 import { CardPreview } from './CardPreview.jsx'
+import _ from 'lodash'
 
-const CARD_HEIGHT = 300
-const ROW_GAP = 16
-const TOOLBAR_HEIGHT = 72
-const HEADER_HEIGHT = 92
-
-export const Browser = ({ prefs, session, shardName, shardId }) => {
+export const Browser = ({ prefs, session }) => {
   const navigate = useNavigate()
   const [cards, setCards] = useState([])
-  const [displayCards, setDisplayCards] = useState([])
-  const [noteMap, setNoteMap] = useState(new Map())
   const [renderer, setRenderer] = useState(null)
-  const [css, setCss] = useState('')
-  const [searchQuery, setSearchQuery] = useState('')
+  const [displayCards, setDisplayCards] = useState([])
   const listRef = useRef(null)
+  const styleRef = useRef(null)
 
-  const bundleId = session(state => state.bundleId)
-  const previewSide = prefs(state => state.previewSide || 'back')
+  const { bundleId, searchQuery, shard } = session()
+  const { previewSide: side } = prefs()
+
+  const fuse = useMemo(() => {
+    if (!cards.length) return null
+    return new Fuse(cards, {
+      includeScore: true,
+      threshold: 0.8,
+      keys: ['text']
+    })
+  }, [cards])
 
   useEffect(() => {
     if (!bundleId) {
-      setCards([])
-      setDisplayCards([])
-      setNoteMap(new Map())
       setRenderer('error')
-      setCss('')
       return
     }
 
     let alive = true
     ;(async () => {
       try {
-        const allCards = await anki.getCardsForBundles([bundleId])
-        if (!allCards?.length) {
-          if (alive) {
-            setCards([])
-            setDisplayCards([])
-            setNoteMap(new Map())
-            setRenderer('error')
-            setCss('')
-          }
-          return
-        }
-
-        const rctx = await anki.createRender(allCards)
-        if (!rctx) {
-          if (alive) {
-            setCards([])
-            setDisplayCards([])
-            setNoteMap(new Map())
-            setRenderer('error')
-            setCss('')
-          }
-          return
-        }
-
-        const noteIds = Array.from(new Set(allCards.map(card => card.noteId)))
-        const notes = noteIds.length ? await db.notes.bulkGet(noteIds) : []
-        const map = new Map()
-        noteIds.forEach((id, index) => {
-          const note = notes[index]
-          if (note) map.set(id, note)
-        })
+        const notes = _.keyBy(await db.notes.where('bundleId')
+          .equals(bundleId).toArray(), 'id')
+        const _cards = (await anki.getCardsForBundles([bundleId]))
+          .map(c => {
+            c.text = notes[c.noteId]?.fields?.join(',') || ''
+            return c
+          })
+        const rctx = await anki.createRender(_cards)
+        if (!rctx) throw new Error('Failed to create render')
 
         if (alive) {
-          setCards(allCards)
-          setDisplayCards(allCards)
-          setNoteMap(map)
+          setCards(_cards)
           setRenderer(rctx)
-          setCss(rctx.css || '')
+          if (rctx.css) {
+            styleRef.current = document.createElement('style')
+            styleRef.current.textContent = rctx.css
+            document.head.appendChild(styleRef.current)
+          }
         }
       } catch (err) {
-        log.error('Failed to load cards:', err)
-        if (alive) {
-          setCards([])
-          setDisplayCards([])
-          setNoteMap(new Map())
-          setRenderer('error')
-          setCss('')
-        }
+        log.error('Error:', err)
+        if (alive) setRenderer('error')
       }
     })()
 
-    return () => { alive = false }
+    return () => {
+      alive = false
+      styleRef.current?.remove()
+    }
   }, [bundleId])
 
-  const handleSearchChange = useCallback((query, filtered) => {
-    setSearchQuery(query)
-    if (!query?.trim()) {
-      setDisplayCards(cards)
-      return
-    }
-    setDisplayCards(filtered || [])
-  }, [cards])
+  useEffect(() => {
+    const q = searchQuery?.trim()
+    setDisplayCards(!q ? cards : fuse?.search(q)?.map(r => r.item) || [])
+  }, [cards, searchQuery, fuse])
 
-  const handleLocateCard = useCallback((card) => {
-    if (!card) return
-    const index = displayCards.findIndex(c => c.id === card.id)
-    if (index < 0) return
-    const list = listRef.current
-    if (!list) return
-    const isBoth = previewSide === 'both'
-    const rowIndex = isBoth ? index : Math.floor(index / 2)
-    if (typeof list.scrollToItem === 'function') {
-      list.scrollToItem(rowIndex, 'start')
-    } else if (typeof list.scrollTo === 'function') {
-      list.scrollTo(rowIndex * (CARD_HEIGHT + ROW_GAP))
-    }
-  }, [displayCards, previewSide])
+  const renderRow = useCallback(({ index, style }) => {
+    const cards = side === 'both'
+      ? [displayCards[index], displayCards[index]]
+      : [displayCards[index * 2], displayCards[index * 2 + 1]]
+    const sides = side === 'both' ? ['front', 'back'] : [side, side]
+
+    return (
+      <Box style={style} sx={{ px: 2, display: 'flex', gap: 2, justifyContent: 'center' }}>
+        {cards.map((card, i) => card && (
+          <CardPreview
+            key={card.id}
+            renderer={renderer}
+            card={card}
+            side={sides[i]}
+            height={cardSize}
+          />
+        ))}
+      </Box>
+    )
+  }, [side, displayCards, renderer])
 
   if (!renderer) {
     return (
@@ -136,100 +115,58 @@ export const Browser = ({ prefs, session, shardName, shardId }) => {
     )
   }
 
-  const totalCards = cards.length
-  const visibleCards = displayCards.length
-  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 800
-  const listHeight = Math.max(400, viewportHeight - (TOOLBAR_HEIGHT + HEADER_HEIGHT))
-  const ROW_HEIGHT = CARD_HEIGHT + ROW_GAP
-  const isBoth = previewSide === 'both'
-  const rowCount = isBoth ? visibleCards : Math.ceil(visibleCards / 2)
-
-  const renderRow = ({ index, style }) => {
-    let leftCard, rightCard, leftSide, rightSide
-    if (isBoth) {
-      const card = displayCards[index]
-      leftCard = rightCard = card
-      leftSide = 'front'
-      rightSide = 'back'
-    } else {
-      const leftIdx = index * 2
-      const rightIdx = leftIdx + 1
-      leftCard = displayCards[leftIdx]
-      rightCard = displayCards[rightIdx]
-      leftSide = rightSide = previewSide
-    }
-
-    return (
-      <Box style={style} sx={{ px: 2, boxSizing: 'border-box' }}>
-        <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
-          {leftCard && (
-            <CardPreview
-              renderer={renderer}
-              card={leftCard}
-              side={leftSide}
-              height={CARD_HEIGHT}
-            />
-          )}
-          {rightCard && (
-            <CardPreview
-              renderer={renderer}
-              card={rightCard}
-              side={rightSide}
-              height={CARD_HEIGHT}
-            />
-          )}
-        </Box>
-      </Box>
-    )
-  }
-
+  const cardSize = 300
+  const headerHeight = 72
+  const rowHeight = cardSize + 16
+  const listHeight = (window?.innerHeight || 800) - headerHeight
+  const rowCount = Math.ceil((displayCards?.length || 0) / (side === 'both' ? 1 : 2))
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.body' }}>
       <BrowserTools
-        title={shardName || 'Anki shard'}
-        cards={cards}
-        notes={noteMap}
         prefs={prefs}
-        shardId={shardId}
-        onSearchChange={handleSearchChange}
-        onLocateCard={handleLocateCard}
+        session={session}
+        shardId={shard.id}
       />
 
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', pt: `${TOOLBAR_HEIGHT}px` }}>
-        <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
-          <Typography level='title-lg' sx={{ mb: 0.5 }}>
-            {shardName || 'Anki Shard'}
-          </Typography>
-          <Typography level='body-sm' color='neutral'>
-            {searchQuery?.trim()
-              ? `Showing ${visibleCards} of ${totalCards} cards`
-              : `${totalCards} cards`}
-          </Typography>
-        </Box>
+      <Box sx={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        zIndex: 100,
+        bgcolor: 'background.body',
+        p: 2,
+        height: headerHeight,
+        width: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center'
+      }}>
+        <Typography level='title-lg' sx={{ mb: 0.5 }}>
+          {shard?.name || 'Anki Shard'}
+        </Typography>
+        <Typography level='body-sm' color='neutral'>
+          {searchQuery?.trim()
+            ? `Showing ${displayCards?.length || 0} of ${cards.length} cards`
+            : `${cards.length} cards`}
+        </Typography>
+      </Box>
 
-        {css && <style>{css}</style>}
-
-        <Box sx={{ flex: 1, minHeight: 0 }}>
-          {totalCards === 0 ? (
-            <Box sx={{ p: 4, textAlign: 'center' }}>
-              <Typography color='neutral'>No cards found</Typography>
-            </Box>
-          ) : visibleCards === 0 ? (
-            <Box sx={{ p: 4, textAlign: 'center' }}>
-              <Typography color='neutral'>No cards match the current search</Typography>
-            </Box>
-          ) : (
-            <List
-              ref={listRef}
-              height={listHeight}
-              itemCount={rowCount}
-              itemSize={ROW_HEIGHT}
-              width='100%'
-            >
-              {renderRow}
-            </List>
-          )}
-        </Box>
+      <Box sx={{ pt: `${headerHeight}px` }}>
+        {!displayCards?.length ? (
+          <Box sx={{ p: 4, textAlign: 'center' }}>
+            <Typography color='neutral'>No cards found</Typography>
+          </Box>
+        ) : (
+          <List
+            ref={listRef}
+            height={listHeight}
+            itemCount={rowCount}
+            itemSize={rowHeight}
+            width='100%'
+          >
+            {renderRow}
+          </List>
+        )}
       </Box>
     </Box>
   )

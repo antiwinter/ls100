@@ -5,7 +5,6 @@ import {
   Stack,
   Typography,
   Input,
-  Chip,
   Divider,
   Select,
   Option,
@@ -19,7 +18,6 @@ import {
   Settings,
   Search as SearchIcon
 } from '@mui/icons-material'
-import Fuse from 'fuse.js'
 import { Toolbar } from '../components/Toolbar.jsx'
 import { ActionDrawer } from '../../../../components/ActionDrawer.jsx'
 
@@ -36,58 +34,9 @@ const StatsContent = () => {
   )
 }
 
-const ResultRow = ({ summary, onSelect }) => {
-  const { card, primary, secondary, note } = summary
-  return (
-    <Box
-      onClick={() => onSelect?.(card)}
-      sx={{
-        py: 1,
-        px: 1.5,
-        borderRadius: 'md',
-        '&:hover': {
-          bgcolor: 'neutral.softBg'
-        }
-      }}
-    >
-      <Stack spacing={0.5}>
-        <Typography level='body-md' sx={{ fontWeight: 600 }}>
-          {primary}
-        </Typography>
-        {secondary && (
-          <Typography level='body-sm' color='neutral'>
-            {secondary}
-          </Typography>
-        )}
-        {Array.isArray(note?.tags) && note.tags.length > 0 && (
-          <Stack direction='row' spacing={0.75} sx={{ flexWrap: 'wrap' }}>
-            {note.tags.slice(0, 4).map((tag) => (
-              <Chip key={tag} size='sm' variant='soft' color='neutral'>
-                {tag.trim()}
-              </Chip>
-            ))}
-          </Stack>
-        )}
-      </Stack>
-    </Box>
-  )
-}
-
-const SearchContent = ({
-  summaries,
-  fuse,
-  onResults,
-  onLocate,
-  total
-}) => {
-  const [query, setQuery] = useState('')
-  const [hits, setHits] = useState(summaries)
+const SearchContent = ({ session }) => {
+  const searchQuery = session(state => state.searchQuery) || ''
   const inputRef = useRef(null)
-
-  useEffect(() => {
-    setHits(summaries)
-    if (!query) onResults('', summaries.map(s => s.card))
-  }, [summaries, query, onResults])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -96,54 +45,21 @@ const SearchContent = ({
     return () => clearTimeout(timer)
   }, [])
 
-  const runSearch = (value) => {
-    const term = value.trim()
-    setQuery(value)
-    if (!term) {
-      setHits(summaries)
-      onResults('', summaries.map(s => s.card))
-      return
-    }
-    const results = fuse ? fuse.search(term) : []
-    const mapped = results.length > 0
-      ? results.map(entry => entry.item)
-      : []
-    setHits(mapped)
-    onResults(term, mapped.map(s => s.card))
+  const handleChange = (event) => {
+    session.setState({ searchQuery: event.target.value })
   }
 
   return (
-    <Box sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', gap: 1 }}>
+    <Box sx={{ p: 2 }}>
       <Input
         inputRef={inputRef}
-        value={query}
-        onChange={(event) => runSearch(event.target.value)}
+        value={searchQuery}
+        onChange={handleChange}
         placeholder='Search any field or tag'
         startDecorator={<SearchIcon fontSize='small' />}
         size='sm'
         sx={{ borderRadius: 'md' }}
       />
-
-      <Typography level='body-sm' color='neutral'>
-        Showing {hits.length} of {total} cards
-      </Typography>
-
-      <Box sx={{ flex: 1, overflowY: 'auto', pr: 0.5 }}>
-        <Stack spacing={1.25}>
-          {hits.map((summary) => (
-            <ResultRow
-              key={summary.card.id}
-              summary={summary}
-              onSelect={onLocate}
-            />
-          ))}
-          {hits.length === 0 && (
-            <Typography level='body-sm' color='neutral'>
-              No matching cards. Try another query.
-            </Typography>
-          )}
-        </Stack>
-      </Box>
     </Box>
   )
 }
@@ -285,13 +201,9 @@ const buildSettingsPages = (state, update) => [
 ]
 
 export const BrowserTools = ({
-  title,
-  cards,
-  notes,
   prefs,
-  shardId,
-  onSearchChange,
-  onLocateCard
+  session,
+  shardId
 }) => {
   const navigate = useNavigate()
   const drawerRef = useRef(null)
@@ -309,40 +221,6 @@ export const BrowserTools = ({
     [prefState, updatePrefs]
   )
 
-  const summaries = useMemo(() => {
-    const map = notes instanceof Map ? notes : new Map(Object.entries(notes || {}))
-    return cards.map((card) => {
-      const note = map.get(card.noteId)
-      const fields = note?.fields || []
-      return {
-        card,
-        note,
-        cardId: card.id,
-        primary: fields[0] || `Card ${card.id.slice(0, 6)}`,
-        secondary: fields.slice(1).filter(Boolean).join(' • '),
-        text: fields.join(' '),
-        tags: note?.tags || []
-      }
-    })
-  }, [cards, notes])
-
-  const fuse = useMemo(() => {
-    if (!summaries.length) return null
-    return new Fuse(summaries, {
-      includeScore: true,
-      threshold: 0.32,
-      keys: [
-        { name: 'primary', weight: 0.5 },
-        { name: 'text', weight: 0.4 },
-        { name: 'tags', weight: 0.1 }
-      ]
-    })
-  }, [summaries])
-
-  useEffect(() => {
-    if (!tool) onSearchChange?.('', cards)
-  }, [tool, cards, onSearchChange])
-
   const handleSelect = (key) => {
     if (key === 'study') {
       navigate(`/shard/${shardId}/study`)
@@ -358,10 +236,6 @@ export const BrowserTools = ({
     }
   }, [tool])
 
-  const handleSearchResults = useCallback((query, filtered) => {
-    onSearchChange?.(query, filtered)
-  }, [onSearchChange])
-
   const buttons = useMemo(() => [
     { key: 'statistics', title: 'Statistics', Icon: BarChart },
     { key: 'study', title: 'Begin study', Icon: PlayArrow, variant: 'solid', color: 'primary', onClick: () => navigate(`/shard/${shardId}/study`) },
@@ -372,7 +246,7 @@ export const BrowserTools = ({
   const drawerSize = tool === 'statistics'
     ? '85vh'
     : tool === 'search'
-      ? '45vh'
+      ? 'auto'
       : tool === 'settings'
         ? 'auto'
         : null
@@ -382,27 +256,18 @@ export const BrowserTools = ({
       return <StatsContent />
     }
     if (tool === 'search') {
-      return (
-        <SearchContent
-          summaries={summaries}
-          fuse={fuse}
-          total={cards.length}
-          onResults={handleSearchResults}
-          onLocate={onLocateCard}
-        />
-      )
+      return <SearchContent session={session} />
     }
     if (tool === 'settings') {
       return settingsPages
     }
     return null
-  }, [tool, summaries, fuse, cards.length, settingsPages, onLocateCard, handleSearchResults])
+  }, [tool, session, settingsPages])
 
   return (
     <Box sx={{ position: 'relative', zIndex: 100 }}>
       <Toolbar
         visible
-        title={title || 'Browse notes'}
         onBack={() => navigate(-1)}
         buttons={buttons}
         activeKey={tool}
