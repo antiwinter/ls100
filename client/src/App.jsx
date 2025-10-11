@@ -5,7 +5,7 @@ import theme from './theme'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Login from './components/auth/Login'
 import Register from './components/auth/Register'
-import { Home, EditShard, Explore, Friends, Me, Hint } from './pages'
+import { Home, EditShard, Explore, Friends, Me, Hint, ShardRouter } from './pages'
 import { BottomNav } from './components/BottomNav'
 import { detectPlatform } from './utils/useDetectPlatform'
 import { APP } from './config/constants'
@@ -16,7 +16,6 @@ const isDev = window?.location?.hostname?.match(/localhost|127\.0\.0\.1/)
 
 const MainApp = () => {
   const [homeEditMode, setHomeEditMode] = useState(false)
-  const [homeReaderMode, setHomeReaderMode] = useState(false)
   const location = useLocation()
 
   // Determine active tab based on current route
@@ -30,10 +29,11 @@ const MainApp = () => {
     }
   }
 
-  // Check if we should hide bottom nav (edit mode, reader mode, EditShard page, or Hint page)
-  const shouldHideBottomNav = homeEditMode || homeReaderMode ||
+  // Check if we should hide bottom nav (edit mode, shard pages, or Hint page)
+  const shouldHideBottomNav = homeEditMode ||
                                location.pathname === '/edit-shard' ||
-                               location.pathname === '/hint'
+                               location.pathname === '/hint' ||
+                               location.pathname.startsWith('/shard/')
 
   return (
     <Box sx={{
@@ -49,7 +49,9 @@ const MainApp = () => {
         pb: shouldHideBottomNav ? 0 : 10 // Space for bottom navigation when visible
       }}>
         <Routes>
-          <Route path="/" element={<Home onEditModeChange={setHomeEditMode} onReaderModeChange={setHomeReaderMode} />} />
+          <Route path="/" element={<Home onEditModeChange={setHomeEditMode} />} />
+          <Route path="/shard/:shardId" element={<ShardRouter />} />
+          <Route path="/shard/:shardId/:mode" element={<ShardRouter />} />
           <Route path="/edit-shard" element={<EditShard />} />
           <Route path="/explore" element={<Box sx={{ p: 2 }}><Explore /></Box>} />
           <Route path="/friends" element={<Box sx={{ p: 2 }}><Friends /></Box>} />

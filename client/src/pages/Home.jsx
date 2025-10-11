@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   Box,
   Stack,
@@ -12,15 +12,15 @@ import { BrowserEditBar } from '../components/BrowserEditBar'
 import { ShardBrowser } from '../components/ShardBrowser'
 import { AppDialog } from '../components/AppDialog'
 import { shardApi } from '../shards/shardApi'
-import { engineGetReader, engineCleanup } from '../shards/engines.js'
+import { engineCleanup } from '../shards/engines.js'
 import { log } from '../utils/logger'
 import { APP } from '../config/constants'
 
-export const Home = ({ onEditModeChange, onReaderModeChange }) => {
+export const Home = ({ onEditModeChange }) => {
   const navigate = useNavigate()
+  const location = useLocation()
   const [shards, setShards] = useState([])
   const [showImport, setShowImport] = useState(false)
-  const [readerShard, setReaderShard] = useState(null)
   const [sortBy, setSortBy] = useState(() => {
     return localStorage.getItem(APP.storage.sort) || 'last_used'
   })
@@ -82,15 +82,17 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
     refreshShards()
   }, [refreshShards])
 
+  // Refresh shards when navigating back to home
+  useEffect(() => {
+    if (location.pathname === '/') {
+      refreshShards()
+    }
+  }, [location.pathname, refreshShards])
+
   // Notify parent of edit mode changes
   useEffect(() => {
     onEditModeChange?.(editing)
   }, [editing, onEditModeChange])
-
-  // Notify parent of reader mode changes
-  useEffect(() => {
-    onReaderModeChange?.(!!readerShard)
-  }, [readerShard, onReaderModeChange])
 
   const handleSortChange = (newSort) => {
     setSortBy(newSort)
@@ -121,13 +123,7 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
 
 
   const handleOpenReader = (shardId) => {
-    const shard = shards.find(s => s.id === shardId)
-    setReaderShard(shard)
-  }
-
-  const handleCloseReader = () => {
-    setReaderShard(null)
-    refreshShards()
+    navigate(`/shard/${shardId}`)
   }
 
   // Selection handlers
@@ -225,33 +221,6 @@ export const Home = ({ onEditModeChange, onReaderModeChange }) => {
       }
     })
   }
-
-  // Show reader if shard selected
-  if (readerShard) {
-    const ReaderComponent = engineGetReader(readerShard.type)
-
-    if (!ReaderComponent) {
-      return (
-        <Box sx={{ p: 4, textAlign: 'center' }}>
-          <Typography level="h4" sx={{ mb: 2 }}>
-            No reader available for {readerShard.type} shards
-          </Typography>
-          <Button onClick={handleCloseReader}>
-            Back to Home
-          </Button>
-        </Box>
-      )
-    }
-
-    return (
-      <ReaderComponent
-        shardId={readerShard.id}
-        onBack={handleCloseReader}
-      />
-    )
-  }
-
-
 
   return (
     <>

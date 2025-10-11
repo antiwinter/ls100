@@ -1,8 +1,8 @@
 import { useEffect, useCallback, useState, useRef, useMemo } from 'react'
-import { Box, Typography, Stack, Chip, Button } from '@mui/joy'
+import { useNavigate } from 'react-router-dom'
+import { Box, Typography, Stack, Chip } from '@mui/joy'
 import ViewerSkeleton from './ViewerSkeleton.jsx'
 import { Bolt } from '@mui/icons-material'
-import { shardApi } from '../../shardApi.js'
 import { log } from '../../../utils/logger'
 import { OverlayManager } from '../../../components/overlay/index.jsx'
 import { SubtitleViewer } from './SubtitleViewer.jsx'
@@ -72,10 +72,11 @@ const SubtitleHeader = ({ shardName, position, total, onReviewClick }) => {
   )
 }
 
-const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
+const SubtitleReaderContent = ({ shard }) => {
   // Session store and state
-  // log.debug('SUBTITLE READER RENDER', shard, shardId)
-  const sessionStore = SubtitleSessionStore(shardId)
+  // log.debug('SUBTITLE READER RENDER', shard, shard.id)
+  const navigate = useNavigate()
+  const sessionStore = SubtitleSessionStore(shard.id)
   const {
     position, wordlist, langMap, setPosition,
     toggleWord, setHint, searchQuery, setSearchResults,
@@ -107,7 +108,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
     log.debug('Using position from sessionStore:', pos)
     setSeek(pos)
     setPositionLoaded(true)
-  }, [shardId, sessionStore])
+  }, [shard.id, sessionStore])
 
   // Use languages from meta (new) or data (old) for backward compat
   const languages = shard?.meta?.languages || []
@@ -200,7 +201,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   }, [groups, mergeGroup])
 
   // Reset anchored flag when shard/seek changes
-  useEffect(() => { setViewerAnchored(0) }, [shardId, seek])
+  useEffect(() => { setViewerAnchored(0) }, [shard.id, seek])
 
   const handleAnchored = useCallback((ready) => {
     log.debug('READER handleAnchored', ready)
@@ -276,17 +277,6 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   }, [viewer, setPosition])
 
   const shardName = shard?.name || ''
-  if (loading) {
-    return null
-  }
-  if (!shard) {
-    return (
-      <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography color="danger">Shard not found</Typography>
-        <Button onClick={onBack} sx={{ mt: 2 }}>Go Back</Button>
-      </Box>
-    )
-  }
 
   return (
     <Box sx={{
@@ -306,7 +296,7 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
       {/* OverlayManager - local state management */}
       <OverlayManager
         ref={overlayRef}
-        onBack={onBack}
+        onBack={() => navigate(-1)}
         session={sessionStore}
         prefs={subtitlePrefs}
         onSeek={handleSeek}
@@ -337,49 +327,32 @@ const SubtitleReaderContent = ({ shard, shardId, onBack, loading }) => {
   )
 }
 
-export const SubtitleReader = ({ shardId, onBack }) => {
-  const [shard, setShard] = useState(undefined)
-  const [loading, setLoading] = useState(true)
-  const sessionStore = SubtitleSessionStore(shardId)
+export const SubtitleReader = ({ shard }) => {
+  const sessionStore = SubtitleSessionStore(shard.id)
   const { setLangMap, setShardName } = sessionStore()
 
-  // Load shard and initialize langMap in session store
+  // Initialize langMap in session store from shard languages
   useEffect(() => {
-    let alive = true
-    ;(async () => {
-      try {
-        const shard = await shardApi.read(shardId)
-        if (!alive) return
-        setShard(shard || null)
+    if (!shard) return
 
-        // Save shard name to session store
-        if (shard?.name) {
-          setShardName(shard.name)
-        }
+    // Save shard name to session store
+    if (shard.name) {
+      setShardName(shard.name)
+    }
 
-        // Initialize langMap in session store from shard languages
-        const languages = shard?.meta?.languages || []
-        const current = sessionStore.getState().langMap || {} // Get existing persisted state
-        const newLangMap = {} // Create fresh object
+    // Initialize langMap in session store from shard languages
+    const languages = shard.meta?.languages || []
+    const current = sessionStore.getState().langMap || {}
+    const newLangMap = {}
 
-        languages.forEach(l => {
-          // Copy existing entry if it exists, otherwise create new one
-          const existing = current[l.code]
-          newLangMap[l.code] = existing
-            ? { ...existing, filename: l.filename, isMain: l.isMain }
-            : { filename: l.filename, visible: false, isMain: l.isMain } // New entry
-        })
-        setLangMap(newLangMap)
-        setLoading(false)
-      } catch (error) {
-        log.error('Failed to load shard:', error)
-        if (!alive) return
-        setShard(null)
-        setLoading(false)
-      }
-    })()
-    return () => { alive = false }
-  }, [shardId, setLangMap, setShardName, sessionStore])
+    languages.forEach(l => {
+      const existing = current[l.code]
+      newLangMap[l.code] = existing
+        ? { ...existing, filename: l.filename, isMain: l.isMain }
+        : { filename: l.filename, visible: false, isMain: l.isMain }
+    })
+    setLangMap(newLangMap)
+  }, [shard, setLangMap, setShardName, sessionStore])
 
-  return <SubtitleReaderContent shard={shard} shardId={shardId} loading={loading} onBack={onBack} />
+  return <SubtitleReaderContent shard={shard} />
 }

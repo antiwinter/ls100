@@ -1,61 +1,24 @@
-import { useState, useEffect } from 'react'
-import { Box, Typography, Alert, Button } from '@mui/joy'
+import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Box } from '@mui/joy'
 import anki from '../core/index.js'
 import { AnkiSessionStore } from '../core/sessionStore.js'
 import { Browser } from './browse/index.jsx'
 import { StudySession } from './study/index.jsx'
-import { shardApi } from '../../shardApi.js'
-import { log } from '../../../utils/logger'
 
-export const AnkiReader = ({ shardId, onBack }) => {
-  const [shard, setShard] = useState(null)
-  const [mode, setMode] = useState('view')
-
+export const AnkiReader = ({ shard, mode = 'view' }) => {
+  const navigate = useNavigate()
   const prefs = anki.AnkiPrefsStore()
-  const session = AnkiSessionStore(shardId)
+  const session = AnkiSessionStore(shard.id)
 
-  // Fetch shard and initialize session
+  // Initialize session with bundle IDs
   useEffect(() => {
-    let alive = true
-    shardApi.read(shardId)
-      .then(d => {
-        if (alive) {
-          setShard(d || 'error')
-          if (!d) return
+    if (!shard) return
 
-          // Initialize session with bundle IDs
-          session.setState({
-            bundleId: d.meta?.bundles?.map(b => b.id)?.[0]
-          })
-        }
-      })
-      .catch((err) => {
-        log.error('Failed to load shard:', err)
-        if (alive) setShard('error')
-      })
-    return () => { alive = false }
-  }, [shardId, session])
-
-  if (!shard) {
-    return (
-      <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography color="neutral">Loading shard...</Typography>
-      </Box>
-    )
-  }
-
-  if (shard === 'error') {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Alert color="danger">
-          <Typography level="body-sm">Failed to load shard</Typography>
-          <Button size="sm" variant="outlined" onClick={onBack} sx={{ mt: 1 }}>
-            Go back
-          </Button>
-        </Alert>
-      </Box>
-    )
-  }
+    session.setState({
+      bundleId: shard.meta?.bundles?.map(b => b.id)?.[0]
+    })
+  }, [shard, session])
 
   // Route to appropriate mode
   if (mode === 'study') {
@@ -63,7 +26,7 @@ export const AnkiReader = ({ shardId, onBack }) => {
       <StudySession
         prefs={prefs}
         session={session}
-        onExit={() => setMode('view')}
+        onExit={() => navigate(-1)}
       />
     )
   }
@@ -73,8 +36,8 @@ export const AnkiReader = ({ shardId, onBack }) => {
       prefs={prefs}
       session={session}
       shardName={shard?.name}
-      onExit={onBack}
-      onStudy={() => setMode('study')}
+      onExit={() => navigate(-1)}
+      onStudy={() => navigate(`/shard/${shard.id}/study`)}
     />
   )
 }
