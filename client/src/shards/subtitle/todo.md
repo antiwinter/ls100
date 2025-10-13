@@ -1,0 +1,1 @@
+- [ ] fix useLongPress: 1. toolbar auto shown on opening a shard 2. support drag select subtitle phrases

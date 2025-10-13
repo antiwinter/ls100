@@ -22,7 +22,8 @@ export const Browser = ({ prefs, session }) => {
   const { bundleId, searchQuery, shard } = session()
   const { previewSide: side } = prefs()
 
-  const handleEmptyClick = useCallback(() => {
+  const handleEmptyClick = useCallback((_e) => {
+    // log.debug('handleEmptyClick', _e.target)
     toolsRef.current?.toggleToolbar()
   }, [])
 
@@ -126,7 +127,7 @@ export const Browser = ({ prefs, session }) => {
   }
 
   return (
-    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.body' }}>
+    <>
       <BrowserTools
         ref={toolsRef}
         prefs={prefs}
@@ -135,49 +136,52 @@ export const Browser = ({ prefs, session }) => {
 
       <Box
         onClick={handleEmptyClick}
-        sx={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 100,
-          bgcolor: 'background.body',
-          px: 2,
-          py: 0,
-          height: headerHeight,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          cursor: 'pointer'
-        }}
-      >
-        <Typography level='title-lg'>
-          {shard?.name || 'Anki Shard'}
-        </Typography>
-        <Typography level='body-sm' color='neutral'>
-          {searchQuery?.trim()
-            ? `Showing ${cards?.length || 0} of ${data.length} cards`
-            : `${data.length} cards`}
-        </Typography>
-      </Box>
+        sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.body' }}>
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 100,
+            bgcolor: 'background.body',
+            px: 2,
+            py: 0,
+            height: headerHeight,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            cursor: 'pointer'
+          }}
+        >
+          <Typography level='title-lg'>
+            {shard?.name || 'Anki Shard'}
+          </Typography>
+          <Typography level='body-sm' color='neutral'>
+            {searchQuery?.trim()
+              ? `Showing ${cards?.length || 0} of ${data.length} cards`
+              : `${data.length} cards`}
+          </Typography>
+        </Box>
 
-      <Box sx={{ pt: `${headerHeight}px` }} onClick={handleEmptyClick}>
-        {!cards?.length ? (
-          <Box sx={{ p: 4, textAlign: 'center' }}>
-            <Typography color='neutral'>No cards found</Typography>
-          </Box>
-        ) : (
-          <List
-            ref={listRef}
-            height={listHeight}
-            itemCount={rowCount}
-            itemSize={rowHeight}
-            width='100%'
-          >
-            {renderRow}
-          </List>
-        )}
+        <Box sx={{ pt: `${headerHeight}px` }}>
+          {!cards?.length ? (
+            <Box sx={{ p: 4, textAlign: 'center' }}>
+              <Typography color='neutral'>No cards found</Typography>
+            </Box>
+          ) : (
+            <List
+              ref={listRef}
+              height={listHeight}
+              itemCount={rowCount}
+              itemSize={rowHeight}
+              width='100%'
+            >
+              {renderRow}
+            </List>
+          )}
+        </Box>
       </Box>
-    </Box>
+    </>
   )
 }
