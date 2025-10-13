@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Box,
@@ -59,10 +59,11 @@ const SearchContent = ({ session }) => {
   )
 }
 
-export const BrowserTools = ({ prefs, session }) => {
+const BrowserTools_ = forwardRef(({ prefs, session }, ref) => {
   const navigate = useNavigate()
   const drawerRef = useRef(null)
   const [tool, setTool] = useState(null)
+  const [toolbarVisible, setToolbarVisible] = useState(false)
   const { shard } = session()
 
   const handleSelect = useCallback((key) => {
@@ -84,6 +85,12 @@ export const BrowserTools = ({ prefs, session }) => {
     }
   }, [tool])
 
+  useImperativeHandle(ref, () => ({
+    toggleToolbar: () => {
+      setToolbarVisible(prev => !prev)
+    }
+  }))
+
   const buttons = useMemo(() => [
     { key: 'statistics', title: 'Statistics', Icon: BarChart },
     { key: 'study', title: 'Begin study', Icon: PlayArrow,
@@ -95,9 +102,9 @@ export const BrowserTools = ({ prefs, session }) => {
   const drawerSize = tool === 'statistics' ? '85vh' : 'auto'
 
   return (
-    <Box sx={{ position: 'relative', zIndex: 100 }}>
+    <Box>
       <Toolbar
-        visible
+        visible={toolbarVisible}
         onBack={() => navigate(-1)}
         buttons={buttons}
         activeKey={tool}
@@ -117,4 +124,7 @@ export const BrowserTools = ({ prefs, session }) => {
       </ActionDrawer>
     </Box>
   )
-}
+})
+
+export const BrowserTools = BrowserTools_
+BrowserTools.displayName = 'BrowserTools'

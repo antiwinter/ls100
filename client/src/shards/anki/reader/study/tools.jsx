@@ -19,8 +19,6 @@ import {
 import { fsrs as createFsrs } from 'ts-fsrs'
 import db from '../../core/db.js'
 import anki from '../../core/index.js'
-import { AnkiSessionStore } from '../../core/sessionStore.js'
-import { useShardId } from '../../../../stores/shardStore.js'
 import { Toolbar } from '../components/Toolbar.jsx'
 import { ActionDrawer } from '../../../../components/ActionDrawer.jsx'
 import { log } from '../../../../utils/logger.js'
@@ -289,11 +287,9 @@ const CardContent = ({ card, onAction, onClose }) => {
   )
 }
 
-export const StudyOverlay = ({ onAction, card }) => {
+export const StudyOverlay = ({ session, onAction, card }) => {
   const [tool, setTool] = useState(null)
   const drawerRef = useRef(null)
-  const shardId = useShardId()
-  const session = AnkiSessionStore(shardId)
 
   // Get session state
   const actions = session(state => state.actions)

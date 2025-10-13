@@ -168,6 +168,7 @@ export const StudySession = ({ prefs, session }) => {
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.body' }}>
       <StudyOverlay
+        session={session}
         onAction={handleAction}
         card={card}
       />

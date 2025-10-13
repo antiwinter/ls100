@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Box, Typography, Button } from '@mui/joy'
 import { FixedSizeList as List } from 'react-window'
@@ -17,9 +17,14 @@ export const Browser = ({ prefs, session }) => {
   const [cards, setCards] = useState([])
   const listRef = useRef(null)
   const styleRef = useRef(null)
+  const toolsRef = useRef(null)
 
   const { bundleId, searchQuery, shard } = session()
   const { previewSide: side } = prefs()
+
+  const handleEmptyClick = useCallback(() => {
+    toolsRef.current?.toggleToolbar()
+  }, [])
 
   const fuse = useMemo(() => {
     if (!data.length) return null
@@ -78,7 +83,7 @@ export const Browser = ({ prefs, session }) => {
   if (!renderer) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography color='neutral'>Loading data...</Typography>
+        <Typography color='neutral'>Loading cards...</Typography>
       </Box>
     )
   }
@@ -86,7 +91,7 @@ export const Browser = ({ prefs, session }) => {
   if (renderer === 'error') {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography color='neutral'>Failed to load data</Typography>
+        <Typography color='neutral'>Failed to load cards</Typography>
         <Button size='sm' variant='outlined' onClick={() => navigate(-1)} sx={{ mt: 1 }}>
           Go back
         </Button>
@@ -124,24 +129,29 @@ export const Browser = ({ prefs, session }) => {
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.body' }}>
       <BrowserTools
+        ref={toolsRef}
         prefs={prefs}
         session={session}
       />
 
-      <Box sx={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 100,
-        bgcolor: 'background.body',
-        p: 2,
-        height: headerHeight,
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center'
-      }}>
-        <Typography level='title-lg' sx={{ mb: 0.5 }}>
+      <Box
+        onClick={handleEmptyClick}
+        sx={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 100,
+          bgcolor: 'background.body',
+          p: 2,
+          height: headerHeight,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          cursor: 'pointer'
+        }}
+      >
+        <Typography level='title-lg'>
           {shard?.name || 'Anki Shard'}
         </Typography>
         <Typography level='body-sm' color='neutral'>
@@ -151,10 +161,10 @@ export const Browser = ({ prefs, session }) => {
         </Typography>
       </Box>
 
-      <Box sx={{ pt: `${headerHeight}px` }}>
+      <Box sx={{ pt: `${headerHeight}px` }} onClick={handleEmptyClick}>
         {!cards?.length ? (
           <Box sx={{ p: 4, textAlign: 'center' }}>
-            <Typography color='neutral'>No data found</Typography>
+            <Typography color='neutral'>No cards found</Typography>
           </Box>
         ) : (
           <List

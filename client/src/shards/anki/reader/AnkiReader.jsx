@@ -5,9 +5,9 @@ import { StudySession } from './study/index.jsx'
 
 export const AnkiReader = ({ shard, mode }) => {
   const session = anki.sessionStore(shard.id)
-  const localPrefs = anki.prefsStore(shard.id)
-  const globalPrefs = localPrefs(state => state.globalPrefs)
-  const prefs = globalPrefs ? anki.prefsStore() : localPrefs
+  const _prefs = anki.prefsStore(shard.id)
+  const { globalPrefs } = _prefs()
+  const prefs = globalPrefs ? anki.prefsStore() : _prefs
 
   useEffect(() => {
     if (!shard) return
