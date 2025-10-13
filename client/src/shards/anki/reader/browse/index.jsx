@@ -30,7 +30,7 @@ export const Browser = ({ prefs, session }) => {
     if (!data.length) return null
     return new Fuse(data, {
       includeScore: true,
-      threshold: 0.8,
+      threshold: 0.3,
       keys: ['text']
     })
   }, [data])
@@ -77,7 +77,7 @@ export const Browser = ({ prefs, session }) => {
 
   useEffect(() => {
     const q = searchQuery?.trim()
-    setCards(!q ? data : fuse?.search(q)?.map(r => r.item) || [])
+    setCards(!q ? data : fuse?.search(q, { limit: 20 })?.map(r => r.item) || [])
   }, [data, searchQuery, fuse])
 
   if (!renderer) {
@@ -99,9 +99,8 @@ export const Browser = ({ prefs, session }) => {
     )
   }
 
-  const cardSize = 300
-  const headerHeight = 72
-  const rowHeight = cardSize + 16
+  const headerHeight = 50
+  const rowHeight = 270
   const listHeight = (window?.innerHeight || 800) - headerHeight
   const rowCount = Math.ceil((cards?.length || 0) / (side === 'both' ? 1 : 2))
 
@@ -119,7 +118,7 @@ export const Browser = ({ prefs, session }) => {
             renderer={renderer}
             card={card}
             side={sides[i]}
-            height={cardSize}
+            height={rowHeight - 16}
           />
         ))}
       </Box>
@@ -143,7 +142,8 @@ export const Browser = ({ prefs, session }) => {
           right: 0,
           zIndex: 100,
           bgcolor: 'background.body',
-          p: 2,
+          px: 2,
+          py: 0,
           height: headerHeight,
           display: 'flex',
           alignItems: 'center',

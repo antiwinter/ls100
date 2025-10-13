@@ -20,7 +20,8 @@ export const CardPreview = ({ renderer, card, side = 'back', height = 250 }) => 
 
   const CARD_WIDTH = 330
   const CARD_HEIGHT =  932
-  const width = window.innerWidth / 2 - 20
+  const width = height / 4 * 3
+  // const width = window.innerWidth / 2 - 20
   const scale = width / CARD_WIDTH
   return (
     <Box sx={{
