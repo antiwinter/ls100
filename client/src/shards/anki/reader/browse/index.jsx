@@ -12,9 +12,9 @@ import _ from 'lodash'
 
 export const Browser = ({ prefs, session }) => {
   const navigate = useNavigate()
-  const [cards, setCards] = useState([])
+  const [data, setData] = useState([])
   const [renderer, setRenderer] = useState(null)
-  const [displayCards, setDisplayCards] = useState([])
+  const [cards, setCards] = useState([])
   const listRef = useRef(null)
   const styleRef = useRef(null)
 
@@ -22,13 +22,13 @@ export const Browser = ({ prefs, session }) => {
   const { previewSide: side } = prefs()
 
   const fuse = useMemo(() => {
-    if (!cards.length) return null
-    return new Fuse(cards, {
+    if (!data.length) return null
+    return new Fuse(data, {
       includeScore: true,
       threshold: 0.8,
       keys: ['text']
     })
-  }, [cards])
+  }, [data])
 
   useEffect(() => {
     if (!bundleId) {
@@ -50,7 +50,7 @@ export const Browser = ({ prefs, session }) => {
         if (!rctx) throw new Error('Failed to create render')
 
         if (alive) {
-          setCards(_cards)
+          setData(_cards)
           setRenderer(rctx)
           if (rctx.css) {
             styleRef.current = document.createElement('style')
@@ -72,13 +72,13 @@ export const Browser = ({ prefs, session }) => {
 
   useEffect(() => {
     const q = searchQuery?.trim()
-    setDisplayCards(!q ? cards : fuse?.search(q)?.map(r => r.item) || [])
-  }, [cards, searchQuery, fuse])
+    setCards(!q ? data : fuse?.search(q)?.map(r => r.item) || [])
+  }, [data, searchQuery, fuse])
 
   if (!renderer) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography color='neutral'>Loading cards...</Typography>
+        <Typography color='neutral'>Loading data...</Typography>
       </Box>
     )
   }
@@ -86,7 +86,7 @@ export const Browser = ({ prefs, session }) => {
   if (renderer === 'error') {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography color='neutral'>Failed to load cards</Typography>
+        <Typography color='neutral'>Failed to load data</Typography>
         <Button size='sm' variant='outlined' onClick={() => navigate(-1)} sx={{ mt: 1 }}>
           Go back
         </Button>
@@ -98,17 +98,17 @@ export const Browser = ({ prefs, session }) => {
   const headerHeight = 72
   const rowHeight = cardSize + 16
   const listHeight = (window?.innerHeight || 800) - headerHeight
-  const rowCount = Math.ceil((displayCards?.length || 0) / (side === 'both' ? 1 : 2))
+  const rowCount = Math.ceil((cards?.length || 0) / (side === 'both' ? 1 : 2))
 
-  const renderRow = ({ index, style }) => {
-    const cards = side === 'both'
-      ? [displayCards[index], displayCards[index]]
-      : [displayCards[index * 2], displayCards[index * 2 + 1]]
+  const renderRow = ({ index: i, style }) => {
+    const data = side === 'both'
+      ? [cards[i], cards[i]]
+      : [cards[i * 2], cards[i * 2 + 1]]
     const sides = side === 'both' ? ['front', 'back'] : [side, side]
 
     return (
       <Box style={style} sx={{ px: 2, display: 'flex', gap: 2, justifyContent: 'center' }}>
-        {cards.map((card, i) => card && (
+        {data.map((card, i) => card && (
           <CardPreview
             key={card.id}
             renderer={renderer}
@@ -126,7 +126,6 @@ export const Browser = ({ prefs, session }) => {
       <BrowserTools
         prefs={prefs}
         session={session}
-        shardId={shard.id}
       />
 
       <Box sx={{
@@ -147,15 +146,15 @@ export const Browser = ({ prefs, session }) => {
         </Typography>
         <Typography level='body-sm' color='neutral'>
           {searchQuery?.trim()
-            ? `Showing ${displayCards?.length || 0} of ${cards.length} cards`
-            : `${cards.length} cards`}
+            ? `Showing ${cards?.length || 0} of ${data.length} cards`
+            : `${data.length} cards`}
         </Typography>
       </Box>
 
       <Box sx={{ pt: `${headerHeight}px` }}>
-        {!displayCards?.length ? (
+        {!cards?.length ? (
           <Box sx={{ p: 4, textAlign: 'center' }}>
-            <Typography color='neutral'>No cards found</Typography>
+            <Typography color='neutral'>No data found</Typography>
           </Box>
         ) : (
           <List

@@ -4,6 +4,7 @@ import mediaManager from './mediaManager.js'
 import { createRender } from '../render/renderDefault.js'
 import { createEngine } from './studyEngine2.js'
 import { AnkiPrefsStore } from './prefsStore.js'
+import { AnkiSessionStore } from './sessionStore.js'
 import { log } from '../../../utils/logger.js'
 import { getTemplate, addTemplate, removeTemplate, getTemplates } from './template/index.js'
 import _ from 'lodash'
@@ -60,7 +61,10 @@ export const anki = {
   mediaManager,
   createRender,
   createEngine,
-  AnkiPrefsStore,
+
+  // Store APIs
+  prefsStore: AnkiPrefsStore,
+  sessionStore: AnkiSessionStore,
 
   getTemplate,
   addTemplate,

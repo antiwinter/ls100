@@ -6,41 +6,73 @@ import {
   Switch,
   FormControl,
   FormLabel,
-  Input
+  Input,
+  Box,
+  Typography
 } from '@mui/joy'
+import anki from '../../core/index.js'
 
-export const buildSettingsPages = (state, update) => {
-  // Helper to render number input
-  const numberField = (label, value, onChange, min = 0, max = 999) => (
-    <FormControl size='sm' key={label}>
-      <FormLabel>{label}</FormLabel>
-      <Input
-        type='number'
-        value={value}
-        onChange={(event) => {
-          const next = Number(event.target.value)
-          if (Number.isNaN(next)) return
-          const clamped = Math.min(max, Math.max(min, next))
-          onChange(clamped)
-        }}
-        sx={{ mt: 0.5 }}
-      />
-    </FormControl>
+// Helper to render number input
+const NumberField = ({ label, value, onChange, min = 0, max = 999 }) => (
+  <FormControl size='sm'>
+    <FormLabel>{label}</FormLabel>
+    <Input
+      type='number'
+      value={value}
+      onChange={(event) => {
+        const next = Number(event.target.value)
+        if (Number.isNaN(next)) return
+        const clamped = Math.min(max, Math.max(min, next))
+        onChange(clamped)
+      }}
+      sx={{ mt: 0.5 }}
+    />
+  </FormControl>
+)
+
+// Helper to render toggle switch
+const ToggleField = ({ label, checked, onChange }) => (
+  <FormControl orientation='horizontal' sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+    <FormLabel>{label}</FormLabel>
+    <Switch checked={checked} onChange={(event) => onChange(event.target.checked)} size='sm' />
+  </FormControl>
+)
+
+// Global prefs toggle component
+const GlobalPrefsToggle = ({ session }) => {
+  const { shard } = session()
+  const localPrefs = anki.prefsStore(shard.id)
+  const globalPrefs = localPrefs(state => state.globalPrefs)
+
+  const handleToggle = (checked) => {
+    localPrefs.setState({ globalPrefs: checked })
+  }
+
+  return (
+    <Box sx={{ p: 2, bgcolor: 'background.level1', borderRadius: 'sm', mb: 2 }}>
+      <FormControl orientation='horizontal' sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+        <Box>
+          <FormLabel sx={{ mb: 0.5 }}>Use global settings</FormLabel>
+          <Typography level='body-xs' sx={{ color: 'text.tertiary' }}>
+            Apply settings across all Anki shards
+          </Typography>
+        </Box>
+        <Switch checked={!!globalPrefs} onChange={(e) => handleToggle(e.target.checked)} size='md' />
+      </FormControl>
+    </Box>
   )
+}
 
-  // Helper to render toggle switch
-  const toggleField = (label, checked, onChange) => (
-    <FormControl orientation='horizontal' sx={{ alignItems: 'center', justifyContent: 'space-between' }} key={label}>
-      <FormLabel>{label}</FormLabel>
-      <Switch checked={checked} onChange={(event) => onChange(event.target.checked)} size='sm' />
-    </FormControl>
-  )
+export const BrowseSettings = ({ prefs, session }) => {
+  const state = prefs()
+  const update = (updates) => prefs.setState(updates)
 
-  return [
-    {
-      key: 'browse',
-      title: 'Browse options',
-      content: (
+  return {
+    key: 'browse',
+    title: 'Browse options',
+    content: (
+      <>
+        <GlobalPrefsToggle session={session} />
         <Stack spacing={1.5}>
           <FormControl size='sm'>
             <FormLabel>Preview side</FormLabel>
@@ -55,21 +87,62 @@ export const buildSettingsPages = (state, update) => {
             </Select>
           </FormControl>
         </Stack>
-      )
-    },
-    {
-      key: 'learning',
-      title: 'Learning options',
-      content: (
+      </>
+    )
+  }
+}
+
+export const LearningSettings = ({ prefs, session }) => {
+  const state = prefs()
+  const update = (updates) => prefs.setState(updates)
+
+  return {
+    key: 'learning',
+    title: 'Learning options',
+    content: (
+      <>
+        <GlobalPrefsToggle session={session} />
         <Stack spacing={1.5}>
-          {numberField('Max new cards per day', state.maxNewCards, (value) => update({ maxNewCards: value }), 1, 200)}
-          {numberField('Max review cards per day', state.maxReviewCards, (value) => update({ maxReviewCards: value }), 10, 1000)}
-          {numberField('Daily reset time (hour)', state.dailyResetTime, (value) => update({ dailyResetTime: value }), 0, 23)}
-          {numberField('Graduation gap (minutes)', state.gradCd, (value) => update({ gradCd: value }), 1, 720)}
+          <NumberField
+            label='Max new cards per day'
+            value={state.maxNewCards}
+            onChange={(value) => update({ maxNewCards: value })}
+            min={1}
+            max={200}
+          />
+          <NumberField
+            label='Max review cards per day'
+            value={state.maxReviewCards}
+            onChange={(value) => update({ maxReviewCards: value })}
+            min={10}
+            max={1000}
+          />
+          <NumberField
+            label='Daily reset time (hour)'
+            value={state.dailyResetTime}
+            onChange={(value) => update({ dailyResetTime: value })}
+            min={0}
+            max={23}
+          />
+          <NumberField
+            label='Graduation gap (minutes)'
+            value={state.gradCd}
+            onChange={(value) => update({ gradCd: value })}
+            min={1}
+            max={720}
+          />
 
           <Divider sx={{ my: 1 }} />
-          {toggleField('Auto reveal answer', !!state.autoReveal, (value) => update({ autoReveal: value }))}
-          {toggleField('Auto play audio', !!state.autoPlayAudio, (value) => update({ autoPlayAudio: value }))}
+          <ToggleField
+            label='Auto reveal answer'
+            checked={!!state.autoReveal}
+            onChange={(value) => update({ autoReveal: value })}
+          />
+          <ToggleField
+            label='Auto play audio'
+            checked={!!state.autoPlayAudio}
+            onChange={(value) => update({ autoPlayAudio: value })}
+          />
 
           <Divider sx={{ my: 1 }} />
           <FormControl size='sm'>
@@ -97,11 +170,19 @@ export const buildSettingsPages = (state, update) => {
             </Select>
           </FormControl>
 
-          {toggleField('Auto bury siblings', !!state.autoBurySiblings, (value) => update({ autoBurySiblings: value }))}
-          {toggleField('Use natural cooldown', !!state.naturalCooldown, (value) => update({ naturalCooldown: value }))}
+          <ToggleField
+            label='Auto bury siblings'
+            checked={!!state.autoBurySiblings}
+            onChange={(value) => update({ autoBurySiblings: value })}
+          />
+          <ToggleField
+            label='Use natural cooldown'
+            checked={!!state.naturalCooldown}
+            onChange={(value) => update({ naturalCooldown: value })}
+          />
         </Stack>
-      )
-    }
-  ]
+      </>
+    )
+  }
 }
 

@@ -5,6 +5,7 @@ export const AnkiPrefsStore = (shardId = null) => {
   return getStore(
     { topic: 'anki-prefs', shardId },
     (set) => ({
+      globalPrefs: true, // When true, use global prefs instead of shard-specific
       previewSide: 'back', // 'front' | 'back' | 'both' (for browse mode)
 
       // STUDY OPTIONS

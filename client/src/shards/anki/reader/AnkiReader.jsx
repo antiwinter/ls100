@@ -1,12 +1,13 @@
 import { useEffect } from 'react'
 import anki from '../core/index.js'
-import { AnkiSessionStore } from '../core/sessionStore.js'
 import { Browser } from './browse/index.jsx'
 import { StudySession } from './study/index.jsx'
 
-export const AnkiBrowser = ({ shard }) => {
-  const prefs = anki.AnkiPrefsStore()
-  const session = AnkiSessionStore(shard.id)
+export const AnkiReader = ({ shard, mode }) => {
+  const session = anki.sessionStore(shard.id)
+  const localPrefs = anki.prefsStore(shard.id)
+  const globalPrefs = localPrefs(state => state.globalPrefs)
+  const prefs = globalPrefs ? anki.prefsStore() : localPrefs
 
   useEffect(() => {
     if (!shard) return
@@ -17,28 +18,14 @@ export const AnkiBrowser = ({ shard }) => {
   }, [shard, session])
 
   return (
-    <Browser
-      prefs={prefs}
-      session={session}
-    />
-  )
-}
-
-export const AnkiStudy = ({ shard }) => {
-  const prefs = anki.AnkiPrefsStore()
-  const session = AnkiSessionStore(shard.id)
-
-  useEffect(() => {
-    if (!shard) return
-    session.setState({
-      bundleId: shard.meta?.bundles?.[0]?.id
-    })
-  }, [shard, session])
-
-  return (
-    <StudySession
-      prefs={prefs}
-      session={session}
-    />
+    mode === 'study' ?
+      <StudySession
+        prefs={prefs}
+        session={session}
+      /> :
+      <Browser
+        prefs={prefs}
+        session={session}
+      />
   )
 }

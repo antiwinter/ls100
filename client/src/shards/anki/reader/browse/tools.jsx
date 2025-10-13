@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Box,
@@ -14,7 +14,7 @@ import {
 } from '@mui/icons-material'
 import { Toolbar } from '../components/Toolbar.jsx'
 import { ActionDrawer } from '../../../../components/ActionDrawer.jsx'
-import { buildSettingsPages } from './Settings.jsx'
+import { BrowseSettings, LearningSettings } from './Settings.jsx'
 
 const StatsContent = () => {
   return (
@@ -59,34 +59,19 @@ const SearchContent = ({ session }) => {
   )
 }
 
-export const BrowserTools = ({
-  prefs,
-  session,
-  shardId
-}) => {
+export const BrowserTools = ({ prefs, session }) => {
   const navigate = useNavigate()
   const drawerRef = useRef(null)
   const [tool, setTool] = useState(null)
-
-  const prefState = prefs()
-  const setPreferences = prefState.setPreferences
-
-  const updatePrefs = useCallback((patch) => {
-    setPreferences?.(patch)
-  }, [setPreferences])
-
-  const settingsPages = useMemo(
-    () => buildSettingsPages(prefState, updatePrefs),
-    [prefState, updatePrefs]
-  )
+  const { shard } = session()
 
   const handleSelect = useCallback((key) => {
     if (key === 'study') {
-      navigate(`/shard/${shardId}/study`)
+      navigate(`/shard/${shard.id}/study`)
       return
     }
     setTool((prev) => prev === key ? null : key)
-  }, [navigate, shardId])
+  }, [navigate, shard.id])
 
   const handleClose = useCallback(() => {
     setTool(null)
@@ -101,31 +86,13 @@ export const BrowserTools = ({
 
   const buttons = useMemo(() => [
     { key: 'statistics', title: 'Statistics', Icon: BarChart },
-    { key: 'study', title: 'Begin study', Icon: PlayArrow, variant: 'solid', color: 'primary', onClick: () => navigate(`/shard/${shardId}/study`) },
+    { key: 'study', title: 'Begin study', Icon: PlayArrow,
+      onClick: () => navigate(`/shard/${shard.id}/study`) },
     { key: 'settings', title: 'Settings', Icon: Settings },
     { key: 'search', title: 'Search', Icon: SearchIcon }
-  ], [navigate, shardId])
+  ], [navigate, shard.id])
 
-  const drawerSize = tool === 'statistics'
-    ? '85vh'
-    : tool === 'search'
-      ? 'auto'
-      : tool === 'settings'
-        ? 'auto'
-        : null
-
-  const drawerContent = useMemo(() => {
-    if (tool === 'statistics') {
-      return <StatsContent />
-    }
-    if (tool === 'search') {
-      return <SearchContent session={session} />
-    }
-    if (tool === 'settings') {
-      return settingsPages
-    }
-    return null
-  }, [tool, session, settingsPages])
+  const drawerSize = tool === 'statistics' ? '85vh' : 'auto'
 
   return (
     <Box sx={{ position: 'relative', zIndex: 100 }}>
@@ -143,7 +110,10 @@ export const BrowserTools = ({
         position='bottom'
         onClose={handleClose}
       >
-        {drawerContent}
+        {tool === 'statistics' && <StatsContent />}
+        {tool === 'search' && <SearchContent session={session} />}
+        {tool === 'settings' && <BrowseSettings prefs={prefs} session={session} />}
+        {tool === 'settings' && <LearningSettings prefs={prefs} session={session} />}
       </ActionDrawer>
     </Box>
   )
