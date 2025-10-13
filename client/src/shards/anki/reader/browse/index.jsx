@@ -100,7 +100,7 @@ export const Browser = ({ prefs, session }) => {
     )
   }
 
-  const headerHeight = 50
+  const headerHeight = 60
   const rowHeight = 270
   const listHeight = (window?.innerHeight || 800) - headerHeight
   const rowCount = Math.ceil((cards?.length || 0) / (side === 'both' ? 1 : 2))
@@ -164,7 +164,9 @@ export const Browser = ({ prefs, session }) => {
           </Typography>
         </Box>
 
-        <Box sx={{ pt: `${headerHeight}px` }}>
+        <Box
+          sx={{ pt: `${headerHeight}px` }}
+        >
           {!cards?.length ? (
             <Box sx={{ p: 4, textAlign: 'center' }}>
               <Typography color='neutral'>No cards found</Typography>

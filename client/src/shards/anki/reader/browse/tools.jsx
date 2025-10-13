@@ -87,7 +87,21 @@ const BrowserTools_ = forwardRef(({ prefs, session }, ref) => {
 
   useImperativeHandle(ref, () => ({
     toggleToolbar: () => {
-      setToolbarVisible(prev => !prev)
+      // If drawer or toolbar is open -> close both
+      // Else -> open toolbar
+      const shouldOpen = !(tool || toolbarVisible)
+      setTool(null)
+      setToolbarVisible(shouldOpen)
+      if (!shouldOpen) {
+        drawerRef.current?.close?.()
+      }
+    },
+    closeTools: () => {
+      if (tool || toolbarVisible) {
+        setTool(null)
+        setToolbarVisible(false)
+        drawerRef.current?.close?.()
+      }
     }
   }))
 
@@ -107,7 +121,7 @@ const BrowserTools_ = forwardRef(({ prefs, session }, ref) => {
         visible={toolbarVisible}
         onBack={() => navigate(-1)}
         buttons={buttons}
-        activeKey={tool}
+        activeKey={null}
         onSelect={handleSelect}
       />
 
