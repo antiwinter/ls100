@@ -1,4 +1,4 @@
-import { apiCall } from '../config/api'
+import { apiCall, buildApiUrl } from '../config/api'
 import { genId } from '../utils/idGenerator'
 import { log } from '../utils/logger'
 import oss from '../utils/oss'
@@ -83,7 +83,7 @@ async function migrateSubtitleFiles(shard) {
 
     try {
       // Fetch subtitle content from BE
-      const url = `/api/subtitles/${oldSubtitleId}/content`
+      const url = buildApiUrl(`/api/subtitles/${oldSubtitleId}/content`)
       const token = localStorage.getItem('token')
       const response = await fetch(url, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
