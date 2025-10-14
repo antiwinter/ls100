@@ -1,11 +1,10 @@
-import { useState, useRef, useEffect,
-  useCallback, forwardRef, useImperativeHandle,
-  useMemo, memo } from 'react'
+import { useState, useRef, useEffect, memo,
+  useCallback, forwardRef, useImperativeHandle } from 'react'
 import { Box, Stack, Typography, IconButton } from '@mui/joy'
 import { Close } from '@mui/icons-material'
 import { useDrag } from '@use-gesture/react'
-// import { log } from '../utils/logger'
-// import { useSpring } from '@react-spring/web'
+import { animate } from 'animejs'
+import { log } from '../utils/logger'
 
 const ANIMATION = 300
 // Helper to prevent all pointer events from bubbling
@@ -164,47 +163,61 @@ export const ActionDrawer = forwardRef(({
   children
 }, ref) => {
   // Internal state for content and navigation
-  const [content, setContent] = useState(null)
-  const pageRef = useRef(0)
-
-  // Memoize pages normalization to prevent recreation on every render
-  const list = useMemo(() => {
-    if (!content) return []
-    // Filter out falsy children and convert to pages format
-    const validChildren = Array.isArray(content)
-      ? content.filter(Boolean)
-      : content ? [content] : []
-    return validChildren.map(p => (p && typeof p === 'object' && 'content' in p) ? p : { content: p })
-  }, [content])
+  const [show, setShow] = useState(0)
+  const [list, setList] = useState(null)
 
   // log.warn('ActionDrawer re-render', { title, pages: children, size })
+  const pageRef = useRef(0)
   const drawRef = useRef(null)
   const sliderRef = useRef(null)
   const bottomIndicatorRef = useRef(null)
   const topIndicatorRef = useRef(null)
-  const closingRef = useRef(null)
-
   const bottom = position === 'bottom'
 
-  const dY = useRef(null)
-  const transform = useCallback((dy) => {
-    const st =  `translateY(${(dy === undefined || dy === null)
-      ? bottom ? '100%' : '-100%'
-      : `${dy}px`})`
+  // snap effect
+  const to = useCallback((dy, duration = ANIMATION) => {
+    // log.debug('drawer to', dy, duration)
 
-    if (drawRef.current) {
-      drawRef.current.style.transform = st
-      drawRef.current.style.transition = 'transform 0.28s ease'
+    if (!drawRef.current) {
+      log.warn('not ready')
+      return
     }
-    // log.debug('style', st)
-    dY.current = dy
-    return st
-  }, [bottom])
+
+    animate(drawRef?.current, {
+      translateY: `${isNaN(dy) ? dy : dy + 'px'}`,
+      duration,
+      easing: 'easeOutCubic'
+    })
+  }, [])
+
+  // Memoize pages normalization to prevent recreation on every render
+  useEffect(() => {
+    const l = [].concat(children)?.filter?.(Boolean)
+      .map(p => p?.content ? p : { content: p })
+    // log.debug({ l })
+    setShow(l?.length)
+
+    if (l?.length) {
+      setList(l)
+      pageRef.current = 0
+      bottomIndicatorRef.current?.setCursor(0)
+      topIndicatorRef.current?.setCursor(0)
+      sliderRef.current?.snap(0)
+    }
+  }, [children, show])
+
+  // Auto-open/close based on content
+  useEffect(() => {
+    // log.debug('show=>', show)
+    to(bottom ? '110%' : '-110%', show ? 0 : undefined)
+    if (show) to(0)
+  }, [show, to, bottom])
 
   // Shared navigation logic
   const snap = useCallback((newPage) => {
+    if (!list) return
 
-    const p = Math.max(0, Math.min(list.length - 1, newPage))
+    const p = Math.max(0, Math.min(list?.length - 1, newPage))
     // log.debug('ActionDrawer.nav', { p })
     pageRef.current = p
     onPageChange?.(p)
@@ -212,66 +225,25 @@ export const ActionDrawer = forwardRef(({
     bottomIndicatorRef.current?.setCursor(p)
     topIndicatorRef.current?.setCursor(p)
     sliderRef.current?.snap(p)
-  }, [list.length, onPageChange])
-
-  // Shared close logic
-  const doClose = useCallback((intential) => {
-    transform()
-    closingRef.current = setTimeout(() => {
-      setContent(null)  // Clear content after animation
-      closingRef.current = null
-    }, ANIMATION)
-    intential && onClose?.()
-  }, [transform, onClose])
+  }, [list, onPageChange])
 
   // Imperative API
   useImperativeHandle(ref, () => ({
     close: () => {
       // log.debug('ActionDrawer.close')
-      doClose(true)
+      setShow(0)
     },
     snap,
     resetScroll: () => {
       sliderRef.current?.resetScroll()
     }
-  }), [doClose, snap])
-
-  // Auto-open/close based on children presence
-  useEffect(() => {
-    // Filter out falsy children (false, null, undefined)
-    const validChildren = children
-      ? (Array.isArray(children) ? children.filter(Boolean) : [children])
-      : []
-
-    if (validChildren.length > 0) {
-      // If we receive valid children, open the drawer and set the content
-      if (closingRef.current) {
-        clearTimeout(closingRef.current)
-        closingRef.current = null
-      }
-      setContent(children)  // Set content immediately
-      setTimeout(() => transform(0), 100)
-    } else if (content) {
-      // If we have no valid children but still have content, close
-      doClose()
-    }
-  }, [children, content, transform, doClose])
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    transform()
-    return () => {
-      if (closingRef.current) {
-        clearTimeout(closingRef.current)
-      }
-    }
-  }, [transform])
+  }), [snap])
 
   // const height = 300
   // const [{ y }, api] = useSpring(() => ({ y: height }))
   const debounce = useRef(0)
   const bind = useDrag(
-    ({ last, velocity: [_vx, vy], direction: [_dx, dy], offset: [ox, oy], event, cancel }) => {
+    ({ last, velocity: [_vx, vy], direction: [_dx, dy], offset: [ox, oy], event }) => {
       const c = event.target.closest('[data-scrollable]')
 
       if (last) {
@@ -305,17 +277,16 @@ export const ActionDrawer = forwardRef(({
 
       if (last) {
         if (_oy > height * 0.5 || vy > 1) {
-          doClose(true)
-        } else {
-          transform(0)
-          cancel()
-        }
+          setShow(1)
+          onClose?.()
+        } else
+          setShow(0)
       }
       // when the user keeps dragging, we just move the sheet according to
       // the cursor position
       else {
         if ((dy < 1) ^ bottom)
-          transform(oy)
+          to(oy)
       }
     },
     { from: () => [0, 0],
@@ -326,7 +297,8 @@ export const ActionDrawer = forwardRef(({
   )
 
   // Return nothing if no content (after hooks)
-  if (!content) {
+  if (!list) {
+    log.warn('no list')
     return null
   }
 
@@ -356,8 +328,7 @@ export const ActionDrawer = forwardRef(({
           maxWidth: '500px',
           height: size || 'min(60vh, 300px)',
           maxHeight: '90vh',
-          transition: 'transform 0.28s ease',
-          transform: transform(),
+          // position: 'fixed',
           boxShadow: t => (
             t.palette.mode === 'dark'
               ? '0 0 0 1px rgba(255,255,255,0.2), 0 0 10px rgba(159,248,217,0.7), 0 0 20px rgba(59,246,93,0.15)'
@@ -386,7 +357,10 @@ export const ActionDrawer = forwardRef(({
             {typeof title === 'string' || typeof title === 'number'
               ? <Typography level='h4'>{title}</Typography>
               : title}
-            <IconButton size='sm' variant='plain' onClick={doClose(true)} sx={{ color: 'neutral.500' }}>
+            <IconButton size='sm' variant='plain' onClick={() => {
+              setShow(0)
+              onClose?.()
+            }} sx={{ color: 'neutral.500' }}>
               <Close />
             </IconButton>
           </Stack>

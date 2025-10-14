@@ -20,7 +20,7 @@ const OverlayManager_ = forwardRef(({ onBack, session, prefs, onSeek }, ref) => 
     position: 'bottom',
     size: null
   })
-  log.debug('OverlayManager re-render', { xState })
+  // log.debug('OverlayManager re-render', { xState })
 
   const drawerRef = useRef(null)
 
