@@ -15,6 +15,7 @@ import {
 import { Toolbar } from '../components/Toolbar.jsx'
 import { ActionDrawer } from '../../../../components/ActionDrawer.jsx'
 import { BrowseSettings, LearningSettings } from './Settings.jsx'
+import { log } from '../../../../utils/logger.js'
 
 const StatsContent = () => {
   return (
@@ -30,24 +31,23 @@ const StatsContent = () => {
 }
 
 const SearchContent = ({ session }) => {
-  const searchQuery = session(state => state.searchQuery) || ''
   const inputRef = useRef(null)
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      inputRef.current?.focus()
-    }, 120)
-    return () => clearTimeout(timer)
-  }, [])
-
+  const searchQuery = session(state => state.searchQuery) || ''
   const handleChange = (event) => {
     session.setState({ searchQuery: event.target.value })
   }
 
+  useEffect(() => {
+    // Focus after drawer animation completes (300ms) + small buffer
+    log.debug('search mounted')
+    inputRef.current?.focus()
+  }, [])
+
   return (
     <Box sx={{ p: 2 }}>
       <Input
-        inputRef={inputRef}
+        // inputRef={inputRef}
+        slotProps={{ input: { ref: inputRef } }}
         value={searchQuery}
         onChange={handleChange}
         placeholder='Search any field or tag'

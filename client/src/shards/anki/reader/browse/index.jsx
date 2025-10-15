@@ -18,6 +18,7 @@ export const Browser = ({ prefs, session }) => {
   const listRef = useRef(null)
   const styleRef = useRef(null)
   const toolsRef = useRef(null)
+  const skipRangeChange = useRef(0)
 
   const { bundleId, searchQuery, shard } = session()
   const { previewSide: side } = prefs()
@@ -25,6 +26,16 @@ export const Browser = ({ prefs, session }) => {
   const handleEmptyClick = useCallback((_e) => {
     // log.debug('handleEmptyClick', _e.target)
     toolsRef.current?.toggleToolbar()
+  }, [])
+
+  const handleRangeChange = useCallback(() => {
+    // Skip range changes after cards update (typing)
+    if (skipRangeChange.current > 0) {
+      skipRangeChange.current--
+      return
+    }
+
+    toolsRef.current?.closeTools()
   }, [])
 
   const fuse = useMemo(() => {
@@ -79,6 +90,8 @@ export const Browser = ({ prefs, session }) => {
   useEffect(() => {
     const q = searchQuery?.trim()
     setCards(!q ? data : fuse?.search(q, { limit: 20 })?.map(r => r.item) || [])
+    // Skip next 2 range changes after cards update (typing causes re-render)
+    skipRangeChange.current = 2
   }, [data, searchQuery, fuse])
 
   if (!renderer) {
@@ -178,6 +191,7 @@ export const Browser = ({ prefs, session }) => {
               itemCount={rowCount}
               itemSize={rowHeight}
               width='100%'
+              onItemsRendered={handleRangeChange}
             >
               {renderRow}
             </List>
