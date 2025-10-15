@@ -163,13 +163,13 @@ export const ActionDrawer = forwardRef(({
   children
 }, ref) => {
   // Internal state for content and navigation
-  const [show, setShow] = useState(0)
   const [list, setList] = useState(null)
 
   // log.warn('ActionDrawer re-render', { title, pages: children, size })
   const pageRef = useRef(0)
   const drawRef = useRef(null)
   const sliderRef = useRef(null)
+  const showRef = useRef(0)
   const bottomIndicatorRef = useRef(null)
   const topIndicatorRef = useRef(null)
   const bottom = position === 'bottom'
@@ -183,19 +183,43 @@ export const ActionDrawer = forwardRef(({
       return
     }
 
+    log.debug('animate', { y: `${isNaN(dy) ? dy : dy + 'px'}`, duration })
     animate(drawRef?.current, {
       translateY: `${isNaN(dy) ? dy : dy + 'px'}`,
       duration,
-      easing: 'easeOutCubic'
+      easing: 'easeOutCubic',
+      onComplete: () => {
+        if (isNaN(dy) && duration)
+          setList(null)
+      }
     })
   }, [])
+
+  const _tryShow = useCallback((x) => {
+    const st = showRef.current >> 1
+    x ??= showRef.current & 1
+    log.debug('try show', st, '>>', x)
+    if (st == x) return
+
+    if (drawRef.current && x >= 0) {
+      log.debug('to', x)
+      to(bottom ? '100%' : '-100%', x > 0 ? 0 : undefined)
+      if (x > 0)  {
+        log.debug('showing')
+        to(0)
+      }
+      showRef.current = x | (x << 1)
+    } else {
+      log.debug('save state', x)
+      showRef.current = x | (!x << 1)
+    }
+  }, [to, bottom])
 
   // Memoize pages normalization to prevent recreation on every render
   useEffect(() => {
     const l = [].concat(children)?.filter?.(Boolean)
       .map(p => p?.content ? p : { content: p })
-    // log.debug({ l })
-    setShow(l?.length)
+    log.debug({ l })
 
     if (l?.length) {
       setList(l)
@@ -204,14 +228,10 @@ export const ActionDrawer = forwardRef(({
       topIndicatorRef.current?.setCursor(0)
       sliderRef.current?.snap(0)
     }
-  }, [children, show])
 
-  // Auto-open/close based on content
-  useEffect(() => {
-    // log.debug('show=>', show)
-    to(bottom ? '110%' : '-110%', show ? 0 : undefined)
-    if (show) to(0)
-  }, [show, to, bottom])
+    // Auto-open/close based on content
+    _tryShow(l?.length)
+  }, [children, _tryShow])
 
   // Shared navigation logic
   const snap = useCallback((newPage) => {
@@ -231,13 +251,13 @@ export const ActionDrawer = forwardRef(({
   useImperativeHandle(ref, () => ({
     close: () => {
       // log.debug('ActionDrawer.close')
-      setShow(0)
+      _tryShow(0)
     },
     snap,
     resetScroll: () => {
       sliderRef.current?.resetScroll()
     }
-  }), [snap])
+  }), [snap, _tryShow])
 
   // const height = 300
   // const [{ y }, api] = useSpring(() => ({ y: height }))
@@ -277,10 +297,10 @@ export const ActionDrawer = forwardRef(({
 
       if (last) {
         if (_oy > height * 0.5 || vy > 1) {
-          setShow(1)
+          _tryShow(1)
           onClose?.()
         } else
-          setShow(0)
+          _tryShow(0)
       }
       // when the user keeps dragging, we just move the sheet according to
       // the cursor position
@@ -317,7 +337,10 @@ export const ActionDrawer = forwardRef(({
       }}
     >
       <Box
-        ref={drawRef}
+        ref={el => {
+          drawRef.current = el
+          _tryShow()
+        }}
         {...stopAllEvents()}
         {...bind()}
         sx={{
@@ -358,7 +381,7 @@ export const ActionDrawer = forwardRef(({
               ? <Typography level='h4'>{title}</Typography>
               : title}
             <IconButton size='sm' variant='plain' onClick={() => {
-              setShow(0)
+              _tryShow(0)
               onClose?.()
             }} sx={{ color: 'neutral.500' }}>
               <Close />
