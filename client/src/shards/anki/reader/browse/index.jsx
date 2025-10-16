@@ -15,7 +15,6 @@ export const Browser = ({ prefs, session }) => {
   const [data, setData] = useState([])
   const [renderer, setRenderer] = useState(null)
   const [cards, setCards] = useState([])
-  const listRef = useRef(null)
   const styleRef = useRef(null)
   const toolsRef = useRef(null)
   const skipRangeChange = useRef(0)
@@ -113,9 +112,7 @@ export const Browser = ({ prefs, session }) => {
     )
   }
 
-  const headerHeight = 60
   const rowHeight = 270
-  const listHeight = (window?.innerHeight || 800) - headerHeight
   const rowCount = Math.ceil((cards?.length || 0) / (side === 'both' ? 1 : 2))
 
   const renderRow = ({ index: i, style }) => {
@@ -152,33 +149,35 @@ export const Browser = ({ prefs, session }) => {
         sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.body' }}>
         <Box
           sx={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 100,
+            px: 1,
+            py: 0.5,
+            height: 40,
             bgcolor: 'background.body',
-            px: 2,
-            py: 0,
-            height: headerHeight,
-            display: 'flex',
-            alignItems: 'center',
             justifyContent: 'space-between',
-            cursor: 'pointer'
+            display: 'flex'
           }}
         >
-          <Typography level='title-lg'>
-            {shard?.name || 'Anki Shard'}
+          <Typography
+            level="body-xs"
+            color="neutral"
+            sx={{
+              opacity: 0.7,
+              maxWidth: '110px',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}
+          > {shard?.name || 'Anki Shard'}
           </Typography>
-          <Typography level='body-sm' color='neutral'>
+          <Typography level='body-xs' color='neutral' sx={{ opacity: 0.7 }}>
             {searchQuery?.trim()
-              ? `Showing ${cards?.length || 0} of ${data.length} cards`
+              ? `${cards?.length || 0} of ${data.length} cards`
               : `${data.length} cards`}
           </Typography>
         </Box>
 
         <Box
-          sx={{ pt: `${headerHeight}px` }}
+          sx={{ flex: 1 }}
         >
           {!cards?.length ? (
             <Box sx={{ p: 4, textAlign: 'center' }}>
@@ -186,11 +185,10 @@ export const Browser = ({ prefs, session }) => {
             </Box>
           ) : (
             <List
-              ref={listRef}
-              height={listHeight}
+              height={window.innerHeight - 40}
+              width="100%"
               itemCount={rowCount}
               itemSize={rowHeight}
-              width='100%'
               onItemsRendered={handleRangeChange}
             >
               {renderRow}

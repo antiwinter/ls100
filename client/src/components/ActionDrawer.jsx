@@ -183,7 +183,7 @@ export const ActionDrawer = forwardRef(({
       return
     }
 
-    log.debug('animate', { y: `${isNaN(dy) ? dy : dy + 'px'}`, duration })
+    // log.debug('animate', { y: `${isNaN(dy) ? dy : dy + 'px'}`, duration })
     animate(drawRef?.current, {
       translateY: `${isNaN(dy) ? dy : dy + 'px'}`,
       duration,
@@ -198,19 +198,19 @@ export const ActionDrawer = forwardRef(({
   const _tryShow = useCallback((x) => {
     const st = showRef.current >> 1
     x ??= showRef.current & 1
-    log.debug('try show', st, '>>', x)
+    // log.debug('try show', st, '>>', x)
     if (st == x) return
 
     if (drawRef.current && x >= 0) {
-      log.debug('to', x)
+      // log.debug('to', x)
       to(bottom ? '100%' : '-100%', x > 0 ? 0 : undefined)
       if (x > 0)  {
-        log.debug('showing')
+        // log.debug('showing')
         to(0)
       }
       showRef.current = x | (x << 1)
     } else {
-      log.debug('save state', x)
+      // log.debug('save state', x)
       showRef.current = x | (!x << 1)
     }
   }, [to, bottom])
@@ -219,7 +219,7 @@ export const ActionDrawer = forwardRef(({
   useEffect(() => {
     const l = [].concat(children)?.filter?.(Boolean)
       .map(p => p?.content ? p : { content: p })
-    log.debug({ l })
+    // log.debug({ l })
 
     if (l?.length) {
       setList(l)
@@ -318,7 +318,7 @@ export const ActionDrawer = forwardRef(({
 
   // Return nothing if no content (after hooks)
   if (!list) {
-    log.warn('no list')
+    // log.warn('no list')
     return null
   }
 
