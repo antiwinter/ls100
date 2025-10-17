@@ -281,8 +281,6 @@ const SubtitleReaderContent = ({ shard }) => {
   return (
     <Box sx={{
       height: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
       overflow: 'hidden'
     }}>
       {/* Header with Movie Name, Progress, and Review */}
@@ -291,6 +289,7 @@ const SubtitleReaderContent = ({ shard }) => {
         position={position}
         total={total}
         onReviewClick={handleReviewClick}
+        sx = {{ height: '30px' }}
       />
 
       {/* OverlayManager - local state management */}
@@ -303,7 +302,7 @@ const SubtitleReaderContent = ({ shard }) => {
       />
 
       {/* SubtitleViewer - render after groups and position ready */}
-      <Box sx={{ position: 'relative', flex: 1 }}>
+      <Box sx={{ height: 'calc(100vh - 30px)' }}>
         <Box sx={{ visibility: showViewer ? 'visible' : 'hidden', height: '100%', display: 'flex' }}>
           {canRenderViewer && (
             <SubtitleViewer

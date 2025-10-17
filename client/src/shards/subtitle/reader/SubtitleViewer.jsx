@@ -7,13 +7,13 @@ import {
 } from '@mui/joy'
 
 // import { VirtualScroller as VS } from '../../../components/VirtualScroller.jsx'
-import { VirtualScrollerRW as VS } from '../../../components/VirtualScrollerRWH.jsx'
+// import { VirtualScrollerRW as VS } from '../../../components/VirtualScrollerRWH.jsx'
+import { VirtualScrollerRW as VS } from '../../../components/VirtualScrollerRW2.jsx'
 import { useLongPress } from '../../../utils/useLongPress'
 import { log } from '../../../utils/logger.js'
 import { formatSec } from '../../../utils/dateFormat.js'
 
 // Multi-language subtitle display - gets state from split contexts
-
 const SubtitleRow = memo(({ group, clean, renderMain }) => {
   const mainBucket = group.main
   const refMap = group.refs || new Map()
@@ -100,7 +100,6 @@ const SubtitleViewer_ = forwardRef(({
   const searchResultRef = useRef(new Set())
 
   log.debug('!!VIEWER re-render', { entries:groups?.length, entry0: groups?.[0], seek })
-
   const vsInDOM = useCallback(ref => {
     log.debug('VIEWER vsInDOM', { ref })
     if (!ref) return
@@ -196,7 +195,7 @@ const SubtitleViewer_ = forwardRef(({
   }))
 
   // Handle top item changes from intersection observer
-  const handleRangeChange = useCallback(({ visibleStartIndex: start, end: __ }) => {
+  const handleRangeChange = useCallback(({ startIndex: start, end: __ }) => {
     // log.debug('viewer topItemChange', { id })
     applyWordlist()
     applyLangMap()
