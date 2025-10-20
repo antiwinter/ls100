@@ -230,7 +230,7 @@ export const ActionDrawer = forwardRef(({
     }
 
     // Auto-open/close based on content
-    _tryShow(l?.length)
+    _tryShow(l?.length ? 1 : 0)
   }, [children, _tryShow])
 
   // Shared navigation logic

@@ -79,6 +79,7 @@ const BrowserTools_ = forwardRef(({ prefs, session }, ref) => {
   }, [])
 
   useEffect(() => {
+    log.debug({ tool })
     if (tool && drawerRef.current) {
       drawerRef.current.resetScroll?.()
       drawerRef.current.snap?.(0)

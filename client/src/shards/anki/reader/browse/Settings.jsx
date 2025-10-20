@@ -67,122 +67,120 @@ export const BrowseSettings = ({ prefs, session }) => {
   const state = prefs()
   const update = (updates) => prefs.setState(updates)
 
-  return {
-    key: 'browse',
-    title: 'Browse options',
-    content: (
-      <>
-        <GlobalPrefsToggle session={session} />
-        <Stack spacing={1.5}>
-          <FormControl size='sm'>
-            <FormLabel>Preview side</FormLabel>
-            <Select
-              value={state.previewSide || 'back'}
-              onChange={(_, value) => update({ previewSide: value })}
-              size='sm'
-            >
-              <Option value='both'>Both sides</Option>
-              <Option value='front'>Front only</Option>
-              <Option value='back'>Back only</Option>
-            </Select>
-          </FormControl>
-        </Stack>
-      </>
-    )
-  }
+  return (
+    <Box sx={{ p: 2 }}>
+      <Typography level='title-sm' sx={{ mb: 2 }}>
+        Browse options
+      </Typography>
+      <GlobalPrefsToggle session={session} />
+      <Stack spacing={1.5}>
+        <FormControl size='sm'>
+          <FormLabel>Preview side</FormLabel>
+          <Select
+            value={state.previewSide || 'back'}
+            onChange={(_, value) => update({ previewSide: value })}
+            size='sm'
+          >
+            <Option value='both'>Both sides</Option>
+            <Option value='front'>Front only</Option>
+            <Option value='back'>Back only</Option>
+          </Select>
+        </FormControl>
+      </Stack>
+    </Box>
+  )
 }
 
 export const LearningSettings = ({ prefs, session }) => {
   const state = prefs()
   const update = (updates) => prefs.setState(updates)
 
-  return {
-    key: 'learning',
-    title: 'Learning options',
-    content: (
-      <>
-        <GlobalPrefsToggle session={session} />
-        <Stack spacing={1.5}>
-          <NumberField
-            label='Max new cards per day'
-            value={state.maxNewCards}
-            onChange={(value) => update({ maxNewCards: value })}
-            min={1}
-            max={200}
-          />
-          <NumberField
-            label='Max review cards per day'
-            value={state.maxReviewCards}
-            onChange={(value) => update({ maxReviewCards: value })}
-            min={10}
-            max={1000}
-          />
-          <NumberField
-            label='Daily reset time (hour)'
-            value={state.dailyResetTime}
-            onChange={(value) => update({ dailyResetTime: value })}
-            min={0}
-            max={23}
-          />
-          <NumberField
-            label='Graduation gap (minutes)'
-            value={state.gradCd}
-            onChange={(value) => update({ gradCd: value })}
-            min={1}
-            max={720}
-          />
+  return (
+    <Box sx={{ p: 2 }}>
+      <Typography level='title-sm' sx={{ mb: 2 }}>
+        Learning options
+      </Typography>
+      <GlobalPrefsToggle session={session} />
+      <Stack spacing={1.5}>
+        <NumberField
+          label='Max new cards per day'
+          value={state.maxNewCards}
+          onChange={(value) => update({ maxNewCards: value })}
+          min={1}
+          max={200}
+        />
+        <NumberField
+          label='Max review cards per day'
+          value={state.maxReviewCards}
+          onChange={(value) => update({ maxReviewCards: value })}
+          min={10}
+          max={1000}
+        />
+        <NumberField
+          label='Daily reset time (hour)'
+          value={state.dailyResetTime}
+          onChange={(value) => update({ dailyResetTime: value })}
+          min={0}
+          max={23}
+        />
+        <NumberField
+          label='Graduation gap (minutes)'
+          value={state.gradCd}
+          onChange={(value) => update({ gradCd: value })}
+          min={1}
+          max={720}
+        />
 
-          <Divider sx={{ my: 1 }} />
-          <ToggleField
-            label='Auto reveal answer'
-            checked={!!state.autoReveal}
-            onChange={(value) => update({ autoReveal: value })}
-          />
-          <ToggleField
-            label='Auto play audio'
-            checked={!!state.autoPlayAudio}
-            onChange={(value) => update({ autoPlayAudio: value })}
-          />
+        <Divider sx={{ my: 1 }} />
+        <ToggleField
+          label='Auto reveal answer'
+          checked={!!state.autoReveal}
+          onChange={(value) => update({ autoReveal: value })}
+        />
+        <ToggleField
+          label='Auto play audio'
+          checked={!!state.autoPlayAudio}
+          onChange={(value) => update({ autoPlayAudio: value })}
+        />
 
-          <Divider sx={{ my: 1 }} />
-          <FormControl size='sm'>
-            <FormLabel>New vs review order</FormLabel>
-            <Select
-              value={state.newReviewOrder || 'mixed'}
-              onChange={(_, value) => update({ newReviewOrder: value })}
-              size='sm'
-            >
-              <Option value='mixed'>Mixed</Option>
-              <Option value='new-first'>New cards first</Option>
-              <Option value='review-first'>Reviews first</Option>
-            </Select>
-          </FormControl>
-          <FormControl size='sm'>
-            <FormLabel>New card ordering</FormLabel>
-            <Select
-              value={state.newCardOrder || 'gather'}
-              onChange={(_, value) => update({ newCardOrder: value })}
-              size='sm'
-            >
-              <Option value='gather'>Template order</Option>
-              <Option value='random'>Random</Option>
-              <Option value='template-random'>Random within template</Option>
-            </Select>
-          </FormControl>
+        <Divider sx={{ my: 1 }} />
+        <FormControl size='sm'>
+          <FormLabel>New vs review order</FormLabel>
+          <Select
+            value={state.newReviewOrder || 'mixed'}
+            onChange={(_, value) => update({ newReviewOrder: value })}
+            size='sm'
+          >
+            <Option value='mixed'>Mixed</Option>
+            <Option value='new-first'>New cards first</Option>
+            <Option value='review-first'>Reviews first</Option>
+          </Select>
+        </FormControl>
+        <FormControl size='sm'>
+          <FormLabel>New card ordering</FormLabel>
+          <Select
+            value={state.newCardOrder || 'gather'}
+            onChange={(_, value) => update({ newCardOrder: value })}
+            size='sm'
+          >
+            <Option value='gather'>Template order</Option>
+            <Option value='random'>Random</Option>
+            <Option value='template-random'>Random within template</Option>
+          </Select>
+        </FormControl>
 
-          <ToggleField
-            label='Auto bury siblings'
-            checked={!!state.autoBurySiblings}
-            onChange={(value) => update({ autoBurySiblings: value })}
-          />
-          <ToggleField
-            label='Use natural cooldown'
-            checked={!!state.naturalCooldown}
-            onChange={(value) => update({ naturalCooldown: value })}
-          />
-        </Stack>
-      </>
-    )
-  }
+        <ToggleField
+          label='Auto bury siblings'
+          checked={!!state.autoBurySiblings}
+          onChange={(value) => update({ autoBurySiblings: value })}
+        />
+        <ToggleField
+          label='Use natural cooldown'
+          checked={!!state.naturalCooldown}
+          onChange={(value) => update({ naturalCooldown: value })}
+        />
+      </Stack>
+    </Box>
+  )
 }
 
