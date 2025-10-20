@@ -164,10 +164,10 @@ export const ActionDrawer = forwardRef(({
 }, ref) => {
   // Internal state for content and navigation
   const [list, setList] = useState(null)
+  const [drawer, setDrawer] = useState(null)
 
   // log.warn('ActionDrawer re-render', { title, pages: children, size })
   const pageRef = useRef(0)
-  const drawRef = useRef(null)
   const sliderRef = useRef(null)
   const showRef = useRef(0)
   const bottomIndicatorRef = useRef(null)
@@ -178,13 +178,13 @@ export const ActionDrawer = forwardRef(({
   const to = useCallback((dy, duration = ANIMATION) => {
     // log.debug('drawer to', dy, duration)
 
-    if (!drawRef.current) {
+    if (!drawer) {
       log.warn('not ready')
       return
     }
 
     // log.debug('animate', { y: `${isNaN(dy) ? dy : dy + 'px'}`, duration })
-    animate(drawRef?.current, {
+    animate(drawer, {
       translateY: `${isNaN(dy) ? dy : dy + 'px'}`,
       duration,
       easing: 'easeOutCubic',
@@ -193,15 +193,15 @@ export const ActionDrawer = forwardRef(({
           setList(null)
       }
     })
-  }, [])
+  }, [drawer])
 
   const _tryShow = useCallback((x) => {
     const st = showRef.current >> 1
     x ??= showRef.current & 1
-    // log.debug('try show', st, '>>', x)
+    log.debug('try show', st, '>>', x)
     if (st == x) return
 
-    if (drawRef.current && x >= 0) {
+    if (drawer && x >= 0) {
       // log.debug('to', x)
       to(bottom ? '100%' : '-100%', x > 0 ? 0 : undefined)
       if (x > 0)  {
@@ -213,25 +213,7 @@ export const ActionDrawer = forwardRef(({
       // log.debug('save state', x)
       showRef.current = x | (!x << 1)
     }
-  }, [to, bottom])
-
-  // Memoize pages normalization to prevent recreation on every render
-  useEffect(() => {
-    const l = [].concat(children)?.filter?.(Boolean)
-      .map(p => p?.content ? p : { content: p })
-    // log.debug({ l })
-
-    if (l?.length) {
-      setList(l)
-      pageRef.current = 0
-      bottomIndicatorRef.current?.setCursor(0)
-      topIndicatorRef.current?.setCursor(0)
-      sliderRef.current?.snap(0)
-    }
-
-    // Auto-open/close based on content
-    _tryShow(l?.length ? 1 : 0)
-  }, [children, _tryShow])
+  }, [to, bottom, drawer])
 
   // Shared navigation logic
   const snap = useCallback((newPage) => {
@@ -246,6 +228,19 @@ export const ActionDrawer = forwardRef(({
     topIndicatorRef.current?.setCursor(p)
     sliderRef.current?.snap(p)
   }, [list, onPageChange])
+
+  // Memoize pages normalization to prevent recreation on every render
+  useEffect(() => {
+    const l = [].concat(children)?.filter?.(Boolean)
+      .map(p => p?.content ? p : { content: p })
+    // log.debug({ l })
+
+    if (l?.length)
+      setList(l)
+
+    // Auto-open/close based on content
+    _tryShow(l?.length ? 1 : 0)
+  }, [children, _tryShow])
 
   // Imperative API
   useImperativeHandle(ref, () => ({
@@ -293,7 +288,7 @@ export const ActionDrawer = forwardRef(({
 
       // manage drawer
       const _oy = bottom ? oy : -oy
-      const height = drawRef.current.parentElement?.clientHeight || 200
+      const height = drawer.parentElement?.clientHeight || 200
 
       if (last) {
         if (_oy > height * 0.5 || vy > 1) {
@@ -337,10 +332,7 @@ export const ActionDrawer = forwardRef(({
       }}
     >
       <Box
-        ref={el => {
-          drawRef.current = el
-          _tryShow()
-        }}
+        ref={setDrawer}
         {...stopAllEvents()}
         {...bind()}
         sx={{
