@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Box, Typography } from '@mui/joy'
 
-export const CardPreview = ({ renderer, card, side = 'back', height = 250 }) => {
+export const CardPreview = ({ renderer, card, side = 'back', width, height }) => {
   const [rendered, setRendered] = useState(null)
   const reqIdRef = useRef(0)
 
@@ -18,11 +18,10 @@ export const CardPreview = ({ renderer, card, side = 'back', height = 250 }) => 
     })()
   }, [renderer, card])
 
+  // Render card at 330x932 aspect ratio, then scale to fit
   const CARD_WIDTH = 330
-  const CARD_HEIGHT =  932
-  const width = height / 4 * 3
-  // const width = window.innerWidth / 2 - 20
-  const scale = width / CARD_WIDTH
+  const CARD_HEIGHT = 932
+  const scale = Math.min(width / CARD_WIDTH, height / CARD_HEIGHT)
   return (
     <Box sx={{
       width: width,

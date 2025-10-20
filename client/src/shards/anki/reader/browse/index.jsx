@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback, useSyncExternalStore } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Box, Typography, Button } from '@mui/joy'
-import { FixedSizeList as List } from 'react-window'
+import { Grid } from 'react-window'
 import Fuse from 'fuse.js'
 import anki from '../../core/index.js'
 import db from '../../core/db.js'
@@ -9,6 +9,18 @@ import { BrowserTools } from './tools.jsx'
 import { log } from '../../../../utils/logger'
 import { CardPreview } from './CardPreview.jsx'
 import _ from 'lodash'
+
+// Hook to listen to window width changes
+const useWindowWidth = () => {
+  return useSyncExternalStore(
+    (callback) => {
+      window.addEventListener('resize', callback)
+      return () => window.removeEventListener('resize', callback)
+    },
+    () => window.innerWidth,
+    () => window.innerWidth
+  )
+}
 
 export const Browser = ({ prefs, session }) => {
   const navigate = useNavigate()
@@ -18,6 +30,7 @@ export const Browser = ({ prefs, session }) => {
   const styleRef = useRef(null)
   const toolsRef = useRef(null)
   const skipRangeChange = useRef(0)
+  const windowWidth = useWindowWidth()
 
   const { bundleId, searchQuery, shard } = session()
   const { previewSide: side } = prefs()
@@ -93,6 +106,43 @@ export const Browser = ({ prefs, session }) => {
     skipRangeChange.current = 2
   }, [data, searchQuery, fuse])
 
+  // Calculate card dimensions based on window size
+  const gap = 16
+  const [columnCount, cardWidth, cardHeight, rowCount] = useMemo(() => {
+    const w = Math.min(400, (windowWidth - gap * 3) / 2)
+    const h = Math.floor(w * 4 / 3)
+    const m = Math.floor((windowWidth - gap) / (w + gap))
+    const n = Math.ceil((cards?.length || 0) / m)
+
+    return [m, w, h, n]
+  }, [windowWidth, cards])
+
+  const CellComponent = useCallback(({ columnIndex:j, rowIndex:i, style }) => {
+    const x = i * columnCount + j
+    const card = cards[x >> (side === 'both')]
+    if (!card) return null
+    const _side = side === 'both' ? (x & 1 ? 'front' : 'back') : side
+
+    return (
+      <Box
+        style={style}
+        sx={{
+          ml: !j ? `${gap}px` : 0,
+          mr: `${gap}px`,
+          mt: `${gap}px`
+        }}
+      >
+        <CardPreview
+          renderer={renderer}
+          card={card}
+          side={_side}
+          width={cardWidth}
+          height={cardHeight}
+        />
+      </Box>
+    )
+  }, [cards, renderer, side, cardWidth, cardHeight, columnCount, gap])
+
   if (!renderer) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
@@ -112,30 +162,6 @@ export const Browser = ({ prefs, session }) => {
     )
   }
 
-  const rowHeight = 270
-  const rowCount = Math.ceil((cards?.length || 0) / (side === 'both' ? 1 : 2))
-
-  const renderRow = ({ index: i, style }) => {
-    const data = side === 'both'
-      ? [cards[i], cards[i]]
-      : [cards[i * 2], cards[i * 2 + 1]]
-    const sides = side === 'both' ? ['front', 'back'] : [side, side]
-
-    return (
-      <Box style={style} sx={{ px: 2, display: 'flex', gap: 2, justifyContent: 'center' }}>
-        {data.map((card, i) => card && (
-          <CardPreview
-            key={card.id}
-            renderer={renderer}
-            card={card}
-            side={sides[i]}
-            height={rowHeight - 16}
-          />
-        ))}
-      </Box>
-    )
-  }
-
   return (
     <>
       <BrowserTools
@@ -146,7 +172,7 @@ export const Browser = ({ prefs, session }) => {
 
       <Box
         onClick={handleEmptyClick}
-        sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.body' }}>
+        sx={{ height: '100vh' }}>
         <Box
           sx={{
             px: 1,
@@ -177,22 +203,24 @@ export const Browser = ({ prefs, session }) => {
         </Box>
 
         <Box
-          sx={{ flex: 1 }}
+          sx={{ height: 'calc(100vh - 40px)' }}
         >
           {!cards?.length ? (
             <Box sx={{ p: 4, textAlign: 'center' }}>
               <Typography color='neutral'>No cards found</Typography>
             </Box>
           ) : (
-            <List
-              height={window.innerHeight - 40}
-              width="100%"
-              itemCount={rowCount}
-              itemSize={rowHeight}
-              onItemsRendered={handleRangeChange}
-            >
-              {renderRow}
-            </List>
+            <Grid
+              columnCount={columnCount}
+              columnWidth={j => {
+                return cardWidth + gap + gap * !j
+              }}
+              rowCount={rowCount}
+              rowHeight={cardHeight + gap}
+              cellComponent={CellComponent}
+              onCellsRendered={handleRangeChange}
+              cellProps={{}}
+            />
           )}
         </Box>
       </Box>
