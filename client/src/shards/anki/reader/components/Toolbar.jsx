@@ -19,7 +19,6 @@ const btnSx = {
 
 export const Toolbar = ({
   visible = true,
-  title,
   onBack,
   buttons = [],
   activeKey,
@@ -56,7 +55,8 @@ export const Toolbar = ({
         boxShadow: visible ? 'sm' : 'none'
       }}
     >
-      <Stack direction='row' justifyContent='space-between' alignItems='center'>
+      <Stack direction='row' justifyContent='space-between' alignItems='center'
+        sx={{ height: '28px' }}>
         <Stack direction='row' spacing={1} alignItems='center'>
           <IconButton
             onClick={onBack}
@@ -69,11 +69,6 @@ export const Toolbar = ({
           >
             <ArrowBack />
           </IconButton>
-          {title && (
-            <Typography level='title-md' color='neutral'>
-              {title}
-            </Typography>
-          )}
         </Stack>
 
         <Stack direction='row' spacing={1} alignItems='center'>

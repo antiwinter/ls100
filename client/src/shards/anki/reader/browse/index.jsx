@@ -102,7 +102,7 @@ export const Browser = ({ prefs, session }) => {
     log.debug('container-width', cw)
     const gap = 16
     const w = Math.min(180, (cw - gap * 3) / 2)
-    const h = Math.floor(w * 4 / 3)
+    const h = Math.floor(w * 4.5 / 3)
     const m = Math.floor((cw - gap) / (w + gap))
     const n = Math.ceil((cards?.length || 0) / m)
 
@@ -122,7 +122,7 @@ export const Browser = ({ prefs, session }) => {
         sx={{
           ml: !j ? `${gap}px` : 0,
           mr: `${gap}px`,
-          mt: `${gap}px`
+          mt: 0
         }}
       >
         <CardPreview
@@ -165,8 +165,9 @@ export const Browser = ({ prefs, session }) => {
 
       <Box
         onClick={handleEmptyClick}
-        sx={{ height: '100vh' }}>
+        sx={{ position: 'fixed', top: 0, left: 0, right: 0, height: '100vh', pt: 0 }}>
         <Box
+          className={'uuuu'}
           sx={{
             px: 1,
             py: 0.5,
@@ -196,6 +197,7 @@ export const Browser = ({ prefs, session }) => {
         </Box>
 
         <Box
+          className={'yyyy'}
           sx={{ height: 'calc(100vh - 40px)' }}
         >
           {!cards?.length ? (
@@ -209,7 +211,7 @@ export const Browser = ({ prefs, session }) => {
                 return cardWidth + gap + gap * !j
               }}
               rowCount={rowCount}
-              rowHeight={cardHeight + gap}
+              rowHeight={cardHeight + 12}
               cellComponent={CellComponent}
               onCellsRendered={handleRangeChange}
               cellProps={{}}

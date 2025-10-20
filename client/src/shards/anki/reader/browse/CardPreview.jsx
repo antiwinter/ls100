@@ -31,7 +31,8 @@ export const CardPreview = ({ renderer, card, side = 'back', width, height }) =>
       borderRadius: 'md',
       bgcolor: 'background.body',
       overflow: 'hidden',
-      flexShrink: 0
+      flexShrink: 0,
+      p: 0
     }}>
       {rendered ? (
         <>
@@ -41,11 +42,15 @@ export const CardPreview = ({ renderer, card, side = 'back', width, height }) =>
               width: CARD_WIDTH,
               height: CARD_HEIGHT,
               transform: `scale(${scale})`,
-              transformOrigin: 'top left'
+              transformOrigin: 'top left',
               // zoom: scale,
               // p: 2.5,
               // boxSizing: 'border-box',
               // '& img': { maxWidth: '100%', height: 'auto' }
+              '& .anki-audio': {
+                display: 'inline-flex',
+                mr: 3
+              }
             }}>
             {/* Inject bundle-scoped CSS if available */}
             {rendered?.css && <style>{rendered.css}</style>}
