@@ -215,7 +215,7 @@ export const Browser = ({ prefs, session }) => {
               cellComponent={CellComponent}
               onCellsRendered={handleRangeChange}
               cellProps={{}}
-              onResize={({ width }) => setGridWidth(width)}
+              onResize={({ width }) => setGridWidth(w => Math.abs(w - width) > 100 ? width : w)}
             />
           )}
         </Box>
