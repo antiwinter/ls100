@@ -60,7 +60,7 @@ const OverlayManager_ = forwardRef(({ onBack, session, prefs, onSeek }, ref) => 
       })
     },
     closeTools: () => {
-      if (xState.tool || xState.toolbar) {
+      if (xState.tool && xState.tool !== 'dict' || xState.toolbar) {
         log.debug('OverlayManager.closeTools')
         setXState(x => ({ ...x, tool: null, toolbar: false }))
       }
