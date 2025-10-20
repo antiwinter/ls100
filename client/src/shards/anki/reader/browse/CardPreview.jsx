@@ -21,7 +21,7 @@ export const CardPreview = ({ renderer, card, side = 'back', width, height }) =>
   // Render card at 330x932 aspect ratio, then scale to fit
   const CARD_WIDTH = 330
   const CARD_HEIGHT = 932
-  const scale = Math.min(width / CARD_WIDTH, height / CARD_HEIGHT)
+  const scale = Math.max(width / CARD_WIDTH, height / CARD_HEIGHT)
   return (
     <Box sx={{
       width: width,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback, useSyncExternalStore } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Box, Typography, Button } from '@mui/joy'
 import { Grid } from 'react-window'
@@ -10,27 +10,17 @@ import { log } from '../../../../utils/logger'
 import { CardPreview } from './CardPreview.jsx'
 import _ from 'lodash'
 
-// Hook to listen to window width changes
-const useWindowWidth = () => {
-  return useSyncExternalStore(
-    (callback) => {
-      window.addEventListener('resize', callback)
-      return () => window.removeEventListener('resize', callback)
-    },
-    () => window.innerWidth,
-    () => window.innerWidth
-  )
-}
 
 export const Browser = ({ prefs, session }) => {
   const navigate = useNavigate()
   const [data, setData] = useState([])
   const [renderer, setRenderer] = useState(null)
   const [cards, setCards] = useState([])
+  const [cw, setGridWidth] = useState(0)
+
   const styleRef = useRef(null)
   const toolsRef = useRef(null)
   const skipRangeChange = useRef(0)
-  const windowWidth = useWindowWidth()
 
   const { bundleId, searchQuery, shard } = session()
   const { previewSide: side } = prefs()
@@ -106,18 +96,21 @@ export const Browser = ({ prefs, session }) => {
     skipRangeChange.current = 2
   }, [data, searchQuery, fuse])
 
-  // Calculate card dimensions based on window size
-  const gap = 16
-  const [columnCount, cardWidth, cardHeight, rowCount] = useMemo(() => {
-    const w = Math.min(400, (windowWidth - gap * 3) / 2)
+  // Calculate card dimensions based on container width
+  const [columnCount, cardWidth, cardHeight, rowCount, gap] = useMemo(() => {
+    // Use fallback width if container not ready yet
+    log.debug('container-width', cw)
+    const gap = 16
+    const w = Math.min(180, (cw - gap * 3) / 2)
     const h = Math.floor(w * 4 / 3)
-    const m = Math.floor((windowWidth - gap) / (w + gap))
+    const m = Math.floor((cw - gap) / (w + gap))
     const n = Math.ceil((cards?.length || 0) / m)
 
-    return [m, w, h, n]
-  }, [windowWidth, cards])
+    return [m, w, h, n, Math.floor((cw - m * w) / (m + 1))]
+  }, [cw, cards])
 
   const CellComponent = useCallback(({ columnIndex:j, rowIndex:i, style }) => {
+    // log.debug('requesting', i, j)
     const x = i * columnCount + j
     const card = cards[x >> (side === 'both')]
     if (!card) return null
@@ -220,6 +213,7 @@ export const Browser = ({ prefs, session }) => {
               cellComponent={CellComponent}
               onCellsRendered={handleRangeChange}
               cellProps={{}}
+              onResize={({ width }) => setGridWidth(width)}
             />
           )}
         </Box>
