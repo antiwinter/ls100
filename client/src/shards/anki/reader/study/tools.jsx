@@ -379,6 +379,7 @@ export const StudyOverlay = ({ session, onAction, card }) => {
     <Box sx={{ position: 'relative', zIndex: 100 }}>
       <Toolbar
         visible
+        border={false}
         title='Study session'
         buttons={buttons}
         activeKey={tool}

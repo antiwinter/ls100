@@ -19,6 +19,7 @@ const btnSx = {
 
 export const Toolbar = ({
   visible = true,
+  border = true,
   onBack,
   buttons = [],
   activeKey,
@@ -48,11 +49,11 @@ export const Toolbar = ({
         bgcolor: 'background.body',
         py: 1,
         px: 2,
-        borderBottom: visible ? 1 : 0,
+        borderBottom: (visible && border) ? 1 : 0,
         borderColor: 'divider',
         transform: visible ? 'translateY(0)' : 'translateY(-110%)',
         transition: 'transform 0.3s ease-out',
-        boxShadow: visible ? 'sm' : 'none'
+        boxShadow: visible && border ? 'sm' : 'none'
       }}
     >
       <Stack direction='row' justifyContent='space-between' alignItems='center'
