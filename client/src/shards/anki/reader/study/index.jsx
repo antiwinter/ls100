@@ -43,7 +43,7 @@ export const StudySession = ({ prefs, session }) => {
 
   const handleRate = useCallback(async (rating) => {
     if (!ctx.engine || !card) return
-    await ctx.engine.rate(card, rating)
+    await ctx.engine.schedule(card, rating)
     loadCard(rating === Rating.Again ? -1 : 1)
   }, [loadCard, ctx, card])
 
@@ -59,7 +59,7 @@ export const StudySession = ({ prefs, session }) => {
 
   const handleCardExit = useCallback(async (ox) => {
     if (!ctx.engine || !card) return
-    await ctx.engine.rate(ox < 0 ? Rating.Again : Rating.Good)
+    await ctx.engine.schedule(card, ox < 0 ? Rating.Again : Rating.Good)
     setGlow(null)
     loadCard(0)
   }, [ctx, loadCard, card])
@@ -98,14 +98,14 @@ export const StudySession = ({ prefs, session }) => {
 
   const handleBury = useCallback(async () => {
     if (!ctx.engine || !card) return
-    await ctx.engine.bury(card)
+    await ctx.engine.schedule(card, 'bury')
     setGlow(null)
     await loadCard(0)
   }, [ctx, card, loadCard])
 
   const handleSuspend = useCallback(async () => {
     if (!ctx.engine || !card) return
-    await ctx.engine.suspend(card)
+    await ctx.engine.schedule(card, 'suspend')
     setGlow(null)
     await loadCard(0)
   }, [ctx, card, loadCard])

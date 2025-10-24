@@ -284,7 +284,7 @@ export async function createEngine(prefs, store) {
   const eng = new StudyEngine2(prefs, store)
 
   // Hydrate queue
-  eng.queue  = await Promise.all(eng.queue.map(async id =>
+  eng.queue = await Promise.all((eng.queue || []).map(async id =>
     id ? await db.cards.get(id) : null))
 
   await eng._init()
