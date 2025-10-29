@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Stack,
@@ -288,6 +289,7 @@ const CardContent = ({ card, onAction, onClose }) => {
 }
 
 export const StudyOverlay = ({ session, onAction, card }) => {
+  const navigate = useNavigate()
   const [tool, setTool] = useState(null)
   const drawerRef = useRef(null)
 
@@ -384,6 +386,7 @@ export const StudyOverlay = ({ session, onAction, card }) => {
         buttons={buttons}
         activeKey={tool}
         onSelect={handleSelect}
+        onBack={() => navigate(-1)}
       />
 
       <ActionDrawer

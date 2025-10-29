@@ -196,13 +196,6 @@ export const SuperCard = forwardRef(({
         // Reset margins to eliminate gaps
         m: 0,
 
-        // Content layout and styling
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        textAlign: 'center',
-
         // Animation and interaction
         cursor: 'pointer',
         backfaceVisibility: 'hidden',
