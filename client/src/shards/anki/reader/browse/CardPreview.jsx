@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Box, Typography } from '@mui/joy'
+import { ankiClasses } from '../utils/cssTools'
 
 export const CardPreview = ({ renderer, card, side = 'back', width, height }) => {
   const [rendered, setRendered] = useState(null)
@@ -37,30 +38,22 @@ export const CardPreview = ({ renderer, card, side = 'back', width, height }) =>
       {rendered ? (
         <>
           <Box
-            className='card'
+            className={ankiClasses()}
             sx={{
               width: CARD_WIDTH,
               height: CARD_HEIGHT,
+              p: '1em !important',
               transform: `scale(${scale})`,
               transformOrigin: 'top left',
-              // zoom: scale,
-              // p: 2.5,
-              // boxSizing: 'border-box',
-              // '& img': { maxWidth: '100%', height: 'auto' }
               '& .anki-audio': {
                 display: 'inline-flex',
                 mr: 3
               }
-            }}>
-            {/* Inject bundle-scoped CSS if available */}
-            {rendered?.css && <style>{rendered.css}</style>}
-
-            {/* Content */}
-            <div style={{ padding: '20px' }} dangerouslySetInnerHTML={{
+            }}
+            dangerouslySetInnerHTML={{
               __html: side === 'front' ? rendered.front : rendered.back
-            }} />
-
-          </Box>
+            }}
+          />
         </>
       ) : (
         <Typography level="body-sm" color="neutral">Loading…</Typography>

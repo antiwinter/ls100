@@ -12,7 +12,7 @@ import {
   Settings,
   Search as SearchIcon
 } from '@mui/icons-material'
-import { Toolbar } from '../components/Toolbar.jsx'
+import { Toolbar } from '../utils/Toolbar.jsx'
 import { ActionDrawer } from '../../../../components/ActionDrawer.jsx'
 import { BrowseSettings, LearningSettings } from './Settings.jsx'
 import { log } from '../../../../utils/logger.js'

@@ -1,0 +1,99 @@
+@import url("_ug-jsvectormap.min.css");
+
+.card {
+  padding: 1em 0;
+  background-color: white;
+  color: black;
+  font-family: Verdana;
+  font-size: 16px;
+  text-align: center;
+}
+
+.anki-card .type {
+  margin-bottom: 0.25em;
+  color: #333;
+  font-size: 70%;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.anki-card .info {
+  max-width: 30em;
+  margin: 0.75em auto;
+  color: #333;
+  font-size: 90%;
+  font-style: italic;
+}
+
+.anki-card .value {
+  font-size: 150%;
+}
+
+.anki-card .value--top {
+  margin-top: 1em;
+}
+
+.anki-card .value--image {
+  margin-top: 0.75em;
+}
+
+.anki-card .value--map {
+  width: 90%;
+  height: 65vh;
+  margin: 2em auto 0 auto;
+}
+
+.anki-card .value > img, .anki-card .value > .placeholder {
+  max-width: 100%;
+  height: auto;
+}
+
+.anki-card /**
+ * Apply shadow to images, .anki-card notably to bring out white areas on flags.
+ * Ignore images with non-rectangular outlines (e.g. flag of Nepal).
+ */
+.value > img:not([src*="-nobox"]) {
+  box-shadow: 0 1px 4px 1px rgba(0, 0, 0, 0.2);
+}
+
+.anki-card /**
+ * Some flags (e.g. Guam's) contain identifying words that can give away the answer.
+ * If a blurred version is available, .anki-card show it on the front but not on the back.
+ */
+.value--front > img[src*="-blur"] + img {
+  display: none;
+}
+
+.anki-card .value--back > img[src*="-blur"] {
+  display: none;
+}
+
+.anki-card /**
+ * Placeholder SVG to hint at the type of answer that is expected.
+ * Used on "Country - Flag" and "Country - Map" templates.
+ */
+.placeholder {
+  color: #333;
+}
+
+.anki-card .placeholder > path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1;
+}
+
+.anki-card .night_mode .info, .anki-card .night_mode .type, .anki-card .night_mode .placeholder, .anki-card .nightMode .info, .anki-card .nightMode .type, .anki-card .nightMode .placeholder {
+  color: #ccc;
+}
+
+.anki-card /**
+ * Apply shadow to images, .anki-card to bring out black areas on flags, .anki-card in night
+   mode.
+ */
+.nightMode .value > img:not([src*="-nobox"]), .anki-card .night_mode .value > img:not([src*="-nobox"]) {
+  box-shadow: 0 0 4px 1px rgba(54, 54, 54, 0.9);
+}
+
+.anki-card hr {
+  margin: 1.5em 0;
+}

@@ -19,7 +19,7 @@ import {
 import { fsrs as createFsrs } from 'ts-fsrs'
 import db from '../../core/db.js'
 import anki from '../../core/index.js'
-import { Toolbar } from '../components/Toolbar.jsx'
+import { Toolbar } from '../utils/Toolbar.jsx'
 import { ActionDrawer } from '../../../../components/ActionDrawer.jsx'
 import { log } from '../../../../utils/logger.js'
 

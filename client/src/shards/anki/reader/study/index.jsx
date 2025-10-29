@@ -4,7 +4,7 @@ import { Box } from '@mui/joy'
 import { Rating } from 'ts-fsrs'
 import anki from '../../core/index.js'
 import { log } from '../../../../utils/logger.js'
-import { SessionSummary } from '../components/index.js'
+import { SessionSummary } from '../utils/index.js'
 import { SuperCard } from './Card.jsx'
 import { RatingButtons } from './RatingButtons.jsx'
 import { StudyOverlay } from './tools.jsx'
@@ -32,11 +32,12 @@ export const StudySession = ({ prefs, session }) => {
     const rendered = await ctx.renderer.render(nextCard)
     ak.current?.locknLoad(exit, rendered)
     setCard(nextCard)
-    log.debug('Card loaded:', nextCard.id)
+    log.debug('Card loaded:', nextCard)
   }, [ctx])
 
   const refreshCard = useCallback(async () => {
     if (!ctx.renderer || !card) return
+    log.debug('Refreshing card:', card)
     const rendered = await ctx.renderer.render(card)
     ak.current?.locknLoad(0, rendered)
   }, [ctx, card])

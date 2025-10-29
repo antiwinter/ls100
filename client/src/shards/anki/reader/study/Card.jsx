@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect, useCallback,
   useImperativeHandle, forwardRef } from 'react'
 import { Box } from '@mui/joy'
-import { detectPlatform } from '../../../../utils/useDetectPlatform.js'
 import { useDrag } from '@use-gesture/react'
 import { handleAudioClick, getAudioStyles } from './AudioHelper.js'
 import { animate } from 'animejs'
 import { log } from '../../../../utils/logger.js'
+import { scopeCSS, ankiClasses } from '../utils/cssTools.js'
 
 const ATIME_EXIT = 300
 const ATIME_FLIP = 1500
@@ -21,19 +21,6 @@ export const SuperCard = forwardRef(({
   const cardRef = useRef(null)
   const isFlipping = useRef(false)
   const [locked, setLocked] = useState(null) // Current locked card
-
-  // Platform detection for Anki CSS classes
-  const getPlatformClasses = () => {
-    if (typeof window === 'undefined') return 'card'
-
-    const platform = detectPlatform()
-    let classes = 'card'
-
-    if (platform.isMobile) classes += ' mobile'
-    if (platform.isIOS || platform.os === 'macos') classes += ' mac'
-
-    return classes
-  }
 
   const getw = useCallback(() => {
     if (typeof window === 'undefined') return 1
@@ -91,6 +78,15 @@ export const SuperCard = forwardRef(({
         })
     }
   }), [getw, move])
+
+  // Inject scoped CSS when card changes
+  useEffect(() => {
+    if (!locked?.css) return
+    const style = document.createElement('style')
+    style.textContent = scopeCSS(locked.css)
+    document.head.appendChild(style)
+    return () => style.remove()
+  }, [locked?.css])
 
   // Animate card entrance when content changes (new card loaded)
   useEffect(() => {
@@ -176,7 +172,7 @@ export const SuperCard = forwardRef(({
       ref={cardRef}
       onClick={handleCardClick}
       {...bind()}
-      className={getPlatformClasses()}
+      className={ankiClasses()}
       sx={{
         // Fixed positioning - centered on screen
         position: 'fixed',
@@ -188,6 +184,7 @@ export const SuperCard = forwardRef(({
         width: '80vw',
         height: '80vh',
         overflowY: 'auto', // Ensure content doesn't bleed outside border radius
+        p: '1em !important',
 
         // Card styling
         bgcolor: 'background.body',
@@ -250,16 +247,9 @@ export const SuperCard = forwardRef(({
         //   maxWidth: '95vw'
         // }
       }}
-    >
-      {/* Inject bundle-scoped CSS if available */}
-      {locked?.css && <style>{locked.css}</style>}
-
-      {/* Content */}
-      {locked && (
-        <div style={{ padding: '20px' }} dangerouslySetInnerHTML={{
-          __html: currentSide === 'front' ? locked.front : locked.back
-        }} />
-      )}
-    </Box>
+      dangerouslySetInnerHTML={{
+        __html: locked ? currentSide === 'front' ? locked.front : locked.back : ''
+      }}
+    />
   )
 })

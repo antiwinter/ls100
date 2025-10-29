@@ -8,6 +8,7 @@ import db from '../../core/db.js'
 import { BrowserTools } from './tools.jsx'
 import { log } from '../../../../utils/logger'
 import { CardPreview } from './CardPreview.jsx'
+import { scopeCSS } from '../utils/cssTools.js'
 import _ from 'lodash'
 
 
@@ -73,8 +74,9 @@ export const Browser = ({ prefs, session }) => {
           setRenderer(rctx)
           if (rctx.css) {
             styleRef.current = document.createElement('style')
-            styleRef.current.textContent = rctx.css
+            styleRef.current.textContent = scopeCSS(rctx.css)
             document.head.appendChild(styleRef.current)
+            // log.debug('embedded css scoped', styleRef.current.textContent)
           }
         }
       } catch (err) {
@@ -118,11 +120,13 @@ export const Browser = ({ prefs, session }) => {
 
     return (
       <Box
+        className='zzzz'
         style={style}
         sx={{
           ml: !j ? `${gap}px` : 0,
           mr: `${gap}px`,
-          mt: 0
+          mt: 0,
+          p: 0
         }}
       >
         <CardPreview
