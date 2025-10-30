@@ -166,7 +166,7 @@ export const ActionDrawer = forwardRef(({
   const [list, setList] = useState(null)
   const [drawer, setDrawer] = useState(null)
 
-  // log.warn('ActionDrawer re-render', { title, pages: children, size })
+  // log.debug('ActionDrawer re-render', { title, pages: children, size })
   const pageRef = useRef(0)
   const sliderRef = useRef(null)
   const showRef = useRef(0)

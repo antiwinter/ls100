@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, memo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Box,
@@ -11,12 +11,7 @@ import {
   Textarea,
   Alert
 } from '@mui/joy'
-import {
-  Undo as UndoIcon,
-  Edit as EditIcon,
-  Assessment,
-  Style
-} from '@mui/icons-material'
+import { ArrowCounterClockwiseIcon, PencilSimpleLineIcon, CardsThreeIcon, InfoIcon } from '@phosphor-icons/react'
 import { fsrs as createFsrs } from 'ts-fsrs'
 import db from '../../core/db.js'
 import anki from '../../core/index.js'
@@ -64,7 +59,7 @@ const TimelineBar = ({ slices }) => {
   )
 }
 
-const SessionContent = ({ stats, onAction, onClose }) => {
+const SessionContent = memo(({ stats, onAction, onClose }) => {
   const { studiedCount, remainingCount, newCount, reviewCount, totalCount, ttd } = stats || {}
   const totalMinutes = Math.round((ttd?.total || 0) / 60)
   const completion = totalCount ? Math.round((studiedCount / totalCount) * 100) : 0
@@ -110,9 +105,39 @@ const SessionContent = ({ stats, onAction, onClose }) => {
       </Stack>
     </Stack>
   )
-}
+}, (prevProps, nextProps) => {
+  // Custom comparison: only re-render if meaningful values change
+  const prevStats = prevProps.stats || {}
+  const nextStats = nextProps.stats || {}
 
-const EditContent = ({ card, onSaved }) => {
+  // Compare all stat values
+  if (prevStats.studiedCount !== nextStats.studiedCount ||
+      prevStats.remainingCount !== nextStats.remainingCount ||
+      prevStats.newCount !== nextStats.newCount ||
+      prevStats.reviewCount !== nextStats.reviewCount ||
+      prevStats.totalCount !== nextStats.totalCount) {
+    return false // Props changed, re-render
+  }
+
+  // Compare TTD total (rounded to minutes to avoid constant updates)
+  const prevMinutes = Math.round((prevStats.ttd?.total || 0) / 60)
+  const nextMinutes = Math.round((nextStats.ttd?.total || 0) / 60)
+  if (prevMinutes !== nextMinutes) {
+    return false // TTD minutes changed, re-render
+  }
+
+  // Compare TTD slices count (not content, just count)
+  const prevSlicesCount = prevStats.ttd?.slices?.length || 0
+  const nextSlicesCount = nextStats.ttd?.slices?.length || 0
+  if (prevSlicesCount !== nextSlicesCount) {
+    return false // Number of time slices changed, re-render
+  }
+
+  // No meaningful changes, skip re-render
+  return true
+})
+
+const EditContent = memo(({ card, onSaved }) => {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -211,9 +236,9 @@ const EditContent = ({ card, onSaved }) => {
       </Stack>
     </Stack>
   )
-}
+})
 
-const CardContent = ({ card, onAction, onClose }) => {
+const CardContent = memo(({ card, onAction, onClose }) => {
   const latest = card?.fsrs?.[0]
   const stability = latest?.stability || 0
   const difficulty = latest?.difficulty || 0
@@ -286,7 +311,7 @@ const CardContent = ({ card, onAction, onClose }) => {
       </Stack>
     </Stack>
   )
-}
+})
 
 export const StudyOverlay = ({ session, onAction, card }) => {
   const navigate = useNavigate()
@@ -298,7 +323,7 @@ export const StudyOverlay = ({ session, onAction, card }) => {
   const queueSnapshot = session(state => state.queue)
   const ttd = session(state => state.ttd)
 
-  // Calculate session stats
+  // Calculate session stats (memoized to prevent re-renders)
   const sessionStats = useMemo(() => {
     const queueCards = queueSnapshot?.filter(Boolean) || []
     const newCount = queueCards.filter(c => c?.state === 'New').length
@@ -311,45 +336,53 @@ export const StudyOverlay = ({ session, onAction, card }) => {
       totalCount: (actions?.length || 0) + queueCards.length,
       ttd
     }
-  }, [actions, queueSnapshot, ttd])
+  }, [actions?.length, queueSnapshot, ttd])
 
   const canUndo = (actions?.length || 0) > 0
 
   const buttons = useMemo(() => [
-    { key: 'undo', title: 'Undo', Icon: UndoIcon, disabled: !canUndo },
-    { key: 'edit', title: 'Edit note', Icon: EditIcon },
-    { key: 'session', title: 'Session', Icon: Assessment },
-    { key: 'card', title: 'Card info', Icon: Style }
+    { key: 'undo', title: 'Undo', Icon: () => <ArrowCounterClockwiseIcon size={20} />, disabled: !canUndo },
+    { key: 'edit', title: 'Edit note', Icon: () => <PencilSimpleLineIcon size={20} /> },
+    { key: 'session', title: 'Session', Icon: () => <CardsThreeIcon size={20} /> },
+    { key: 'card', title: 'Card info', Icon: () => <InfoIcon size={20} /> }
   ], [canUndo])
 
-  const handleSelect = (key) => {
+  const handleSelect = useCallback((key) => {
     if (key === 'undo') {
       onAction?.('undo')
       return
     }
     setTool((prev) => prev === key ? null : key)
-  }
+  }, [onAction])
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setTool(null)
-  }
+  }, [])
 
-  const handleCardSaved = (saved) => {
+  const handleCardSaved = useCallback((saved) => {
     if (saved) {
       onAction?.('card-saved')
     }
     setTool(null)
-  }
+  }, [onAction])
 
-  const handleToolAction = async (actionType) => {
+  const handleToolAction = useCallback(async (actionType) => {
     await onAction?.(actionType)
     setTool(null)
-  }
+  }, [onAction])
 
   const drawerSize = tool === 'edit' ? '85vh'
     : tool === 'session' ? '70vh'
       : tool === 'card' ? '60vh'
         : null
+
+  // Memoize drawer content to prevent unnecessary re-renders
+  const drawerContent = useMemo(() => {
+    if (tool === 'edit') return <EditContent card={card} onSaved={handleCardSaved} />
+    if (tool === 'session') return <SessionContent stats={sessionStats} onAction={handleToolAction} onClose={handleClose} />
+    if (tool === 'card') return <CardContent card={card} onAction={handleToolAction} onClose={handleClose} />
+    return null
+  }, [tool, card, sessionStats, handleCardSaved, handleToolAction, handleClose])
 
   return (
     <Box sx={{ position: 'relative', zIndex: 100 }}>
@@ -368,9 +401,7 @@ export const StudyOverlay = ({ session, onAction, card }) => {
         position='bottom'
         onClose={handleClose}
       >
-        {tool === 'edit' && <EditContent card={card} onSaved={handleCardSaved} />}
-        {tool === 'session' && <SessionContent stats={sessionStats} onAction={handleToolAction} onClose={handleClose} />}
-        {tool === 'card' && <CardContent card={card} onAction={handleToolAction} onClose={handleClose} />}
+        {drawerContent}
       </ActionDrawer>
     </Box>
   )
