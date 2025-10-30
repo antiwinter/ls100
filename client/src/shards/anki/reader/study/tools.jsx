@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Box,
@@ -330,61 +330,34 @@ export const StudyOverlay = ({ session, onAction, card }) => {
     setTool((prev) => prev === key ? null : key)
   }
 
-  const handleCardSaved = useCallback(() => {
-    onAction?.('card-saved')
+  const handleClose = () => {
     setTool(null)
-  }, [onAction])
+  }
 
-  useEffect(() => {
-    if (tool && drawerRef.current) {
-      drawerRef.current.resetScroll?.()
-      drawerRef.current.snap?.(0)
+  const handleCardSaved = (saved) => {
+    if (saved) {
+      onAction?.('card-saved')
     }
-  }, [tool])
+    setTool(null)
+  }
+
+  const handleToolAction = async (actionType) => {
+    await onAction?.(actionType)
+    setTool(null)
+  }
 
   const drawerSize = tool === 'edit' ? '85vh'
     : tool === 'session' ? '70vh'
       : tool === 'card' ? '60vh'
         : null
 
-  const drawerContent = useMemo(() => {
-    if (tool === 'edit') {
-      return (
-        <EditContent
-          card={card}
-          onSaved={handleCardSaved}
-        />
-      )
-    }
-    if (tool === 'session') {
-      return (
-        <SessionContent
-          stats={sessionStats}
-          onAction={onAction}
-          onClose={() => setTool(null)}
-        />
-      )
-    }
-    if (tool === 'card') {
-      return (
-        <CardContent
-          card={card}
-          onAction={onAction}
-          onClose={() => setTool(null)}
-        />
-      )
-    }
-    return null
-  }, [tool, card, sessionStats, onAction, handleCardSaved])
-
   return (
     <Box sx={{ position: 'relative', zIndex: 100 }}>
       <Toolbar
         visible
         border={false}
-        title='Study session'
         buttons={buttons}
-        activeKey={tool}
+        activeKey={null}
         onSelect={handleSelect}
         onBack={() => navigate(-1)}
       />
@@ -393,9 +366,11 @@ export const StudyOverlay = ({ session, onAction, card }) => {
         ref={drawerRef}
         size={drawerSize}
         position='bottom'
-        onClose={() => setTool(null)}
+        onClose={handleClose}
       >
-        {drawerContent}
+        {tool === 'edit' && <EditContent card={card} onSaved={handleCardSaved} />}
+        {tool === 'session' && <SessionContent stats={sessionStats} onAction={handleToolAction} onClose={handleClose} />}
+        {tool === 'card' && <CardContent card={card} onAction={handleToolAction} onClose={handleClose} />}
       </ActionDrawer>
     </Box>
   )

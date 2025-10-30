@@ -10,8 +10,10 @@ import {
   BarChart,
   PlayArrow,
   Settings,
+  Style,
   Search as SearchIcon
 } from '@mui/icons-material'
+import { LightningIcon, SlidersHorizontalIcon, ConfettiIcon, MagnifyingGlassIcon } from '@phosphor-icons/react'
 import { Toolbar } from '../utils/Toolbar.jsx'
 import { ActionDrawer } from '../../../../components/ActionDrawer.jsx'
 import { BrowseSettings, LearningSettings } from './Settings.jsx'
@@ -107,11 +109,11 @@ const BrowserTools_ = forwardRef(({ prefs, session }, ref) => {
   }))
 
   const buttons = useMemo(() => [
-    { key: 'statistics', title: 'Statistics', Icon: BarChart },
-    { key: 'study', title: 'Begin study', Icon: PlayArrow,
+    { key: 'study', title: 'Begin study', Icon: () => <LightningIcon size={20} />,
       onClick: () => navigate(`/shard/${shard.id}/study`) },
-    { key: 'settings', title: 'Settings', Icon: Settings },
-    { key: 'search', title: 'Search', Icon: SearchIcon }
+    { key: 'search', title: 'Search', Icon: () => <MagnifyingGlassIcon size={20} /> },
+    { key: 'statistics', title: 'Statistics', Icon: () => <ConfettiIcon size={20} /> },
+    { key: 'settings', title: 'Settings', Icon: () => <SlidersHorizontalIcon size={20} /> }
   ], [navigate, shard.id])
 
   const drawerSize = tool === 'statistics' ? '85vh' : 'auto'

@@ -19,6 +19,7 @@
     "@mui/icons-material": "^7.2.0",
     "@mui/joy": "^5.0.0-beta.52",
     "@mui/material": "^7.2.0",
+    "@phosphor-icons/react": "^2.1.10",
     "@plussub/srt-vtt-parser": "^2.0.5",
     "@tailwindcss/forms": "^0.5.10",
     "@use-gesture/react": "^10.3.1",
