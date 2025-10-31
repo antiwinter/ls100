@@ -7,6 +7,7 @@ import { ActionDrawer } from '../../../../components/ActionDrawer.jsx'
 import { SessionInfo } from './SessionInfo.jsx'
 import { NoteEditor } from './NoteEditor.jsx'
 import { CardInfo } from './CardInfo.jsx'
+import { Notebox } from './Notebox.jsx'
 
 export const StudyOverlay = ({ session, onAction, card }) => {
   const _navi = useNavigate()
@@ -54,7 +55,7 @@ export const StudyOverlay = ({ session, onAction, card }) => {
     setTool(null)
   }, [onAction])
 
-  const drawerSize = tool === 'edit' ? '85vh'
+  const drawerSize = tool === 'edit' ? '55vh'
     : tool === 'session' ? '70vh'
       : tool === 'card' ? '60vh'
         : null
@@ -76,7 +77,7 @@ export const StudyOverlay = ({ session, onAction, card }) => {
         position='bottom'
         onClose={handleClose}
       >
-        {tool === 'edit' && <NoteEditor card={card} onSaved={handleCardSaved} />}
+        {tool === 'edit' && <Notebox card={card} onClose={handleCardSaved} />}
         {tool === 'session' && <SessionInfo session={session} onAction={handleToolAction} onClose={handleClose} />}
         {tool === 'card' && <CardInfo card={card} onAction={handleToolAction} onClose={handleClose} />}
       </ActionDrawer>

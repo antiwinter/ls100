@@ -35,7 +35,8 @@ db.version(1).stores({
   // Used by: cardRender for rendering card content, noteManager for template lookup
   cards: 'id, noteId, bundleId, due, state',
   // Cards table: Individual study cards with scheduling data
-  // Schema: { id, noteId, templateOrd, bundleId, vdeck[], due, state, fsrs[], created, modified }
+  // Schema: { id, noteId, templateOrd, bundleId, vdeck[], due, state,
+  //  fsrs[], created, modified, userNote }
   // - id: unique card identifier (generated)
   // - noteId: reference to notes.id (source note)
   // - templateOrd: template ordinal used to generate this card
@@ -45,6 +46,8 @@ db.version(1).stores({
   // - state: current FSRS state (New/Learning/Review/Relearning) - MIRRORED from fsrs[0].state
   // - fsrs: array of FSRS state history [newest, older, oldest] - source of truth
   // - created/modified: timestamps
+  // - userNote: HTML string with user's text notes and audio references
+  //  (e.g., "<p>text</p><audio-note data-file='x.webm' data-duration='28'></audio-note>")
   // Used by: studyEngine for scheduling (fast filters on due/state), ankiApi for CRUD operations
   media: '++id, nvId, bundleId, userId, filename',
   // Media table: Tracks media ownership for OSS cleanup
