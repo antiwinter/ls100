@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useRef, useEffect } from 'react'
 import { Box, IconButton, Typography } from '@mui/joy'
 import { XIcon } from '@phosphor-icons/react'
 import { SimpleEditor } from '../../../../components/SimpleEditor.jsx'
@@ -8,72 +8,93 @@ import oss from '../../../../utils/oss.js'
 import { log } from '../../../../utils/logger'
 
 export const Notebox = ({ card, onClose }) => {
-  const [html, setHtml] = useState('')
+  const htmlRef = useRef(card?.userNote || '')
+  const blobsRef = useRef({})
+  const initialHtmlRef = useRef(card?.userNote || '')
 
-  // Load existing userNote on mount
-  useEffect(() => {
-    if (card?.userNote) {
-      setHtml(card.userNote)
-    }
-  }, [card])
+  // Extract nvIds from HTML
+  const extractNvIds = (html) => {
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(html, 'text/html')
+    const audioElements = doc.querySelectorAll('audio-note')
+    const nvIds = []
+    audioElements.forEach(el => {
+      const src = el.getAttribute('src')
+      if (src && src.startsWith('/oss/')) {
+        nvIds.push(src.replace('/oss/', ''))
+      }
+    })
+    return nvIds
+  }
 
   // Save on unmount
   useEffect(() => {
+    const initialHtml = initialHtmlRef.current
     return () => {
       (async () => {
         try {
-          if (!html) return
+          const html = htmlRef.current
+          const blobs = blobsRef.current
 
-          // Extract blob URLs from HTML
+          // 1. Get initial nvIds (what was owned before)
+          const initialNvIds = extractNvIds(initialHtml)
+
+          // 3. Get final nvIds (what should be owned now)
+          const currentNvIds = extractNvIds(html)
+
+          // 4. Remove unused media: initialNvIds - finalNvIds
+          const toRemove = initialNvIds.filter(nvId => !currentNvIds.includes(nvId))
+          await mediaManager.removeByNvid(card.bundleId, card.id, toRemove)
+
+          // 2. Process blobs and build final HTML
           const parser = new DOMParser()
           const doc = parser.parseFromString(html, 'text/html')
           const audioElements = doc.querySelectorAll('audio-note')
 
-          let finalHtml = html
-
-          // Process each audio element
           for (const el of audioElements) {
-            const src = el.getAttribute('src')
+            const filename = el.getAttribute('data-filename')
+            const objUrl = el.getAttribute('src')
+            // Revoke old blob URL
+            if (!objUrl?.startsWith?.('blob:')) continue
+            if (!filename || !blobs[filename]) {
+              log.warn('Failed to save audio blob:', { filename, objUrl })
+              continue
+            }
 
-            // Only process blob URLs (new recordings)
-            if (src && src.startsWith('blob:')) {
-              try {
-                // Fetch blob from object URL
-                const response = await fetch(src)
-                const blob = await response.blob()
+            try {
+              const blob = blobs[filename]
 
-                // Save to OSS via mediaManager
-                const filename = `note_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.webm`
-                await mediaManager.add(card.bundleId, card.id, { [filename]: blob })
+              // Save to OSS via mediaManager
+              await mediaManager.add(card.bundleId, card.id, { [filename]: blob })
 
-                // Get nvId for the saved blob
-                const nvId = await oss.blob2NvId(blob)
+              // Get nvId for the saved blob
+              const nvId = await oss.blob2NvId(blob)
 
-                // Replace blob URL with /oss/{nvid} URL
-                finalHtml = finalHtml.replace(src, `/oss/${nvId}`)
-
-                // Revoke object URL
-                URL.revokeObjectURL(src)
-              } catch (error) {
-                log.error('Failed to save audio blob:', error)
-              }
+              // Update src and cleanup
+              el.setAttribute('src', `/oss/${nvId}`)
+              el.removeAttribute('data-filename')
+              URL.revokeObjectURL(objUrl)
+            } catch (error) {
+              log.error('Failed to save audio blob:', error)
             }
           }
 
-          // Save final HTML to database
-          await db.cards.update(card.id, { userNote: finalHtml })
+          // 5. Save final HTML to database
+          const userNote = doc.body.innerHTML
+          await db.cards.update(card.id, { userNote })
 
-          log.debug('Notebox saved:', { cardId: card.id, userNote: finalHtml })
+          log.debug('Notebox saved:', { cardId: card.id, userNote })
         } catch (error) {
           log.error('Failed to save notebox:', error)
         }
       })()
     }
-  }, [html, card])
+  }, [card])
 
   // Handle HTML change from SimpleEditor
-  const handleChange = (newHtml) => {
-    setHtml(newHtml)
+  const handleChange = (newHtml, newBlobs) => {
+    htmlRef.current = newHtml
+    blobsRef.current = newBlobs
   }
 
   return (
@@ -87,7 +108,7 @@ export const Notebox = ({ card, onClose }) => {
       </Box>
 
       {/* Editor */}
-      <SimpleEditor html={html} onChange={handleChange} />
+      <SimpleEditor html={htmlRef.current} onChange={handleChange} />
     </Box>
   )
 }

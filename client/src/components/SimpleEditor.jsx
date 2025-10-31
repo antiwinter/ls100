@@ -42,15 +42,28 @@ export const SimpleEditor = ({ html, onChange }) => {
   const buildHtml = (currentText, currentChips) => {
     let html = currentText ? `<p>${currentText.replace(/\n/g, '<br>')}</p>` : ''
     currentChips.forEach(chip => {
-      html += `<audio-note src="${chip.src}" data-duration="${chip.duration}"></audio-note>`
+      const dataFilename = chip.filename ? ` data-filename="${chip.filename}"` : ''
+      html += `<audio-note src="${chip.src}" data-duration="${chip.duration}"${dataFilename}></audio-note>`
     })
     return html
+  }
+
+  // Build blob map from chips (only blob URLs, not /oss/ URLs)
+  const buildBlobMap = (currentChips) => {
+    const blobs = {}
+    currentChips.forEach(chip => {
+      if (chip.blob && chip.filename) {
+        blobs[chip.filename] = chip.blob
+      }
+    })
+    return blobs
   }
 
   // Notify parent of changes
   const notifyChange = (newText, newChips) => {
     const html = buildHtml(newText, newChips)
-    onChange?.(html)
+    const blobs = buildBlobMap(newChips)
+    onChange?.(html, blobs)
   }
 
   // Handle text change
@@ -65,10 +78,15 @@ export const SimpleEditor = ({ html, onChange }) => {
     // Create object URL for the blob
     const objectUrl = URL.createObjectURL(blob)
 
+    // Generate filename from blob type
+    const ext = blob.type.split('/')[1] || 'webm'
+    const filename = `note_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`
+
     const newChip = {
       src: objectUrl,
       duration,
-      blob // Keep reference for cleanup
+      blob,
+      filename
     }
 
     const newChips = [...audioChips, newChip]

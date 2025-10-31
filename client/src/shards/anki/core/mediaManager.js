@@ -135,6 +135,43 @@ async function remove(bundleId, userId, filenames) {
   }
 }
 
+// Remove media references by nvId and cleanup OSS if no more references
+async function removeByNvid(bundleId, userId, nvIds) {
+  if (!bundleId || userId == null) {
+    log.warn('Invalid parameters for media removeByNvid:', { bundleId, userId })
+    return
+  }
+
+  if (!Array.isArray(nvIds)) nvIds = [nvIds]
+
+  for (const nvId of nvIds) {
+    if (!nvId) continue
+
+    try {
+      // Build query to find references by nvId, bundleId and userId
+      const query = db.media
+        .where('nvId').equals(nvId)
+        .and(ref => ref.bundleId === bundleId && ref.userId === userId)
+
+      // Remove matching references
+      await query.delete()
+
+      // Check if any other references to this nvId exist
+      const remaining = await db.media.where('nvId').equals(nvId).count()
+      if (remaining === 0) {
+        // No more references - remove from OSS
+        await oss.remove([nvId], 'anki')
+        // log.debug('Media removed from OSS:', { nvId })
+      } else {
+        // log.debug('Media reference removed:', { nvId, remaining })
+      }
+
+    } catch (error) {
+      log.error('Failed to remove media by nvId:', nvId, error)
+    }
+  }
+}
+
 // Clear all media references (for testing)
 async function clear() {
   try {
@@ -174,6 +211,7 @@ async function fuzzyRemove(bundleId, userId, content) {
 export default {
   add,
   remove,
+  removeByNvid,
   clear,
   fuzzyAdd,
   fuzzyRemove
