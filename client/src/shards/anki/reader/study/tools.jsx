@@ -4,9 +4,9 @@ import { Box } from '@mui/joy'
 import { ArrowCounterClockwiseIcon, PencilSimpleLineIcon, CardsThreeIcon, InfoIcon } from '@phosphor-icons/react'
 import { Toolbar } from '../utils/Toolbar.jsx'
 import { ActionDrawer } from '../../../../components/ActionDrawer.jsx'
-import { SessionDrawer } from './SessionDrawer.jsx'
-import { EditDrawer } from './EditDrawer.jsx'
-import { CardDrawer } from './CardDrawer.jsx'
+import { SessionInfo } from './SessionInfo.jsx'
+import { NoteEditor } from './NoteEditor.jsx'
+import { CardInfo } from './CardInfo.jsx'
 
 export const StudyOverlay = ({ session, onAction, card }) => {
   const _navi = useNavigate()
@@ -76,9 +76,9 @@ export const StudyOverlay = ({ session, onAction, card }) => {
         position='bottom'
         onClose={handleClose}
       >
-        {tool === 'edit' && <EditDrawer card={card} onSaved={handleCardSaved} />}
-        {tool === 'session' && <SessionDrawer session={session} onAction={handleToolAction} onClose={handleClose} />}
-        {tool === 'card' && <CardDrawer card={card} onAction={handleToolAction} onClose={handleClose} />}
+        {tool === 'edit' && <NoteEditor card={card} onSaved={handleCardSaved} />}
+        {tool === 'session' && <SessionInfo session={session} onAction={handleToolAction} onClose={handleClose} />}
+        {tool === 'card' && <CardInfo card={card} onAction={handleToolAction} onClose={handleClose} />}
       </ActionDrawer>
     </Box>
   )

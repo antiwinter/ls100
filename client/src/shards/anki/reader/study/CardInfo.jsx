@@ -11,7 +11,7 @@ import { fsrs as createFsrs } from 'ts-fsrs'
 
 const fsrsModel = createFsrs({})
 
-export const CardDrawer = ({ card, onAction, onClose }) => {
+export const CardInfo = ({ card, onAction, onClose }) => {
   const latest = card?.fsrs?.[0]
   const stability = latest?.stability || 0
   const difficulty = latest?.difficulty || 0

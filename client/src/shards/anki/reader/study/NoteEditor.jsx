@@ -9,9 +9,9 @@ import {
 } from '@mui/joy'
 import db from '../../core/db.js'
 import anki from '../../core/index.js'
-import { log } from '../../../../utils/logger'
+import { log } from '../../../../utils/logger.js'
 
-export const EditDrawer = ({ card, onSaved }) => {
+export const NoteEditor = ({ card, onSaved }) => {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)

@@ -47,7 +47,7 @@ const TimelineBar = ({ slices }) => {
   )
 }
 
-export const SessionDrawer = ({ session, onAction, onClose }) => {
+export const SessionInfo = ({ session, onAction, onClose }) => {
   const { actions, queue, ttd } = session()
 
   const stats = useMemo(() => {
@@ -68,7 +68,7 @@ export const SessionDrawer = ({ session, onAction, onClose }) => {
       totalMinutes,
       completion
     }
-  }, [actions?.length, queue?.length, ttd?.total])
+  }, [actions?.length, queue, ttd?.total])
 
   return (
     <Stack spacing={2} sx={{ p: 2 }}>
@@ -86,7 +86,8 @@ export const SessionDrawer = ({ session, onAction, onClose }) => {
         <Typography level='title-sm'>Learning progress</Typography>
         <LinearProgress determinate value={stats.completion} thickness={6} />
         <Typography level='body-sm' color='neutral'>
-          {stats.studiedCount} studied · {stats.remainingCount} remaining ({stats.completion}% complete)
+          {stats.studiedCount} studied · {
+            stats.remainingCount} remaining ({stats.completion}% complete)
         </Typography>
       </Stack>
 
