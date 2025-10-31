@@ -9,7 +9,14 @@ import { EditDrawer } from './EditDrawer.jsx'
 import { CardDrawer } from './CardDrawer.jsx'
 
 export const StudyOverlay = ({ session, onAction, card }) => {
-  const navigate = useNavigate()
+  const _navi = useNavigate()
+  const navigate = useCallback((to) => {
+    if (document.startViewTransition) {
+      return document.startViewTransition(() => _navi(to))
+    }
+    return _navi(to)
+  }, [_navi])
+
   const [tool, setTool] = useState(null)
   const drawerRef = useRef(null)
 

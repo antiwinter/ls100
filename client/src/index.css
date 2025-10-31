@@ -92,3 +92,42 @@ input, textarea, select {
 [class*="Joy"] input {
   font-size: max(16px, 1em) !important;
 }
+
+/* View Transitions API - slide and fade animation */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.25s;
+  animation-timing-function: ease-in-out;
+}
+
+/* Slide out to right (going back) */
+::view-transition-old(root) {
+  animation-name: slide-out-to-right;
+}
+
+/* Slide in from left (going back) */
+::view-transition-new(root) {
+  animation-name: slide-in-from-left;
+}
+
+@keyframes slide-out-to-right {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(30%);
+    opacity: 0;
+  }
+}
+
+@keyframes slide-in-from-left {
+  from {
+    transform: translateX(-30%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
