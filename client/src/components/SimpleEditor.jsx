@@ -1,33 +1,32 @@
 import { useState, useEffect, useRef } from 'react'
-import { Box, Textarea, IconButton, Chip } from '@mui/joy'
-import { MicrophoneIcon, WaveformIcon } from '@phosphor-icons/react'
+import { Box, Textarea, IconButton, Chip, Menu, MenuItem, ListItemDecorator } from '@mui/joy'
+import { MicrophoneIcon, WaveformIcon, PlayIcon, TextAaIcon, TrashIcon } from '@phosphor-icons/react'
 import { useRecordTools } from './RecordTools/index.js'
 import { log } from '../utils/logger'
 
 export const SimpleEditor = ({ html, onChange }) => {
   const [text, setText] = useState('')
   const [audioChips, setAudioChips] = useState([])
+  const [menuAnchor, setMenuAnchor] = useState(null)
+  const chipRef = useRef(null)
   const textareaRef = useRef(null)
 
   // Parse HTML on mount/change
   useEffect(() => {
-    if (html) {
-      parseHtml(html)
-    }
-  }, [html])
-
-  // Parse HTML to extract text and audio chips
-  const parseHtml = (htmlString) => {
+    if (!html) return
     const parser = new DOMParser()
-    const doc = parser.parseFromString(htmlString, 'text/html')
+    const doc = parser.parseFromString(html, 'text/html')
 
     // Extract audio chips
     const audioElements = doc.querySelectorAll('audio-note')
     const chips = []
     audioElements.forEach(el => {
+      const src = el.getAttribute('src')
+      const audio = new Audio(src)
       chips.push({
-        src: el.getAttribute('src'),
-        duration: parseInt(el.getAttribute('data-duration') || '0')
+        src,
+        duration: parseInt(el.getAttribute('data-duration') || '0'),
+        audio
       })
       el.remove()
     })
@@ -36,7 +35,7 @@ export const SimpleEditor = ({ html, onChange }) => {
     // Extract text (after removing audio elements)
     const textContent = doc.body.textContent || ''
     setText(textContent)
-  }
+  }, [html])
 
   // Build HTML from text and audio chips
   const buildHtml = (currentText, currentChips) => {
@@ -59,18 +58,16 @@ export const SimpleEditor = ({ html, onChange }) => {
     return blobs
   }
 
-  // Notify parent of changes
-  const notifyChange = (newText, newChips) => {
-    const html = buildHtml(newText, newChips)
-    const blobs = buildBlobMap(newChips)
+  useEffect(() => {
+    const html = buildHtml(text, audioChips)
+    const blobs = buildBlobMap(audioChips)
     onChange?.(html, blobs)
-  }
+  }, [text, audioChips, onChange])
 
   // Handle text change
   const handleTextChange = (e) => {
     const newText = e.target.value
     setText(newText)
-    notifyChange(newText, audioChips)
   }
 
   // Handle recording completion
@@ -82,16 +79,19 @@ export const SimpleEditor = ({ html, onChange }) => {
     const ext = blob.type.split('/')[1] || 'webm'
     const filename = `note_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`
 
+    // Create audio element
+    const audio = new Audio(objectUrl)
+
     const newChip = {
       src: objectUrl,
       duration,
       blob,
-      filename
+      filename,
+      audio
     }
 
     const newChips = [...audioChips, newChip]
     setAudioChips(newChips)
-    notifyChange(text, newChips)
   }
 
   // Setup recording tools
@@ -99,38 +99,63 @@ export const SimpleEditor = ({ html, onChange }) => {
     onRecordingComplete: handleRecordingComplete
   })
 
-  // Play audio chip
-  const handleChipClick = async (chip) => {
-    try {
-      const audio = new Audio(chip.src)
-      audio.play()
+  // Handle context menu on chip
+  const handleChipContextMenu = (e, chip) => {
+    e.preventDefault()
+    setMenuAnchor(e.currentTarget)
+    chipRef.current = chip
+  }
 
-      // Cleanup object URL after playback (only for blob URLs)
-      if (chip.src.startsWith('blob:')) {
-        audio.onended = () => {
-          URL.revokeObjectURL(chip.src)
-        }
+  // Close context menu
+  const handleMenuClose = () => {
+    setMenuAnchor(null)
+    chipRef.current = null
+  }
+
+  // Toggle play/pause audio chip
+  const handlePlay = (chip) => {
+    if (!chip?.audio) return
+    try {
+      if (chip.audio.paused) {
+        chip.audio.play()
+      } else {
+        chip.audio.pause()
       }
     } catch (error) {
-      log.error('Failed to play audio:', error)
+      log.error('Failed to play/pause audio:', error)
     }
   }
 
-  // Handle backspace/delete on chips
-  const handleKeyDown = (e) => {
-    if ((e.key === 'Backspace' || e.key === 'Delete') && text === '' && audioChips.length > 0) {
-      e.preventDefault()
-      const newChips = audioChips.slice(0, -1)
+  // Handle play from menu
+  const handlePlayFromMenu = () => {
+    const chip = chipRef.current
+    handlePlay(chip)
+    handleMenuClose()
+  }
 
-      // Revoke object URL if it's a blob
-      const removedChip = audioChips[audioChips.length - 1]
-      if (removedChip.src.startsWith('blob:')) {
-        URL.revokeObjectURL(removedChip.src)
-      }
+  // Convert to text (placeholder)
+  const handleConvertToText = () => {
+    log.debug('Convert to text - placeholder')
+    handleMenuClose()
+  }
 
-      setAudioChips(newChips)
-      notifyChange(text, newChips)
+  // Delete chip
+  const handleDelete = () => {
+    const chip = chipRef.current
+    if (!chip) return
+
+    const newChips = audioChips.filter(c => c.filename !== chip.filename)
+
+    // Cleanup: pause and revoke
+    if (chip.audio) {
+      chip.audio.pause()
+      chip.audio.src = '' // Release audio resource
     }
+    if (chip.src?.startsWith?.('blob:'))
+      URL.revokeObjectURL(chip.src)
+
+    setAudioChips(newChips)
+    handleMenuClose()
   }
 
   return (
@@ -147,7 +172,8 @@ export const SimpleEditor = ({ html, onChange }) => {
               variant="soft"
               color="primary"
               startDecorator={<WaveformIcon size={16} />}
-              onClick={() => handleChipClick(chip)}
+              onClick={() => handlePlay(chip)}
+              onContextMenu={(e) => handleChipContextMenu(e, chip)}
               sx={{ cursor: 'pointer' }}
             >
               {chip.duration}″
@@ -156,12 +182,38 @@ export const SimpleEditor = ({ html, onChange }) => {
         </Box>
       )}
 
+      {/* Context Menu */}
+      <Menu
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor)}
+        onClose={handleMenuClose}
+        placement="bottom-start"
+      >
+        <MenuItem onClick={handlePlayFromMenu}>
+          <ListItemDecorator>
+            <PlayIcon size={16} />
+          </ListItemDecorator>
+          Play
+        </MenuItem>
+        <MenuItem onClick={handleConvertToText}>
+          <ListItemDecorator>
+            <TextAaIcon size={16} />
+          </ListItemDecorator>
+          Convert to text
+        </MenuItem>
+        <MenuItem onClick={handleDelete} color="danger">
+          <ListItemDecorator>
+            <TrashIcon size={16} />
+          </ListItemDecorator>
+          Delete
+        </MenuItem>
+      </Menu>
+
       {/* Textarea */}
       <Textarea
         ref={textareaRef}
         value={text}
         onChange={handleTextChange}
-        onKeyDown={handleKeyDown}
         placeholder="Type your notes here..."
         minRows={8}
         maxRows={20}

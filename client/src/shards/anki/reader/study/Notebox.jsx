@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useCallback } from 'react'
 import { Box, IconButton, Typography } from '@mui/joy'
 import { XIcon } from '@phosphor-icons/react'
 import { SimpleEditor } from '../../../../components/SimpleEditor.jsx'
@@ -92,10 +92,10 @@ export const Notebox = ({ card, onClose }) => {
   }, [card])
 
   // Handle HTML change from SimpleEditor
-  const handleChange = (newHtml, newBlobs) => {
+  const handleChange = useCallback((newHtml, newBlobs) => {
     htmlRef.current = newHtml
     blobsRef.current = newBlobs
-  }
+  }, [])
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
